@@ -105,45 +105,61 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="saved-shell" aria-labelledby="saved-title">
-  <header>
-    <p class="eyebrow">{data.copy['site.name']}</p>
-    <h1 id="saved-title">{data.copy['favourite.savedTitle']}</h1>
-    <p>{data.copy['favourite.savedIntro']}</p>
+<main class="hv-page-shell" data-width="narrow" data-ui-mode="place" aria-labelledby="saved-title">
+  <header class="hv-page-header">
+    <div class="hv-stack">
+      <p class="hv-eyebrow">{data.copy['site.name']}</p>
+      <h1 id="saved-title" class="hv-page-title">{data.copy['favourite.savedTitle']}</h1>
+      <p class="hv-meta">{data.copy['favourite.savedIntro']}</p>
+    </div>
   </header>
 
   {#if savedPlaces.length === 0 && data.isFirstPage}
-    <section class="empty" aria-labelledby="saved-empty-title">
-      <span aria-hidden="true">♡</span>
+    <section class="empty-state hv-panel hv-stack" aria-labelledby="saved-empty-title">
       <h2 id="saved-empty-title" data-saved-empty-heading tabindex="-1">
         {data.copy['favourite.emptyTitle']}
       </h2>
       <p>{data.copy['favourite.emptyBody']}</p>
-      <a href={resolve('/[lang=lang]', { lang: data.lang })}>
+      <a
+        class="hv-control"
+        data-intent="primary"
+        href={resolve('/[lang=lang]', { lang: data.lang })}
+      >
         {data.copy['favourite.backToDiscovery']}
       </a>
     </section>
   {:else if savedPlaces.length === 0}
-    <section class="empty" aria-labelledby="saved-page-empty-title">
-      <span aria-hidden="true">♡</span>
+    <section class="empty-state hv-panel hv-stack" aria-labelledby="saved-page-empty-title">
       <h2 id="saved-page-empty-title" data-saved-empty-heading tabindex="-1">
         {data.copy['favourite.pageEmptyTitle']}
       </h2>
       <p>{data.copy['favourite.pageEmptyBody']}</p>
-      <a href={resolve('/[lang=lang]/saved', { lang: data.lang })}>
+      <a
+        class="hv-control"
+        data-intent="primary"
+        href={resolve('/[lang=lang]/saved', { lang: data.lang })}
+      >
         {data.copy['favourite.pageEmptyAction']}
       </a>
     </section>
   {:else}
-    <ul aria-label={data.copy['favourite.savedTitle']}>
+    <ul class="hv-list saved-list" aria-label={data.copy['favourite.savedTitle']}>
       {#each savedPlaces as place (place.placeId)}
-        <li data-saved-row class:unavailable={place.availability !== 'available'}>
-          <div>
+        <li
+          class="saved-card hv-list-card hv-panel"
+          data-saved-row
+          class:unavailable={place.availability !== 'available'}
+        >
+          <div class="hv-stack">
             <h2>{place.name}</h2>
-            <p>{place.locality}</p>
-            <strong>{availabilityLabel(place.availability)}</strong>
+            <p class="hv-meta">{place.locality}</p>
+            <strong
+              class="hv-status"
+              data-status={place.availability === 'available' ? undefined : 'attention'}
+              >{availabilityLabel(place.availability)}</strong
+            >
             {#if place.availability !== 'available'}
-              <small>
+              <small class="hv-meta">
                 {place.availability === 'inactive'
                   ? data.copy['favourite.inactiveHelp']
                   : data.copy['favourite.unavailableHelp']}
@@ -155,14 +171,16 @@
               </p>
             {/if}
           </div>
-          <div class="actions">
+          <div class="saved-actions hv-page-actions">
             {#if place.availability === 'available'}
               <!-- The helper resolves the localized internal path before adding encoded query data. -->
               <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-              <a href={discoveryPlaceHref(place.placeId)}>{data.copy['directory.openPlace']}</a>
+              <a class="hv-control" href={discoveryPlaceHref(place.placeId)}
+                >{data.copy['directory.openPlace']}</a
+              >
             {:else if place.successorPlaceId && place.successorAvailable}
               <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-              <a href={discoveryPlaceHref(place.successorPlaceId)}>
+              <a class="hv-control" href={discoveryPlaceHref(place.successorPlaceId)}>
                 {data.copy['history.successorLink'].replace('{name}', place.successorName ?? '')}
               </a>
             {/if}
@@ -184,7 +202,8 @@
       <!-- The helper resolves the localized internal path before adding encoded cursor data. -->
       <!-- eslint-disable svelte/no-navigation-without-resolve -->
       <a
-        class="next-page"
+        class="next-page hv-control"
+        data-intent="primary"
         href={nextPageHref(data.nextCursor.beforeSavedAt, data.nextCursor.beforePlaceId)}
         >{data.copy['favourite.nextPage']}</a
       >
@@ -196,108 +215,61 @@
 <p class="visually-hidden" role="status" aria-live="polite">{announcement}</p>
 
 <style>
-  .saved-shell {
-    width: min(100% - 2rem, 56rem);
-    margin: 0 auto;
-    padding: clamp(1.5rem, 5vw, 4rem) 0 4rem;
+  .saved-list {
+    margin-block: calc(var(--hv-space-context) * 1.5);
   }
-  header {
-    max-width: 40rem;
-  }
-  .eyebrow {
-    color: var(--coral-dark);
-    font-size: 0.78rem;
-    font-weight: 950;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  h1 {
-    margin: 0.25rem 0;
-    font-size: clamp(2.5rem, 9vw, 5rem);
-    letter-spacing: -0.055em;
-    line-height: 0.95;
-  }
-  ul {
-    display: grid;
-    margin: 2rem 0;
-    padding: 0;
-    gap: 1rem;
-    list-style: none;
-  }
-  li {
+
+  .saved-card {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    padding: 1rem;
-    border: 2px solid var(--ink);
-    border-radius: var(--radius-organic);
-    gap: 1rem;
-    background: var(--paper-light);
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--teal);
+    gap: var(--hv-space-panel);
   }
-  li.unavailable {
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--paper-deep);
+
+  .saved-card.unavailable {
+    background: var(--hv-color-snow);
   }
+
   h2,
-  li p {
+  .saved-card p {
     margin: 0;
   }
-  li strong,
-  li small {
-    display: block;
-    margin-top: 0.35rem;
-  }
+
   .successor {
-    margin-top: 0.65rem;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
+    font-weight: 700;
   }
-  li small {
+
+  .saved-card small {
     max-width: 42ch;
-    color: var(--ink-soft);
   }
-  .actions {
-    display: grid;
-    gap: 0.5rem;
+
+  .saved-actions {
     align-content: start;
+    justify-content: end;
   }
-  .actions > a,
-  .empty a,
-  .next-page {
-    min-height: 2.75rem;
-    padding: 0.6rem 0.9rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
-    color: var(--ink);
-    font-weight: 900;
-    text-align: center;
-  }
-  .empty {
-    display: grid;
+
+  .empty-state {
     max-width: 34rem;
-    margin-top: 2rem;
-    padding: 2rem;
-    border: 2px solid var(--ink);
-    border-radius: var(--radius-organic);
-    gap: 0.6rem;
-    background: var(--paper-light);
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--amber);
+    margin-top: calc(var(--hv-space-context) * 1.5);
+    padding: var(--hv-space-panel);
   }
-  .empty span {
-    font-size: 3rem;
-  }
-  .empty h2,
-  .empty p {
+
+  .empty-state h2,
+  .empty-state p {
     margin: 0;
   }
+
   .next-page {
-    display: inline-block;
+    margin-top: 0.75rem;
   }
+
   @media (max-width: 35rem) {
-    li {
+    .saved-card {
       grid-template-columns: 1fr;
     }
-    .actions {
-      grid-template-columns: 1fr;
+
+    .saved-actions {
+      justify-content: stretch;
     }
   }
 </style>
