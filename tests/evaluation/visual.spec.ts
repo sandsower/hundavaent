@@ -11,6 +11,7 @@ import {
   clearLocalEvaluationMailbox,
   clearLocalCheckIns,
   clearLocalPlaceMedia,
+  clearLocalPlaceFlagReviewFixture,
   configureLocalAchievementPolicy,
   configureLocalPlaceFlagAbusePolicy,
   configureLocalPrivateRatingNotePolicy,
@@ -232,6 +233,14 @@ async function capture(
   evidence.recordScreenshot(name, `tests/evaluation/screenshots/${name}`);
 }
 
+async function captureModerationWorkspaceScreenshot(
+  page: Page,
+  evidence: EvaluationEvidenceRecorder,
+  name: string
+): Promise<void> {
+  await capture(page, evidence, name, { maxDiffPixelRatio: 0 });
+}
+
 async function normalizeNativeInputForVisualEvidence(page: Page, label: string): Promise<void> {
   await page.getByLabel(label).evaluate((element) => {
     if (!(element instanceof HTMLInputElement)) return;
@@ -364,6 +373,9 @@ async function captureModerationWorkspaceStates(
   evidence: EvaluationEvidenceRecorder,
   locale: Locale
 ): Promise<void> {
+  // The other locale's product-state pass leaves this deterministic submitted Report behind.
+  // Clear it so queue counts and exact screenshots do not depend on test order.
+  clearLocalPlaceFlagReviewFixture();
   const workspaceSuggestionId = await provisionLocalSuggestionFixture(evaluationModerator.email);
   const moderationPage = await context.newPage();
   await moderationPage.setViewportSize({ width: 1280, height: 900 });
@@ -388,10 +400,18 @@ async function captureModerationWorkspaceStates(
   await expect(
     moderationPage.getByRole('region', { name: copy[locale].decisionControls })
   ).toBeVisible();
-  await capture(moderationPage, evidence, `moderation-workspace-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-${locale}-desktop.png`
+  );
 
   await moderationPage.setViewportSize({ width: 390, height: 844 });
-  await capture(moderationPage, evidence, `moderation-workspace-${locale}-mobile.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-${locale}-mobile.png`
+  );
 
   await moderationPage.setViewportSize({ width: 1280, height: 900 });
   await moderationPage
@@ -412,7 +432,7 @@ async function captureModerationWorkspaceStates(
     element.textContent =
       'A very long selected Suggestion title that remains readable in the compact review pane';
   });
-  await capture(
+  await captureModerationWorkspaceScreenshot(
     moderationPage,
     evidence,
     `moderation-workspace-long-content-${locale}-desktop.png`
@@ -422,7 +442,11 @@ async function captureModerationWorkspaceStates(
   await moderationPage.goto(
     `/${locale}/moderation?queue=suggestions&item=${workspaceSuggestionId}&filter=actionable`
   );
-  await capture(moderationPage, evidence, `moderation-workspace-${locale}-zoom-200-percent.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-${locale}-zoom-200-percent.png`
+  );
 
   await moderationPage.setViewportSize({ width: 1280, height: 900 });
   await moderationPage
@@ -434,7 +458,11 @@ async function captureModerationWorkspaceStates(
   await expect(
     moderationPage.getByRole('region', { name: copy[locale].selectedModerationItem })
   ).toContainText(copy[locale].nextVisualSuggestion);
-  await capture(moderationPage, evidence, `moderation-workspace-selection-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-selection-${locale}-desktop.png`
+  );
 
   await moderationPage
     .getByRole('link', { name: new RegExp(copy[locale].candidatePlacesQueue) })
@@ -443,7 +471,11 @@ async function captureModerationWorkspaceStates(
     (url) => url.searchParams.get('queue') === 'candidate-places'
   );
   await expect(moderationPage.getByRole('heading', { name: copy[locale].checklist })).toBeVisible();
-  await capture(moderationPage, evidence, `moderation-workspace-candidate-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-candidate-${locale}-desktop.png`
+  );
 
   await moderationPage.goto(
     `/${locale}/moderation?queue=candidate-places&filter=actionable&cursor=${emptyCandidateCursor}`
@@ -451,7 +483,11 @@ async function captureModerationWorkspaceStates(
   await expect(
     moderationPage.getByRole('heading', { name: copy[locale].emptyQueue })
   ).toBeVisible();
-  await capture(moderationPage, evidence, `moderation-workspace-empty-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-empty-${locale}-desktop.png`
+  );
 
   await moderationPage.goto(
     `/${locale}/moderation?queue=suggestions&item=${workspaceSuggestionId}&filter=actionable`
@@ -466,7 +502,11 @@ async function captureModerationWorkspaceStates(
   await expect(
     moderationPage.getByRole('alert').filter({ hasText: copy[locale].invalidSuggestion })
   ).toBeVisible();
-  await capture(moderationPage, evidence, `moderation-workspace-error-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-error-${locale}-desktop.png`
+  );
 
   await provisionLocalSuggestionFixture(evaluationModerator.email);
   await moderationPage.goto(
@@ -488,7 +528,11 @@ async function captureModerationWorkspaceStates(
   await expect(
     moderationPage.locator('#suggestion-decision').getByLabel(copy[locale].memberReasonEn)
   ).toHaveValue('Please confirm that the source is still current.');
-  await capture(moderationPage, evidence, `moderation-workspace-conflict-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-conflict-${locale}-desktop.png`
+  );
   await winningPage.close();
 
   await provisionLocalSuggestionFixture(evaluationModerator.email);
@@ -501,7 +545,11 @@ async function captureModerationWorkspaceStates(
   await expect(
     moderationPage.getByRole('region', { name: copy[locale].selectedModerationItem })
   ).toContainText(copy[locale].nextVisualSuggestion);
-  await capture(moderationPage, evidence, `moderation-workspace-success-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-success-${locale}-desktop.png`
+  );
   await moderationPage.close();
 }
 
