@@ -81,7 +81,7 @@ Phase 2 extends Place mode through the complete selected Place Profile without c
 The selected profile uses editorial place hierarchy, a clear welcome and access verdict, structured access conditions and evidence, image-led approved media, and an informational Dog-Friendliness evidence panel.
 Favourite controls expose idle, busy, selected, and error states through text, accessible state, and semantic styling.
 Check-in controls expose idle, busy, committed, and error states through text, live regions, accessible state, and semantic styling.
-Candidate and inactive public Place status routes use the same Place mode and status-panel primitives while preserving their distinct bilingual explanations.
+Under-review and inactive public Place status routes use the same Place mode and status-panel primitives while preserving their distinct bilingual explanations.
 Signal Yellow remains reserved for verified access, selection, and committed actions.
 
 ## Evidence Contract

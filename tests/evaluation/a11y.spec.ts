@@ -207,7 +207,9 @@ test('public Place status routes remain bilingual, place-mode, reflowing, and Ax
   page,
   evidence
 }) => {
-  const placeId = evaluationFixtureIds.places.candidate;
+  // Candidate identities are private. The published-but-unverified fixture is the public
+  // access-under-review state exercised by this route.
+  const placeId = evaluationFixtureIds.places.unverified;
   const scenarios = [
     {
       locale: 'en',
@@ -221,11 +223,11 @@ test('public Place status routes remain bilingual, place-mode, reflowing, and Ax
     }
   ] as const;
 
-  setLocalPlaceLifecycle(placeId, 'candidate');
+  setLocalPlaceLifecycle(placeId, 'published');
   try {
     for (const scenario of scenarios) {
       for (const state of [
-        { lifecycle: 'candidate', heading: scenario.underReview },
+        { lifecycle: 'published', heading: scenario.underReview },
         { lifecycle: 'inactive', heading: scenario.inactive }
       ] as const) {
         setLocalPlaceLifecycle(placeId, state.lifecycle);
@@ -242,7 +244,7 @@ test('public Place status routes remain bilingual, place-mode, reflowing, and Ax
       }
     }
   } finally {
-    setLocalPlaceLifecycle(placeId, 'candidate');
+    setLocalPlaceLifecycle(placeId, 'published');
   }
 });
 

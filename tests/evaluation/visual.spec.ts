@@ -53,6 +53,7 @@ const copy = {
     moderatorEmail: 'Netfang',
     sendLink: 'Senda innskráningartengil',
     linkSent: 'Tengillinn hefur verið sendur.',
+    accountLinkSent: 'Tengillinn er á leiðinni. Athugaðu tölvupóstinn þinn.',
     moderationHub: 'Umsjón',
     candidateQueue: 'Tillögur að stöðum',
     moderationWorkspace: 'Umsjónarborð',
@@ -120,6 +121,7 @@ const copy = {
     moderatorEmail: 'Email address',
     sendLink: 'Send sign-in link',
     linkSent: 'The link has been sent.',
+    accountLinkSent: 'Your link is on its way. Check your email.',
     moderationHub: 'Moderation',
     candidateQueue: 'Candidate Places',
     moderationWorkspace: 'Moderation board',
@@ -224,8 +226,17 @@ async function capture(
     await Promise.all(images.map((image) => (image as HTMLImageElement).decode()));
   });
   await page.locator('.maplibregl-canvas').evaluateAll((canvases) => {
-    for (const canvas of canvases) canvas.style.opacity = '0';
+    // CSS hiding can still leave the WebGL compositor layer in Playwright's full-page capture and
+    // produce large black rectangles. The next state always navigates or recreates the map, so the
+    // evidence pass can remove only the canvas while preserving layout and DOM marker evidence.
+    for (const canvas of canvases) canvas.remove();
   });
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolvePaint) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolvePaint()))
+      )
+  );
   await options?.prepare?.();
   evidence.require('screenshot');
   const screenshotPath = `test-results/visual/screenshots/${name}`;
@@ -674,8 +685,10 @@ for (const locale of ['is', 'en'] as const) {
     ).toBeVisible();
     await capture(page, evidence, `access-details-${locale}-desktop.png`);
 
-    const statusPlaceId = evaluationFixtureIds.places.candidate;
-    setLocalPlaceLifecycle(statusPlaceId, 'candidate');
+    // Candidate identities are private. The published-but-unverified fixture is the public
+    // access-under-review state exercised by this route.
+    const statusPlaceId = evaluationFixtureIds.places.unverified;
+    setLocalPlaceLifecycle(statusPlaceId, 'published');
     try {
       await page.goto(`/${locale}/places/${statusPlaceId}`);
       await expect(page.locator('header[data-ui-mode="place"]')).toBeVisible();
@@ -709,7 +722,7 @@ for (const locale of ['is', 'en'] as const) {
       ).toBeVisible();
       await capture(page, evidence, `place-status-inactive-${locale}-desktop.png`);
     } finally {
-      setLocalPlaceLifecycle(statusPlaceId, 'candidate');
+      setLocalPlaceLifecycle(statusPlaceId, 'published');
     }
 
     await page.goto(`/${locale}?__mapFailure=1&view=map`);
@@ -1001,7 +1014,9 @@ for (const locale of ['is', 'en'] as const) {
           .getByLabel(copy[locale].moderatorEmail)
           .fill(`rating-visual-${locale}@example.invalid`);
         await ratingMemberPage.getByRole('button', { name: copy[locale].sendLink }).click();
-        await expect(ratingMemberPage.getByRole('status')).toContainText(copy[locale].linkSent);
+        await expect(ratingMemberPage.getByRole('status')).toContainText(
+          copy[locale].accountLinkSent
+        );
         await ratingMemberPage.goto(
           await waitForLocalMagicLink(`rating-visual-${locale}@example.invalid`)
         );
