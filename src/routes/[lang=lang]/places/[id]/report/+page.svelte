@@ -79,34 +79,38 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="report-shell">
-  <div class="title-row">
+<main class="hv-page-shell" data-ui-mode="place" data-width="wide">
+  <header class="hv-page-header">
     <div>
-      <p class="eyebrow">{data.place?.name}</p>
-      <h1>{data.copy['report.title']}</h1>
-      <p class="intro">{data.copy['report.intro']}</p>
+      <p class="hv-eyebrow">{data.place?.name}</p>
+      <h1 class="hv-page-title">{data.copy['report.title']}</h1>
+      <p class="hv-meta">{data.copy['report.intro']}</p>
     </div>
-    <a href={resolve('/[lang=lang]/account/corrections-and-reports', { lang: data.lang })}
-      >{data.copy['flag.myTitle']}</a
-    >
-  </div>
+    <div class="hv-page-actions">
+      <a
+        class="hv-control"
+        href={resolve('/[lang=lang]/account/corrections-and-reports', { lang: data.lang })}
+        >{data.copy['flag.myTitle']}</a
+      >
+    </div>
+  </header>
 
-  <p class="disclaimer" role="note">{data.copy['report.safetyDisclaimer']}</p>
+  <p class="hv-notice" data-tone="info" role="note">{data.copy['report.safetyDisclaimer']}</p>
 
   {#if data.signInUrl}
-    <p class="message" role="status">{data.copy['common.loading']}</p>
+    <p class="hv-notice" data-tone="info" role="status">{data.copy['common.loading']}</p>
   {:else if data.unavailable}
-    <p class="message error" role="alert">{data.copy['error.unexpectedBody']}</p>
+    <p class="hv-notice" data-tone="error" role="alert">{data.copy['error.unexpectedBody']}</p>
   {:else if data.place}
-    {#if errorMessage}<p class="message error" role="alert">{errorMessage}</p>{/if}
+    {#if errorMessage}<p class="hv-notice" data-tone="error" role="alert">{errorMessage}</p>{/if}
 
-    <form method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
-      <fieldset class="availability-boundary" disabled={submissionUnavailable}>
-        <fieldset>
+    <form class="hv-stack" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
+      <fieldset class="availability-boundary hv-stack" disabled={submissionUnavailable}>
+        <fieldset class="hv-form-section hv-panel">
           <legend>{data.copy['correction.targetKind']}</legend>
-          <label>
+          <label class="hv-stack">
             {data.copy['correction.targetKind']}
-            <select name="targetKind" bind:value={targetKind}>
+            <select class="hv-field" name="targetKind" bind:value={targetKind}>
               <option value="place_field">{data.copy['correction.targetPlaceField']}</option>
               <option value="access_condition"
                 >{data.copy['correction.targetAccessCondition']}</option
@@ -115,18 +119,18 @@
           </label>
 
           {#if targetKind === 'place_field'}
-            <label>
+            <label class="hv-stack">
               {data.copy['correction.targetField']}
-              <select name="targetField" bind:value={targetField}>
+              <select class="hv-field" name="targetField" bind:value={targetField}>
                 {#each placeFields as field (field)}
                   <option value={field}>{localizePlaceField(field, data.copy)}</option>
                 {/each}
               </select>
             </label>
           {:else}
-            <label>
+            <label class="hv-stack">
               {data.copy['correction.targetCondition']}
-              <select name="accessConditionId" bind:value={accessConditionId}>
+              <select class="hv-field" name="accessConditionId" bind:value={accessConditionId}>
                 {#each data.place.accessConditions as condition (condition.id)}
                   <option value={condition.id}>
                     {localizeAccessArea(condition.accessArea, data.copy)} ·
@@ -138,11 +142,11 @@
           {/if}
         </fieldset>
 
-        <fieldset>
+        <fieldset class="hv-form-section hv-panel">
           <legend>{data.copy['report.reason']}</legend>
-          <label>
+          <label class="hv-stack">
             {data.copy['report.reason']}
-            <select name="reportReason" bind:value={reportReason}>
+            <select class="hv-field" name="reportReason" bind:value={reportReason}>
               {#each reportReasons as reason (reason)}
                 <option value={reason}
                   >{data.copy[
@@ -157,19 +161,19 @@
             {data.copy['report.safetyConcern']}
           </label>
           {#if reportReason === 'successor_place'}
-            <label>
+            <label class="hv-stack">
               {data.copy['report.successorPlaceId']}
-              <input name="successorPlaceId" />
+              <input class="hv-field" name="successorPlaceId" />
             </label>
           {/if}
         </fieldset>
 
-        <fieldset>
+        <fieldset class="hv-form-section hv-panel">
           <legend>{data.copy['evidenceField.section']}</legend>
-          <div class="grid two">
-            <label>
+          <div class="hv-grid" data-columns="2">
+            <label class="hv-stack">
               {data.copy['evidenceField.kind']}
-              <select name="evidenceKind" required>
+              <select class="hv-field" name="evidenceKind" required>
                 <option value="official_website">official_website</option>
                 <option value="venue_representative">venue_representative</option>
                 <option value="member_report">member_report</option>
@@ -178,37 +182,42 @@
                 <option value="other">other</option>
               </select>
             </label>
-            <label>
+            <label class="hv-stack">
               {data.copy['evidenceField.label']}
-              <input name="evidenceSourceLabel" required />
+              <input class="hv-field" name="evidenceSourceLabel" required />
             </label>
           </div>
-          <div class="grid two">
-            <label>
+          <div class="hv-grid" data-columns="2">
+            <label class="hv-stack">
               {data.copy['evidenceField.url']}
-              <input name="evidenceUrl" type="url" />
+              <input class="hv-field" name="evidenceUrl" type="url" />
             </label>
-            <label>
+            <label class="hv-stack">
               {data.copy['evidenceField.citation']}
-              <input name="evidenceCitation" />
+              <input class="hv-field" name="evidenceCitation" />
             </label>
           </div>
-          <label>
+          <label class="hv-stack">
             {data.copy['evidenceField.observedAt']}
-            <input name="evidenceObservedAt" type="datetime-local" required />
+            <input class="hv-field" name="evidenceObservedAt" type="datetime-local" required />
           </label>
         </fieldset>
 
-        <fieldset>
+        <fieldset class="hv-form-section hv-panel">
           <legend>{data.copy['report.explanation']}</legend>
-          <label>
+          <label class="hv-stack">
             {data.copy['report.explanation']}
-            <textarea name="explanation" rows="3" required></textarea>
+            <textarea class="hv-field" name="explanation" rows="3" required></textarea>
           </label>
-          <p class="notice">{data.copy['report.dataUseNotice']}</p>
+          <p class="hv-meta">{data.copy['report.dataUseNotice']}</p>
         </fieldset>
 
-        <button type="submit" disabled={submitting || submissionUnavailable}>
+        <button
+          class="hv-control"
+          data-intent="primary"
+          type="submit"
+          disabled={submitting || submissionUnavailable}
+        >
           {submitting ? data.copy['report.sending'] : data.copy['report.submit']}
         </button>
       </fieldset>
@@ -217,69 +226,11 @@
 </main>
 
 <style>
-  .report-shell {
-    width: min(100% - 2rem, 68rem);
-    margin: 2rem auto 5rem;
-  }
-  .title-row {
-    display: flex;
-    gap: 2rem;
-    align-items: start;
-    justify-content: space-between;
-  }
-  .title-row a,
-  button {
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
-    color: var(--ink);
-    padding: 0.75rem 1rem;
-    font-weight: 900;
-    box-shadow: 0 0.2rem 0 var(--ink);
-  }
-  .eyebrow {
-    color: var(--coral-dark);
-    font-weight: 950;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  h1 {
-    margin: 0.25rem 0;
-    font-size: clamp(2.25rem, 6vw, 4.5rem);
-    line-height: 0.95;
-  }
-  .disclaimer {
-    margin-top: 1.5rem;
-    border: 2px solid var(--ink);
-    border-radius: 0.9rem;
-    background: var(--mint);
-    padding: 0.9rem;
-    font-weight: 800;
-  }
-  form {
-    display: grid;
-    gap: 1rem;
-    margin-top: 1.5rem;
-  }
-  fieldset {
-    display: grid;
-    gap: 1rem;
+  .availability-boundary {
+    min-width: 0;
     margin: 0;
-    border: 2px solid var(--ink);
-    border-radius: 1.25rem;
-    background: var(--paper-raised);
-    padding: 1.2rem;
-    box-shadow: 0.3rem 0.35rem 0 var(--teal);
-  }
-  legend {
-    padding: 0 0.5rem;
-    font-size: 1.2rem;
-    font-weight: 950;
-  }
-  label {
-    display: grid;
-    gap: 0.35rem;
-    font-weight: 800;
+    border: 0;
+    padding: 0;
   }
   label.checkbox {
     display: flex;
@@ -290,53 +241,5 @@
   }
   label.checkbox input {
     width: auto;
-  }
-  input,
-  textarea,
-  select {
-    width: 100%;
-    border: 2px solid var(--ink);
-    border-radius: 0.7rem;
-    background: white;
-    padding: 0.7rem;
-    color: var(--ink);
-    font: inherit;
-  }
-  input:focus-visible,
-  textarea:focus-visible,
-  select:focus-visible,
-  button:focus-visible,
-  a:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
-  }
-  .grid {
-    display: grid;
-    gap: 1rem;
-  }
-  .two {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .message {
-    border: 2px solid var(--ink);
-    border-radius: 0.75rem;
-    padding: 0.9rem;
-    font-weight: 850;
-  }
-  .error {
-    background: var(--coral-soft);
-  }
-  .notice {
-    margin: 0;
-    color: var(--ink-soft);
-    font-weight: 700;
-  }
-  @media (max-width: 48rem) {
-    .title-row {
-      display: grid;
-    }
-    .two {
-      grid-template-columns: 1fr;
-    }
   }
 </style>
