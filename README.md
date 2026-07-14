@@ -48,9 +48,10 @@ The external monitor and a received test notification are manual release evidenc
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs type/unit/build, database, component/map, and end-to-end gates in parallel jobs for fast pull-request feedback.
-`.github/workflows/evaluation.yml` runs the canonical clean evaluation and retains the complete ignored `test-results` evidence tree even when a gate fails.
-The clean-evaluation check is the source of truth for accessibility, bilingual visual baselines, performance budgets, and manifest completeness.
+`.github/workflows/ci.yml` runs the open-source boundary, formatting, lint, type/unit/build, database, component/map, sharded end-to-end, accessibility, and bilingual visual gates in parallel jobs for pull-request and `main` feedback.
+`.github/workflows/evaluation.yml` runs only by manual dispatch for an exact 40-character release candidate commit SHA.
+It retains the complete ignored `test-results` evidence tree even when a gate fails.
+The manual clean evaluation is the source of truth for performance budgets, complete release evidence, and manifest completeness.
 
 ## Configuration boundary
 
@@ -158,6 +159,7 @@ The preview workflow is then the external evidence source for visual and health 
 ## Protected production release
 
 The manual `Hundavaent production recovery and build` workflow accepts one reviewed, full 40-character commit SHA.
+Run the manual clean evaluation successfully for that exact SHA before starting the protected production workflow.
 It checks out that exact commit, builds the Cloudflare Pages artifact with the protected `production` environment, creates a custom PostgreSQL dump of the `public`, `private`, `security`, and `auth` schemas, and restores that dump into an ephemeral Supabase PostgreSQL 17 container.
 The workflow refuses empty or invalid dumps and requires restored application schemas plus at least one baseline Place record.
 Only after the restore passes does it encrypt the dump with AES-256-CBC and retain the encrypted recovery point, its checksum manifest, and the exact Cloudflare build for 30 days.
