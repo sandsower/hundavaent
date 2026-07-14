@@ -11,6 +11,19 @@
     return `flag.status.${status}` as MessageKey;
   }
 
+  function statusTone(status: string): string | undefined {
+    if (status === 'applied' || status === 'confirmed_useful') return 'success';
+    if (status === 'rejected') return 'error';
+    if (
+      status === 'needs_information' ||
+      status === 'dispute_opened' ||
+      status === 'place_inactivated'
+    ) {
+      return 'attention';
+    }
+    return undefined;
+  }
+
   function kindKey(kind: string): MessageKey {
     return `flag.kind.${kind}` as MessageKey;
   }
@@ -31,32 +44,44 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="outcome-shell">
-  <div class="heading">
-    <div>
-      <h1>{data.copy['flag.myTitle']}</h1>
-      <p>{data.copy['flag.myIntro']}</p>
+<main class="hv-page-shell" data-width="narrow" data-ui-mode="place" aria-labelledby="flags-title">
+  <header class="hv-page-header">
+    <div class="hv-stack">
+      <p class="hv-eyebrow">{data.copy['site.name']}</p>
+      <h1 id="flags-title" class="hv-page-title">{data.copy['flag.myTitle']}</h1>
+      <p class="hv-meta">{data.copy['flag.myIntro']}</p>
     </div>
-    <div class="new-links">
-      <a href={resolve('/[lang=lang]', { lang: data.lang })}>{data.copy['flag.newCorrection']}</a>
+    <div class="hv-page-actions">
+      <a
+        class="hv-control"
+        data-intent="primary"
+        href={resolve('/[lang=lang]', { lang: data.lang })}>{data.copy['flag.newCorrection']}</a
+      >
     </div>
-  </div>
+  </header>
 
   {#if data.submitted}
-    <p class="ack" role="status">{data.copy['flag.acknowledged']}</p>
+    <p class="hv-notice" data-tone="success" role="status">
+      {data.copy['flag.acknowledged']}
+    </p>
   {/if}
 
   {#if data.flags.length === 0}
-    <p class="empty">{data.copy['flag.empty']}</p>
+    <p class="hv-notice" data-tone="info">{data.copy['flag.empty']}</p>
   {:else}
-    <ul>
+    <ul class="hv-list outcome-list">
       {#each data.flags as item (item.flagId)}
-        <li class:highlighted={data.submitted === item.flagId}>
-          <div>
-            <p class="eyebrow">{data.copy[kindKey(item.kind)]} · {target(item)}</p>
+        <li
+          class="outcome-card hv-list-card hv-panel"
+          class:highlighted={data.submitted === item.flagId}
+        >
+          <div class="hv-stack">
+            <p class="hv-eyebrow">{data.copy[kindKey(item.kind)]} · {target(item)}</p>
             <h2>{name(item)}</h2>
           </div>
-          <strong class={`status ${item.outcome}`}>{data.copy[statusKey(item.outcome)]}</strong>
+          <strong class="hv-status" data-status={statusTone(item.outcome)}>
+            {data.copy[statusKey(item.outcome)]}
+          </strong>
           {#if data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}
             <p class="reason">{data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}</p>
           {/if}
@@ -67,7 +92,8 @@
 
   {#if data.nextCursor}
     <a
-      class="next"
+      class="next hv-control"
+      data-intent="primary"
       href={resolve(
         `/[lang=lang]/account/corrections-and-reports?cursorTime=${encodeURIComponent(data.nextCursor.submittedAt)}&cursorId=${encodeURIComponent(data.nextCursor.flagId)}`,
         { lang: data.lang }
@@ -76,7 +102,7 @@
   {/if}
   {#if data.hasPrevious}
     <a
-      class="previous"
+      class="previous hv-control"
       href={resolve('/[lang=lang]/account/corrections-and-reports', { lang: data.lang })}
       >{data.copy['flag.previousPage']}</a
     >
@@ -84,106 +110,60 @@
 </main>
 
 <style>
-  .outcome-shell {
-    width: min(100% - 2rem, 60rem);
-    margin: 3rem auto;
+  .hv-page-header + .hv-notice,
+  .hv-page-header + .outcome-list {
+    margin-top: calc(var(--hv-space-context) * 1.5);
   }
-  .heading {
-    display: flex;
-    gap: 2rem;
-    align-items: start;
-    justify-content: space-between;
+
+  .outcome-list {
+    margin-block: calc(var(--hv-space-context) * 1.5);
   }
-  .new-links a {
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
-    color: var(--ink);
-    padding: 0.75rem 1rem;
-    font-weight: 900;
-    box-shadow: 0 0.2rem 0 var(--ink);
-  }
-  h1 {
-    margin: 0.25rem 0;
-    font-size: clamp(2rem, 5vw, 3rem);
-  }
-  .ack,
-  .empty {
-    margin-top: 2rem;
-    border: 2px solid var(--ink);
-    border-radius: 1rem;
-    background: var(--mint);
-    padding: 1rem;
-    font-weight: 850;
-  }
-  ul {
+
+  .outcome-card {
     display: grid;
-    gap: 0.8rem;
-    margin-top: 2rem;
-    padding: 0;
-    list-style: none;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.75rem var(--hv-space-panel);
   }
-  li {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 0.6rem 1rem;
-    border: 2px solid var(--ink);
-    border-radius: 1.1rem;
-    background: var(--paper-raised);
-    padding: 1rem;
-    box-shadow: 0.25rem 0.3rem 0 var(--sun);
+
+  .outcome-card.highlighted {
+    border-color: var(--hv-color-fjord);
+    box-shadow: 0 0 0 2px var(--hv-color-fjord-soft);
   }
-  li.highlighted {
-    box-shadow: 0.25rem 0.3rem 0 var(--teal);
-  }
-  .eyebrow {
+
+  .outcome-card .hv-eyebrow {
     margin: 0;
-    color: var(--coral-dark);
-    font-size: 0.8rem;
-    font-weight: 950;
-    text-transform: uppercase;
   }
+
   h2 {
-    margin: 0.2rem 0;
+    margin: 0;
   }
-  .status {
-    align-self: start;
-    border-radius: 999px;
-    background: var(--mint);
-    padding: 0.4rem 0.65rem;
-    font-size: 0.85rem;
-  }
-  .status.rejected {
-    background: var(--coral-soft);
-  }
+
   .reason {
     grid-column: 1 / -1;
     margin: 0;
-    color: var(--ink-soft);
+    border-top: 1px solid var(--hv-border-subtle);
+    padding-top: 0.75rem;
+    color: var(--hv-color-basalt-muted);
   }
-  a:focus-visible,
-  a.next:focus-visible,
-  a.previous:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
+
+  .outcome-card > .hv-status {
+    align-self: start;
+    justify-self: end;
   }
-  a.next,
-  a.previous {
-    display: inline-block;
-    margin-top: 1.5rem;
-    margin-right: 1rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
-    color: var(--ink);
-    padding: 0.6rem 1rem;
-    font-weight: 900;
+
+  .next,
+  .previous {
+    margin-top: 0.75rem;
+    margin-right: 0.5rem;
   }
+
   @media (max-width: 38rem) {
-    .heading,
-    li {
-      display: grid;
+    .outcome-card {
       grid-template-columns: 1fr;
+    }
+
+    .outcome-card > .hv-status {
+      justify-self: start;
     }
   }
 </style>

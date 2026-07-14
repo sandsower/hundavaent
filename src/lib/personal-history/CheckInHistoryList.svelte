@@ -45,46 +45,59 @@
 </script>
 
 {#if checkIns.length === 0 && isFirstPage}
-  <section class="empty" aria-labelledby="check-in-history-empty-title">
-    <span aria-hidden="true">🐾</span>
+  <section class="empty-state hv-panel hv-stack" aria-labelledby="check-in-history-empty-title">
     <h2 id="check-in-history-empty-title" tabindex="-1">{copy['history.emptyCheckInsTitle']}</h2>
     <p>{copy['history.emptyCheckInsBody']}</p>
-    <a href={resolve('/[lang=lang]', { lang })}>{copy['favourite.backToDiscovery']}</a>
+    <a class="hv-control" data-intent="primary" href={resolve('/[lang=lang]', { lang })}
+      >{copy['favourite.backToDiscovery']}</a
+    >
   </section>
 {:else if checkIns.length === 0}
-  <section class="empty" aria-labelledby="check-in-history-page-empty-title">
-    <span aria-hidden="true">🐾</span>
+  <section
+    class="empty-state hv-panel hv-stack"
+    aria-labelledby="check-in-history-page-empty-title"
+  >
     <h2 id="check-in-history-page-empty-title" tabindex="-1">
       {copy['history.pageEmptyCheckInsTitle']}
     </h2>
     <p>{copy['history.pageEmptyCheckInsBody']}</p>
   </section>
 {:else}
-  <ol aria-label={copy['history.tabCheckIns']}>
+  <ol class="hv-list check-in-list" aria-label={copy['history.tabCheckIns']}>
     {#each checkIns as checkIn (checkIn.checkInId)}
-      <li data-check-in-row class:unavailable={checkIn.availability !== 'available'}>
-        <div>
+      <li
+        class="check-in-card hv-list-card hv-panel"
+        data-check-in-row
+        class:unavailable={checkIn.availability !== 'available'}
+      >
+        <div class="hv-stack">
           <h2>{checkIn.name}</h2>
-          <p>
+          <p class="hv-meta">
             {copy['history.checkedInAt'].replace('{date}', formatDateTime(checkIn.checkedInAt))}
           </p>
-          <strong>{availabilityLabel(checkIn)}</strong>
+          <strong
+            class="hv-status"
+            data-status={checkIn.availability === 'available' ? undefined : 'attention'}
+            >{availabilityLabel(checkIn)}</strong
+          >
           {#if checkIn.availability === 'inactive' && checkIn.successorPlaceId && checkIn.successorName}
             <p class="successor">
               {copy['history.successorNote'].replace('{name}', checkIn.successorName)}
             </p>
           {/if}
         </div>
-        <div class="actions">
+        <div class="check-in-actions hv-page-actions">
           {#if checkIn.availability === 'available'}
             <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-            <a href={discoveryPlaceHref(checkIn.placeId)}>{copy['directory.openPlace']}</a>
+            <a class="hv-control" href={discoveryPlaceHref(checkIn.placeId)}
+              >{copy['directory.openPlace']}</a
+            >
           {:else if checkIn.successorPlaceId && checkIn.successorAvailable}
             <!-- A successor is a Candidate at transition time and may not be published yet;
                  only a currently discoverable successor gets a discovery deep link. The name
                  itself is still shown honestly in the successor note above. -->
             <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-            <a href={discoveryPlaceHref(checkIn.successorPlaceId)}>
+            <a class="hv-control" href={discoveryPlaceHref(checkIn.successorPlaceId)}>
               {copy['history.successorLink'].replace('{name}', checkIn.successorName ?? '')}
             </a>
           {/if}
@@ -95,88 +108,64 @@
 
   {#if nextCursor}
     <!-- eslint-disable svelte/no-navigation-without-resolve -->
-    <a class="next-page" href={nextPageHref(nextCursor)}>{copy['history.nextPage']}</a>
+    <a class="next-page hv-control" data-intent="primary" href={nextPageHref(nextCursor)}
+      >{copy['history.nextPage']}</a
+    >
     <!-- eslint-enable svelte/no-navigation-without-resolve -->
   {/if}
 {/if}
 
 <style>
-  ol {
-    display: grid;
-    margin: 1.5rem 0;
-    padding: 0;
-    gap: 1rem;
-    list-style: none;
+  .check-in-list {
+    margin-block: calc(var(--hv-space-context) * 1.5);
   }
-  li {
+
+  .check-in-card {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    padding: 1rem;
-    border: 2px solid var(--ink);
-    border-radius: var(--radius-organic);
-    gap: 1rem;
-    background: var(--paper-light);
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--teal);
+    gap: var(--hv-space-panel);
   }
-  li.unavailable {
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--paper-deep);
+
+  .check-in-card.unavailable {
+    background: var(--hv-color-snow);
   }
+
   h2,
-  li p {
+  .check-in-card p {
     margin: 0;
   }
-  li strong,
-  li .successor {
-    display: block;
-    margin-top: 0.35rem;
-  }
-  li .successor {
+
+  .check-in-card .successor {
     font-weight: 700;
   }
-  .actions {
-    display: grid;
-    gap: 0.5rem;
+
+  .check-in-actions {
     align-content: start;
+    justify-content: end;
   }
-  .actions > a,
-  .empty a,
-  .next-page {
-    min-height: 2.75rem;
-    padding: 0.6rem 0.9rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
-    color: var(--ink);
-    font-weight: 900;
-    text-align: center;
-  }
-  .empty {
-    display: grid;
+
+  .empty-state {
     max-width: 34rem;
-    margin-top: 2rem;
-    padding: 2rem;
-    border: 2px solid var(--ink);
-    border-radius: var(--radius-organic);
-    gap: 0.6rem;
-    background: var(--paper-light);
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--amber);
+    margin-top: calc(var(--hv-space-context) * 1.5);
+    padding: var(--hv-space-panel);
   }
-  .empty span {
-    font-size: 3rem;
-  }
-  .empty h2,
-  .empty p {
+
+  .empty-state h2,
+  .empty-state p {
     margin: 0;
   }
+
   .next-page {
-    display: inline-block;
+    margin-top: 0.75rem;
   }
+
   @media (max-width: 35rem) {
-    li {
+    .check-in-card {
       grid-template-columns: 1fr;
     }
-    .actions {
-      grid-template-columns: 1fr;
+
+    .check-in-actions {
+      justify-content: stretch;
     }
   }
 </style>
