@@ -14,6 +14,9 @@ importers:
       '@fontsource-variable/inter':
         specifier: 5.2.8
         version: 5.2.8
+      '@fontsource-variable/source-serif-4':
+        specifier: 5.2.8
+        version: 5.2.8
       '@supabase/ssr':
         specifier: 0.12.0
         version: 0.12.0(@supabase/supabase-js@2.110.1)
@@ -381,6 +384,9 @@ packages:
 
   '@fontsource-variable/inter@5.2.8':
     resolution: {integrity: sha512-kOfP2D+ykbcX/P3IFnokOhVRNoTozo5/JxhAIVYLpea/UBmCQ/YWPBfWIDuBImXX/15KH+eKh4xpEUyS2sQQGQ==}
+
+  '@fontsource-variable/source-serif-4@5.2.8':
+    resolution: {integrity: sha512-qj5xZxbKmucdY2t6Qp2RdFzgQoepl7FLukVOE527o9ueDSQ3M4nwoec5YyTn45iP2y8jCb8H3Se6JnhL7tlltA==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -2403,6 +2409,8 @@ snapshots:
       levn: 0.4.1
 
   '@fontsource-variable/inter@5.2.8': {}
+
+  '@fontsource-variable/source-serif-4@5.2.8': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

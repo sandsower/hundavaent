@@ -32,7 +32,7 @@ Database-backed publication, Member authentication, and the real map require the
 - `pnpm test:e2e` runs signed-out browser journeys through Playwright.
 - `pnpm test:database` runs pgTAP contracts against the local Supabase database.
 - `pnpm test:a11y` runs keyboard, Axe, and reduced-motion proof.
-- `pnpm test:visual` compares the approved bilingual screenshot baselines.
+- `pnpm test:visual` captures named bilingual screenshots under `test-results/visual/screenshots/` for generated evaluation evidence and product-owner review.
 - `pnpm test:map-smoke` runs the focused real MapLibre adapter contract.
 - `pnpm test:performance` builds and tests production route budgets.
 - `pnpm build` produces the Cloudflare Pages artifact in `.svelte-kit/cloudflare`.

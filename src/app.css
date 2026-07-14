@@ -1,4 +1,7 @@
 @import '@fontsource-variable/inter';
+@import '@fontsource-variable/source-serif-4';
+@import '$lib/design-system/tokens.css';
+@import '$lib/design-system/primitives.css';
 
 :root {
   color-scheme: light;
@@ -95,25 +98,25 @@ a {
   display: block;
   width: 2.6rem;
   height: auto;
-  filter: drop-shadow(0.13rem 0.16rem 0 rgb(25 59 69 / 35%));
+  filter: drop-shadow(0 0.25rem 0.5rem rgb(30 45 49 / 22%));
 }
 
 .hundavaent-marker .pin-body {
-  fill: var(--coral);
-  stroke: var(--ink);
+  fill: var(--hv-color-moss, #58705b);
+  stroke: var(--hv-color-basalt, #1e2d31);
   stroke-width: 3;
 }
 
 .hundavaent-marker .pin-icon-stroke {
   fill: none;
-  stroke: var(--paper-light);
+  stroke: var(--hv-color-snow-raised, #fbfcf9);
   stroke-width: 2.1;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .hundavaent-marker .pin-icon-fill {
-  fill: var(--paper-light);
+  fill: var(--hv-color-snow-raised, #fbfcf9);
 }
 
 .hundavaent-marker.selected .pin,
@@ -123,17 +126,17 @@ a {
 
 .hundavaent-marker.selected .pin-body,
 .hundavaent-marker[aria-pressed='true'] .pin-body {
-  fill: var(--sun);
+  fill: var(--hv-color-signal, #f2c94c);
 }
 
 .hundavaent-marker.selected .pin-icon-stroke,
 .hundavaent-marker[aria-pressed='true'] .pin-icon-stroke {
-  stroke: var(--ink);
+  stroke: var(--hv-color-basalt, #1e2d31);
 }
 
 .hundavaent-marker.selected .pin-icon-fill,
 .hundavaent-marker[aria-pressed='true'] .pin-icon-fill {
-  fill: var(--ink);
+  fill: var(--hv-color-basalt, #1e2d31);
 }
 
 .hundavaent-marker .marker-label {
@@ -144,10 +147,10 @@ a {
   max-width: 14rem;
   margin-top: 0.25rem;
   padding: 0.1rem 0.55rem;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--paper-light);
-  box-shadow: 0.12rem 0.14rem 0 var(--ink);
+  border: 1px solid var(--hv-color-basalt, #1e2d31);
+  border-radius: var(--hv-radius-control, 0.35rem);
+  background: var(--hv-color-snow-raised, #fbfcf9);
+  box-shadow: var(--hv-shadow-raised, 0 0.7rem 1.8rem rgb(30 45 49 / 12%));
   font-size: 0.78rem;
   font-weight: 800;
   overflow: hidden;
@@ -174,12 +177,12 @@ a {
   min-width: 3rem;
   min-height: 2.6rem;
   padding: 0.35rem 0.65rem;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--teal);
+  border: 1px solid var(--hv-color-basalt, #1e2d31);
+  border-radius: var(--hv-radius-control, 0.35rem);
+  background: var(--hv-color-fjord, #2f6f86);
   color: white;
   font-weight: 900;
-  box-shadow: 0.18rem 0.22rem 0 var(--ink);
+  box-shadow: var(--hv-shadow-raised, 0 0.7rem 1.8rem rgb(30 45 49 / 12%));
 }
 
 .hundavaent-marker:focus-visible {

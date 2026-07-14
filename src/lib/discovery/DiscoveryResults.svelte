@@ -33,7 +33,11 @@
   }: Props = $props();
 </script>
 
-<section id="discovery-results" class="results-tray" aria-labelledby="discovery-results-heading">
+<section
+  id="discovery-results"
+  class="results-tray hv-panel"
+  aria-labelledby="discovery-results-heading"
+>
   <div class="tray-heading">
     <div>
       <h3 id="discovery-results-heading">{copy['directory.resultsTitle']}</h3>
@@ -78,11 +82,9 @@
     max-height: min(30rem, 55dvh);
     overflow: auto;
     padding: 0.85rem;
-    border: 2px solid var(--ink);
-    border-radius: var(--radius-organic);
-    background: rgb(255 250 239 / 97%);
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--coral);
-    backdrop-filter: blur(10px);
+    border-color: var(--hv-border-strong);
+    background: rgb(251 252 249 / 97%);
+    box-shadow: var(--hv-shadow-floating);
   }
 
   .tray-heading {
@@ -100,7 +102,7 @@
 
   p {
     margin-top: 0.15rem;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
     font-size: 0.82rem;
     font-weight: 750;
   }
@@ -110,10 +112,10 @@
     width: 2.25rem;
     height: 2.25rem;
     padding: 0;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--paper);
-    color: var(--ink);
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow);
+    color: var(--hv-color-basalt);
     font: inherit;
     font-size: 1.4rem;
     font-weight: 900;
@@ -121,8 +123,9 @@
   }
 
   button:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   .empty {

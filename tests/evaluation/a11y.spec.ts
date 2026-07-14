@@ -167,6 +167,39 @@ test('public discovery and floating access details are keyboard-operable and Axe
   await expectNoSeriousAxeViolations(page, evidence);
 });
 
+test('place-mode directory results remain bilingual and reflow without page overflow', async ({
+  page,
+  evidence
+}) => {
+  const scenarios = [
+    {
+      locale: 'en',
+      resultsButton: /Show \d+ results?/,
+      resultsRegion: 'Places found'
+    },
+    {
+      locale: 'is',
+      resultsButton: /Sýna \d+ niðurstöð/,
+      resultsRegion: 'Staðir sem fundust'
+    }
+  ] as const;
+
+  for (const scenario of scenarios) {
+    for (const viewport of [
+      { width: 1280, height: 900 },
+      { width: 390, height: 844 }
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.goto(`/${scenario.locale}?view=map`);
+      await waitForHydration(page);
+      await page.getByRole('button', { name: scenario.resultsButton }).click();
+      await expect(page.getByRole('region', { name: scenario.resultsRegion })).toBeVisible();
+      await expectNoHorizontalPageScroll(page);
+      await expectNoSeriousAxeViolations(page, evidence);
+    }
+  }
+});
+
 test('Moderator forms have keyboard focus order and Axe-clean semantics', async ({
   page,
   evidence

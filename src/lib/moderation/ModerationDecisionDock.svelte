@@ -22,15 +22,15 @@
     z-index: 3;
     bottom: 0;
     min-width: 0;
-    border-top: 2px solid var(--ink);
-    background: var(--paper-light);
+    border-top: 1px solid var(--hv-color-basalt);
+    background: var(--hv-color-snow-raised);
     padding: 0.9rem 1.1rem;
-    box-shadow: 0 -0.35rem 1.1rem rgb(25 59 69 / 12%);
+    box-shadow: 0 -0.4rem 1.2rem rgb(30 45 49 / 10%);
   }
   .decision-dock:focus-within {
     box-shadow:
-      0 -0.35rem 1.1rem rgb(25 59 69 / 12%),
-      inset 0 0 0 3px var(--focus);
+      0 -0.4rem 1.2rem rgb(30 45 49 / 10%),
+      inset 0 0 0 3px var(--hv-focus-ring);
   }
   .decision-dock > fieldset {
     min-width: 0;
@@ -49,35 +49,36 @@
     display: grid;
     min-width: 0;
     gap: 0.25rem;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
     font-size: 0.72rem;
     font-weight: 900;
   }
   .decision-dock :global(select),
   .decision-dock :global(textarea) {
     width: 100%;
-    border: 2px solid var(--ink);
-    border-radius: 0.65rem;
-    background: white;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
     padding: 0.5rem;
-    color: var(--ink);
+    color: var(--hv-color-basalt);
   }
   .decision-dock :global(button) {
     min-height: 2.75rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-signal);
     padding: 0.55rem 0.9rem;
-    color: var(--ink);
+    color: var(--hv-color-basalt);
     font-weight: 950;
-    box-shadow: 0.18rem 0.2rem 0 var(--ink);
+    box-shadow: none;
     cursor: pointer;
   }
   .decision-dock :global(button:focus-visible),
   .decision-dock :global(select:focus-visible),
   .decision-dock :global(textarea:focus-visible) {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
   @media (max-width: 44rem) {
     .decision-dock :global(form) {

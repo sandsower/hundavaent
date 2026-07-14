@@ -26,7 +26,7 @@
   <title>{data.copy['directory.title']}</title>
 </svelte:head>
 
-<main class="directory-shell">
+<main class="directory-shell" data-ui-mode="place">
   <section>
     <MapListShell
       places={data.places}
@@ -46,14 +46,14 @@
 <style>
   :global(body) {
     margin: 0;
-    background: #f7f0df;
-    color: #193b45;
+    background: var(--hv-color-snow);
+    color: var(--hv-color-basalt);
     font-family: var(--font-sans);
   }
 
   .directory-shell {
     width: min(100% - 2rem, 96rem);
     margin: 0 auto;
-    padding: 1rem 0 1.25rem;
+    padding: 0.75rem 0 1.25rem;
   }
 </style>

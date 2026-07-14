@@ -50,8 +50,8 @@
 <style>
   .queue-rail {
     min-width: 0;
-    border-right: 2px solid var(--ink);
-    background: var(--paper);
+    border-right: 1px solid var(--hv-border-subtle);
+    background: var(--hv-color-snow);
     padding: 0.9rem;
   }
   h2 {
@@ -71,30 +71,31 @@
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.55rem;
     align-items: center;
-    border: 2px solid transparent;
-    border-radius: 0.8rem;
+    border: 1px solid transparent;
+    border-radius: var(--hv-radius-control);
     padding: 0.65rem;
-    color: var(--ink);
+    color: var(--hv-color-basalt);
     font-weight: 780;
     text-decoration: none;
   }
   a:hover {
-    background: var(--paper-light);
+    background: var(--hv-color-snow-raised);
   }
   a.active {
-    border-color: var(--ink);
-    background: var(--sun);
+    border-color: var(--hv-color-basalt);
+    background: var(--hv-color-signal);
     font-weight: 950;
-    box-shadow: 0.18rem 0.2rem 0 var(--ink);
+    box-shadow: none;
   }
   a:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
   .count {
     min-width: 1.75rem;
     border-radius: 999px;
-    background: var(--ink);
+    background: var(--hv-color-basalt);
     padding: 0.18rem 0.42rem;
     color: white;
     font-size: 0.72rem;
@@ -105,7 +106,7 @@
     .queue-rail {
       overflow-x: auto;
       border-right: 0;
-      border-bottom: 2px solid var(--ink);
+      border-bottom: 1px solid var(--hv-border-subtle);
       padding: 0.65rem;
     }
     h2 {

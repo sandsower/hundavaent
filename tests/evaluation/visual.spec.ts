@@ -597,17 +597,36 @@ for (const locale of ['is', 'en'] as const) {
     // exit this test before its own end-of-pass retirements run, leaving the private-rating-note fixture Place
     // published and leaking an extra marker into the directory captures below.
     retireLocalPrivateRatingNoteFixture();
+    retireLocalDogFriendlinessFixture();
+    provisionLocalDogFriendlinessFixture();
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`/${locale}?view=map`);
     await expect(page.getByRole('heading', { name: copy[locale].directory })).toBeVisible();
     await expect(page.getByRole('button', { name: copy[locale].place, exact: true })).toBeVisible();
+    await page
+      .getByRole('button', {
+        name: locale === 'is' ? /Sýna \d+ niðurstöð/ : /Show \d+ results?/
+      })
+      .click();
+    await expect(
+      page.getByRole('region', { name: locale === 'is' ? 'Staðir sem fundust' : 'Places found' })
+    ).toBeVisible();
     await capture(page, evidence, `directory-${locale}-desktop.png`);
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/${locale}?view=map`);
     await expect(page.getByRole('heading', { name: copy[locale].map })).toBeVisible();
     await expect(page.getByRole('button', { name: copy[locale].place, exact: true })).toBeVisible();
+    await page
+      .getByRole('button', {
+        name: locale === 'is' ? /Sýna \d+ niðurstöð/ : /Show \d+ results?/
+      })
+      .click();
+    await expect(
+      page.getByRole('region', { name: locale === 'is' ? 'Staðir sem fundust' : 'Places found' })
+    ).toBeVisible();
     await capture(page, evidence, `directory-${locale}-mobile.png`);
+    retireLocalDogFriendlinessFixture();
 
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`/${locale}?place=${evaluationFixtureIds.places.published}&view=map`);
@@ -917,6 +936,7 @@ for (const locale of ['is', 'en'] as const) {
     await configureLocalPrivateRatingNotePolicy();
     const { placeId: notePlaceId } = localPrivateRatingNoteFixture;
     await page.goto(`/${locale}/places/${notePlaceId}/rate`);
+    await waitForHydration(page);
     await expect(page.getByRole('heading', { name: copy[locale].ratingForm })).toBeVisible();
     const noteWelcomeLabel = locale === 'is' ? 'Móttökur' : 'Welcome';
     await page.getByLabel(noteWelcomeLabel).selectOption('1');

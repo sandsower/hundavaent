@@ -148,9 +148,9 @@
   .map-surface {
     position: relative;
     overflow: hidden;
-    border: 2px solid #193b45;
-    border-radius: 1.4rem;
-    background: #d9ece7;
+    border: 1px solid var(--hv-color-basalt, #1e2d31);
+    border-radius: var(--hv-radius-shell, 0.75rem);
+    background: #dce5df;
   }
 
   .map-surface.compact,
@@ -164,7 +164,7 @@
   }
 
   :global(.maplibregl-canvas) {
-    background: #d9ece7;
+    background: #dce5df;
   }
 
   /* Keep the attribution clear of the surface's rounded corner. */
@@ -197,16 +197,16 @@
   button {
     justify-self: center;
     padding: 0.65rem 1rem;
-    border: 2px solid #193b45;
-    border-radius: 999px;
-    background: #f8cf58;
+    border: 1px solid var(--hv-color-basalt, #1e2d31);
+    border-radius: var(--hv-radius-control, 0.35rem);
+    background: var(--hv-color-signal, #f2c94c);
     color: inherit;
     font: inherit;
     font-weight: 850;
   }
 
   button:focus-visible {
-    outline: 4px solid #f1a33b;
+    outline: 3px solid var(--hv-focus-ring, #2f6f86);
     outline-offset: 3px;
   }
 

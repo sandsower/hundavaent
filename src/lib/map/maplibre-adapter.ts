@@ -306,7 +306,7 @@ export const emptyMapLibreStyle: StyleSpecification = {
     {
       id: 'hundavaent-background',
       type: 'background',
-      paint: { 'background-color': '#d9ece7' }
+      paint: { 'background-color': '#dce5df' }
     }
   ]
 };

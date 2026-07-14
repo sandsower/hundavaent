@@ -170,7 +170,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <section
-  class="workspace"
+  class="workspace hv-panel"
   aria-labelledby="moderation-workspace-title"
   bind:this={workspaceElement}
   onsubmitcapture={handleSubmit}
@@ -257,18 +257,19 @@
 <style>
   .workspace {
     overflow: hidden;
-    border: 3px solid var(--ink);
-    border-radius: 1.5rem;
-    background: var(--paper-light);
-    box-shadow: 0.5rem 0.55rem 0 var(--teal);
+    border-color: var(--hv-color-basalt);
+    border-radius: var(--hv-radius-shell);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
   }
   .workspace-top {
     display: flex;
     gap: 1rem;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 2px solid var(--ink);
-    background: var(--mint);
+    border-bottom: 1px solid var(--hv-color-basalt);
+    background: var(--hv-color-basalt);
+    color: var(--hv-color-snow-raised);
     padding: 0.85rem 1.1rem;
   }
   h1,
@@ -282,14 +283,15 @@
   }
   .workspace-top p {
     margin-top: 0.2rem;
-    color: var(--ink-soft);
+    color: #dce3df;
     font-size: 0.78rem;
   }
   .workspace-top strong {
     flex: none;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--paper-light);
+    border: 1px solid var(--hv-color-signal);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-signal);
+    color: var(--hv-color-basalt);
     padding: 0.35rem 0.65rem;
     font-size: 0.76rem;
   }
@@ -306,7 +308,7 @@
     min-width: 0;
     min-height: 0;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    background: var(--paper);
+    background: var(--hv-color-snow);
   }
   .review-head {
     display: flex;
@@ -314,18 +316,20 @@
     gap: 1rem;
     align-items: start;
     justify-content: space-between;
-    border-bottom: 1px solid rgb(25 59 69 / 28%);
-    background: var(--paper-light);
+    border-bottom: 1px solid var(--hv-border-subtle);
+    background: var(--hv-color-snow-raised);
     padding: 1rem 1.2rem;
   }
   .review-head h2 {
+    font-family: var(--hv-font-display);
+    font-weight: 650;
     font-size: clamp(1.35rem, 3vw, 1.65rem);
     line-height: 1.1;
     overflow-wrap: anywhere;
   }
   .eyebrow {
     margin-bottom: 0.25rem;
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     font-size: 0.68rem;
     font-weight: 950;
     letter-spacing: 0.09em;
@@ -333,16 +337,16 @@
   }
   .review-meta {
     margin-top: 0.3rem;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
     font-size: 0.76rem;
   }
   .shortcut {
     flex: none;
-    border: 1px solid rgb(25 59 69 / 38%);
-    border-radius: 0.5rem;
-    background: white;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
     padding: 0.28rem 0.42rem;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
     font-size: 0.67rem;
     font-weight: 800;
   }
@@ -353,12 +357,12 @@
     left: 1.2rem;
     z-index: 2;
     border-radius: 0 0 0.65rem 0.65rem;
-    background: var(--mint);
+    background: var(--hv-color-success-soft);
     font-size: 0.78rem;
     font-weight: 850;
   }
   .live-status:not(:empty) {
-    border: 2px solid var(--ink);
+    border: 1px solid var(--hv-color-success);
     border-top: 0;
     padding: 0.5rem 0.7rem;
   }
@@ -370,9 +374,9 @@
     padding: 1rem 1.2rem;
   }
   .review-summary {
-    border: 1.5px solid var(--ink);
-    border-radius: 0.85rem;
-    background: white;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
     padding: 0.9rem;
   }
   .review-content {
@@ -383,9 +387,9 @@
   }
   .review-error {
     margin-bottom: 1rem;
-    border: 2px solid var(--ink);
-    border-radius: 0.75rem;
-    background: var(--coral-light);
+    border: 1px solid var(--hv-color-danger);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-danger-soft);
     padding: 0.75rem;
   }
   .review-error a {
@@ -394,7 +398,7 @@
     font-weight: 900;
   }
   .review-summary span {
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     font-size: 0.68rem;
     font-weight: 950;
     letter-spacing: 0.08em;
@@ -413,8 +417,8 @@
   @media (max-width: 44rem) {
     .workspace {
       overflow: visible;
-      border-radius: 1rem;
-      box-shadow: 0.3rem 0.35rem 0 var(--teal);
+      border-radius: var(--hv-radius-shell);
+      box-shadow: var(--hv-shadow-raised);
     }
     .workspace-top {
       align-items: start;

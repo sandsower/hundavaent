@@ -63,7 +63,7 @@
   }
 </script>
 
-<section class="discovery-controls" aria-label={copy['directory.filters']}>
+<section class="discovery-controls hv-panel" aria-label={copy['directory.filters']}>
   <div class="search-row">
     <label>
       <span>{copy['directory.searchLabel']}</span>
@@ -271,18 +271,16 @@
 
 <style>
   .discovery-controls {
-    width: min(48rem, calc(100vw - 5.5rem));
-    padding: 0.65rem;
-    border: 2px solid var(--ink);
-    border-radius: 1.15rem;
-    background: rgb(255 250 239 / 96%);
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--amber);
-    backdrop-filter: blur(10px);
+    width: min(30rem, calc(100vw - 5.5rem));
+    padding: 0.85rem;
+    border-color: var(--hv-border-strong);
+    background: rgb(251 252 249 / 96%);
+    box-shadow: var(--hv-shadow-floating);
   }
 
   .search-row {
     display: grid;
-    grid-template-columns: minmax(13rem, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.55rem;
     align-items: end;
   }
@@ -291,7 +289,7 @@
     display: grid;
     gap: 0.2rem;
     min-width: 0;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
     font-size: 0.76rem;
     font-weight: 800;
   }
@@ -299,12 +297,12 @@
   input,
   select,
   button {
-    min-height: 2.65rem;
+    min-height: var(--hv-control-height);
     box-sizing: border-box;
-    border: 2px solid var(--ink);
-    border-radius: 0.8rem;
-    background: var(--paper-light);
-    color: var(--ink);
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
+    color: var(--hv-color-basalt);
     font: inherit;
     font-weight: 760;
   }
@@ -315,6 +313,10 @@
     padding: 0.45rem 0.65rem;
   }
 
+  .search-row > label {
+    grid-column: 1 / -1;
+  }
+
   button {
     padding: 0.45rem 0.75rem;
     cursor: pointer;
@@ -322,7 +324,7 @@
 
   button.active,
   .results-button {
-    background: var(--amber);
+    background: var(--hv-color-signal);
   }
 
   button span[aria-hidden='true'] {
@@ -331,8 +333,8 @@
     min-height: 1.25rem;
     margin-left: 0.25rem;
     border-radius: 999px;
-    background: var(--coral);
-    color: white;
+    background: var(--hv-color-basalt);
+    color: var(--hv-color-snow-raised);
     place-items: center;
   }
 
@@ -346,10 +348,10 @@
   .suggest-link {
     display: inline-block;
     padding: 0.35rem 0.7rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--mint);
-    color: var(--ink);
+    border: 1px solid var(--hv-color-moss);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-moss-soft);
+    color: var(--hv-color-basalt);
     font-size: 0.85rem;
     font-weight: 800;
     text-decoration: none;
@@ -381,7 +383,7 @@
     border: 0;
     background: transparent;
     padding: 0;
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     font-weight: 900;
     cursor: pointer;
     text-decoration: underline;
@@ -401,12 +403,12 @@
   }
 
   .secondary {
-    background: var(--mint);
+    background: var(--hv-color-moss-soft);
   }
 
   .clear {
-    border-color: var(--coral-dark);
-    color: var(--coral-dark);
+    border-color: var(--hv-color-danger);
+    color: var(--hv-color-danger);
   }
 
   .location-status {
@@ -420,8 +422,9 @@
   input:focus-visible,
   select:focus-visible,
   a:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   button:disabled,

@@ -771,7 +771,7 @@
     margin: 3rem auto;
   }
   .eyebrow {
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     font-weight: 950;
     text-transform: uppercase;
   }
@@ -783,11 +783,11 @@
   section,
   form {
     margin-top: 1.5rem;
-    border: 2px solid var(--ink);
-    border-radius: 1rem;
-    background: var(--paper-raised);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
     padding: 1rem;
-    box-shadow: 0.25rem 0.3rem 0 var(--teal);
+    box-shadow: none;
   }
   dl,
   ul,
@@ -813,8 +813,8 @@
   li {
     display: grid;
     gap: 0.25rem;
-    border: 1px solid var(--ink);
-    border-radius: 0.75rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
     padding: 0.75rem;
   }
   .signals {
@@ -823,21 +823,21 @@
     gap: 0.4rem;
   }
   .signals b {
-    border-radius: 999px;
-    background: var(--mint);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-fjord-soft);
     padding: 0.25rem 0.5rem;
   }
   .signal-note,
   .policy-missing {
     margin: 0 0 0.5rem;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
     font-size: 0.88rem;
   }
   .previous-note {
     margin: 0;
-    border: 1px solid var(--ink);
-    border-radius: 0.75rem;
-    background: var(--paper-light);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow);
     padding: 0.75rem;
   }
   .previous-note strong {
@@ -861,8 +861,8 @@
   }
   fieldset {
     min-width: 0;
-    border: 1px solid var(--ink);
-    border-radius: 0.8rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
     padding: 0.8rem;
   }
   legend {
@@ -877,40 +877,42 @@
   select,
   textarea,
   input {
-    border: 2px solid var(--ink);
-    border-radius: 0.7rem;
-    background: white;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
     padding: 0.7rem;
-    color: var(--ink);
+    color: var(--hv-color-basalt);
     font: inherit;
   }
   button {
     width: fit-content;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-signal);
     padding: 0.75rem 1rem;
-    color: var(--ink);
+    color: var(--hv-color-basalt);
     font-weight: 900;
-    box-shadow: 0 0.2rem 0 var(--ink);
+    box-shadow: none;
   }
   select:focus-visible,
   textarea:focus-visible,
   input:focus-visible,
   button:focus-visible {
-    outline: 4px solid var(--focus);
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
   .message {
-    border: 2px solid var(--ink);
-    border-radius: 0.75rem;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-panel);
     padding: 0.8rem;
     font-weight: 850;
   }
   .error {
-    background: var(--coral-soft);
+    background: var(--hv-color-danger-soft);
   }
   .success {
-    background: var(--mint);
+    background: var(--hv-color-success-soft);
   }
   @media (max-width: 42rem) {
     .two,
