@@ -32,10 +32,34 @@ describe('FavouriteControl', () => {
       signInHref: `/en/account?returnTo=${encodeURIComponent(`/en?place=${placeId}&favourite=${placeId}`)}`
     });
 
-    expect(screen.getByRole('link', { name: label }).getAttribute('href')).toContain(
-      `favourite%3D${placeId}`
-    );
+    const link = screen.getByRole('link', { name: label });
+    expect(link.getAttribute('href')).toContain(`favourite%3D${placeId}`);
+    expect(link.classList.contains('hv-control')).toBe(true);
+    expect(link.getAttribute('data-intent')).toBe('secondary');
   });
+
+  it.each([
+    [false, 'Save Published Place', 'secondary', 'idle'],
+    [true, 'Remove Published Place from saved places', 'selected', 'selected']
+  ] as const)(
+    'exposes the saved state semantically when favourite is %s',
+    (favourite, label, intent, state) => {
+      render(FavouriteControl, {
+        placeId,
+        placeName,
+        signedIn: true,
+        favourite,
+        copy: catalogues.en,
+        signInHref: ''
+      });
+
+      const button = screen.getByRole('button', { name: label });
+      expect(button.classList.contains('hv-control')).toBe(true);
+      expect(button.getAttribute('aria-pressed')).toBe(String(favourite));
+      expect(button.getAttribute('data-intent')).toBe(intent);
+      expect(button.getAttribute('data-state')).toBe(state);
+    }
+  );
 
   it('requires explicit confirmation after authentication before saving', async () => {
     const fetchMock = vi.fn(
@@ -136,6 +160,8 @@ describe('FavouriteControl', () => {
         'We could not update this saved place. Please try again.'
       )
     );
+    expect(screen.getByRole('alert').classList.contains('hv-status')).toBe(true);
+    expect(screen.getByRole('alert').getAttribute('data-status')).toBe('error');
     expect(onChange).not.toHaveBeenCalled();
     expect(captureAnalytics).not.toHaveBeenCalled();
     expect(button.getAttribute('aria-pressed')).toBe('false');
