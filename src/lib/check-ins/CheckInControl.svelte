@@ -176,7 +176,7 @@
 >
   {#if !signedIn}
     <!-- Exact local return context is assembled by the discovery owner. -->
-    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+    <!-- eslint-disable svelte/no-navigation-without-resolve -->
     <a
       class="hv-control"
       data-intent="secondary"
@@ -186,6 +186,7 @@
     >
       {copy['checkIn.signIn']}
     </a>
+    <!-- eslint-enable svelte/no-navigation-without-resolve -->
   {:else if effectivePhase === 'success' || effectivePhase === 'duplicate'}
     <p role="status" class="result hv-status" data-status="success">
       {effectivePhase === 'duplicate'

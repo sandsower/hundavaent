@@ -93,7 +93,7 @@
     </button>
   {:else}
     <!-- Exact local return context is assembled by the discovery owner. -->
-    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+    <!-- eslint-disable svelte/no-navigation-without-resolve -->
     <a
       class="hv-control"
       data-intent="secondary"
@@ -104,6 +104,7 @@
       <span aria-hidden="true">♡</span>
       <span>{copy['favourite.signIn']}</span>
     </a>
+    <!-- eslint-enable svelte/no-navigation-without-resolve -->
   {/if}
   {#if failed}
     <span class="error hv-status" data-status="error" role="alert">
