@@ -400,6 +400,42 @@ describe('MapListShell synchronization', () => {
     expect(within(selectedPlace).queryByText('9. júlí 2026')).toBeNull();
   });
 
+  it('withdraws the verified welcome signal when loaded access evidence is stale', async () => {
+    history.replaceState(null, '', `/en?place=${places[0].placeId}`);
+    const profileRequest = deferred<typeof complexProfile>();
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(() => profileRequest.promise)
+    });
+
+    const selectedPlace = screen.getByLabelText('Selected place');
+    const welcome = selectedPlace.querySelector<HTMLElement>('.welcome-answer');
+    expect(welcome?.getAttribute('data-tone')).toBe('verified');
+    expect(welcome?.getAttribute('data-access-state')).toBe('verified');
+
+    profileRequest.resolve({
+      ...complexProfile,
+      accessConditions: [
+        {
+          ...complexProfile.accessConditions[0],
+          freshnessUntil: '2000-01-01T00:00:00Z'
+        }
+      ]
+    });
+
+    await waitFor(() => expect(welcome?.getAttribute('data-tone')).toBe('attention'));
+    expect(welcome?.getAttribute('data-access-state')).toBe('attention');
+    expect(welcome?.getAttribute('data-tone')).not.toBe('verified');
+    expect(welcome?.getAttribute('data-access-state')).not.toBe('verified');
+    expect(within(selectedPlace).getAllByText('Reconfirmation due')).toHaveLength(2);
+  });
+
   it('reveals every restriction and provenance inside the floating card without navigating away', async () => {
     history.replaceState(null, '', `/en?place=${places[0].placeId}`);
     const multiConditionPlaces = [

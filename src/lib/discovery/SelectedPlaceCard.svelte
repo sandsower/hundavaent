@@ -84,6 +84,15 @@
     profile?.accessConditions.some((condition) => isReconfirmationDue(condition.freshnessUntil)) ??
       false
   );
+  const summaryVerified = $derived(
+    place.simpleAccessSummary && place.permissionRequirement === 'standing_permission'
+  );
+  const welcomeTone = $derived(
+    reconfirmationDue ? 'attention' : summaryVerified ? 'verified' : 'info'
+  );
+  const welcomeAccessState = $derived(
+    reconfirmationDue ? 'attention' : summaryVerified ? 'verified' : 'conditional'
+  );
 </script>
 
 <aside
@@ -110,13 +119,8 @@
   <div class="card-body" data-card-scroll-body>
     <section
       class="hv-notice welcome-answer"
-      data-tone={place.simpleAccessSummary && place.permissionRequirement === 'standing_permission'
-        ? 'verified'
-        : 'info'}
-      data-access-state={place.simpleAccessSummary &&
-      place.permissionRequirement === 'standing_permission'
-        ? 'verified'
-        : 'conditional'}
+      data-tone={welcomeTone}
+      data-access-state={welcomeAccessState}
       aria-labelledby={`welcome-${place.placeId}`}
     >
       <h3 id={`welcome-${place.placeId}`}>{copy['place.welcomeQuestion']}</h3>
