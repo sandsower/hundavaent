@@ -1,0 +1,359 @@
+name: Hundavaent production
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Exact verified commit SHA to deploy (full 40 characters)'
+        required: true
+        type: string
+      migrate:
+        description: 'Apply migrations after the tested recovery point'
+        required: false
+        type: boolean
+        default: true
+      deploy:
+        description: 'Deploy to Cloudflare Pages after migrating (requires HUNDAVAENT_CLOUDFLARE_API_TOKEN)'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: hundavaent-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  recovery-point:
+    name: Dump production and prove restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    services:
+      restore-db:
+        image: supabase/postgres:17.6.1.141
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      SUPABASE_DB_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_PROJECT_REF }}
+      # Session-mode pooler for the production project; GitHub runners have no IPv6
+      # route to the direct db.<ref>.supabase.co host.
+      SUPABASE_POOLER_HOST: aws-0-eu-west-1.pooler.supabase.com
+      RESTORE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54329/postgres
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+      - name: Require a full commit SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "${{ inputs.sha }}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Input sha must be a full 40-character commit SHA." >&2
+            exit 1
+          fi
+          if [[ "$(git rev-parse HEAD)" != "${{ inputs.sha }}" ]]; then
+            echo "Checked-out HEAD does not match the requested SHA." >&2
+            exit 1
+          fi
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Dump production roles, schema, and data
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p recovery
+          encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"], safe=""))')"
+          db_url="postgresql://postgres.${SUPABASE_PROJECT_REF}:${encoded_password}@${SUPABASE_POOLER_HOST}:5432/postgres"
+          pnpm exec supabase db dump --db-url "${db_url}" --role-only -f recovery/roles.sql
+          pnpm exec supabase db dump --db-url "${db_url}" -f recovery/schema.sql
+          pnpm exec supabase db dump --db-url "${db_url}" --data-only --use-copy \
+            --schema public,private,security -f recovery/data.sql
+          if ! pnpm exec supabase db dump --db-url "${db_url}" --data-only --use-copy \
+              --schema auth -f recovery/auth-data.sql; then
+            echo "::warning::Auth schema data dump unsupported; member accounts are not in this recovery point."
+          fi
+          # Exact per-table production counts for the dumped schemas; the
+          # verify step fails if the dump does not cover every one of them.
+          psql -At "${db_url}" -c "
+            select n.nspname || '.' || c.relname
+            from pg_class c
+            join pg_namespace n on n.oid = c.relnamespace
+            where c.relkind = 'r' and n.nspname in ('public', 'private', 'security')" |
+            while read -r table; do
+              echo "${table} $(psql -At "${db_url}" -c "select count(*) from ${table}")"
+            done | sort > recovery/production-counts.txt
+          cat recovery/production-counts.txt
+          ls -l recovery
+
+      - name: Restore the dump into a scratch database
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Role creation tolerates roles the supabase image already ships.
+          psql "${RESTORE_DB_URL}" -f recovery/roles.sql || true
+          psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/schema.sql
+          psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/data.sql
+          # Auth data restores into a live GoTrue-matched project during real
+          # recovery; the scratch image's auth schema can lag, so this check
+          # is best-effort while the dump itself stays in the artifact.
+          if [[ -s recovery/auth-data.sql ]]; then
+            if ! psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/auth-data.sql; then
+              echo "::warning::Auth data restore is not testable against the scratch image (GoTrue schema drift); the dump is still captured in the artifact."
+            fi
+          fi
+
+      - name: Verify restored row counts match the dump
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Every table in the data dump must hold exactly the rows the dump carries.
+          awk '/^COPY /{ table=$2; gsub(/"/, "", table); count=0; next } /^\\\.$/{ if (table != "") { print table, count; table="" } next } table != "" { count++ }' \
+            recovery/data.sql | sort > recovery/dump-counts.txt
+          # The dump must cover every production table in scope with the same
+          # row counts, or the recovery point is incomplete.
+          if ! diff -u recovery/production-counts.txt recovery/dump-counts.txt; then
+            echo "The data dump does not match production's own table counts." >&2
+            exit 1
+          fi
+          psql -At "${RESTORE_DB_URL}" -c "
+            select schemaname || '.' || relname || ' ' || n_live_tup
+            from pg_stat_user_tables" |
+            awk '{ print $1, $2 }' | sort > recovery/restored-counts-raw.txt
+          # pg_stat estimates lag; recount exactly for the tables the dump names.
+          : > recovery/restored-counts.txt
+          while read -r table _; do
+            actual="$(psql -At "${RESTORE_DB_URL}" -c "select count(*) from ${table}")"
+            echo "${table} ${actual}" >> recovery/restored-counts.txt
+          done < recovery/dump-counts.txt
+          if ! diff -u recovery/dump-counts.txt recovery/restored-counts.txt; then
+            echo "Restored table counts do not match the dump." >&2
+            exit 1
+          fi
+          tables="$(wc -l < recovery/dump-counts.txt)"
+          rows="$(awk '{ sum += $2 } END { print sum + 0 }' recovery/dump-counts.txt)"
+          echo "Restore verified: ${tables} tables, ${rows} rows."
+          if [[ "${rows}" == "0" ]]; then
+            echo "::warning::Production data dump contains zero rows."
+          fi
+          {
+            echo "### Recovery point"
+            echo
+            echo "- Commit: ${{ inputs.sha }}"
+            echo "- Tables: ${tables}"
+            echo "- Rows: ${rows}"
+            echo "- Restore test: passed against supabase/postgres:17.6.1.141"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Retain the tested recovery point
+        uses: actions/upload-artifact@v7
+        with:
+          name: recovery-point-${{ inputs.sha }}
+          path: recovery/
+          if-no-files-found: error
+          retention-days: 90
+
+  migrate:
+    name: Apply migrations to production
+    needs: recovery-point
+    if: ${{ inputs.migrate }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      SUPABASE_DB_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_PROJECT_REF }}
+      SUPABASE_POOLER_HOST: aws-0-eu-west-1.pooler.supabase.com
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Apply migrations to the production database
+        shell: bash
+        run: |
+          set -euo pipefail
+          encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"], safe=""))')"
+          db_url="postgresql://postgres.${SUPABASE_PROJECT_REF}:${encoded_password}@${SUPABASE_POOLER_HOST}:5432/postgres"
+          pnpm exec supabase db push --db-url "${db_url}" --dry-run --yes
+          pnpm exec supabase db push --db-url "${db_url}" --yes
+          {
+            echo "### Production migrations"
+            echo
+            echo "- Commit: ${{ inputs.sha }}"
+            echo "- Migrations applied after tested recovery point"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  deploy:
+    name: Deploy production
+    needs: migrate
+    if: ${{ inputs.deploy }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.HUNDAVAENT_CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.HUNDAVAENT_CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PAGES_PROJECT: ${{ vars.HUNDAVAENT_CLOUDFLARE_PAGES_PROJECT }}
+      PRODUCTION_URL: ${{ vars.HUNDAVAENT_PRODUCTION_APP_URL }}
+      PUBLIC_SUPABASE_URL: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_URL }}
+      PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.HUNDAVAENT_PRODUCTION_SUPABASE_PUBLISHABLE_KEY }}
+      PUBLIC_MAP_STYLE_URL: ${{ secrets.HUNDAVAENT_PRODUCTION_MAP_STYLE_URL }}
+      PUBLIC_APP_URL: ${{ vars.HUNDAVAENT_PRODUCTION_APP_URL }}
+      PUBLIC_POSTHOG_TOKEN: ${{ vars.HUNDAVAENT_PRODUCTION_POSTHOG_TOKEN }}
+      PUBLIC_POSTHOG_HOST: https://eu.i.posthog.com
+      POSTHOG_API_KEY: ${{ secrets.HUNDAVAENT_PRODUCTION_POSTHOG_API_KEY }}
+      POSTHOG_PROJECT_ID: ${{ vars.HUNDAVAENT_PRODUCTION_POSTHOG_PROJECT_ID }}
+      POSTHOG_HOST: https://eu.i.posthog.com
+      APP_ENVIRONMENT: production
+      APP_RELEASE: ${{ inputs.sha }}
+      SITE_GATE_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SITE_GATE_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_PROJECT_REF }}
+      EVALUATION_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Validate production inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            CLOUDFLARE_ACCOUNT_ID
+            CLOUDFLARE_API_TOKEN
+            CLOUDFLARE_PAGES_PROJECT
+            SUPABASE_PROJECT_REF
+            PUBLIC_SUPABASE_URL
+            PUBLIC_SUPABASE_PUBLISHABLE_KEY
+            PUBLIC_MAP_STYLE_URL
+            PUBLIC_APP_URL
+            APP_ENVIRONMENT
+            APP_RELEASE
+            SITE_GATE_PASSWORD
+          )
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required production input: ${name}" >&2
+              exit 1
+            fi
+          done
+          if [[ "${PUBLIC_SUPABASE_URL}" != "https://${SUPABASE_PROJECT_REF}.supabase.co" ]]; then
+            echo "The Supabase URL does not match the production project ref." >&2
+            exit 1
+          fi
+          if [[ "${PUBLIC_APP_URL}" != "https://hv.valenzuela.is" ]]; then
+            echo "The production application URL must be the provisional domain." >&2
+            exit 1
+          fi
+          if [[ "${PUBLIC_MAP_STYLE_URL}" != https://api.maptiler.com/* ]] || [[ "${PUBLIC_MAP_STYLE_URL}" != *"?key="* && "${PUBLIC_MAP_STYLE_URL}" != *"&key="* ]]; then
+            echo "The production map style must use an authenticated MapTiler URL." >&2
+            exit 1
+          fi
+          if [[ "${PUBLIC_SUPABASE_URL,,}" == *fundid* ]] || [[ "${PUBLIC_APP_URL,,}" == *fundid* ]]; then
+            echo "Fundid resources are not valid Hundavaent production inputs." >&2
+            exit 1
+          fi
+
+      - name: Check and build the Cloudflare artifact
+        run: pnpm check && pnpm build
+
+      - name: Configure encrypted production runtime bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          secrets_file="${RUNNER_TEMP}/hundavaent-pages-production-secrets.json"
+          trap 'rm -f "${secrets_file}"' EXIT
+          jq -n \
+            --arg supabase_url "${PUBLIC_SUPABASE_URL}" \
+            --arg supabase_key "${PUBLIC_SUPABASE_PUBLISHABLE_KEY}" \
+            --arg map_style_url "${PUBLIC_MAP_STYLE_URL}" \
+            --arg app_url "${PUBLIC_APP_URL}" \
+            --arg posthog_token "${PUBLIC_POSTHOG_TOKEN}" \
+            --arg posthog_host "${PUBLIC_POSTHOG_HOST}" \
+            --arg app_environment "${APP_ENVIRONMENT}" \
+            --arg app_release "${APP_RELEASE}" \
+            --arg gate_password "${SITE_GATE_PASSWORD}" \
+            '{
+              PUBLIC_SUPABASE_URL: $supabase_url,
+              PUBLIC_SUPABASE_PUBLISHABLE_KEY: $supabase_key,
+              PUBLIC_MAP_STYLE_URL: $map_style_url,
+              PUBLIC_APP_URL: $app_url,
+              PUBLIC_POSTHOG_TOKEN: $posthog_token,
+              PUBLIC_POSTHOG_HOST: $posthog_host,
+              APP_ENVIRONMENT: $app_environment,
+              APP_RELEASE: $app_release,
+              SITE_GATE_PASSWORD: $gate_password
+            }' > "${secrets_file}"
+          chmod 600 "${secrets_file}"
+          pnpm exec wrangler pages secret bulk "${secrets_file}" \
+            --project-name "${CLOUDFLARE_PAGES_PROJECT}"
+
+      - name: Deploy the exact SHA to production
+        run: |
+          pnpm exec wrangler pages deploy .svelte-kit/cloudflare \
+            --project-name "${CLOUDFLARE_PAGES_PROJECT}" \
+            --branch main \
+            --commit-hash "${{ inputs.sha }}" \
+            --commit-message "Deploy ${{ inputs.sha }}" \
+            --upload-source-maps
+
+      - name: Verify production health and password gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --experimental-strip-types scripts/wait-for-health.ts "${PRODUCTION_URL}/api/health"
+          health_json="$(curl --fail --silent --show-error "${PRODUCTION_URL}/api/health")"
+          jq -e '
+            .service == "hundavaent" and
+            .status == "ok" and
+            .checks.database == "ready" and
+            .checks.map == "configured"
+          ' <<< "${health_json}" > /dev/null
+          gate_headers="$(curl --silent --show-error --head "${PRODUCTION_URL}/is")"
+          grep -qiE '^location:.*/gate' <<< "${gate_headers}"
+          grep -qi '^x-robots-tag:.*noindex' <<< "${gate_headers}"
+          echo "Password gate verified: unauthenticated requests redirect to /gate with noindex."
+          {
+            echo "### Hundavaent production"
+            echo
+            echo "- URL: ${PRODUCTION_URL}"
+            echo "- Health: ready"
+            echo "- Gate: active"
+            echo "- Commit: ${{ inputs.sha }}"
+          } >> "${GITHUB_STEP_SUMMARY}"

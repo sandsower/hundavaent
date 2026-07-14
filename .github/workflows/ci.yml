@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    name: Types, unit, and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm test:unit
+      - run: pnpm build
+
+  database:
+    name: Database contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start Supabase (retry once on transient Docker failures)
+        run: |
+          pnpm exec supabase start || {
+            echo "First start failed; cleaning up and retrying once"
+            pnpm exec supabase stop --no-backup || true
+            sleep 10
+            pnpm exec supabase start
+          }
+      - run: pnpm test:database
+
+  component:
+    name: Component and map contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Ensure Chrome and ffmpeg for Playwright
+        run: |
+          if google-chrome --version; then
+            echo "Reusing the runner's preinstalled Chrome"
+            pnpm exec playwright install ffmpeg
+          else
+            pnpm exec playwright install --with-deps chrome ffmpeg
+          fi
+      - run: pnpm test:component
+      - run: pnpm test:map-smoke
+
+  e2e:
+    name: End-to-end journeys (shard ${{ matrix.shard }} of 3)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Ensure Chrome and ffmpeg for Playwright
+        run: |
+          if google-chrome --version; then
+            echo "Reusing the runner's preinstalled Chrome"
+            pnpm exec playwright install ffmpeg
+          else
+            pnpm exec playwright install --with-deps chrome ffmpeg
+          fi
+      - name: Start Supabase (retry once on transient Docker failures)
+        run: |
+          pnpm exec supabase start || {
+            echo "First start failed; cleaning up and retrying once"
+            pnpm exec supabase stop --no-backup || true
+            sleep 10
+            pnpm exec supabase start
+          }
+      - run: pnpm test:e2e --shard=${{ matrix.shard }}/3
+      - name: Retain browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-evidence-shard-${{ matrix.shard }}
+          path: test-results/e2e
+          if-no-files-found: error
+          retention-days: 14

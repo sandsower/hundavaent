@@ -1,0 +1,23 @@
+"$schema" = "./node_modules/wrangler/config-schema.json"
+name = "hundavaent"
+pages_build_output_dir = ".svelte-kit/cloudflare"
+compatibility_date = "2026-07-09"
+compatibility_flags = ["nodejs_compat"]
+send_metrics = false
+upload_source_maps = true
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[env.preview]
+
+[env.preview.secrets]
+required = [
+  "PUBLIC_SUPABASE_URL",
+  "PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+  "PUBLIC_MAP_STYLE_URL",
+  "PUBLIC_APP_URL",
+  "APP_ENVIRONMENT",
+  "APP_RELEASE",
+]

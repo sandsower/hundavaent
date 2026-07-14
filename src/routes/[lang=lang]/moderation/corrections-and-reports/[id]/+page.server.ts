@@ -1,0 +1,62 @@
+import { error, fail, redirect } from '@sveltejs/kit';
+
+import { catalogues, parseLocale } from '$i18n';
+import {
+  executeModerationCorrectionAction,
+  loadModerationCorrectionReview,
+  type ModerationCorrectionActionName
+} from '$server/moderation/correction-workspace';
+import type { PlaceFlagRpcClient } from '$server/place-flags/place-flags';
+
+import type { Actions, PageServerLoad } from './$types';
+
+// The Moderator guard for this load is enforced by the parent moderation +layout.server.ts.
+export const load: PageServerLoad = async ({ locals, params, url }) => {
+  const lang = parseLocale(params.lang);
+  if (!locals.supabase) {
+    error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+  }
+  const result = await loadModerationCorrectionReview(
+    locals.supabase as unknown as PlaceFlagRpcClient,
+    params.id,
+    url.searchParams
+  );
+  if (result.status === 'not_found') {
+    error(404, { message: catalogues[lang]['error.notFoundBody'], requestId: locals.requestId });
+  }
+  if (result.status !== 'success') {
+    error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+  }
+  return result.value;
+};
+
+async function runAction(
+  action: ModerationCorrectionActionName,
+  event: Parameters<NonNullable<Actions[ModerationCorrectionActionName]>>[0]
+) {
+  const { locals, params, request } = event;
+  if (!locals.supabase) return fail(503, { error: 'unavailable' as const });
+
+  const result = await executeModerationCorrectionAction(action, {
+    flagClient: locals.supabase as unknown as PlaceFlagRpcClient,
+    flagId: params.id,
+    requestId: locals.requestId,
+    formData: action === 'resolve' ? await request.formData() : null
+  });
+  if (result.status === 'failure') return fail(result.httpStatus, { error: result.error });
+
+  const lang = parseLocale(params.lang);
+  if (result.effect.kind === 'resolved') {
+    redirect(
+      303,
+      `/${lang}/moderation/corrections-and-reports/${params.id}?resolved=${result.effect.value}`
+    );
+  }
+  redirect(303, `/${lang}/moderation/corrections-and-reports/${params.id}?contribution=confirmed`);
+}
+
+// Each action below is itself enforced by security.require_moderator() inside the RPC.
+export const actions: Actions = {
+  resolve: (event) => runAction('resolve', event),
+  confirmUseful: (event) => runAction('confirmUseful', event)
+};

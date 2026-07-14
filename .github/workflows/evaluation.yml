@@ -1,0 +1,51 @@
+name: Clean evaluation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: evaluation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: Canonical release proof
+    runs-on: ubuntu-latest
+    # The full clean proof now includes the expanded moderation, media, accessibility, and visual
+    # suites. Keep a bounded ceiling while allowing a healthy run to finish on slower hosted VMs.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chrome
+      - name: Start Supabase (retry once on transient Docker failures)
+        run: |
+          pnpm exec supabase start || {
+            echo "First start failed; cleaning up and retrying once"
+            pnpm exec supabase stop --no-backup || true
+            sleep 10
+            pnpm exec supabase start
+          }
+      - name: Run canonical clean evaluation
+        run: pnpm eval:release
+      - name: Retain complete evaluation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: evaluation-evidence-${{ github.run_id }}
+          path: test-results
+          if-no-files-found: error
+          retention-days: 14

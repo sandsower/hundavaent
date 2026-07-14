@@ -1,0 +1,18 @@
+packages:
+  - '.'
+
+storeDir: .pnpm-store
+savePrefix: ''
+engineStrict: true
+strictPeerDependencies: true
+
+overrides:
+  cookie@0.6.0: 0.7.2
+
+allowBuilds:
+  '@posthog/cli': true
+  core-js: false
+  esbuild: true
+  sharp: true
+  supabase: true
+  workerd: true

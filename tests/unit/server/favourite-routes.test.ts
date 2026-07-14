@@ -1,0 +1,143 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import { GET } from '../../../src/routes/api/favourites/+server';
+import { PUT } from '../../../src/routes/api/favourites/[placeId]/+server';
+
+const placeId = '30000000-0000-4000-8000-000000000003';
+
+function expectPrivate(response: Response, status: number): void {
+  expect(response.status).toBe(status);
+  expect(response.headers.get('cache-control')).toBe('private, no-store');
+  expect(response.headers.get('vary')).toContain('cookie');
+}
+
+describe('Favourite API privacy headers', () => {
+  it('applies private cache headers to every list success and error path', async () => {
+    expectPrivate(await GET({ locals: { supabase: null } } as never), 503);
+
+    const signedOut = {
+      auth: { getUser: vi.fn(async () => ({ data: { user: null }, error: null })) },
+      rpc: vi.fn()
+    };
+    expectPrivate(await GET({ locals: { supabase: signedOut } } as never), 401);
+
+    const authUnavailable = {
+      auth: { getUser: vi.fn(async () => Promise.reject(new Error('provider unavailable'))) },
+      rpc: vi.fn()
+    };
+    expectPrivate(await GET({ locals: { supabase: authUnavailable } } as never), 503);
+
+    const failed = {
+      auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'member' } }, error: null })) },
+      rpc: vi.fn(async () => ({ data: null, error: { code: 'network' } }))
+    };
+    expectPrivate(await GET({ locals: { supabase: failed } } as never), 503);
+
+    const success = {
+      auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'member' } }, error: null })) },
+      rpc: vi.fn(async () => ({ data: [{ place_id: placeId }], error: null }))
+    };
+    expectPrivate(await GET({ locals: { supabase: success } } as never), 200);
+  });
+
+  it('applies private cache headers to every mutation success and error path', async () => {
+    expectPrivate(
+      await PUT({
+        locals: { supabase: null },
+        params: { placeId: 'not-a-place' },
+        request: new Request('http://localhost', { method: 'PUT' })
+      } as never),
+      400
+    );
+
+    expectPrivate(
+      await PUT({
+        locals: { supabase: null },
+        params: { placeId },
+        request: jsonRequest({ desiredState: true })
+      } as never),
+      503
+    );
+
+    expectPrivate(
+      await PUT({
+        locals: { supabase: { auth: { getUser: vi.fn() }, rpc: vi.fn() } },
+        params: { placeId },
+        request: new Request('http://localhost', { method: 'PUT', body: '{' })
+      } as never),
+      400
+    );
+
+    expectPrivate(
+      await PUT({
+        locals: { supabase: { auth: { getUser: vi.fn() }, rpc: vi.fn() } },
+        params: { placeId },
+        request: jsonRequest({ desiredState: 'yes' })
+      } as never),
+      400
+    );
+
+    const signedOut = {
+      auth: { getUser: vi.fn(async () => ({ data: { user: null }, error: null })) },
+      rpc: vi.fn()
+    };
+    expectPrivate(
+      await PUT({
+        locals: { supabase: signedOut },
+        params: { placeId },
+        request: jsonRequest({ desiredState: true })
+      } as never),
+      401
+    );
+
+    const authUnavailable = {
+      auth: { getUser: vi.fn(async () => Promise.reject(new Error('provider unavailable'))) },
+      rpc: vi.fn()
+    };
+    expectPrivate(
+      await PUT({
+        locals: { supabase: authUnavailable },
+        params: { placeId },
+        request: jsonRequest({ desiredState: true })
+      } as never),
+      503
+    );
+
+    const failed = {
+      auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'member' } }, error: null })) },
+      rpc: vi.fn(async () => ({ data: null, error: { code: 'conflict' } }))
+    };
+    expectPrivate(
+      await PUT({
+        locals: { supabase: failed },
+        params: { placeId },
+        request: jsonRequest({ desiredState: true })
+      } as never),
+      409
+    );
+
+    const success = {
+      auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'member' } }, error: null })) },
+      rpc: vi.fn(async () => ({
+        data: [{ place_id: placeId, is_favourite: true, changed_at: '2026-07-11T10:00:00Z' }],
+        error: null
+      }))
+    };
+    expectPrivate(
+      await PUT({
+        locals: { supabase: success },
+        params: { placeId },
+        request: jsonRequest({ desiredState: true })
+      } as never),
+      200
+    );
+  });
+});
+
+function jsonRequest(body: unknown): Request {
+  return new Request('http://localhost/api/favourites', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+}

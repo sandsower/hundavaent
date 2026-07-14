@@ -1,0 +1,574 @@
+import type {
+  AccessArea,
+  AvailabilityWindow,
+  DogEligibility,
+  PermissionRequirement,
+  RestraintCondition
+} from '$domain/access';
+import type { EvidenceKind } from '$domain/evidence';
+import { parseAvailabilityWindow, parseDogEligibility } from '$domain/access-schema';
+import type { PlaceCategory } from '$domain/place';
+import type { Locale } from '$i18n';
+import type { Database, Json } from '$server/db/generated.types';
+import type { RequestSupabaseClient } from '$server/db/clients';
+import {
+  getSummary,
+  type DogFriendlinessRpcClient,
+  type DogFriendlinessSummary
+} from '$server/dog-friendliness/dog-friendliness';
+import { listPublishedPlacePhotos, signPlaceMediaUrl } from '$server/place-media/place-media';
+import type { PlacePhotoRightsBasis } from '$server/place-media/place-media-input';
+
+type ListRow = Database['public']['Functions']['list_published_places']['Returns'][number];
+type ProfileRow = Database['public']['Functions']['get_published_place_profile']['Returns'][number];
+type StatusRow = Database['public']['Functions']['get_public_place_status']['Returns'][number];
+
+export interface PublishedPlaceSummary {
+  placeId: string;
+  name: string;
+  category: PlaceCategory;
+  locality: string;
+  latitude: number;
+  longitude: number;
+  accessConditionCount: number;
+  simpleAccessSummary: boolean;
+  accessArea: AccessArea | null;
+  restraintCondition: RestraintCondition | null;
+  permissionRequirement: PermissionRequirement | null;
+  accessConditions: PublishedAccessConditionSummary[];
+  verifiedAt: string;
+}
+
+export interface PublishedAccessConditionSummary {
+  accessArea: AccessArea;
+  restraintCondition: RestraintCondition;
+  permissionRequirement: PermissionRequirement;
+}
+
+export interface PublishedAccessFacts {
+  id: string;
+  accessArea: AccessArea;
+  accessAreaNote: string | null;
+  restraintCondition: RestraintCondition;
+  restraintNote: string | null;
+  dogEligibility: DogEligibility;
+  availabilityWindow: AvailabilityWindow;
+  permissionRequirement: PermissionRequirement;
+  evidenceSources: PublishedEvidenceSource[];
+  verifiedAt: string;
+  freshnessUntil: string;
+}
+
+export interface PublishedEvidenceSource {
+  kind: EvidenceKind;
+  sourceUrl: string | null;
+  sourceCitation: string | null;
+  sourceLabel: string;
+  observedAt: string;
+}
+
+export interface PublishedPlacePhoto {
+  mediaId: string;
+  url: string;
+  widthPx: number;
+  heightPx: number;
+  altTextIs: string;
+  altTextEn: string;
+  rightsBasis: PlacePhotoRightsBasis | null;
+  sourceUrl: string | null;
+  licenseReference: string;
+  licenseUrl: string | null;
+  attributionText: string;
+  attributionUrl: string | null;
+  isPrimary: boolean;
+}
+
+export interface PublishedPlaceProfile {
+  placeId: string;
+  name: string;
+  description: string;
+  category: PlaceCategory;
+  location: {
+    addressLine: string;
+    locality: string;
+    postalCode: string;
+    latitude: number;
+    longitude: number;
+  };
+  websiteUrl: string | null;
+  phone: string | null;
+  openingHours: Readonly<Record<string, Json>>;
+  dogAmenities: string[];
+  accessConditions: PublishedAccessFacts[];
+  dogFriendlinessSummary: DogFriendlinessSummary;
+  photos: PublishedPlacePhoto[];
+}
+
+export type PublicListResult =
+  | { status: 'success'; value: PublishedPlaceSummary[] }
+  | { status: 'invalid_response' }
+  | { status: 'infrastructure_error' };
+
+export type PublicProfileResult =
+  | { status: 'success'; value: PublishedPlaceProfile }
+  | { status: 'not_found' }
+  | { status: 'invalid_response' }
+  | { status: 'infrastructure_error' };
+
+export interface PublicPlaceStatus {
+  placeId: string;
+  name: string;
+  publicStatus: 'access_under_review' | 'inactive';
+}
+
+export type PublicPlaceStatusResult =
+  | { status: 'success'; value: PublicPlaceStatus }
+  | { status: 'not_found' }
+  | { status: 'invalid_response' }
+  | { status: 'infrastructure_error' };
+
+export async function listPublished(
+  client: RequestSupabaseClient,
+  locale: Locale
+): Promise<PublicListResult> {
+  try {
+    const { data, error } = await client.rpc('list_published_places', {
+      requested_locale: locale
+    });
+
+    if (error) {
+      return { status: 'infrastructure_error' };
+    }
+
+    if (!Array.isArray(data) || !data.every(isListRowWithoutCoordinates)) {
+      return { status: 'invalid_response' };
+    }
+
+    return {
+      status: 'success',
+      value: data.filter(hasValidCoordinates).map(mapListRow)
+    };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+export async function getPublishedProfile(
+  client: RequestSupabaseClient,
+  placeId: string,
+  locale: Locale
+): Promise<PublicProfileResult> {
+  try {
+    const { data, error } = await client.rpc('get_published_place_profile', {
+      requested_place_id: placeId,
+      requested_locale: locale
+    });
+
+    if (error) {
+      return { status: 'infrastructure_error' };
+    }
+
+    if (!Array.isArray(data)) {
+      return { status: 'invalid_response' };
+    }
+
+    if (data.length === 0) {
+      return { status: 'not_found' };
+    }
+
+    if (!data.every(isProfileRow) || data.some((row) => row.place_id !== placeId)) {
+      return { status: 'invalid_response' };
+    }
+
+    const first = data[0];
+
+    if (!first || data.some((row) => !hasSameProfileIdentity(first, row))) {
+      return { status: 'invalid_response' };
+    }
+
+    const summaryResult = await getSummary(client as unknown as DogFriendlinessRpcClient, placeId);
+    const dogFriendlinessSummary: DogFriendlinessSummary =
+      summaryResult.status === 'success'
+        ? summaryResult.value
+        : hiddenDogFriendlinessSummary(placeId);
+
+    const photos = await resolvePublishedPlacePhotos(client, placeId);
+
+    return {
+      status: 'success',
+      value: {
+        placeId: first.place_id,
+        name: first.name,
+        description: first.description,
+        category: first.category as PlaceCategory,
+        location: {
+          addressLine: first.address_line,
+          locality: first.locality,
+          postalCode: first.postal_code,
+          latitude: first.latitude,
+          longitude: first.longitude
+        },
+        websiteUrl: first.website_url,
+        phone: first.phone,
+        openingHours: first.opening_hours as Readonly<Record<string, Json>>,
+        dogAmenities: first.dog_amenities as string[],
+        accessConditions: data.map(mapAccessFacts),
+        dogFriendlinessSummary,
+        photos
+      }
+    };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+// A signing failure or infrastructure hiccup degrades to an empty gallery rather than failing the
+// whole profile - Photos are supplementary to the Access Conditions a Visitor actually needs.
+async function resolvePublishedPlacePhotos(
+  client: RequestSupabaseClient,
+  placeId: string
+): Promise<PublishedPlacePhoto[]> {
+  const photosResult = await listPublishedPlacePhotos(client, placeId);
+  if (photosResult.status !== 'success') {
+    return [];
+  }
+
+  const resolved = await Promise.all(
+    photosResult.value.map(async (photo) => {
+      const url = await signPlaceMediaUrl(
+        client,
+        photo.storageBucket as 'place-evidence' | 'place-photos',
+        photo.storageObjectPath
+      );
+      if (!url) return null;
+      return {
+        mediaId: photo.mediaId,
+        url,
+        widthPx: photo.widthPx,
+        heightPx: photo.heightPx,
+        altTextIs: photo.altTextIs,
+        altTextEn: photo.altTextEn,
+        rightsBasis: photo.rightsBasis,
+        sourceUrl: photo.sourceUrl,
+        licenseReference: photo.licenseReference,
+        licenseUrl: photo.licenseUrl,
+        attributionText: photo.attributionText,
+        attributionUrl: photo.attributionUrl,
+        isPrimary: photo.isPrimary
+      };
+    })
+  );
+
+  return resolved.filter((photo): photo is PublishedPlacePhoto => photo !== null);
+}
+
+function hiddenDogFriendlinessSummary(placeId: string): DogFriendlinessSummary {
+  return {
+    placeId,
+    visible: false,
+    eligibleCount: null,
+    trailingTwelveMonthCount: null,
+    dimensions: [],
+    overallMean: null,
+    overallVisible: false
+  };
+}
+
+export async function getPublicPlaceStatus(
+  client: RequestSupabaseClient,
+  placeId: string,
+  locale: Locale
+): Promise<PublicPlaceStatusResult> {
+  try {
+    const { data, error } = await client.rpc('get_public_place_status', {
+      requested_place_id: placeId,
+      requested_locale: locale
+    });
+    if (error) return { status: 'infrastructure_error' };
+    if (!Array.isArray(data)) return { status: 'invalid_response' };
+    if (data.length === 0) return { status: 'not_found' };
+    if (data.length !== 1 || !isStatusRow(data[0], placeId)) {
+      return { status: 'invalid_response' };
+    }
+    return {
+      status: 'success',
+      value: {
+        placeId: data[0].place_id,
+        name: data[0].name,
+        publicStatus: data[0].public_status
+      }
+    };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+function mapListRow(row: ListRow): PublishedPlaceSummary {
+  const accessConditions = parsePublishedAccessConditionSummaries(row.access_conditions);
+  if (!accessConditions) throw new Error('Invalid access condition summaries reached mapper');
+  return {
+    placeId: row.place_id,
+    name: row.name,
+    category: row.category as PlaceCategory,
+    locality: row.locality,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    accessConditionCount: row.access_condition_count,
+    simpleAccessSummary: row.simple_access_summary,
+    accessArea: row.access_area as AccessArea | null,
+    restraintCondition: row.restraint_condition as RestraintCondition | null,
+    permissionRequirement: row.permission_requirement as PermissionRequirement | null,
+    accessConditions,
+    verifiedAt: row.verified_at
+  };
+}
+
+function mapAccessFacts(row: ProfileRow): PublishedAccessFacts {
+  const dogEligibility = parseDogEligibility(row.dog_eligibility);
+  const availabilityWindow = parseAvailabilityWindow(row.availability_window);
+  const evidenceSources = parseEvidenceSources(row.evidence_sources);
+  if (!dogEligibility || !availabilityWindow || !evidenceSources) {
+    throw new Error('Invalid access facts reached mapper');
+  }
+  return {
+    id: row.access_condition_id,
+    accessArea: row.access_area as AccessArea,
+    accessAreaNote: row.access_area_note,
+    restraintCondition: row.restraint_condition as RestraintCondition,
+    restraintNote: row.restraint_note,
+    dogEligibility,
+    availabilityWindow,
+    permissionRequirement: row.permission_requirement as PermissionRequirement,
+    evidenceSources,
+    verifiedAt: row.verified_at,
+    freshnessUntil: row.freshness_until
+  };
+}
+
+function isListRowWithoutCoordinates(row: ListRow): boolean {
+  const publicAccessConditions = parsePublishedAccessConditionSummaries(row.access_conditions);
+  return (
+    hasText(row.place_id) &&
+    hasText(row.name) &&
+    placeCategories.has(row.category) &&
+    hasText(row.locality) &&
+    Number.isInteger(row.access_condition_count) &&
+    row.access_condition_count > 0 &&
+    publicAccessConditions !== null &&
+    publicAccessConditions.length === row.access_condition_count &&
+    typeof row.simple_access_summary === 'boolean' &&
+    (row.access_condition_count === 1
+      ? accessAreas.has(row.access_area ?? '') &&
+        restraintConditions.has(row.restraint_condition ?? '') &&
+        permissionRequirements.has(row.permission_requirement ?? '') &&
+        publicAccessConditions[0]?.accessArea === row.access_area &&
+        publicAccessConditions[0]?.restraintCondition === row.restraint_condition &&
+        publicAccessConditions[0]?.permissionRequirement === row.permission_requirement
+      : row.access_area === null &&
+        row.restraint_condition === null &&
+        row.permission_requirement === null) &&
+    isDate(row.verified_at)
+  );
+}
+
+function parsePublishedAccessConditionSummaries(
+  value: Json
+): PublishedAccessConditionSummary[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+
+  const parsed: PublishedAccessConditionSummary[] = [];
+  for (const condition of value) {
+    if (
+      !isJsonObject(condition) ||
+      !hasOnlyKeys(condition, publishedAccessConditionSummaryKeys) ||
+      typeof condition.accessArea !== 'string' ||
+      !accessAreas.has(condition.accessArea) ||
+      typeof condition.restraintCondition !== 'string' ||
+      !restraintConditions.has(condition.restraintCondition) ||
+      typeof condition.permissionRequirement !== 'string' ||
+      !permissionRequirements.has(condition.permissionRequirement)
+    ) {
+      return null;
+    }
+
+    parsed.push({
+      accessArea: condition.accessArea as AccessArea,
+      restraintCondition: condition.restraintCondition as RestraintCondition,
+      permissionRequirement: condition.permissionRequirement as PermissionRequirement
+    });
+  }
+  return parsed;
+}
+
+function hasValidCoordinates(row: ListRow): boolean {
+  return isLatitude(row.latitude) && isLongitude(row.longitude);
+}
+
+function isStatusRow(
+  row: StatusRow,
+  placeId: string
+): row is StatusRow & { public_status: PublicPlaceStatus['publicStatus'] } {
+  return (
+    row.place_id === placeId &&
+    hasText(row.name) &&
+    (row.public_status === 'access_under_review' || row.public_status === 'inactive')
+  );
+}
+
+function isProfileRow(row: ProfileRow): boolean {
+  return (
+    hasText(row.place_id) &&
+    hasText(row.name) &&
+    hasText(row.description) &&
+    placeCategories.has(row.category) &&
+    hasText(row.address_line) &&
+    hasText(row.locality) &&
+    /^\d{3}$/.test(row.postal_code) &&
+    isLatitude(row.latitude) &&
+    isLongitude(row.longitude) &&
+    isOptionalText(row.website_url) &&
+    isOptionalText(row.phone) &&
+    isJsonObject(row.opening_hours) &&
+    isStringArray(row.dog_amenities) &&
+    hasText(row.access_condition_id) &&
+    accessAreas.has(row.access_area) &&
+    isOptionalText(row.access_area_note) &&
+    restraintConditions.has(row.restraint_condition) &&
+    isOptionalText(row.restraint_note) &&
+    parseDogEligibility(row.dog_eligibility) !== null &&
+    parseAvailabilityWindow(row.availability_window) !== null &&
+    permissionRequirements.has(row.permission_requirement) &&
+    parseEvidenceSources(row.evidence_sources) !== null &&
+    isDate(row.verified_at) &&
+    isDate(row.freshness_until)
+  );
+}
+
+function hasSameProfileIdentity(first: ProfileRow, row: ProfileRow): boolean {
+  return (
+    row.place_id === first.place_id &&
+    row.name === first.name &&
+    row.description === first.description &&
+    row.category === first.category &&
+    row.address_line === first.address_line &&
+    row.locality === first.locality &&
+    row.postal_code === first.postal_code &&
+    row.latitude === first.latitude &&
+    row.longitude === first.longitude &&
+    row.website_url === first.website_url &&
+    row.phone === first.phone &&
+    JSON.stringify(row.opening_hours) === JSON.stringify(first.opening_hours) &&
+    JSON.stringify(row.dog_amenities) === JSON.stringify(first.dog_amenities)
+  );
+}
+
+function hasText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isOptionalText(value: unknown): value is string | null {
+  return value === null || hasText(value);
+}
+
+function isLatitude(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= -90 && value <= 90;
+}
+
+function isLongitude(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= -180 && value <= 180;
+}
+
+function isDate(value: unknown): value is string {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value));
+}
+
+function isJsonObject(value: Json): value is { [key: string]: Json | undefined } {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isStringArray(value: Json): value is string[] {
+  return Array.isArray(value) && value.every(hasText);
+}
+
+function parseEvidenceSources(value: Json): PublishedEvidenceSource[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+
+  const parsed: PublishedEvidenceSource[] = [];
+  for (const source of value) {
+    if (
+      !isJsonObject(source) ||
+      !hasOnlyKeys(source, evidenceSourceKeys) ||
+      typeof source.kind !== 'string' ||
+      !evidenceKinds.has(source.kind) ||
+      !hasText(source.sourceLabel) ||
+      !isOptionalText(source.sourceUrl) ||
+      !isOptionalText(source.sourceCitation) ||
+      !isDate(source.observedAt) ||
+      (!hasText(source.sourceUrl) && !hasText(source.sourceCitation))
+    ) {
+      return null;
+    }
+
+    parsed.push({
+      kind: source.kind as EvidenceKind,
+      sourceUrl: source.sourceUrl,
+      sourceCitation: source.sourceCitation,
+      sourceLabel: source.sourceLabel,
+      observedAt: source.observedAt
+    });
+  }
+  return parsed;
+}
+
+function hasOnlyKeys(
+  value: { [key: string]: Json | undefined },
+  allowed: ReadonlySet<string>
+): boolean {
+  return Object.keys(value).every((key) => allowed.has(key));
+}
+
+const placeCategories = new Set<string>([
+  'restaurant',
+  'cafe',
+  'bar',
+  'shop',
+  'shopping_centre',
+  'accommodation',
+  'park',
+  'recreation',
+  'culture',
+  'service',
+  'other'
+]);
+const accessAreas = new Set<string>(['indoors', 'outdoors', 'designated_area', 'other_bounded']);
+const restraintConditions = new Set<string>([
+  'leash_required',
+  'off_leash_permitted',
+  'carrier_required',
+  'other_sourced'
+]);
+const permissionRequirements = new Set<string>([
+  'standing_permission',
+  'ask_on_arrival',
+  'advance_approval'
+]);
+const evidenceKinds = new Set<string>([
+  'official_website',
+  'venue_representative',
+  'member_report',
+  'direct_observation',
+  'public_record',
+  'other'
+]);
+const evidenceSourceKeys = new Set([
+  'kind',
+  'sourceUrl',
+  'sourceCitation',
+  'sourceLabel',
+  'observedAt'
+]);
+const publishedAccessConditionSummaryKeys = new Set([
+  'accessArea',
+  'restraintCondition',
+  'permissionRequirement'
+]);

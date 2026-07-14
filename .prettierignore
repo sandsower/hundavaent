@@ -1,0 +1,17 @@
+node_modules/
+.svelte-kit/
+build/
+test-results/
+playwright-report/
+.vitest-attachments/
+.beislid/
+.crust/
+WORKFLOW.md
+AGENTS.md
+checkpoints/
+plans/
+tests/evaluation/screenshots/
+src/lib/server/db/generated.types.ts
+pnpm-lock.yaml
+supabase/.branches/
+supabase/.temp/

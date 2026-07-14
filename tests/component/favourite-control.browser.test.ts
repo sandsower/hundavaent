@@ -1,0 +1,143 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { catalogues } from '$i18n';
+import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
+
+const { captureAnalytics } = vi.hoisted(() => ({ captureAnalytics: vi.fn() }));
+
+vi.mock('$lib/analytics/posthog', () => ({
+  postHogAnalytics: { capture: captureAnalytics }
+}));
+
+const placeId = '30000000-0000-4000-8000-000000000003';
+const placeName = 'Published Place';
+
+afterEach(() => {
+  captureAnalytics.mockClear();
+  vi.unstubAllGlobals();
+});
+
+describe('FavouriteControl', () => {
+  it.each([
+    ['en', catalogues.en, 'Sign in to save Published Place'],
+    ['is', catalogues.is, 'Skrá inn til að vista Published Place']
+  ] as const)('offers a private signed-out invitation in %s', (_, copy, label) => {
+    render(FavouriteControl, {
+      placeId,
+      placeName,
+      signedIn: false,
+      favourite: false,
+      copy,
+      signInHref: `/en/account?returnTo=${encodeURIComponent(`/en?place=${placeId}&favourite=${placeId}`)}`
+    });
+
+    expect(screen.getByRole('link', { name: label }).getAttribute('href')).toContain(
+      `favourite%3D${placeId}`
+    );
+  });
+
+  it('requires explicit confirmation after authentication before saving', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ placeId, isFavourite: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+    );
+    const onChange = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(FavouriteControl, {
+      placeId,
+      placeName,
+      signedIn: true,
+      favourite: false,
+      copy: catalogues.en,
+      signInHref: '',
+      pendingConfirmation: true,
+      onChange
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Confirm saving Published Place' }));
+
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith(placeId, true, expect.any(HTMLButtonElement))
+    );
+    expect(fetchMock).toHaveBeenCalledWith(`/api/favourites/${placeId}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ desiredState: true })
+    });
+    expect(captureAnalytics).toHaveBeenCalledWith('place saved', {
+      place_id: placeId,
+      saved: true
+    });
+  });
+
+  it('applies only the authoritative desired-state response', async () => {
+    const onChange = vi.fn();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ placeId, isFavourite: false }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          })
+      )
+    );
+
+    render(FavouriteControl, {
+      placeId,
+      placeName,
+      signedIn: true,
+      favourite: true,
+      copy: catalogues.en,
+      signInHref: '',
+      onChange
+    });
+
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Remove Published Place from saved places' })
+    );
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith(placeId, false, expect.any(HTMLButtonElement))
+    );
+    expect(captureAnalytics).toHaveBeenCalledWith('place saved', {
+      place_id: placeId,
+      saved: false
+    });
+  });
+
+  it('fails safely without changing state when the server response is unusable', async () => {
+    const onChange = vi.fn();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('unavailable', { status: 503 }))
+    );
+
+    render(FavouriteControl, {
+      placeId,
+      placeName,
+      signedIn: true,
+      favourite: false,
+      copy: catalogues.en,
+      signInHref: '',
+      onChange
+    });
+
+    const button = screen.getByRole('button', { name: 'Save Published Place' });
+    await fireEvent.click(button);
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain(
+        'We could not update this saved place. Please try again.'
+      )
+    );
+    expect(onChange).not.toHaveBeenCalled();
+    expect(captureAnalytics).not.toHaveBeenCalled();
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+  });
+});

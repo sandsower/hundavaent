@@ -1,0 +1,200 @@
+@import '@fontsource-variable/inter';
+
+:root {
+  color-scheme: light;
+  --ink: #193b45;
+  --ink-soft: #45616a;
+  --paper: #f7f0df;
+  --paper-light: #fffaf0;
+  --paper-deep: #ecdcbf;
+  --paper-raised: #fffaf0;
+  --coral: #c94b2b;
+  --coral-dark: #a83b27;
+  --coral-soft: #f6d9d0;
+  --sun: #f8cf58;
+  --amber: #f1a33b;
+  --teal: #2f818d;
+  --mint: #d9ece7;
+  --success: #28715e;
+  --danger: #9e3025;
+  --focus: #ffad25;
+  --shadow-offset: 0.32rem;
+  --radius-organic: 1.4rem 0.65rem 1.55rem 0.75rem;
+  --content-wide: 72rem;
+  --font-sans: 'Inter Variable', Inter, ui-rounded, 'Avenir Next Rounded', system-ui, sans-serif;
+  font-family: var(--font-sans);
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 20rem;
+  background: var(--paper);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 8% 8%, rgb(248 207 88 / 36%) 0 7rem, transparent 7.1rem),
+    radial-gradient(circle at 92% 24%, rgb(47 129 141 / 16%) 0 10rem, transparent 10.1rem),
+    linear-gradient(135deg, rgb(255 250 240 / 74%), transparent 38%), var(--paper);
+  color: var(--ink);
+}
+
+body::before {
+  position: fixed;
+  z-index: -1;
+  right: -4rem;
+  bottom: -5rem;
+  width: 16rem;
+  height: 16rem;
+  border: 2.5rem solid rgb(223 95 53 / 10%);
+  border-radius: 48% 52% 42% 58%;
+  content: '';
+  transform: rotate(-18deg);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  text-underline-offset: 0.18em;
+}
+
+::selection {
+  background: var(--sun);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 4px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* Place pin: an anchored teardrop whose tail sits on the coordinate. The name
+   lives in a chip that appears on hover/focus/selection, never permanently,
+   so long Icelandic names cannot occlude the map. */
+.hundavaent-marker {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.hundavaent-marker .pin {
+  display: block;
+  width: 2.6rem;
+  height: auto;
+  filter: drop-shadow(0.13rem 0.16rem 0 rgb(25 59 69 / 35%));
+}
+
+.hundavaent-marker .pin-body {
+  fill: var(--coral);
+  stroke: var(--ink);
+  stroke-width: 3;
+}
+
+.hundavaent-marker .pin-icon-stroke {
+  fill: none;
+  stroke: var(--paper-light);
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hundavaent-marker .pin-icon-fill {
+  fill: var(--paper-light);
+}
+
+.hundavaent-marker.selected .pin,
+.hundavaent-marker[aria-pressed='true'] .pin {
+  width: 3rem;
+}
+
+.hundavaent-marker.selected .pin-body,
+.hundavaent-marker[aria-pressed='true'] .pin-body {
+  fill: var(--sun);
+}
+
+.hundavaent-marker.selected .pin-icon-stroke,
+.hundavaent-marker[aria-pressed='true'] .pin-icon-stroke {
+  stroke: var(--ink);
+}
+
+.hundavaent-marker.selected .pin-icon-fill,
+.hundavaent-marker[aria-pressed='true'] .pin-icon-fill {
+  fill: var(--ink);
+}
+
+.hundavaent-marker .marker-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  display: none;
+  max-width: 14rem;
+  margin-top: 0.25rem;
+  padding: 0.1rem 0.55rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper-light);
+  box-shadow: 0.12rem 0.14rem 0 var(--ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.hundavaent-marker:hover,
+.hundavaent-marker:focus-visible,
+.hundavaent-marker.selected,
+.hundavaent-marker[aria-pressed='true'] {
+  z-index: 3;
+}
+
+.hundavaent-marker:hover .marker-label,
+.hundavaent-marker:focus-visible .marker-label,
+.hundavaent-marker.selected .marker-label,
+.hundavaent-marker[aria-pressed='true'] .marker-label {
+  display: block;
+}
+
+.hundavaent-marker.cluster {
+  min-width: 3rem;
+  min-height: 2.6rem;
+  padding: 0.35rem 0.65rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--teal);
+  color: white;
+  font-weight: 900;
+  box-shadow: 0.18rem 0.22rem 0 var(--ink);
+}
+
+.hundavaent-marker:focus-visible {
+  border-radius: 0.8rem;
+  outline: 4px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
