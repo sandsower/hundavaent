@@ -7,6 +7,8 @@ This repo uses [Beislið](https://github.com/sandsower/beislid) for orchestrator
 - Clear requirements, implementation still undecided → `blueprint`
 - Work is done but not yet proven → `verify`
 - Branch is ready for PR → `ready-for-review`
+- Enter `ready-for-review` before running verification for a PR handoff, and let it select verification gates from the change size and project policy.
+- Run `verify` separately only when explicitly requested or when the work is not yet entering review.
 - Use direct skill invocation when the right entry point is already obvious.
 - Run `/setup` when the repo workflow config is missing or needs updating.
 
