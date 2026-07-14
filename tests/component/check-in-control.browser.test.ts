@@ -47,7 +47,9 @@ describe('CheckInControl', () => {
       proximityAssistEnabled: false
     });
 
-    expect(screen.getByRole('link', { name: label })).toBeTruthy();
+    const link = screen.getByRole('link', { name: label });
+    expect(link.classList.contains('hv-control')).toBe(true);
+    expect(link.getAttribute('data-intent')).toBe('secondary');
   });
 
   it.each([
@@ -69,11 +71,11 @@ describe('CheckInControl', () => {
 
       expect(screen.getByText(new RegExp(time))).toBeTruthy();
       expect(screen.getByText(new RegExp(privacy))).toBeTruthy();
-      expect(
-        screen.getByRole('button', {
-          name: copy['checkIn.actionAccessible'].replace('{name}', placeName)
-        })
-      ).toBeTruthy();
+      const action = screen.getByRole('button', {
+        name: copy['checkIn.actionAccessible'].replace('{name}', placeName)
+      });
+      expect(action.classList.contains('hv-control')).toBe(true);
+      expect(action.getAttribute('data-intent')).toBe('primary');
     }
   );
 
@@ -104,7 +106,9 @@ describe('CheckInControl', () => {
       proximityAssistEnabled: true
     });
 
-    expect(screen.getByRole('button', { name: 'Use my location to confirm' })).toBeTruthy();
+    const assist = screen.getByRole('button', { name: 'Use my location to confirm' });
+    expect(assist.classList.contains('hv-control')).toBe(true);
+    expect(assist.getAttribute('data-intent')).toBe('secondary');
   });
 
   it('records a no-location Check-in and shows the server result', async () => {
@@ -135,6 +139,9 @@ describe('CheckInControl', () => {
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toContain("You're checked in")
     );
+    expect(screen.getByRole('status').classList.contains('hv-status')).toBe(true);
+    expect(screen.getByRole('status').getAttribute('data-status')).toBe('success');
+    expect(screen.getByRole('region').getAttribute('data-state')).toBe('committed');
     expect(fetchMock).toHaveBeenCalledWith(`/api/check-ins/${placeId}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -218,6 +225,8 @@ describe('CheckInControl', () => {
         'This place is no longer available, so the check-in could not be completed.'
       )
     );
+    expect(screen.getByRole('alert').classList.contains('hv-status')).toBe(true);
+    expect(screen.getByRole('alert').getAttribute('data-status')).toBe('error');
   });
 
   it('falls back to the no-location path on permission denial and remembers it for the session', async () => {
