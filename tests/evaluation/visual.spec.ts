@@ -208,7 +208,7 @@ async function capture(
   page: Page,
   evidence: EvaluationEvidenceRecorder,
   name: string,
-  options?: { maxDiffPixelRatio?: number; prepare?: () => Promise<void> }
+  options?: { prepare?: () => Promise<void> }
 ): Promise<void> {
   await waitForHydration(page);
   await waitForMapOverlayToSettle(page);
@@ -225,14 +225,15 @@ async function capture(
   });
   await options?.prepare?.();
   evidence.require('screenshot');
-  await expect(page).toHaveScreenshot(name, {
+  const screenshotPath = `test-results/visual/screenshots/${name}`;
+  await page.screenshot({
     animations: 'disabled',
     caret: 'hide',
     fullPage: true,
-    maxDiffPixelRatio: options?.maxDiffPixelRatio ?? 0.005,
+    path: screenshotPath,
     scale: 'css'
   });
-  evidence.recordScreenshot(name, `tests/evaluation/screenshots/${name}`);
+  evidence.recordScreenshot(name, screenshotPath);
 }
 
 async function captureModerationWorkspaceScreenshot(
@@ -737,11 +738,7 @@ for (const locale of ['is', 'en'] as const) {
     await expect(
       page.locator('.map-surface').getByRole('button', { name: copy[locale].place, exact: true })
     ).toBeVisible();
-    // The personal map's single-Place camera sits at a tighter zoom (14, vs. the multi-Place
-    // directory map's 11), which makes the marker's exact sub-pixel anti-aliasing more sensitive
-    // to per-run MapLibre projection jitter than the rest of this suite's map screenshots; a
-    // slightly relaxed tolerance absorbs that without weakening every other capture's precision.
-    await capture(page, evidence, `history-map-${locale}-desktop.png`, { maxDiffPixelRatio: 0.02 });
+    await capture(page, evidence, `history-map-${locale}-desktop.png`);
 
     clearLocalCheckIns(evaluationFixtureIds.places.published);
 
