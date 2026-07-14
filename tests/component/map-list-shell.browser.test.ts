@@ -416,8 +416,8 @@ describe('MapListShell synchronization', () => {
 
     const selectedPlace = screen.getByLabelText('Selected place');
     const welcome = selectedPlace.querySelector<HTMLElement>('.welcome-answer');
-    expect(welcome?.getAttribute('data-tone')).toBe('verified');
-    expect(welcome?.getAttribute('data-access-state')).toBe('verified');
+    expect(welcome?.getAttribute('data-tone')).toBe('info');
+    expect(welcome?.getAttribute('data-access-state')).toBe('conditional');
 
     profileRequest.resolve({
       ...complexProfile,
@@ -434,6 +434,33 @@ describe('MapListShell synchronization', () => {
     expect(welcome?.getAttribute('data-tone')).not.toBe('verified');
     expect(welcome?.getAttribute('data-access-state')).not.toBe('verified');
     expect(within(selectedPlace).getAllByText('Reconfirmation due')).toHaveLength(2);
+  });
+
+  it('never promotes summary access to verified when complete details fail to load', async () => {
+    history.replaceState(null, '', `/en?place=${places[0].placeId}`);
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => {
+        throw new Error('profile unavailable');
+      })
+    });
+
+    const selectedPlace = screen.getByLabelText('Selected place');
+    const welcome = selectedPlace.querySelector<HTMLElement>('.welcome-answer');
+    await waitFor(() =>
+      expect(
+        within(selectedPlace).getByText('The complete access information could not be loaded.')
+      ).toBeTruthy()
+    );
+    expect(welcome?.getAttribute('data-tone')).toBe('info');
+    expect(welcome?.getAttribute('data-access-state')).toBe('conditional');
+    expect(welcome?.getAttribute('data-tone')).not.toBe('verified');
   });
 
   it('reveals every restriction and provenance inside the floating card without navigating away', async () => {

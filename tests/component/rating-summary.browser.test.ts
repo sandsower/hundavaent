@@ -27,9 +27,9 @@ describe('RatingSummary presentation contract', () => {
     const panel = container.querySelector('[data-rating-summary]');
     expect(panel?.classList.contains('hv-panel')).toBe(true);
     expect(panel?.getAttribute('data-surface')).toBe('rating-evidence');
-    expect(panel?.getAttribute('data-tone')).toBe('informational');
+    expect(panel?.getAttribute('data-tone')).toBe('info');
 
-    const context = container.querySelectorAll('.hv-status[data-status="informational"]');
+    const context = container.querySelectorAll('.hv-status[data-status="info"]');
     expect(context).toHaveLength(2);
   });
 });

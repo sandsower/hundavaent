@@ -1039,8 +1039,8 @@ for (const locale of ['is', 'en'] as const) {
       const ratingEvidence = selectedRatingProfile.locator('[data-rating-summary]');
       await expect(ratingEvidence).toHaveAttribute('data-rating-visible', 'true');
       await expect(ratingEvidence).toHaveAttribute('data-surface', 'rating-evidence');
-      await expect(ratingEvidence).toHaveAttribute('data-tone', 'informational');
-      await expect(ratingEvidence.locator('[data-status="informational"]')).toHaveCount(2);
+      await expect(ratingEvidence).toHaveAttribute('data-tone', 'info');
+      await expect(ratingEvidence.locator('[data-status="info"]')).toHaveCount(2);
       await expect(ratingEvidence.locator('dl')).toBeVisible();
       await expect(ratingEvidence.locator('strong')).toBeVisible();
       await capture(page, evidence, `selected-rating-evidence-${locale}-desktop.png`);

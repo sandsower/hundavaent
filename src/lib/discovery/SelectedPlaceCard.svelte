@@ -85,7 +85,10 @@
       false
   );
   const summaryVerified = $derived(
-    place.simpleAccessSummary && place.permissionRequirement === 'standing_permission'
+    profile !== null &&
+      !reconfirmationDue &&
+      place.simpleAccessSummary &&
+      place.permissionRequirement === 'standing_permission'
   );
   const welcomeTone = $derived(
     reconfirmationDue ? 'attention' : summaryVerified ? 'verified' : 'info'
@@ -361,7 +364,7 @@
   }
 
   .welcome-answer h3 {
-    color: var(--hv-color-basalt-muted);
+    color: var(--hv-color-basalt);
     font-size: 0.78rem;
     font-weight: 850;
     letter-spacing: 0.06em;

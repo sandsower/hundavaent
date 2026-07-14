@@ -22,18 +22,18 @@
   data-rating-summary
   data-rating-visible={summary.visible}
   data-surface="rating-evidence"
-  data-tone="informational"
+  data-tone="info"
 >
   <h3 id="rating-summary-heading" class="hv-eyebrow">{copy['rating.summary.heading']}</h3>
 
   {#if summary.visible}
     {#if summary.eligibleCount !== null}
-      <p class="eligible-count hv-status" data-status="informational">
+      <p class="eligible-count hv-status" data-status="info">
         {copy['rating.summary.eligibleCount'].replace('{count}', String(summary.eligibleCount))}
       </p>
     {/if}
     {#if summary.trailingTwelveMonthCount !== null}
-      <p class="recency hv-status" data-status="informational">
+      <p class="recency hv-status" data-status="info">
         {copy['rating.summary.recencyContext'].replace(
           '{count}',
           String(summary.trailingTwelveMonthCount)
