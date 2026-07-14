@@ -674,10 +674,10 @@ for (const locale of ['is', 'en'] as const) {
     ).toBeVisible();
     await capture(page, evidence, `access-details-${locale}-desktop.png`);
 
-    const candidatePlaceId = evaluationFixtureIds.places.candidate;
-    setLocalPlaceLifecycle(candidatePlaceId, 'candidate');
+    const statusPlaceId = evaluationFixtureIds.places.candidate;
+    setLocalPlaceLifecycle(statusPlaceId, 'candidate');
     try {
-      await page.goto(`/${locale}/places/${candidatePlaceId}`);
+      await page.goto(`/${locale}/places/${statusPlaceId}`);
       await expect(page.locator('header[data-ui-mode="place"]')).toBeVisible();
       await expect(page.locator('main[data-ui-mode="place"]')).toBeVisible();
       const statusPanel = page.locator('article.hv-panel.status-panel');
@@ -693,8 +693,8 @@ for (const locale of ['is', 'en'] as const) {
       ).toBeVisible();
       await capture(page, evidence, `place-status-under-review-${locale}-desktop.png`);
 
-      setLocalPlaceLifecycle(candidatePlaceId, 'inactive');
-      await page.goto(`/${locale}/places/${candidatePlaceId}`);
+      setLocalPlaceLifecycle(statusPlaceId, 'inactive');
+      await page.goto(`/${locale}/places/${statusPlaceId}`);
       await expect(page.locator('header[data-ui-mode="place"]')).toBeVisible();
       await expect(page.locator('main[data-ui-mode="place"]')).toBeVisible();
       await expect(statusPanel).toBeVisible();
@@ -709,7 +709,7 @@ for (const locale of ['is', 'en'] as const) {
       ).toBeVisible();
       await capture(page, evidence, `place-status-inactive-${locale}-desktop.png`);
     } finally {
-      setLocalPlaceLifecycle(candidatePlaceId, 'candidate');
+      setLocalPlaceLifecycle(statusPlaceId, 'candidate');
     }
 
     await page.goto(`/${locale}?__mapFailure=1&view=map`);
