@@ -11,7 +11,7 @@ PostHog analytics and exception tracking are configured separately and are not d
 Do not remove the provisional production gate until all of these checks have evidence:
 
 - Cloudflare Workers Logs shows a production invocation carrying the expected `APP_RELEASE` commit.
-- `https://hv.valenzuela.is/api/health` returns HTTP 200 with `status: ok` and `checks.database: ready`.
+- `https://hundavaent.is/api/health` returns HTTP 200 with `status: ok` and `checks.database: ready`.
 - An external uptime monitor checks that health URL and has delivered a test notification to the service owner.
 - A controlled not-found response displays a request reference that matches its `x-request-id` response header.
 - The service owner can find a `request.failed` record by request ID and release in Cloudflare Workers Logs.
@@ -61,7 +61,7 @@ Do not sample away explicit error records without adding a separate guaranteed e
 Create one UptimeRobot HTTP monitor using the free plan:
 
 - Name: `Hundavænt production health`
-- URL: `https://hv.valenzuela.is/api/health`
+- URL: `https://hundavaent.is/api/health`
 - Method: `GET`
 - Interval: five minutes
 - Expected status: HTTP 200
