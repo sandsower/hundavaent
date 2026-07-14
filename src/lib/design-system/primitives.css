@@ -35,6 +35,11 @@
     color: var(--hv-color-basalt);
   }
 
+  :where([data-ui-mode]) .hv-control[data-intent='selected'] {
+    background: var(--hv-color-signal);
+    color: var(--hv-color-basalt);
+  }
+
   :where([data-ui-mode]) .hv-control:focus-visible,
   :where([data-ui-mode]) .hv-field:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
@@ -72,5 +77,52 @@
   :where([data-ui-mode]) .hv-status[data-status='error'] {
     background: var(--hv-color-danger-soft);
     color: var(--hv-color-danger);
+  }
+
+  :where([data-ui-mode]) .hv-status[data-status='attention'] {
+    background: var(--hv-color-danger-soft);
+    color: var(--hv-color-danger);
+  }
+
+  :where([data-ui-mode]) .hv-notice {
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-fjord-soft);
+    padding: var(--hv-space-panel);
+  }
+
+  :where([data-ui-mode]) .hv-notice[data-tone='verified'] {
+    border-color: var(--hv-color-basalt);
+    background: var(--hv-color-signal-soft);
+  }
+
+  :where([data-ui-mode]) .hv-notice[data-tone='attention'],
+  :where([data-ui-mode]) .hv-notice[data-tone='error'] {
+    border-color: var(--hv-color-danger);
+    background: var(--hv-color-danger-soft);
+    color: var(--hv-color-danger);
+  }
+
+  :where([data-ui-mode]) .hv-notice[data-tone='success'] {
+    border-color: var(--hv-color-success);
+    background: var(--hv-color-success-soft);
+    color: var(--hv-color-success);
+  }
+
+  :where([data-ui-mode]) .hv-disclosure {
+    border-block-start: 1px solid var(--hv-border-subtle);
+  }
+
+  :where([data-ui-mode]) .hv-disclosure > summary {
+    color: var(--hv-color-fjord);
+    font-weight: 850;
+    cursor: pointer;
+  }
+
+  :where([data-ui-mode]) .hv-disclosure > summary:focus-visible {
+    border-radius: var(--hv-radius-control);
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 }

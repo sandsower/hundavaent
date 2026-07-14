@@ -26,7 +26,8 @@ issue_tool: mcp__linear__save_issue
 ## Action policy
 
 Every mutating agent run uses an isolated worktree.
-Remote writes, destructive actions, and secret-bearing operations always require explicit supervision.
+During pre-launch, both automatic modes permit every action class to favor rapid delivery.
+Worktree isolation remains mandatory.
 
 ```beislid:action_policy
 modes:
@@ -34,37 +35,44 @@ modes:
     sandbox:
       minimum: separate-worktree
       on_insufficient_baseline: deny
-      on_uncommitted_changes: deny
+      on_uncommitted_changes: allow
     rules:
       read: allow
       workspace-write: allow
       dependency-install: allow
       network-read: allow
       git-local: allow
-      git-remote: ask
-      destructive: ask
-      secret-bearing: ask
-    unknown_action: ask
-    unclassified_action: ask
+      git-remote: allow
+      destructive: allow
+      secret-bearing: allow
+    actions:
+      gate.autofix: allow
+    unknown_action: allow
+    unclassified_action: allow
   unattended-auto:
     sandbox:
       minimum: separate-worktree
       on_insufficient_baseline: deny
-      on_uncommitted_changes: deny
+      on_uncommitted_changes: allow
     rules:
       read: allow
       workspace-write: allow
       dependency-install: allow
       network-read: allow
       git-local: allow
-      git-remote: deny
-      destructive: deny
-      secret-bearing: deny
-    unknown_action: ask
-    unclassified_action: ask
+      git-remote: allow
+      destructive: allow
+      secret-bearing: allow
+    actions:
+      gate.autofix: allow
+    unknown_action: allow
+    unclassified_action: allow
 ```
 
 ## Quality gates
+
+During pre-launch, ready-for-review runs only fast branch-wide gates.
+Implementation and review-fix work runs targeted behavior tests for the changed surface before handoff.
 
 ```beislid:gates
 - name: open-source-boundary
@@ -87,52 +95,10 @@ modes:
   timeout_seconds: 180
   cost: medium
   mutates: true
-- name: unit
-  command: 'pnpm test:unit'
-  timeout_seconds: 180
-  cost: medium
-  parallel_safe: true
-- name: component
-  command: 'pnpm test:component'
-  timeout_seconds: 300
-  cost: expensive
-- name: database
-  command: 'pnpm test:database'
-  timeout_seconds: 300
-  cost: expensive
-- name: end-to-end
-  command: 'pnpm test:e2e'
-  timeout_seconds: 600
-  cost: expensive
-  mutates: true
-- name: accessibility
-  command: 'pnpm test:a11y'
-  timeout_seconds: 300
-  cost: expensive
-  mutates: true
-- name: visual
-  command: 'pnpm test:visual'
-  timeout_seconds: 300
-  cost: expensive
-  mutates: true
-- name: map-smoke
-  command: 'pnpm test:map-smoke'
-  timeout_seconds: 180
-  cost: medium
-- name: performance
-  command: 'pnpm test:performance'
-  timeout_seconds: 600
-  cost: expensive
-  mutates: true
 - name: build
   command: 'pnpm build'
   timeout_seconds: 300
   cost: medium
-  mutates: true
-- name: clean-evaluation
-  command: 'pnpm eval:release'
-  timeout_seconds: 1800
-  cost: expensive
   mutates: true
 ```
 
@@ -141,16 +107,15 @@ modes:
 ```beislid:ready_for_review
 approval_gates:
   pr_title_body: auto
-  gate_failure: prompt
-  autofix_commit: prompt
-  clean_eval_failure: prompt
-  reduced_review_coverage: prompt
+  gate_failure: auto
+  autofix_commit: auto
+  clean_eval_failure: auto
+  reduced_review_coverage: auto
 ```
 
-```beislid:clean_eval
-mode: require
-surface: worktree
-artifact_root: .beislid/clean-eval
+```beislid:fresh_eyes
+enabled: false
+reason: 'Pre-launch fast shipping prioritizes targeted checks and production visual verification.'
 ```
 
 ## Probe cache

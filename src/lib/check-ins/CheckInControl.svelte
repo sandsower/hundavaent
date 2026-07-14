@@ -70,6 +70,15 @@
       effectivePhase !== 'duplicate' &&
       !locationDeniedThisSession
   );
+  const semanticState = $derived(
+    effectivePhase === 'success' || effectivePhase === 'duplicate'
+      ? 'committed'
+      : effectivePhase === 'locating' || effectivePhase === 'submitting'
+        ? 'busy'
+        : effectivePhase === 'failed' || effectivePhase === 'place_unavailable'
+          ? 'error'
+          : 'idle'
+  );
 
   async function checkInWithoutLocation(): Promise<void> {
     await submitCheckIn('unknown');
@@ -159,15 +168,27 @@
   }
 </script>
 
-<section class="check-in" aria-label={copy['checkIn.title'].replace('{name}', placeName)}>
+<section
+  class="check-in"
+  data-state={semanticState}
+  aria-busy={semanticState === 'busy'}
+  aria-label={copy['checkIn.title'].replace('{name}', placeName)}
+>
   {#if !signedIn}
     <!-- Exact local return context is assembled by the discovery owner. -->
-    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-    <a href={signInHref} aria-label={copy['checkIn.signInAccessible'].replace('{name}', placeName)}>
+    <!-- eslint-disable svelte/no-navigation-without-resolve -->
+    <a
+      class="hv-control"
+      data-intent="secondary"
+      data-state="signed-out"
+      href={signInHref}
+      aria-label={copy['checkIn.signInAccessible'].replace('{name}', placeName)}
+    >
       {copy['checkIn.signIn']}
     </a>
+    <!-- eslint-enable svelte/no-navigation-without-resolve -->
   {:else if effectivePhase === 'success' || effectivePhase === 'duplicate'}
-    <p role="status" class="result">
+    <p role="status" class="result hv-status" data-status="success">
       {effectivePhase === 'duplicate'
         ? copy['checkIn.duplicate']
         : copy['checkIn.success'].replace('{name}', placeName)}
@@ -178,22 +199,30 @@
       </p>
     {/if}
   {:else if effectivePhase === 'place_unavailable'}
-    <p role="alert">{copy['checkIn.placeUnavailable']}</p>
+    <p role="alert" class="hv-status" data-status="error">
+      {copy['checkIn.placeUnavailable']}
+    </p>
   {:else}
     <p class="explanation">{copy['checkIn.timeExplanation']}</p>
     <p class="explanation">{copy['checkIn.privacyExplanation']}</p>
 
     {#if locationOutcomeMessage}
-      <p role="status" class="location-outcome">{locationOutcomeMessage}</p>
+      <p role="status" class="location-outcome hv-status" data-status="info">
+        {locationOutcomeMessage}
+      </p>
     {/if}
 
     {#if effectivePhase === 'failed'}
-      <p role="alert">{copy['checkIn.failed']}</p>
+      <p role="alert" class="hv-status" data-status="error">{copy['checkIn.failed']}</p>
     {/if}
 
     <div class="actions">
       <button
         type="button"
+        class="hv-control"
+        data-intent="primary"
+        data-state={effectivePhase === 'submitting' ? 'busy' : 'idle'}
+        aria-busy={effectivePhase === 'submitting'}
         disabled={effectivePhase === 'submitting' || effectivePhase === 'locating'}
         aria-label={copy['checkIn.actionAccessible'].replace('{name}', placeName)}
         onclick={() => void checkInWithoutLocation()}
@@ -204,7 +233,10 @@
       {#if showLocationAssist}
         <button
           type="button"
-          class="secondary"
+          class="hv-control"
+          data-intent="secondary"
+          data-state={effectivePhase === 'locating' ? 'busy' : 'idle'}
+          aria-busy={effectivePhase === 'locating'}
           disabled={effectivePhase === 'submitting' || effectivePhase === 'locating'}
           onclick={() => void checkInWithLocationAssist()}
         >
@@ -223,81 +255,58 @@
     display: grid;
     margin-top: 0.75rem;
     padding-top: 0.75rem;
-    border-top: 1px solid rgb(25 59 69 / 28%);
+    border-top: 1px solid var(--hv-border-subtle);
     gap: 0.5rem;
   }
+
   .explanation {
     margin: 0;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
     font-size: 0.82rem;
   }
+
   .actions {
     display: grid;
     margin-top: 0.25rem;
     gap: 0.5rem;
   }
-  button {
-    display: inline-flex;
-    min-height: 2.75rem;
-    padding: 0.5rem 0.9rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    align-items: center;
-    justify-content: center;
-    background: var(--sun);
-    color: var(--ink);
-    font: inherit;
+
+  .hv-control {
     font-size: 0.85rem;
-    font-weight: 900;
     cursor: pointer;
   }
-  button.secondary {
-    background: var(--paper);
-  }
-  button:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
-  }
-  button:disabled {
+
+  .hv-control:disabled {
     cursor: wait;
     opacity: 0.72;
   }
+
   .location-explanation {
     margin: 0;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
     font-size: 0.75rem;
   }
+
   .location-outcome {
     margin: 0;
-    font-size: 0.8rem;
-    font-weight: 800;
   }
-  .result {
+
+  .check-in > .hv-status {
+    width: fit-content;
     margin: 0;
+  }
+
+  .result {
     font-weight: 900;
   }
+
   .result-time {
     margin: 0;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
     font-size: 0.82rem;
   }
-  a {
-    display: inline-flex;
-    min-height: 2.75rem;
-    padding: 0.5rem 0.9rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    align-items: center;
-    justify-content: center;
-    background: var(--paper);
-    color: var(--ink);
-    font-weight: 900;
-    font-size: 0.85rem;
-    text-decoration: none;
+
+  a.hv-control {
     width: fit-content;
-  }
-  a:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
   }
 </style>

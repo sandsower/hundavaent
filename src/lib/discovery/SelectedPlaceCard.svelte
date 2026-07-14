@@ -84,17 +84,33 @@
     profile?.accessConditions.some((condition) => isReconfirmationDue(condition.freshnessUntil)) ??
       false
   );
+  const summaryVerified = $derived(
+    profile !== null &&
+      !reconfirmationDue &&
+      place.simpleAccessSummary &&
+      place.permissionRequirement === 'standing_permission'
+  );
+  const welcomeTone = $derived(
+    reconfirmationDue ? 'attention' : summaryVerified ? 'verified' : 'info'
+  );
+  const welcomeAccessState = $derived(
+    reconfirmationDue ? 'attention' : summaryVerified ? 'verified' : 'conditional'
+  );
 </script>
 
-<aside aria-label={copy['directory.selectedPlace']} data-overlay="place">
+<aside
+  class="hv-panel selected-place"
+  aria-label={copy['directory.selectedPlace']}
+  data-overlay="place"
+>
   <div class="card-heading">
     <div class="summary">
-      <strong>{place.name}</strong>
+      <h2>{place.name}</h2>
       <span>{copy[categoryKeys[place.category]]} · {place.locality}</span>
     </div>
     <button
       data-selected-place-close
-      class="close"
+      class="hv-control close"
       type="button"
       aria-label={copy['directory.closeSelectedPlace']}
       onclick={onClose}
@@ -104,7 +120,12 @@
   </div>
 
   <div class="card-body" data-card-scroll-body>
-    <section class="welcome-answer" aria-labelledby={`welcome-${place.placeId}`}>
+    <section
+      class="hv-notice welcome-answer"
+      data-tone={welcomeTone}
+      data-access-state={welcomeAccessState}
+      aria-labelledby={`welcome-${place.placeId}`}
+    >
       <h3 id={`welcome-${place.placeId}`}>{copy['place.welcomeQuestion']}</h3>
       {#if place.accessConditionCount > 1}
         <p class="complex-summary">
@@ -155,7 +176,9 @@
     {/if}
 
     {#if reconfirmationDue}
-      <p class="freshness-warning">{copy['status.reconfirmationDue']}</p>
+      <p class="hv-notice freshness-warning" data-tone="attention">
+        {copy['status.reconfirmationDue']}
+      </p>
     {/if}
 
     {#if profile?.dogFriendlinessSummary.visible && correctionHref}
@@ -172,21 +195,23 @@
     {/if}
 
     {#if loading && !profile}
-      <p class="details-status" role="status">{copy['place.loadingDetails']}</p>
+      <p class="hv-notice details-status" data-tone="info" role="status">
+        {copy['place.loadingDetails']}
+      </p>
     {:else if loadFailed && !profile}
-      <div class="details-status" role="alert">
+      <div class="hv-notice details-status" data-tone="error" role="alert">
         <p>{copy['place.detailsUnavailable']}</p>
-        <button type="button" onclick={onRetry}>{copy['common.retry']}</button>
+        <button class="hv-control" type="button" onclick={onRetry}>{copy['common.retry']}</button>
       </div>
     {:else if profile}
-      <details>
+      <details class="hv-disclosure">
         <summary>{copy['place.showCompleteAccess']}</summary>
         <div class="complete-details">
           <section aria-labelledby={`access-${place.placeId}`}>
             <h3 id={`access-${place.placeId}`}>{copy['place.accessHeading']}</h3>
             <ol class="conditions">
               {#each profile.accessConditions as condition, index (condition.id)}
-                <li>
+                <li class="condition-card">
                   <strong
                     >{copy['place.conditionLabel'].replace('{number}', String(index + 1))}</strong
                   >
@@ -210,6 +235,10 @@
                   </p>
                   <div class="trust-row">
                     <span
+                      class="hv-status"
+                      data-status={isReconfirmationDue(condition.freshnessUntil)
+                        ? 'attention'
+                        : 'verified'}
                       >{isReconfirmationDue(condition.freshnessUntil)
                         ? copy['status.reconfirmationDue']
                         : copy['status.verified']}</span
@@ -223,7 +252,7 @@
                   </div>
                   <ul class="sources" aria-label={copy['place.evidenceSource']}>
                     {#each condition.evidenceSources as source, sourceIndex (`${source.kind}-${source.sourceLabel}-${source.sourceUrl ?? ''}-${source.sourceCitation ?? ''}-${source.observedAt}-${sourceIndex}`)}
-                      <li>
+                      <li class="evidence-card">
                         {#if source.sourceUrl}
                           <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external Evidence URL -->
                           <a href={source.sourceUrl} rel="noreferrer">{source.sourceLabel}</a>
@@ -294,40 +323,39 @@
 </aside>
 
 <style>
-  aside {
+  .selected-place {
     display: flex;
     flex-direction: column;
     max-height: min(78vh, 42rem);
     overflow: hidden;
-    border: 2px solid var(--ink);
-    border-radius: var(--radius-organic);
-    background: var(--paper-light);
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--amber);
+    box-shadow: var(--hv-shadow-floating);
   }
 
   .card-body {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 0 1rem 0.85rem;
+    padding: 0 var(--hv-space-panel) var(--hv-space-panel);
   }
 
   .complex-summary,
   .details-status {
-    margin: 0.4rem 0 0;
-    font-weight: 750;
+    margin: 0.45rem 0 0;
+    font-weight: 700;
   }
 
   .member-actions {
     display: grid;
-    gap: 0.6rem;
-    margin-bottom: 0.85rem;
+    gap: 0.65rem;
+    margin-block: 0.85rem;
   }
 
   .welcome-answer {
-    padding: 0.85rem;
-    border-radius: 0.9rem;
-    background: var(--mint);
+    border-inline-start: 0.3rem solid var(--hv-color-fjord);
+  }
+
+  .welcome-answer[data-access-state='verified'] {
+    border-inline-start-color: var(--hv-color-signal);
   }
 
   .welcome-answer h3,
@@ -336,15 +364,18 @@
   }
 
   .welcome-answer h3 {
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt);
     font-size: 0.78rem;
     font-weight: 850;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 
   .welcome-verdict {
-    margin-top: 0.2rem;
-    font-size: 1.35rem;
-    font-weight: 950;
+    margin-top: 0.3rem;
+    font-family: var(--hv-font-display);
+    font-size: 1.5rem;
+    font-weight: 650;
   }
 
   .access-facts {
@@ -357,33 +388,27 @@
   }
 
   .access-facts li {
-    border: 1px solid rgb(25 59 69 / 28%);
-    border-radius: 999px;
-    background: var(--paper-light);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
     padding: 0.25rem 0.55rem;
     font-size: 0.78rem;
-    font-weight: 800;
+    font-weight: 750;
   }
 
   .freshness-warning {
     margin: 0.65rem 0 0;
-    border-radius: 0.65rem;
-    background: var(--coral-soft);
-    padding: 0.55rem 0.7rem;
+    padding: 0.65rem 0.75rem;
     font-size: 0.8rem;
     font-weight: 850;
   }
 
   details {
     margin-top: 0.75rem;
-    border-top: 1px solid rgb(25 59 69 / 28%);
   }
 
   summary {
-    padding: 0.75rem 0 0.15rem;
-    color: var(--coral-dark);
-    font-weight: 900;
-    cursor: pointer;
+    padding: 0.85rem 0 0.35rem;
   }
 
   .complete-details {
@@ -394,7 +419,10 @@
 
   .complete-details h3 {
     margin: 0;
-    font-size: 0.95rem;
+    color: var(--hv-color-basalt);
+    font-family: var(--hv-font-display);
+    font-size: 1.05rem;
+    font-weight: 650;
   }
 
   .conditions,
@@ -407,9 +435,10 @@
   }
 
   .conditions > li {
-    padding: 0.65rem;
-    border-radius: 0.7rem;
-    background: var(--mint);
+    padding: 0.8rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
   }
 
   .conditions p {
@@ -421,6 +450,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem 0.75rem;
+    align-items: center;
     justify-content: space-between;
     font-size: 0.75rem;
     font-weight: 750;
@@ -428,26 +458,36 @@
 
   .sources li {
     display: grid;
+    gap: 0.2rem;
+    padding: 0.65rem;
+    border-inline-start: 0.2rem solid var(--hv-color-fjord);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-fjord-soft);
     font-size: 0.8rem;
+  }
+
+  .sources a {
+    color: var(--hv-color-basalt);
+    font-weight: 800;
   }
 
   .source-reference {
     overflow-wrap: anywhere;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
   }
 
   .source-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 0.25rem 0.55rem;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
     font-size: 0.75rem;
   }
 
   .access-note {
     margin: 0;
     font-size: 0.78rem;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
   }
 
   .report-link {
@@ -455,7 +495,7 @@
   }
 
   .report-link a {
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     font-size: 0.82rem;
     font-weight: 800;
   }
@@ -467,15 +507,18 @@
   }
 
   .condition-actions a {
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     font-size: 0.75rem;
     font-weight: 800;
   }
 
   .report-link a:focus-visible,
+  .sources a:focus-visible,
   .condition-actions a:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
+    border-radius: var(--hv-radius-control);
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   .card-heading {
@@ -486,8 +529,9 @@
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.75rem;
     align-items: start;
-    padding: 0.85rem 1rem;
-    background: var(--paper-light);
+    padding: var(--hv-space-panel);
+    border-bottom: 1px solid var(--hv-border-subtle);
+    background: var(--hv-color-snow-raised);
   }
 
   .summary {
@@ -495,22 +539,28 @@
     gap: 0.2rem;
   }
 
-  .summary strong {
-    font-size: 1.15rem;
+  .summary h2 {
+    margin: 0;
+    font-family: var(--hv-font-display);
+    font-size: clamp(1.35rem, 4vw, 1.75rem);
+    font-weight: 650;
     line-height: 1.1;
+  }
+
+  .summary span {
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
   }
 
   .close {
     display: grid;
     width: 2.25rem;
     height: 2.25rem;
+    min-height: 2.25rem;
     padding: 0;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--paper);
-    color: var(--ink);
     font-size: 1.5rem;
-    font-weight: 900;
+    font-weight: 750;
     line-height: 1;
     place-items: center;
   }
@@ -520,8 +570,7 @@
     font-weight: 800;
   }
 
-  .close:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 3px;
+  .details-status p {
+    margin-block: 0 0.65rem;
   }
 </style>

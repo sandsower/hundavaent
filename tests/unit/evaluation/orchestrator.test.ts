@@ -4,7 +4,8 @@ import { validateEvidenceManifest } from '$server/evaluation/evidence';
 import {
   assembleEvidenceManifest,
   getManagedServerEnvironment,
-  getSupabaseAuthHealthUrl
+  getSupabaseAuthHealthUrl,
+  runRetriedResetBoundary
 } from '../../../scripts/evaluate-release';
 
 describe('release evaluation orchestration', () => {
@@ -35,6 +36,38 @@ describe('release evaluation orchestration', () => {
     expect(getSupabaseAuthHealthUrl({ apiUrl: 'http://127.0.0.1:54321' })).toBe(
       'http://127.0.0.1:54321/auth/v1/health'
     );
+  });
+
+  it('repeats the complete database reset boundary when Auth stays unhealthy', async () => {
+    let resetAttempts = 0;
+    let healthAttempts = 0;
+
+    const results = await runRetriedResetBoundary(
+      async () => {
+        resetAttempts += 1;
+        return {
+          name: 'database-reset-before-visual',
+          passed: true,
+          exitCode: 0,
+          evidencePaths: ['reset.log']
+        };
+      },
+      async () => {
+        healthAttempts += 1;
+        return {
+          name: 'auth-health-before-visual',
+          passed: healthAttempts > 1,
+          exitCode: healthAttempts > 1 ? 0 : null,
+          evidencePaths: ['auth-health.log']
+        };
+      },
+      { retryDelayMs: 0, sleep: async () => undefined }
+    );
+
+    expect(resetAttempts).toBe(2);
+    expect(healthAttempts).toBe(2);
+    expect(results).toHaveLength(2);
+    expect(results.every((result) => result.passed)).toBe(true);
   });
 
   it('emits an explicit failing manifest when required stages and evidence are missing', () => {

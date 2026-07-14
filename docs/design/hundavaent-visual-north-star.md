@@ -5,7 +5,7 @@
 - Design status: approved.
 - Approved direction: `Hundavænt place companion`.
 - Implementation approach: one semantic system adopted through complete vertical slices.
-- Current implementation slice: Phase 1 public discovery and Suggestions moderation walking skeleton.
+- Current implementation slice: Phase 2 public Place journey.
 
 ## Purpose
 
@@ -24,13 +24,13 @@ It should feel calm, trustworthy, distinctly Icelandic, and equally natural for 
 
 ## Reference Palette
 
-| Role          | Reference value | Semantic use                                                       |
-| ------------- | --------------- | ------------------------------------------------------------------ |
-| Snow          | `#f2f5f1`       | Page ground and quiet surfaces                                     |
-| Basalt        | `#1e2d31`       | Text, strong boundaries, and high-emphasis controls                |
-| Moss          | `#58705b`       | Natural supporting emphasis                                        |
-| Fjord         | `#2f6f86`       | Navigation, links, focus, location, and information                |
-| Signal Yellow | `#f2c94c`       | Verified access truth, selection, attention, and committed actions |
+| Role          | Reference value | Semantic use                                            |
+| ------------- | --------------- | ------------------------------------------------------- |
+| Snow          | `#f2f5f1`       | Page ground and quiet surfaces                          |
+| Basalt        | `#1e2d31`       | Text, strong boundaries, and high-emphasis controls     |
+| Moss          | `#58705b`       | Natural supporting emphasis                             |
+| Fjord         | `#2f6f86`       | Navigation, links, focus, location, and information     |
+| Signal Yellow | `#f2c94c`       | Verified access truth, selection, and committed actions |
 
 Signal Yellow is scarce and semantic.
 It must not become a decorative background or a general brand fill.
@@ -66,12 +66,23 @@ Feature modules own layout and exceptional composition without introducing new b
 Legacy visual variables remain available only as a migration bridge for surfaces outside the current vertical slice.
 They should be removed after the later migration phases eliminate their remaining callers.
 
-## Phase 1 Walking Skeleton
+## Phase 1 Walking Skeleton - Delivered
 
 The public proof is a complete directory results state with search, filters, indoor and outdoor Place results, accessible verified-access cues, and synchronized map markers.
 The operations proof is a complete Suggestions workspace state with queue selection, item selection, evidence review, and the sticky decision dock.
 
 The Phase 1 migration must not change discovery URL state, map synchronization, filtering, fallback behavior, moderation authorization, action contracts, server-confirmed continuation, retained failure state, focus restoration, or fallback routes.
+
+Phase 1 is delivered in production and remains the baseline for later vertical slices.
+
+## Phase 2 Public Place Journey
+
+Phase 2 extends Place mode through the complete selected Place Profile without changing discovery URL state, focus restoration, history behavior, server contracts, or authorization.
+The selected profile uses editorial place hierarchy, a clear welcome and access verdict, structured access conditions and evidence, image-led approved media, and an informational Dog-Friendliness evidence panel.
+Favourite controls expose idle, busy, selected, and error states through text, accessible state, and semantic styling.
+Check-in controls expose idle, busy, committed, and error states through text, live regions, accessible state, and semantic styling.
+Under-review and inactive public Place status routes use the same Place mode and status-panel primitives while preserving their distinct bilingual explanations.
+Signal Yellow remains reserved for verified access, selection, and committed actions.
 
 ## Evidence Contract
 
@@ -86,6 +97,15 @@ Required Phase 1 evidence includes:
 - Indoor and outdoor Place contexts in the same discovery state.
 - Suggestions workspace default, selected, success, error, conflict, empty, long-content, mobile, and 200-percent-zoom states.
 - Visible keyboard focus, non-color selection cues, no horizontal page overflow, and reduced-motion compatibility.
+
+Required Phase 2 evidence includes:
+
+- English and Icelandic selected Place Profiles at desktop and mobile viewports.
+- Expanded access conditions, verification state, source provenance, and approved media gallery states.
+- A selected Dog-Friendliness evidence panel with eligible-count, recency, dimension, and overall-result semantics when public evidence exists.
+- Selected Favourite and committed Check-in states on the selected Place Profile after server-confirmed mutations.
+- English and Icelandic under-review and inactive public Place status panels in Place mode.
+- Keyboard operation, live-region semantics, non-color state cues, Axe-clean output, and no horizontal page overflow across these states.
 
 ## Anti-Patterns
 

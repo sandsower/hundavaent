@@ -66,16 +66,26 @@
   }
 </script>
 
-<div class="favourite-action" data-favourite-place={placeId}>
+<div
+  class="favourite-action"
+  data-ui-mode="place"
+  data-favourite-place={placeId}
+  data-state={failed ? 'error' : submitting ? 'busy' : favourite ? 'selected' : 'idle'}
+>
   {#if pendingConfirmation && signedIn && !favourite}
-    <p class="confirmation" role="status">{copy['favourite.confirmationIntro']}</p>
+    <p class="confirmation hv-status" data-status="info" role="status">
+      {copy['favourite.confirmationIntro']}
+    </p>
   {/if}
   {#if signedIn}
     <button
       type="button"
-      class:active={favourite}
+      class="hv-control"
+      data-intent={favourite ? 'selected' : 'secondary'}
+      data-state={favourite ? 'selected' : 'idle'}
       aria-label={accessibleLabel}
       aria-pressed={favourite}
+      aria-busy={submitting}
       disabled={submitting}
       onclick={(event) => applyDesiredState(event.currentTarget)}
     >
@@ -84,64 +94,49 @@
     </button>
   {:else}
     <!-- Exact local return context is assembled by the discovery owner. -->
-    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-    <a href={signInHref} aria-label={copy['favourite.signInToSave'].replace('{name}', placeName)}>
+    <!-- eslint-disable svelte/no-navigation-without-resolve -->
+    <a
+      class="hv-control"
+      data-intent="secondary"
+      data-state="signed-out"
+      href={signInHref}
+      aria-label={copy['favourite.signInToSave'].replace('{name}', placeName)}
+    >
       <span aria-hidden="true">♡</span>
       <span>{copy['favourite.signIn']}</span>
     </a>
+    <!-- eslint-enable svelte/no-navigation-without-resolve -->
   {/if}
   {#if failed}
-    <span class="error" role="alert">{copy['favourite.failed']}</span>
+    <span class="error hv-status" data-status="error" role="alert">
+      {copy['favourite.failed']}
+    </span>
   {/if}
 </div>
 
 <style>
   .favourite-action {
     display: grid;
-    gap: 0.3rem;
+    gap: 0.4rem;
   }
-  button,
-  a {
-    display: inline-flex;
-    min-height: 2.75rem;
-    padding: 0.45rem 0.75rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    align-items: center;
-    justify-content: center;
+
+  .hv-control {
     gap: 0.35rem;
-    background: var(--paper);
-    color: var(--ink);
-    font: inherit;
     font-size: 0.82rem;
-    font-weight: 900;
-    text-decoration: none;
     cursor: pointer;
   }
-  button.active {
-    background: var(--coral);
-    color: white;
-  }
-  button:focus-visible,
-  a:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
-  }
-  button:disabled {
+
+  .hv-control:disabled {
     cursor: wait;
     opacity: 0.72;
   }
+
   .error {
     max-width: 18rem;
-    color: var(--danger);
-    font-size: 0.78rem;
-    font-weight: 800;
   }
+
   .confirmation {
     max-width: 24rem;
     margin: 0;
-    color: var(--ink-soft);
-    font-size: 0.82rem;
-    font-weight: 800;
   }
 </style>

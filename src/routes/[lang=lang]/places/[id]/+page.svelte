@@ -10,74 +10,85 @@
   <title>{data.place.name} - Hundavænt</title>
 </svelte:head>
 
-<main>
-  <article>
-    <a href={resolve('/[lang=lang]', { lang: data.lang })}>{data.copy['placeStatus.back']}</a>
-    <p class="eyebrow">{data.copy['placeStatus.eyebrow']}</p>
+<main data-ui-mode="place">
+  <article class="hv-panel status-panel">
+    <a class="hv-control back-link" href={resolve('/[lang=lang]', { lang: data.lang })}
+      >{data.copy['placeStatus.back']}</a
+    >
+    <p class="hv-eyebrow">{data.copy['placeStatus.eyebrow']}</p>
     <h1>{data.place.name}</h1>
-    <h2>
-      {data.place.publicStatus === 'inactive'
-        ? data.copy['placeStatus.inactiveTitle']
-        : data.copy['placeStatus.underReviewTitle']}
-    </h2>
-    <p>
-      {data.place.publicStatus === 'inactive'
-        ? data.copy['placeStatus.inactiveBody']
-        : data.copy['placeStatus.underReviewBody']}
-    </p>
+    <section class="hv-notice" data-tone="info">
+      <h2>
+        {data.place.publicStatus === 'inactive'
+          ? data.copy['placeStatus.inactiveTitle']
+          : data.copy['placeStatus.underReviewTitle']}
+      </h2>
+      <p>
+        {data.place.publicStatus === 'inactive'
+          ? data.copy['placeStatus.inactiveBody']
+          : data.copy['placeStatus.underReviewBody']}
+      </p>
+    </section>
   </article>
 </main>
 
 <style>
   :global(body) {
     margin: 0;
-    background: #f7f0df;
-    color: #193b45;
+    background: var(--hv-color-snow, #f2f5f1);
+    color: var(--hv-color-basalt, #1e2d31);
     font-family: var(--font-sans);
   }
 
+  :global(body::before) {
+    display: none;
+  }
+
   main {
-    min-height: 100vh;
+    min-height: calc(100vh - 5rem);
     display: grid;
     place-items: center;
     padding: 1.5rem;
+    background: var(--hv-color-snow);
   }
 
-  article {
+  .status-panel {
     width: min(100%, 42rem);
     padding: clamp(1.5rem, 5vw, 3.5rem);
-    background: #fffaf0;
-    border: 2px solid #193b45;
-    border-radius: 2rem;
-    box-shadow: 0.5rem 0.5rem 0 #f5a623;
   }
 
-  a {
-    color: #193b45;
-    font-weight: 800;
+  .back-link {
+    min-height: auto;
+    padding: 0.45rem 0.65rem;
+    color: var(--hv-color-fjord);
+    justify-self: start;
   }
 
-  .eyebrow {
+  .hv-eyebrow {
     margin: 3rem 0 0.5rem;
-    color: #b9432f;
-    font-size: 0.85rem;
-    font-weight: 900;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
   }
 
   h1 {
     margin: 0;
+    font-family: var(--hv-font-display);
     font-size: clamp(2.5rem, 10vw, 5.5rem);
+    font-weight: 650;
     line-height: 0.95;
   }
 
-  h2 {
-    margin: 2rem 0 0.75rem;
-    font-size: clamp(1.35rem, 4vw, 2rem);
+  section {
+    margin-top: 2rem;
   }
 
-  p:last-child {
+  h2 {
+    margin: 0 0 0.75rem;
+    font-family: var(--hv-font-display);
+    font-size: clamp(1.35rem, 4vw, 2rem);
+    font-weight: 650;
+  }
+
+  section p {
+    margin-bottom: 0;
     max-width: 52ch;
     font-size: 1.05rem;
     line-height: 1.6;

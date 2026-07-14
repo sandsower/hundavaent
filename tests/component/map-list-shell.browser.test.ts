@@ -400,6 +400,69 @@ describe('MapListShell synchronization', () => {
     expect(within(selectedPlace).queryByText('9. júlí 2026')).toBeNull();
   });
 
+  it('withdraws the verified welcome signal when loaded access evidence is stale', async () => {
+    history.replaceState(null, '', `/en?place=${places[0].placeId}`);
+    const profileRequest = deferred<typeof complexProfile>();
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(() => profileRequest.promise)
+    });
+
+    const selectedPlace = screen.getByLabelText('Selected place');
+    const welcome = selectedPlace.querySelector<HTMLElement>('.welcome-answer');
+    expect(welcome?.getAttribute('data-tone')).toBe('info');
+    expect(welcome?.getAttribute('data-access-state')).toBe('conditional');
+
+    profileRequest.resolve({
+      ...complexProfile,
+      accessConditions: [
+        {
+          ...complexProfile.accessConditions[0],
+          freshnessUntil: '2000-01-01T00:00:00Z'
+        }
+      ]
+    });
+
+    await waitFor(() => expect(welcome?.getAttribute('data-tone')).toBe('attention'));
+    expect(welcome?.getAttribute('data-access-state')).toBe('attention');
+    expect(welcome?.getAttribute('data-tone')).not.toBe('verified');
+    expect(welcome?.getAttribute('data-access-state')).not.toBe('verified');
+    expect(within(selectedPlace).getAllByText('Reconfirmation due')).toHaveLength(2);
+  });
+
+  it('never promotes summary access to verified when complete details fail to load', async () => {
+    history.replaceState(null, '', `/en?place=${places[0].placeId}`);
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => {
+        throw new Error('profile unavailable');
+      })
+    });
+
+    const selectedPlace = screen.getByLabelText('Selected place');
+    const welcome = selectedPlace.querySelector<HTMLElement>('.welcome-answer');
+    await waitFor(() =>
+      expect(
+        within(selectedPlace).getByText('The complete access information could not be loaded.')
+      ).toBeTruthy()
+    );
+    expect(welcome?.getAttribute('data-tone')).toBe('info');
+    expect(welcome?.getAttribute('data-access-state')).toBe('conditional');
+    expect(welcome?.getAttribute('data-tone')).not.toBe('verified');
+  });
+
   it('reveals every restriction and provenance inside the floating card without navigating away', async () => {
     history.replaceState(null, '', `/en?place=${places[0].placeId}`);
     const multiConditionPlaces = [
@@ -436,6 +499,8 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Selected place');
+    expect(selectedPlace.classList.contains('hv-panel')).toBe(true);
+    expect(selectedPlace.querySelector('[data-access-state="conditional"]')).not.toBeNull();
     expect(
       within(selectedPlace).getByText(
         '2 different access conditions apply. Review every restriction.'
@@ -461,6 +526,9 @@ describe('MapListShell synchronization', () => {
     expect(within(selectedPlace).getByText(/Monday: 09:00-17:00/)).toBeTruthy();
     expect(within(selectedPlace).getByText(/seasonal_note: Call ahead on holidays/)).toBeTruthy();
     expect(within(selectedPlace).getByText('Water bowl, covered patio hook')).toBeTruthy();
+    expect(selectedPlace.querySelector('details.hv-disclosure')).not.toBeNull();
+    expect(selectedPlace.querySelector('[data-status="attention"]')).not.toBeNull();
+    expect(selectedPlace.querySelector('[data-status="verified"]')).not.toBeNull();
     expect(window.location.pathname).toBe('/en');
   });
 
@@ -698,9 +766,12 @@ describe('MapListShell synchronization', () => {
       pushUrl,
       loadPlace
     });
-    expect(
-      await screen.findByText('The complete access information could not be loaded.')
-    ).toBeTruthy();
+    const unavailable = await screen.findByRole('alert');
+    expect(unavailable.textContent).toContain(
+      'The complete access information could not be loaded.'
+    );
+    expect(unavailable.classList.contains('hv-notice')).toBe(true);
+    expect(unavailable.getAttribute('data-tone')).toBe('error');
     await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(loadPlace).toHaveBeenCalledTimes(2));
     expect(screen.getByText('Outdoors')).toBeTruthy();

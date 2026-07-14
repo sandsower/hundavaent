@@ -236,17 +236,61 @@ async function runRetriedSetupStage(
 }
 
 async function resetDatabaseBefore(stageName: string): Promise<EvaluationStageResult[]> {
-  const reset = await runRetriedSetupStage(`database-reset-before-${stageName}`, [
-    'exec',
-    'supabase',
-    'db',
-    'reset'
-  ]);
-  if (!reset.passed) return [reset];
+  return runRetriedResetBoundary(
+    () =>
+      runRetriedSetupStage(`database-reset-before-${stageName}`, [
+        'exec',
+        'supabase',
+        'db',
+        'reset'
+      ]),
+    () => waitForSupabaseAuthStage(`auth-health-before-${stageName}`, 15_000),
+    {
+      onRetry: (attempt) => {
+        console.warn(
+          `[database-reset-before-${stageName}] reset boundary attempt ${attempt} was not ready; retrying`
+        );
+      }
+    }
+  );
+}
 
-  // The CLI can return from db reset while GoTrue is still restarting on a loaded CI runner.
-  // Treat Auth readiness as part of every reset boundary before the next stage provisions users.
-  return [reset, await waitForSupabaseAuthStage(`auth-health-before-${stageName}`)];
+interface RetriedResetBoundaryOptions {
+  attempts?: number;
+  retryDelayMs?: number;
+  sleep?: (milliseconds: number) => Promise<void>;
+  onRetry?: (attempt: number) => void;
+}
+
+export async function runRetriedResetBoundary(
+  runReset: () => Promise<EvaluationStageResult>,
+  runHealth: () => Promise<EvaluationStageResult>,
+  {
+    attempts = 3,
+    retryDelayMs = 2_000,
+    sleep = (milliseconds) =>
+      new Promise<void>((resolveWait) => setTimeout(resolveWait, milliseconds)),
+    onRetry = () => undefined
+  }: RetriedResetBoundaryOptions = {}
+): Promise<EvaluationStageResult[]> {
+  let resetResult: EvaluationStageResult | undefined;
+  let healthResult: EvaluationStageResult | undefined;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    resetResult = await runReset();
+    healthResult = resetResult.passed ? await runHealth() : undefined;
+
+    if (resetResult.passed && healthResult?.passed) {
+      return [resetResult, healthResult];
+    }
+
+    if (attempt < attempts) {
+      onRetry(attempt);
+      await sleep(retryDelayMs);
+    }
+  }
+
+  return healthResult ? [resetResult!, healthResult] : [resetResult!];
 }
 
 async function startManagedServer(): Promise<{
@@ -330,11 +374,14 @@ export function getSupabaseAuthHealthUrl(status: Pick<LocalSupabaseStatus, 'apiU
   return new URL('/auth/v1/health', status.apiUrl).toString();
 }
 
-async function waitForSupabaseAuthStage(name: string): Promise<EvaluationStageResult> {
+async function waitForSupabaseAuthStage(
+  name: string,
+  timeoutMs = 60_000
+): Promise<EvaluationStageResult> {
   const logPath = join(stageRoot, `${name}.log`);
   const url = getSupabaseAuthHealthUrl(getLocalSupabaseStatus());
   try {
-    await waitForHealth({ url, timeoutMs: 60_000 });
+    await waitForHealth({ url, timeoutMs });
     writeFileSync(logPath, `Healthy: ${url}\n`, 'utf8');
     return {
       name,
