@@ -13,9 +13,11 @@ import {
   clearLocalPlaceMedia,
   clearLocalPlaceFlagReviewFixture,
   configureLocalAchievementPolicy,
+  configureLocalDogFriendlinessSummaryPolicy,
   configureLocalPlaceFlagAbusePolicy,
   configureLocalPrivateRatingNotePolicy,
   disableLocalAchievementPolicy,
+  disableLocalDogFriendlinessSummaryPolicy,
   disableLocalPrivateRatingNotePolicy,
   expireLocalMagicLink,
   localDogFriendlinessFixture,
@@ -32,6 +34,7 @@ import {
   retireLocalMemberAchievements,
   retireLocalPlaceFlagFixtures,
   retireLocalPrivateRatingNoteFixture,
+  setLocalPlaceLifecycle,
   waitForLocalMagicLink
 } from '../e2e/support/local-supabase';
 import { waitForHydration } from '../e2e/support/hydration';
@@ -590,7 +593,11 @@ for (const locale of ['is', 'en'] as const) {
     await captureModerationWorkspaceStates(context, evidence, locale);
   });
 
-  test(`captures the ${locale} product states at named viewports`, async ({ page, evidence }) => {
+  test(`captures the ${locale} product states at named viewports`, async ({
+    browser,
+    page,
+    evidence
+  }) => {
     await provisionLocalModerator(evaluationModerator.email);
     await provisionLocalModerator(evaluationPublisher.email);
     // Defensive: an aborted earlier attempt (for example a missing new screenshot baseline) can
@@ -667,6 +674,44 @@ for (const locale of ['is', 'en'] as const) {
     ).toBeVisible();
     await capture(page, evidence, `access-details-${locale}-desktop.png`);
 
+    const candidatePlaceId = evaluationFixtureIds.places.candidate;
+    setLocalPlaceLifecycle(candidatePlaceId, 'candidate');
+    try {
+      await page.goto(`/${locale}/places/${candidatePlaceId}`);
+      await expect(page.locator('header[data-ui-mode="place"]')).toBeVisible();
+      await expect(page.locator('main[data-ui-mode="place"]')).toBeVisible();
+      const statusPanel = page.locator('article.hv-panel.status-panel');
+      await expect(statusPanel).toBeVisible();
+      await expect(statusPanel.locator('.hv-notice[data-tone="info"]')).toBeVisible();
+      await expect(
+        statusPanel.getByRole('heading', {
+          name:
+            locale === 'is'
+              ? 'Upplýsingar um hundaaðgengi eru í yfirferð'
+              : 'Dog access information is under review'
+        })
+      ).toBeVisible();
+      await capture(page, evidence, `place-status-under-review-${locale}-desktop.png`);
+
+      setLocalPlaceLifecycle(candidatePlaceId, 'inactive');
+      await page.goto(`/${locale}/places/${candidatePlaceId}`);
+      await expect(page.locator('header[data-ui-mode="place"]')).toBeVisible();
+      await expect(page.locator('main[data-ui-mode="place"]')).toBeVisible();
+      await expect(statusPanel).toBeVisible();
+      await expect(statusPanel.locator('.hv-notice[data-tone="info"]')).toBeVisible();
+      await expect(
+        statusPanel.getByRole('heading', {
+          name:
+            locale === 'is'
+              ? 'Þessi staður er ekki lengur virkur'
+              : 'This place is no longer active'
+        })
+      ).toBeVisible();
+      await capture(page, evidence, `place-status-inactive-${locale}-desktop.png`);
+    } finally {
+      setLocalPlaceLifecycle(candidatePlaceId, 'candidate');
+    }
+
     await page.goto(`/${locale}?__mapFailure=1&view=map`);
     await expect(page.getByRole('heading', { name: copy[locale].mapFailure })).toBeVisible();
     await capture(page, evidence, `map-failure-${locale}-desktop.png`);
@@ -734,32 +779,54 @@ for (const locale of ['is', 'en'] as const) {
     }, evaluationFixtureIds.places.published);
     expect(checkInMutation).toMatchObject({ ok: true, status: 200 });
 
-    await page.goto(`/${locale}/history`);
-    await expect(page.getByRole('heading', { name: copy[locale].historyTitle })).toBeVisible();
-    await expect(page.getByRole('heading', { name: copy[locale].place })).toBeVisible();
-    await capture(page, evidence, `history-favourites-${locale}-desktop.png`);
+    try {
+      await page.goto(`/${locale}?place=${evaluationFixtureIds.places.published}&view=map`);
+      const selectedMemberProfile = page.getByRole('complementary', {
+        name: copy[locale].selectedPlace
+      });
+      await expect(selectedMemberProfile).toHaveAttribute('data-overlay', 'place');
+      const selectedFavourite = selectedMemberProfile.locator(
+        `[data-favourite-place="${evaluationFixtureIds.places.published}"]`
+      );
+      await expect(selectedFavourite).toHaveAttribute('data-state', 'selected');
+      await expect(selectedFavourite.getByRole('button')).toHaveAttribute('aria-pressed', 'true');
+      await expect(selectedFavourite.getByRole('button')).toHaveAttribute('data-state', 'selected');
+      await expect(selectedFavourite.getByRole('button')).toHaveAttribute(
+        'data-intent',
+        'selected'
+      );
+      const committedCheckIn = selectedMemberProfile.locator('section[data-state="committed"]');
+      await expect(committedCheckIn).toBeVisible();
+      await expect(committedCheckIn.getByRole('status')).toHaveAttribute('data-status', 'success');
+      await capture(page, evidence, `selected-member-actions-${locale}-desktop.png`);
 
-    await page.setViewportSize({ width: 390, height: 844 });
-    await capture(page, evidence, `history-favourites-${locale}-mobile.png`);
-    await page.setViewportSize({ width: 1280, height: 900 });
+      await page.goto(`/${locale}/history`);
+      await expect(page.getByRole('heading', { name: copy[locale].historyTitle })).toBeVisible();
+      await expect(page.getByRole('heading', { name: copy[locale].place })).toBeVisible();
+      await capture(page, evidence, `history-favourites-${locale}-desktop.png`);
 
-    await page.goto(`/${locale}/history?view=checkins`);
-    await expect(page.getByRole('heading', { name: copy[locale].place })).toBeVisible();
-    await capture(page, evidence, `history-checkins-${locale}-desktop.png`);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await capture(page, evidence, `history-favourites-${locale}-mobile.png`);
+      await page.setViewportSize({ width: 1280, height: 900 });
 
-    await page.goto(`/${locale}/history?view=map`);
-    await expect(page.locator('.map-surface[data-paint-ready]')).toHaveAttribute(
-      'data-paint-ready',
-      'true'
-    );
-    // Both the map marker and the synchronized side-list button share the accessible name, so
-    // this scopes to the marker specifically (mirroring the directory map assertions above).
-    await expect(
-      page.locator('.map-surface').getByRole('button', { name: copy[locale].place, exact: true })
-    ).toBeVisible();
-    await capture(page, evidence, `history-map-${locale}-desktop.png`);
+      await page.goto(`/${locale}/history?view=checkins`);
+      await expect(page.getByRole('heading', { name: copy[locale].place })).toBeVisible();
+      await capture(page, evidence, `history-checkins-${locale}-desktop.png`);
 
-    clearLocalCheckIns(evaluationFixtureIds.places.published);
+      await page.goto(`/${locale}/history?view=map`);
+      await expect(page.locator('.map-surface[data-paint-ready]')).toHaveAttribute(
+        'data-paint-ready',
+        'true'
+      );
+      // Both the map marker and the synchronized side-list button share the accessible name, so
+      // this scopes to the marker specifically (mirroring the directory map assertions above).
+      await expect(
+        page.locator('.map-surface').getByRole('button', { name: copy[locale].place, exact: true })
+      ).toBeVisible();
+      await capture(page, evidence, `history-map-${locale}-desktop.png`);
+    } finally {
+      clearLocalCheckIns(evaluationFixtureIds.places.published);
+    }
 
     // The achievements surface (achievement). The policy is a database-wide fail-closed singleton and
     // unlock acknowledgment is consumed on every catalogue read, so each state is provisioned
@@ -904,30 +971,80 @@ for (const locale of ['is', 'en'] as const) {
     // Moderator session, so the Rating form can be captured without a separate Member sign-in.
     provisionLocalDogFriendlinessFixture();
     const { placeId: dogFriendlinessPlaceId } = localDogFriendlinessFixture;
-    await page.goto(`/${locale}/places/${dogFriendlinessPlaceId}/rate`);
-    await expect(page.getByRole('heading', { name: copy[locale].ratingForm })).toBeVisible();
-    await capture(page, evidence, `rating-form-${locale}-desktop.png`);
+    try {
+      await configureLocalDogFriendlinessSummaryPolicy();
+      await page.goto(`/${locale}/places/${dogFriendlinessPlaceId}/rate`);
+      await expect(page.getByRole('heading', { name: copy[locale].ratingForm })).toBeVisible();
+      await capture(page, evidence, `rating-form-${locale}-desktop.png`);
 
-    const welcomeLabel = locale === 'is' ? 'Móttökur' : 'Welcome';
-    const comfortLabel = locale === 'is' ? 'Þægindi' : 'Comfort';
-    const thoughtfulnessLabel = locale === 'is' ? 'Tillitssemi' : 'Thoughtfulness';
-    await page.getByLabel(welcomeLabel).selectOption('4');
-    await page.getByLabel(comfortLabel).selectOption('5');
-    await page.getByLabel(thoughtfulnessLabel).selectOption('3');
-    await page.getByRole('button', { name: copy[locale].saveRating }).click();
-    await expect(page).toHaveURL(`/${locale}?place=${dogFriendlinessPlaceId}`);
+      const welcomeLabel = locale === 'is' ? 'Móttökur' : 'Welcome';
+      const clarityLabel = locale === 'is' ? 'Skýrleiki' : 'Clarity';
+      const comfortLabel = locale === 'is' ? 'Þægindi' : 'Comfort';
+      const thoughtfulnessLabel = locale === 'is' ? 'Tillitssemi' : 'Thoughtfulness';
+      await page.getByLabel(welcomeLabel).selectOption('4');
+      await page.getByLabel(clarityLabel).selectOption('4');
+      await page.getByLabel(comfortLabel).selectOption('5');
+      await page.getByLabel(thoughtfulnessLabel).selectOption('3');
+      await page.getByRole('button', { name: copy[locale].saveRating }).click();
+      await expect(page).toHaveURL(`/${locale}?place=${dogFriendlinessPlaceId}`);
 
-    await page.goto(`/${locale}/moderation/dog-friendliness/${dogFriendlinessPlaceId}`);
-    await waitForHydration(page);
-    await expect(
-      page.getByRole('heading', { name: copy[locale].dogFriendlinessReview })
-    ).toBeVisible();
-    await capture(page, evidence, `dog-friendliness-review-${locale}-desktop.png`);
+      const ratingMemberContext = await browser.newContext();
+      try {
+        const ratingMemberPage = await ratingMemberContext.newPage();
+        const ratingPath = `/${locale}/places/${dogFriendlinessPlaceId}/rate`;
+        await clearLocalEvaluationMailbox();
+        await ratingMemberPage.goto(
+          `/${locale}/account?returnTo=${encodeURIComponent(ratingPath)}`
+        );
+        await waitForHydration(ratingMemberPage);
+        await ratingMemberPage
+          .getByLabel(copy[locale].moderatorEmail)
+          .fill(`rating-visual-${locale}@example.invalid`);
+        await ratingMemberPage.getByRole('button', { name: copy[locale].sendLink }).click();
+        await expect(ratingMemberPage.getByRole('status')).toContainText(copy[locale].linkSent);
+        await ratingMemberPage.goto(
+          await waitForLocalMagicLink(`rating-visual-${locale}@example.invalid`)
+        );
+        await expect(ratingMemberPage).toHaveURL(ratingPath);
+        await ratingMemberPage.getByLabel(welcomeLabel).selectOption('5');
+        await ratingMemberPage.getByLabel(clarityLabel).selectOption('4');
+        await ratingMemberPage.getByLabel(comfortLabel).selectOption('4');
+        await ratingMemberPage.getByLabel(thoughtfulnessLabel).selectOption('4');
+        await ratingMemberPage.getByRole('button', { name: copy[locale].saveRating }).click();
+        await expect(ratingMemberPage).toHaveURL(`/${locale}?place=${dogFriendlinessPlaceId}`);
+      } finally {
+        await ratingMemberContext.close();
+      }
 
-    // The fixture Place is published so it can be discovered and rated; retiring it now keeps
-    // it out of the public "directory" map/list capture the other locale's pass still has to
-    // take later in this shared local session.
-    retireLocalDogFriendlinessFixture();
+      await page.goto(`/${locale}?place=${dogFriendlinessPlaceId}`);
+      const selectedRatingProfile = page.getByRole('complementary', {
+        name: copy[locale].selectedPlace
+      });
+      await expect(selectedRatingProfile).toHaveAttribute('data-overlay', 'place');
+      const ratingEvidence = selectedRatingProfile.locator('[data-rating-summary]');
+      await expect(ratingEvidence).toHaveAttribute('data-rating-visible', 'true');
+      await expect(ratingEvidence).toHaveAttribute('data-surface', 'rating-evidence');
+      await expect(ratingEvidence).toHaveAttribute('data-tone', 'informational');
+      await expect(ratingEvidence.locator('[data-status="informational"]')).toHaveCount(2);
+      await expect(ratingEvidence.locator('dl')).toBeVisible();
+      await expect(ratingEvidence.locator('strong')).toBeVisible();
+      await capture(page, evidence, `selected-rating-evidence-${locale}-desktop.png`);
+
+      await page.goto(`/${locale}/moderation/dog-friendliness/${dogFriendlinessPlaceId}`);
+      await waitForHydration(page);
+      await expect(
+        page.getByRole('heading', { name: copy[locale].dogFriendlinessReview })
+      ).toBeVisible();
+      await capture(page, evidence, `dog-friendliness-review-${locale}-desktop.png`);
+    } finally {
+      try {
+        await disableLocalDogFriendlinessSummaryPolicy();
+      } finally {
+        // The fixture Place is published so it can be discovered and rated; retiring it keeps it
+        // out of the public directory map/list capture the other locale's pass still has to take.
+        retireLocalDogFriendlinessFixture();
+      }
+    }
 
     // private-rating-note Private Rating Note: a fresh, dedicated fixture per locale pass (provisioning also
     // clears any Ratings/linked Reports the other locale's pass left on it) plus the fail-closed
