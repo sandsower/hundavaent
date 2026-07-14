@@ -25,7 +25,10 @@
     --hv-focus-offset: var(--hv-color-snow-raised);
     --hv-space-context: 1.25rem;
     --hv-space-panel: 1rem;
+    --hv-space-section: clamp(1.5rem, 4vw, 3rem);
     --hv-control-height: 2.75rem;
+    --hv-content-narrow: 42rem;
+    --hv-content-wide: 72rem;
     --hv-radius-control: 0.35rem;
     --hv-radius-panel: 0.55rem;
     --hv-radius-shell: 0.75rem;
