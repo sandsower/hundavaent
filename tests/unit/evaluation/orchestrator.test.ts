@@ -15,14 +15,16 @@ describe('release evaluation orchestration', () => {
           apiUrl: 'http://127.0.0.1:54321',
           publishableKey: 'local-publishable-key'
         },
-        { PATH: '/usr/bin' }
+        { PATH: '/usr/bin', HUNDAVAENT_E2E_APP_PORT: '43173' },
+        'evaluation-server-123'
       )
     ).toMatchObject({
       PATH: '/usr/bin',
       EVALUATION_MANAGED_SERVER: '1',
+      HUNDAVAENT_EVALUATION_SERVER_ID: 'evaluation-server-123',
       PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
       PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'local-publishable-key',
-      PUBLIC_APP_URL: 'http://127.0.0.1:4173',
+      PUBLIC_APP_URL: 'http://127.0.0.1:43173',
       AUTH_EMAIL_ENABLED: 'true',
       AUTH_FACEBOOK_ENABLED: 'false',
       MEMBER_ACTIVATION_SECRET: 'local-member-activation-capability-secret-v1'

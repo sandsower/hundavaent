@@ -1,4 +1,5 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import {
   createWriteStream,
   existsSync,
@@ -253,12 +254,16 @@ async function startManagedServer(): Promise<{
   result: EvaluationStageResult;
 }> {
   const status = getLocalSupabaseStatus();
+  const serverId = randomUUID();
+  const appOrigin = getEvaluationAppOrigin(process.env);
+  const appPort = new URL(appOrigin).port;
+  const healthUrl = new URL('/api/health', appOrigin).toString();
   const logPath = join(stageRoot, 'application-health.log');
   const log = createWriteStream(logPath, { flags: 'w' });
-  const child = spawn('pnpm', ['dev', '--host', '127.0.0.1', '--port', '4173'], {
+  const child = spawn('pnpm', ['dev', '--host', '127.0.0.1', '--port', appPort], {
     cwd: repositoryRoot,
     detached: process.platform !== 'win32',
-    env: getManagedServerEnvironment(status),
+    env: getManagedServerEnvironment(status, process.env, serverId),
     stdio: ['ignore', 'pipe', 'pipe']
   });
   child.stdout?.on('data', (chunk: Buffer) => log.write(chunk));
@@ -266,12 +271,17 @@ async function startManagedServer(): Promise<{
 
   try {
     await Promise.race([
-      waitForHealth({ url: 'http://127.0.0.1:4173/api/health', timeoutMs: 60_000 }),
+      waitForHealth({
+        url: healthUrl,
+        timeoutMs: 60_000,
+        acceptResponse: (response) =>
+          response.headers.get('x-hundavaent-evaluation-server') === serverId
+      }),
       new Promise<never>((_, reject) => {
         child.once('exit', (code) => reject(new Error(`application server exited with ${code}`)));
       })
     ]);
-    log.write('Healthy: http://127.0.0.1:4173/api/health\n');
+    log.write(`Healthy: ${healthUrl}\n`);
     return {
       child,
       result: {
@@ -297,15 +307,23 @@ async function startManagedServer(): Promise<{
 
 export function getManagedServerEnvironment(
   status: Pick<LocalSupabaseStatus, 'apiUrl' | 'publishableKey'>,
-  baseEnvironment: NodeJS.ProcessEnv = process.env
+  baseEnvironment: NodeJS.ProcessEnv = process.env,
+  evaluationServerId?: string
 ): NodeJS.ProcessEnv {
+  const appOrigin = getEvaluationAppOrigin(baseEnvironment);
   return {
     ...baseEnvironment,
     EVALUATION_MANAGED_SERVER: '1',
+    ...(evaluationServerId ? { HUNDAVAENT_EVALUATION_SERVER_ID: evaluationServerId } : {}),
     PUBLIC_SUPABASE_URL: status.apiUrl,
     PUBLIC_SUPABASE_PUBLISHABLE_KEY: status.publishableKey,
-    ...getLocalMemberAuthEnvironment('http://127.0.0.1:4173')
+    ...getLocalMemberAuthEnvironment(appOrigin)
   };
+}
+
+export function getEvaluationAppOrigin(baseEnvironment: NodeJS.ProcessEnv = process.env): string {
+  const port = baseEnvironment.HUNDAVAENT_E2E_APP_PORT?.trim() || '4173';
+  return `http://127.0.0.1:${port}`;
 }
 
 export function getSupabaseAuthHealthUrl(status: Pick<LocalSupabaseStatus, 'apiUrl'>): string {

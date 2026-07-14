@@ -1,3 +1,4 @@
+import { env as privateEnv } from '$env/dynamic/private';
 import { env } from '$env/dynamic/public';
 import { json, type RequestHandler } from '@sveltejs/kit';
 
@@ -29,6 +30,8 @@ function healthResponse(
   database: 'ready' | 'unavailable',
   map: 'configured' | 'fallback'
 ): Response {
+  const evaluationServerId = privateEnv.HUNDAVAENT_EVALUATION_SERVER_ID?.trim();
+
   return json(
     {
       service: 'hundavaent',
@@ -40,7 +43,8 @@ function healthResponse(
       status,
       headers: {
         'cache-control': 'no-store',
-        'x-request-id': requestId
+        'x-request-id': requestId,
+        ...(evaluationServerId ? { 'x-hundavaent-evaluation-server': evaluationServerId } : {})
       }
     }
   );
