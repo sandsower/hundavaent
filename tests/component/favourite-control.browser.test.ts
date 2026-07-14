@@ -19,6 +19,24 @@ afterEach(() => {
 });
 
 describe('FavouriteControl', () => {
+  it('establishes Place mode when rendered outside the discovery shell', () => {
+    render(FavouriteControl, {
+      placeId,
+      placeName,
+      signedIn: true,
+      favourite: true,
+      copy: catalogues.en,
+      signInHref: ''
+    });
+
+    const button = screen.getByRole('button', {
+      name: 'Remove Published Place from saved places'
+    });
+    const controlRoot = button.closest('[data-favourite-place]');
+    expect(controlRoot?.getAttribute('data-ui-mode')).toBe('place');
+    expect(button.getAttribute('data-intent')).toBe('selected');
+  });
+
   it.each([
     ['en', catalogues.en, 'Sign in to save Published Place'],
     ['is', catalogues.is, 'Skrá inn til að vista Published Place']
