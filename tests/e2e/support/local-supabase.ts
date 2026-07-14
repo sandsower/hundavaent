@@ -1338,6 +1338,38 @@ export async function grantLocalVenueRepresentativeRole(email: string): Promise<
   );
 }
 
+const localPlaceFlagReviewFixtureId = '97000000-0000-4000-8000-000000000099';
+
+export function clearLocalPlaceFlagReviewFixture(): void {
+  const sql = `
+    set session_replication_role = replica;
+    delete from private.contributions
+    where place_flag_id = '${localPlaceFlagReviewFixtureId}'::uuid;
+    delete from private.place_flag_status_events
+    where flag_id = '${localPlaceFlagReviewFixtureId}'::uuid;
+    delete from private.place_flags
+    where id = '${localPlaceFlagReviewFixtureId}'::uuid;
+    set session_replication_role = origin;
+  `;
+  execFileSync(
+    'docker',
+    [
+      'exec',
+      localDatabaseContainer,
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      sql
+    ],
+    { stdio: 'ignore' }
+  );
+}
+
 export async function provisionLocalPlaceFlagReviewFixture(email: string): Promise<string> {
   const status = getLocalSupabaseStatus();
   const admin = createClient(status.apiUrl, status.secretKey, {
@@ -1351,13 +1383,9 @@ export async function provisionLocalPlaceFlagReviewFixture(email: string): Promi
   }
 
   const { correctable } = localPlaceFlagFixtures;
-  const flagId = '97000000-0000-4000-8000-000000000099';
+  const flagId = localPlaceFlagReviewFixtureId;
+  clearLocalPlaceFlagReviewFixture();
   const sql = `
-    set session_replication_role = replica;
-    delete from private.place_flag_status_events where flag_id = '${flagId}'::uuid;
-    delete from private.place_flags where id = '${flagId}'::uuid;
-    set session_replication_role = origin;
-
     insert into private.place_flags (
       id, member_id, kind, place_id, target_kind, access_condition_id,
       current_value_snapshot, report_reason, is_safety_concern, explanation, evidence, request_id

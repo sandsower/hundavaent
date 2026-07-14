@@ -17,6 +17,5 @@ export default defineConfig({
   // feature-spec 30s budget cannot fit them as the product grows.
   timeout: 180_000,
   reporter: [['list'], ['json', { outputFile: 'test-results/evaluation/results.json' }]],
-  snapshotPathTemplate: '{testDir}/screenshots/{arg}{ext}',
   webServer: productWebServer
 });

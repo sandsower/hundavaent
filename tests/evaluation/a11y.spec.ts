@@ -369,7 +369,21 @@ test('the compact moderation workspace reflows, preserves keyboard context, and 
   await winningPage.goto(`/en/moderation?queue=suggestions&item=${suggestionId}&filter=actionable`);
   await fillWorkspaceSuggestionResolution(page, 'en', 'rejected');
   await fillWorkspaceSuggestionResolution(winningPage, 'en', 'rejected');
-  await winningPage.getByRole('button', { name: moderationWorkspaceCopy.en.saveOutcome }).click();
+  const winningResolution = winningPage.waitForResponse((response) => {
+    const responseUrl = new URL(response.url());
+    return (
+      response.request().method() === 'POST' &&
+      responseUrl.pathname === '/en/moderation' &&
+      responseUrl.searchParams.has('/resolve')
+    );
+  });
+  await Promise.all([
+    winningResolution,
+    winningPage.waitForURL((url) => url.searchParams.get('item')?.endsWith('0094') ?? false, {
+      waitUntil: 'networkidle'
+    }),
+    winningPage.getByRole('button', { name: moderationWorkspaceCopy.en.saveOutcome }).click()
+  ]);
   await expect(winningPage.locator('.live-status')).toContainText(moderationWorkspaceCopy.en.saved);
   evidence.allowHttpStatus(409, '/en/moderation?/resolve');
   await page.getByRole('button', { name: moderationWorkspaceCopy.en.saveOutcome }).click();

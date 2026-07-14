@@ -14,6 +14,7 @@ test-results/
 .vitest-attachments/
 .beislid/reports/
 tests/component/__screenshots__/
+tests/evaluation/screenshots/
 supabase/.branches/
 supabase/.temp/
 

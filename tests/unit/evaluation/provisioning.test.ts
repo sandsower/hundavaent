@@ -34,6 +34,35 @@ describe('deterministic evaluation provisioning', () => {
     expect(fetchImplementation).toHaveBeenCalledTimes(2);
   });
 
+  it('rejects a healthy response from a different managed evaluation server', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 200,
+          headers: { 'x-hundavaent-evaluation-server': 'foreign-server' }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 200,
+          headers: { 'x-hundavaent-evaluation-server': 'expected-server' }
+        })
+      );
+
+    const response = await waitForHealth({
+      url: 'http://127.0.0.1:4173/api/health',
+      timeoutMs: 1_000,
+      fetchImplementation,
+      sleep: async () => undefined,
+      acceptResponse: (candidate) =>
+        candidate.headers.get('x-hundavaent-evaluation-server') === 'expected-server'
+    });
+
+    expect(response.headers.get('x-hundavaent-evaluation-server')).toBe('expected-server');
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+  });
+
   it('refuses evaluation administration against a remote Supabase origin', () => {
     expect(() => assertLocalEvaluationUrl('http://127.0.0.1:55321')).not.toThrow();
     expect(() => assertLocalEvaluationUrl('https://project.supabase.co')).toThrow(

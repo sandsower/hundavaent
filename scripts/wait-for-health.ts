@@ -6,6 +6,7 @@ export interface WaitForHealthOptions {
   intervalMs?: number;
   fetchImplementation?: typeof fetch;
   sleep?: (milliseconds: number) => Promise<void>;
+  acceptResponse?: (response: Response) => boolean;
 }
 
 export async function waitForHealth({
@@ -13,7 +14,8 @@ export async function waitForHealth({
   timeoutMs = 60_000,
   intervalMs = 250,
   fetchImplementation = fetch,
-  sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
+  sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+  acceptResponse = () => true
 }: WaitForHealthOptions): Promise<Response> {
   const deadline = Date.now() + timeoutMs;
   let lastFailure = 'no response';
@@ -23,8 +25,10 @@ export async function waitForHealth({
       const response = await fetchImplementation(url, {
         headers: { accept: 'application/json, text/html;q=0.9' }
       });
-      if (response.ok) return response;
-      lastFailure = `HTTP ${response.status}`;
+      if (response.ok && acceptResponse(response)) return response;
+      lastFailure = response.ok
+        ? 'healthy response did not match the expected server'
+        : `HTTP ${response.status}`;
     } catch (error) {
       lastFailure = error instanceof Error ? error.message : String(error);
     }

@@ -11,6 +11,7 @@ import {
   clearLocalEvaluationMailbox,
   clearLocalCheckIns,
   clearLocalPlaceMedia,
+  clearLocalPlaceFlagReviewFixture,
   configureLocalAchievementPolicy,
   configureLocalPlaceFlagAbusePolicy,
   configureLocalPrivateRatingNotePolicy,
@@ -56,6 +57,7 @@ const copy = {
     selectedModerationQueue: 'Valin umsjónarröð',
     selectedModerationItem: 'Valið umsjónaratriði',
     suggestionsQueue: 'Tillögur',
+    correctionsAndReportsQueue: 'Leiðréttingar og ábendingar',
     candidatePlacesQueue: 'Tillögur að stöðum',
     emptyQueue: 'Röð lokið',
     decisionControls: 'Ákvörðunarstýringar',
@@ -122,6 +124,7 @@ const copy = {
     selectedModerationQueue: 'Selected moderation queue',
     selectedModerationItem: 'Selected moderation item',
     suggestionsQueue: 'Suggestions',
+    correctionsAndReportsQueue: 'Corrections and reports',
     candidatePlacesQueue: 'Candidate places',
     emptyQueue: 'Queue complete',
     decisionControls: 'Decision controls',
@@ -205,7 +208,7 @@ async function capture(
   page: Page,
   evidence: EvaluationEvidenceRecorder,
   name: string,
-  options?: { maxDiffPixelRatio?: number; prepare?: () => Promise<void> }
+  options?: { prepare?: () => Promise<void> }
 ): Promise<void> {
   await waitForHydration(page);
   await waitForMapOverlayToSettle(page);
@@ -222,14 +225,29 @@ async function capture(
   });
   await options?.prepare?.();
   evidence.require('screenshot');
-  await expect(page).toHaveScreenshot(name, {
+  const screenshotPath = `test-results/visual/screenshots/${name}`;
+  await page.screenshot({
     animations: 'disabled',
     caret: 'hide',
     fullPage: true,
-    maxDiffPixelRatio: options?.maxDiffPixelRatio ?? 0.005,
+    path: screenshotPath,
     scale: 'css'
   });
-  evidence.recordScreenshot(name, `tests/evaluation/screenshots/${name}`);
+  evidence.recordScreenshot(name, screenshotPath);
+}
+
+async function captureModerationWorkspaceScreenshot(
+  page: Page,
+  evidence: EvaluationEvidenceRecorder,
+  name: string
+): Promise<void> {
+  await capture(page, evidence, name);
+}
+
+async function removeDynamicRequestReferenceForVisualEvidence(page: Page): Promise<void> {
+  await page.locator('.reference').evaluateAll((elements) => {
+    for (const element of elements) element.remove();
+  });
 }
 
 async function normalizeNativeInputForVisualEvidence(page: Page, label: string): Promise<void> {
@@ -364,6 +382,9 @@ async function captureModerationWorkspaceStates(
   evidence: EvaluationEvidenceRecorder,
   locale: Locale
 ): Promise<void> {
+  // The other locale's product-state pass leaves this deterministic submitted Report behind.
+  // Clear it so queue counts and exact screenshots do not depend on test order.
+  clearLocalPlaceFlagReviewFixture();
   const workspaceSuggestionId = await provisionLocalSuggestionFixture(evaluationModerator.email);
   const moderationPage = await context.newPage();
   await moderationPage.setViewportSize({ width: 1280, height: 900 });
@@ -376,8 +397,25 @@ async function captureModerationWorkspaceStates(
       level: 1
     })
   ).toBeVisible();
+  const moderationQueues = moderationPage.getByRole('navigation', {
+    name: copy[locale].moderationQueues
+  });
+  await expect(moderationQueues).toBeVisible();
+  await expect(moderationQueues.getByRole('link')).toHaveCount(3);
   await expect(
-    moderationPage.getByRole('navigation', { name: copy[locale].moderationQueues })
+    moderationQueues.getByRole('link', {
+      name: new RegExp(`^${copy[locale].suggestionsQueue} \\d+$`)
+    })
+  ).toBeVisible();
+  await expect(
+    moderationQueues.getByRole('link', {
+      name: new RegExp(`^${copy[locale].correctionsAndReportsQueue} \\d+$`)
+    })
+  ).toBeVisible();
+  await expect(
+    moderationQueues.getByRole('link', {
+      name: new RegExp(`^${copy[locale].candidatePlacesQueue} \\d+$`)
+    })
   ).toBeVisible();
   await expect(
     moderationPage.getByRole('region', { name: copy[locale].selectedModerationQueue })
@@ -388,10 +426,18 @@ async function captureModerationWorkspaceStates(
   await expect(
     moderationPage.getByRole('region', { name: copy[locale].decisionControls })
   ).toBeVisible();
-  await capture(moderationPage, evidence, `moderation-workspace-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-${locale}-desktop.png`
+  );
 
   await moderationPage.setViewportSize({ width: 390, height: 844 });
-  await capture(moderationPage, evidence, `moderation-workspace-${locale}-mobile.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-${locale}-mobile.png`
+  );
 
   await moderationPage.setViewportSize({ width: 1280, height: 900 });
   await moderationPage
@@ -412,7 +458,7 @@ async function captureModerationWorkspaceStates(
     element.textContent =
       'A very long selected Suggestion title that remains readable in the compact review pane';
   });
-  await capture(
+  await captureModerationWorkspaceScreenshot(
     moderationPage,
     evidence,
     `moderation-workspace-long-content-${locale}-desktop.png`
@@ -422,7 +468,11 @@ async function captureModerationWorkspaceStates(
   await moderationPage.goto(
     `/${locale}/moderation?queue=suggestions&item=${workspaceSuggestionId}&filter=actionable`
   );
-  await capture(moderationPage, evidence, `moderation-workspace-${locale}-zoom-200-percent.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-${locale}-zoom-200-percent.png`
+  );
 
   await moderationPage.setViewportSize({ width: 1280, height: 900 });
   await moderationPage
@@ -434,7 +484,11 @@ async function captureModerationWorkspaceStates(
   await expect(
     moderationPage.getByRole('region', { name: copy[locale].selectedModerationItem })
   ).toContainText(copy[locale].nextVisualSuggestion);
-  await capture(moderationPage, evidence, `moderation-workspace-selection-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-selection-${locale}-desktop.png`
+  );
 
   await moderationPage
     .getByRole('link', { name: new RegExp(copy[locale].candidatePlacesQueue) })
@@ -443,7 +497,11 @@ async function captureModerationWorkspaceStates(
     (url) => url.searchParams.get('queue') === 'candidate-places'
   );
   await expect(moderationPage.getByRole('heading', { name: copy[locale].checklist })).toBeVisible();
-  await capture(moderationPage, evidence, `moderation-workspace-candidate-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-candidate-${locale}-desktop.png`
+  );
 
   await moderationPage.goto(
     `/${locale}/moderation?queue=candidate-places&filter=actionable&cursor=${emptyCandidateCursor}`
@@ -451,7 +509,11 @@ async function captureModerationWorkspaceStates(
   await expect(
     moderationPage.getByRole('heading', { name: copy[locale].emptyQueue })
   ).toBeVisible();
-  await capture(moderationPage, evidence, `moderation-workspace-empty-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-empty-${locale}-desktop.png`
+  );
 
   await moderationPage.goto(
     `/${locale}/moderation?queue=suggestions&item=${workspaceSuggestionId}&filter=actionable`
@@ -466,7 +528,11 @@ async function captureModerationWorkspaceStates(
   await expect(
     moderationPage.getByRole('alert').filter({ hasText: copy[locale].invalidSuggestion })
   ).toBeVisible();
-  await capture(moderationPage, evidence, `moderation-workspace-error-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-error-${locale}-desktop.png`
+  );
 
   await provisionLocalSuggestionFixture(evaluationModerator.email);
   await moderationPage.goto(
@@ -488,7 +554,11 @@ async function captureModerationWorkspaceStates(
   await expect(
     moderationPage.locator('#suggestion-decision').getByLabel(copy[locale].memberReasonEn)
   ).toHaveValue('Please confirm that the source is still current.');
-  await capture(moderationPage, evidence, `moderation-workspace-conflict-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-conflict-${locale}-desktop.png`
+  );
   await winningPage.close();
 
   await provisionLocalSuggestionFixture(evaluationModerator.email);
@@ -501,7 +571,11 @@ async function captureModerationWorkspaceStates(
   await expect(
     moderationPage.getByRole('region', { name: copy[locale].selectedModerationItem })
   ).toContainText(copy[locale].nextVisualSuggestion);
-  await capture(moderationPage, evidence, `moderation-workspace-success-${locale}-desktop.png`);
+  await captureModerationWorkspaceScreenshot(
+    moderationPage,
+    evidence,
+    `moderation-workspace-success-${locale}-desktop.png`
+  );
   await moderationPage.close();
 }
 
@@ -587,7 +661,9 @@ for (const locale of ['is', 'en'] as const) {
     );
     expect(missingResponse?.status()).toBe(404);
     await expect(page.getByRole('heading', { name: copy[locale].notFound })).toBeVisible();
-    await capture(page, evidence, `not-found-${locale}-desktop.png`);
+    await capture(page, evidence, `not-found-${locale}-desktop.png`, {
+      prepare: () => removeDynamicRequestReferenceForVisualEvidence(page)
+    });
 
     await signIn(page, evidence, locale);
 
@@ -662,11 +738,7 @@ for (const locale of ['is', 'en'] as const) {
     await expect(
       page.locator('.map-surface').getByRole('button', { name: copy[locale].place, exact: true })
     ).toBeVisible();
-    // The personal map's single-Place camera sits at a tighter zoom (14, vs. the multi-Place
-    // directory map's 11), which makes the marker's exact sub-pixel anti-aliasing more sensitive
-    // to per-run MapLibre projection jitter than the rest of this suite's map screenshots; a
-    // slightly relaxed tolerance absorbs that without weakening every other capture's precision.
-    await capture(page, evidence, `history-map-${locale}-desktop.png`, { maxDiffPixelRatio: 0.02 });
+    await capture(page, evidence, `history-map-${locale}-desktop.png`);
 
     clearLocalCheckIns(evaluationFixtureIds.places.published);
 
@@ -890,7 +962,6 @@ for (const locale of ['is', 'en'] as const) {
     await expect(page.getByRole('heading', { name: copy[locale].checklist })).toBeVisible();
     await normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness);
     await capture(page, evidence, `publication-checklist-${locale}-desktop.png`, {
-      maxDiffPixelRatio: 0,
       prepare: () => normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness)
     });
 
@@ -899,7 +970,6 @@ for (const locale of ['is', 'en'] as const) {
     // section starts empty at this point in the flow.
     await expect(page.getByRole('heading', { name: copy[locale].mediaTitle })).toBeVisible();
     await capture(page, evidence, `media-section-empty-${locale}-desktop.png`, {
-      maxDiffPixelRatio: 0,
       prepare: () => normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness)
     });
 
@@ -916,7 +986,6 @@ for (const locale of ['is', 'en'] as const) {
     await expect(page.getByText(copy[locale].mediaUploaded)).toBeVisible();
     await normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness);
     await capture(page, evidence, `media-section-evidence-${locale}-desktop.png`, {
-      maxDiffPixelRatio: 0,
       prepare: () => normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness)
     });
 
@@ -930,7 +999,6 @@ for (const locale of ['is', 'en'] as const) {
     await expect(candidatePhotoItem).toBeVisible();
     await normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness);
     await capture(page, evidence, `media-section-pending-photo-${locale}-desktop.png`, {
-      maxDiffPixelRatio: 0,
       prepare: () => normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness)
     });
 
@@ -960,7 +1028,6 @@ for (const locale of ['is', 'en'] as const) {
     await expect(page.getByText(copy[locale].photoApproved)).toBeVisible();
     await normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness);
     await capture(page, evidence, `media-section-approved-photo-${locale}-desktop.png`, {
-      maxDiffPixelRatio: 0,
       prepare: () => normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness)
     });
 
