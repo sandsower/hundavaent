@@ -19,8 +19,11 @@
   let currentHash = $state('');
   let hydrated = $state(false);
   let isDiscovery = $derived(page.route.id === '/[lang=lang]');
+  let isPlaceStatus = $derived(page.route.id === '/[lang=lang]/places/[id]');
   let isModeration = $derived(page.route.id?.startsWith('/[lang=lang]/moderation') === true);
-  let northStarMode = $derived(isDiscovery ? 'place' : isModeration ? 'operations' : undefined);
+  let northStarMode = $derived(
+    isDiscovery || isPlaceStatus ? 'place' : isModeration ? 'operations' : undefined
+  );
   const currentBrowserUrl = $derived.by(() => {
     const currentUrl = new URL(page.url.href);
     currentUrl.hash = currentHash;

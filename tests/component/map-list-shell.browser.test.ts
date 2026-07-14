@@ -436,6 +436,8 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Selected place');
+    expect(selectedPlace.classList.contains('hv-panel')).toBe(true);
+    expect(selectedPlace.querySelector('[data-access-state="conditional"]')).not.toBeNull();
     expect(
       within(selectedPlace).getByText(
         '2 different access conditions apply. Review every restriction.'
@@ -461,6 +463,9 @@ describe('MapListShell synchronization', () => {
     expect(within(selectedPlace).getByText(/Monday: 09:00-17:00/)).toBeTruthy();
     expect(within(selectedPlace).getByText(/seasonal_note: Call ahead on holidays/)).toBeTruthy();
     expect(within(selectedPlace).getByText('Water bowl, covered patio hook')).toBeTruthy();
+    expect(selectedPlace.querySelector('details.hv-disclosure')).not.toBeNull();
+    expect(selectedPlace.querySelector('[data-status="attention"]')).not.toBeNull();
+    expect(selectedPlace.querySelector('[data-status="verified"]')).not.toBeNull();
     expect(window.location.pathname).toBe('/en');
   });
 
@@ -698,9 +703,12 @@ describe('MapListShell synchronization', () => {
       pushUrl,
       loadPlace
     });
-    expect(
-      await screen.findByText('The complete access information could not be loaded.')
-    ).toBeTruthy();
+    const unavailable = await screen.findByRole('alert');
+    expect(unavailable.textContent).toContain(
+      'The complete access information could not be loaded.'
+    );
+    expect(unavailable.classList.contains('hv-notice')).toBe(true);
+    expect(unavailable.getAttribute('data-tone')).toBe('error');
     await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(loadPlace).toHaveBeenCalledTimes(2));
     expect(screen.getByText('Outdoors')).toBeTruthy();
