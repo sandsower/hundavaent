@@ -24,13 +24,13 @@ It should feel calm, trustworthy, distinctly Icelandic, and equally natural for 
 
 ## Reference Palette
 
-| Role          | Reference value | Semantic use                                                       |
-| ------------- | --------------- | ------------------------------------------------------------------ |
-| Snow          | `#f2f5f1`       | Page ground and quiet surfaces                                     |
-| Basalt        | `#1e2d31`       | Text, strong boundaries, and high-emphasis controls                |
-| Moss          | `#58705b`       | Natural supporting emphasis                                        |
-| Fjord         | `#2f6f86`       | Navigation, links, focus, location, and information                |
-| Signal Yellow | `#f2c94c`       | Verified access truth, selection, attention, and committed actions |
+| Role          | Reference value | Semantic use                                            |
+| ------------- | --------------- | ------------------------------------------------------- |
+| Snow          | `#f2f5f1`       | Page ground and quiet surfaces                          |
+| Basalt        | `#1e2d31`       | Text, strong boundaries, and high-emphasis controls     |
+| Moss          | `#58705b`       | Natural supporting emphasis                             |
+| Fjord         | `#2f6f86`       | Navigation, links, focus, location, and information     |
+| Signal Yellow | `#f2c94c`       | Verified access truth, selection, and committed actions |
 
 Signal Yellow is scarce and semantic.
 It must not become a decorative background or a general brand fill.
@@ -82,7 +82,7 @@ The selected profile uses editorial place hierarchy, a clear welcome and access 
 Favourite controls expose idle, busy, selected, and error states through text, accessible state, and semantic styling.
 Check-in controls expose idle, busy, committed, and error states through text, live regions, accessible state, and semantic styling.
 Candidate and inactive public Place status routes use the same Place mode and status-panel primitives while preserving their distinct bilingual explanations.
-Signal Yellow remains reserved for verified access, selection, attention, and committed actions.
+Signal Yellow remains reserved for verified access, selection, and committed actions.
 
 ## Evidence Contract
 
