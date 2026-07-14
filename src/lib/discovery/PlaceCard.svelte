@@ -3,6 +3,7 @@
 
   import type { Catalogue, MessageKey } from '$i18n';
   import type { PlaceCategory } from '$domain/place';
+  import { accessAreaMessageKeys } from '$i18n/structured-place';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
 
@@ -69,11 +70,23 @@
     >
       <strong>{place.name}</strong>
       <span>{copy[categoryKeys[place.category]]} · {place.locality}</span>
+      {#if place.accessArea}
+        <span class="access-sign hv-status" data-status="verified">
+          <strong>{copy['status.verified']}</strong>
+          <span>· {copy[accessAreaMessageKeys[place.accessArea]]}</span>
+        </span>
+      {/if}
     </button>
   {:else}
     <div class="place-summary">
       <strong>{place.name}</strong>
       <span>{copy[categoryKeys[place.category]]} · {place.locality}</span>
+      {#if place.accessArea}
+        <span class="access-sign hv-status" data-status="verified">
+          <strong>{copy['status.verified']}</strong>
+          <span>· {copy[accessAreaMessageKeys[place.accessArea]]}</span>
+        </span>
+      {/if}
     </div>
   {/if}
   {#if interactive}
@@ -97,18 +110,15 @@
     gap: 0.75rem;
     align-items: center;
     padding: 0.75rem;
-    border: 2px solid var(--ink);
-    border-radius: var(--radius-organic);
-    background: var(--paper-light);
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--amber);
-    transition: transform 150ms ease;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
+    box-shadow: none;
   }
 
   article.selected {
-    box-shadow:
-      0 0 0 4px var(--teal),
-      var(--shadow-offset) var(--shadow-offset) 0 var(--amber);
-    transform: translateY(-0.18rem) rotate(-0.35deg);
+    border-color: var(--hv-color-basalt);
+    box-shadow: inset 0.3rem 0 0 var(--hv-color-signal);
   }
 
   .place-summary {
@@ -123,12 +133,23 @@
   }
 
   .place-summary strong {
-    font-size: 1.15rem;
+    font-family: var(--hv-font-display);
+    font-size: 1.25rem;
+    font-weight: 650;
+  }
+
+  .access-sign {
+    display: flex;
+    width: fit-content;
+    gap: 0.3rem;
+    margin-top: 0.25rem;
+    font-family: var(--hv-font-ui);
   }
 
   button:focus-visible {
-    outline: 4px solid var(--focus);
+    outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   @media (max-width: 32rem) {

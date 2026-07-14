@@ -19,6 +19,8 @@
   let currentHash = $state('');
   let hydrated = $state(false);
   let isDiscovery = $derived(page.route.id === '/[lang=lang]');
+  let isModeration = $derived(page.route.id?.startsWith('/[lang=lang]/moderation') === true);
+  let northStarMode = $derived(isDiscovery ? 'place' : isModeration ? 'operations' : undefined);
   const currentBrowserUrl = $derived.by(() => {
     const currentUrl = new URL(page.url.href);
     currentUrl.hash = currentHash;
@@ -78,7 +80,12 @@
   <meta name="description" content={data.copy['meta.description']} />
 </svelte:head>
 
-<header class="site-header" data-app-hydrated={hydrated}>
+<header
+  class="site-header"
+  class:north-star={northStarMode !== undefined}
+  data-ui-mode={northStarMode}
+  data-app-hydrated={hydrated}
+>
   <a
     class="brand"
     href={resolve('/[lang=lang]', { lang: data.lang })}
@@ -242,6 +249,55 @@
     outline-offset: 3px;
   }
 
+  .site-header.north-star {
+    width: min(100% - 2rem, 96rem);
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--hv-border-subtle);
+  }
+
+  .site-header.north-star .brand {
+    color: var(--hv-color-basalt);
+    font-family: var(--hv-font-display);
+    font-size: 1.4rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+
+  .site-header.north-star .brand img {
+    filter: none;
+    transform: none;
+  }
+
+  .site-header.north-star nav {
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
+  }
+
+  .site-header.north-star a {
+    border-width: 1px;
+    border-radius: var(--hv-radius-control);
+    color: var(--hv-color-basalt);
+  }
+
+  .site-header.north-star a[aria-current='page'] {
+    border-color: var(--hv-color-basalt);
+    background: var(--hv-color-signal);
+  }
+
+  .site-header.north-star .account-link {
+    border-color: var(--hv-color-basalt);
+    background: var(--hv-color-basalt);
+    color: var(--hv-color-snow-raised);
+    box-shadow: none;
+  }
+
+  .site-header.north-star a:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
+  }
+
   @media (max-width: 34rem) {
     .site-header {
       display: grid;
@@ -314,6 +370,15 @@
       max-width: 9.5rem;
       line-height: 1.05;
       text-align: center;
+    }
+
+    .site-header.north-star .mobile-menu summary,
+    .site-header.north-star .mobile-menu-panel {
+      border-width: 1px;
+      border-radius: var(--hv-radius-control);
+      border-color: var(--hv-color-basalt);
+      background: var(--hv-color-snow-raised);
+      box-shadow: var(--hv-shadow-raised);
     }
   }
 </style>

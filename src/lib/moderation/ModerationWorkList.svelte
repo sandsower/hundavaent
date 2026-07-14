@@ -135,15 +135,15 @@
 <style>
   .work-list {
     min-width: 0;
-    border-right: 2px solid var(--ink);
-    background: white;
+    border-right: 1px solid var(--hv-border-subtle);
+    background: var(--hv-color-snow-raised);
   }
   header {
     position: sticky;
     z-index: 2;
     top: 0;
-    border-bottom: 1px solid rgb(25 59 69 / 28%);
-    background: white;
+    border-bottom: 1px solid var(--hv-border-subtle);
+    background: var(--hv-color-snow-raised);
     padding: 1rem;
   }
   .heading-row {
@@ -158,20 +158,23 @@
     margin: 0;
   }
   h2 {
+    font-family: var(--hv-font-display);
     font-size: 1.25rem;
+    font-weight: 650;
   }
   .heading-row span,
   .meta,
   .summary {
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
   }
   .heading-row span {
     flex: none;
     font-size: 0.78rem;
   }
   a:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
   ul {
     margin: 0;
@@ -179,23 +182,23 @@
     list-style: none;
   }
   li + li {
-    border-top: 1px solid rgb(25 59 69 / 22%);
+    border-top: 1px solid var(--hv-border-subtle);
   }
   li > a {
     display: grid;
     gap: 0.28rem;
     border-left: 0.4rem solid transparent;
-    background: white;
+    background: var(--hv-color-snow-raised);
     padding: 0.85rem 1rem 0.85rem 0.65rem;
-    color: var(--ink);
+    color: var(--hv-color-basalt);
     text-decoration: none;
   }
   li > a:hover {
-    background: #fff8dc;
+    background: var(--hv-color-signal-soft);
   }
   li > a.selected {
-    border-left-color: var(--coral);
-    background: #fff4cf;
+    border-left-color: var(--hv-color-signal);
+    background: var(--hv-color-signal-soft);
   }
   .item-top {
     display: flex;
@@ -211,15 +214,15 @@
   .badge {
     flex: none;
     border-radius: 999px;
-    background: var(--mint);
+    background: var(--hv-color-fjord-soft);
     padding: 0.16rem 0.4rem;
     font-size: 0.65rem;
     font-weight: 900;
     text-transform: uppercase;
   }
   .badge.priority {
-    background: var(--coral-soft);
-    color: var(--coral-dark);
+    background: var(--hv-color-danger-soft);
+    color: var(--hv-color-danger);
   }
   .summary,
   .meta {
@@ -229,38 +232,38 @@
   .empty,
   .error {
     margin: 1rem;
-    border: 2px solid var(--ink);
-    border-radius: 0.9rem;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-panel);
     padding: 1rem;
   }
   .empty {
-    background: var(--mint);
+    background: var(--hv-color-success-soft);
   }
   .error {
-    border-color: var(--danger);
-    background: var(--coral-soft);
+    border-color: var(--hv-color-danger);
+    background: var(--hv-color-danger-soft);
   }
   .empty p,
   .error p {
     margin-top: 0.3rem;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
     line-height: 1.4;
   }
   .error a {
     display: inline-block;
     margin-top: 0.7rem;
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     font-weight: 900;
   }
   .pagination {
     display: flex;
     gap: 0.6rem;
     justify-content: space-between;
-    border-top: 1px solid rgb(25 59 69 / 28%);
+    border-top: 1px solid var(--hv-border-subtle);
     padding: 0.75rem 1rem;
   }
   .pagination a {
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     font-size: 0.78rem;
     font-weight: 900;
   }
@@ -270,7 +273,7 @@
   @media (max-width: 44rem) {
     .work-list {
       border-right: 0;
-      border-bottom: 2px solid var(--ink);
+      border-bottom: 1px solid var(--hv-border-subtle);
     }
     header {
       position: static;

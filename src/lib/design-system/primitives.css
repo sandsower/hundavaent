@@ -1,0 +1,76 @@
+@layer hundavaent.primitives {
+  :where([data-ui-mode]) .hv-panel {
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
+  }
+
+  :where([data-ui-mode]) .hv-control,
+  :where([data-ui-mode]) .hv-field {
+    min-height: var(--hv-control-height);
+    border: 1px solid var(--hv-border-strong);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
+    color: var(--hv-color-basalt);
+    font: inherit;
+  }
+
+  :where([data-ui-mode]) .hv-control {
+    display: inline-flex;
+    padding: 0.55rem 0.8rem;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  :where([data-ui-mode]) .hv-control[data-intent='primary'] {
+    background: var(--hv-color-basalt);
+    color: var(--hv-color-snow-raised);
+  }
+
+  :where([data-ui-mode]) .hv-control[data-intent='committed'] {
+    background: var(--hv-color-signal);
+    color: var(--hv-color-basalt);
+  }
+
+  :where([data-ui-mode]) .hv-control:focus-visible,
+  :where([data-ui-mode]) .hv-field:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
+  }
+
+  :where([data-ui-mode]) .hv-eyebrow {
+    color: var(--hv-color-fjord);
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  :where([data-ui-mode]) .hv-status {
+    border: 1px solid var(--hv-border-strong);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-fjord-soft);
+    padding: 0.3rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+  }
+
+  :where([data-ui-mode]) .hv-status[data-status='verified'],
+  :where([data-ui-mode]) .hv-status[data-status='selected'] {
+    background: var(--hv-color-signal);
+  }
+
+  :where([data-ui-mode]) .hv-status[data-status='success'] {
+    background: var(--hv-color-success-soft);
+    color: var(--hv-color-success);
+  }
+
+  :where([data-ui-mode]) .hv-status[data-status='error'] {
+    background: var(--hv-color-danger-soft);
+    color: var(--hv-color-danger);
+  }
+}

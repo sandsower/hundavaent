@@ -162,7 +162,7 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="workspace-shell">
+<main class="workspace-shell" data-ui-mode="operations">
   <ModerationWorkspace
     copy={data.copy}
     baseHref={`/${data.lang}/moderation`}
@@ -260,8 +260,12 @@
 
 <style>
   .workspace-shell {
-    width: min(100% - 1.5rem, 78rem);
-    margin: 1.5rem auto 4rem;
+    width: min(100% - 1.5rem, 96rem);
+    margin: 0.75rem auto 4rem;
+  }
+  :global(body) {
+    background: var(--hv-color-snow);
+    color: var(--hv-color-basalt);
   }
   .workspace-actions {
     display: flex;
@@ -272,11 +276,11 @@
   .workspace-actions a,
   .decision-option {
     display: inline-block;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-signal);
     padding: 0.65rem 0.9rem;
-    color: var(--ink);
+    color: var(--hv-color-basalt);
     font: inherit;
     font-weight: 900;
     text-decoration: none;
@@ -284,8 +288,9 @@
   }
   .workspace-actions a:focus-visible,
   .decision-option:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
   .decision-options {
     display: grid;
@@ -299,9 +304,9 @@
     line-height: 1.15;
   }
   .decision-option.selected {
-    background: var(--coral-dark);
-    color: white;
-    box-shadow: inset 0 0 0 2px var(--ink);
+    background: var(--hv-color-signal);
+    color: var(--hv-color-basalt);
+    box-shadow: inset 0 -0.22rem 0 var(--hv-color-basalt);
   }
   .correction-options {
     grid-template-columns: repeat(5, minmax(0, 1fr));

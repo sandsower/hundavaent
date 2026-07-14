@@ -1,0 +1,44 @@
+@layer hundavaent.tokens {
+  [data-ui-mode] {
+    --hv-color-snow: #f2f5f1;
+    --hv-color-snow-raised: #fbfcf9;
+    --hv-color-basalt: #1e2d31;
+    --hv-color-basalt-muted: #5e6c70;
+    --hv-color-moss: #58705b;
+    --hv-color-moss-soft: #e2e9e2;
+    --hv-color-fjord: #2f6f86;
+    --hv-color-fjord-soft: #dce8ed;
+    --hv-color-signal: #f2c94c;
+    --hv-color-signal-soft: #fbefbd;
+    --hv-color-danger: #9b3d32;
+    --hv-color-danger-soft: #f6e1dc;
+    --hv-color-success: #356246;
+    --hv-color-success-soft: #e2eee5;
+    --hv-border-subtle: #a8b2ac;
+    --hv-border-strong: var(--hv-color-basalt);
+    --hv-shadow-raised: 0 0.7rem 1.8rem rgb(30 45 49 / 12%);
+    --hv-shadow-floating: 0 1rem 2.6rem rgb(30 45 49 / 16%);
+    --hv-font-display:
+      'Source Serif 4 Variable', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    --hv-font-ui: var(--font-sans);
+    --hv-focus-ring: var(--hv-color-fjord);
+    --hv-focus-offset: var(--hv-color-snow-raised);
+    --hv-space-context: 1.25rem;
+    --hv-space-panel: 1rem;
+    --hv-control-height: 2.75rem;
+    --hv-radius-control: 0.35rem;
+    --hv-radius-panel: 0.55rem;
+    --hv-radius-shell: 0.75rem;
+    color: var(--hv-color-basalt);
+    font-family: var(--hv-font-ui);
+  }
+
+  [data-ui-mode='operations'] {
+    --hv-space-context: 0.75rem;
+    --hv-space-panel: 0.75rem;
+    --hv-control-height: 2.5rem;
+    --hv-radius-control: 0.3rem;
+    --hv-radius-panel: 0.4rem;
+    --hv-radius-shell: 0.55rem;
+  }
+}

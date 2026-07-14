@@ -849,8 +849,8 @@
   }
 
   .results-overlay {
-    top: 7.4rem;
-    width: min(26rem, calc(100% - 2.5rem));
+    top: 9rem;
+    width: min(30rem, calc(100% - 2.5rem));
   }
 
   .empty-overlay {
@@ -859,20 +859,20 @@
     gap: 0.4rem;
     top: 8rem;
     padding: 1rem;
-    border: 2px solid var(--ink);
-    border-radius: var(--radius-organic);
-    background: var(--paper-light);
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--coral);
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-floating);
   }
 
   .empty-overlay button {
     justify-self: start;
     margin-top: 0.35rem;
     padding: 0.5rem 0.75rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--amber);
-    color: var(--ink);
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-signal);
+    color: var(--hv-color-basalt);
     font: inherit;
     font-weight: 800;
   }
