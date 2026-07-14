@@ -57,6 +57,20 @@ describe('PlacePhotos', () => {
     expect(image.closest('figure')?.hasAttribute('data-primary-photo')).toBe(true);
   });
 
+  it('exposes an image-led media surface using the shared panel vocabulary', () => {
+    const { container } = render(PlacePhotos, {
+      photos: [photo],
+      placeName: 'Published Place',
+      lang: 'en',
+      copy: catalogues.en
+    });
+
+    const gallery = container.querySelector('[data-photos-section]');
+    expect(gallery?.classList.contains('hv-panel')).toBe(true);
+    expect(gallery?.getAttribute('data-surface')).toBe('media-gallery');
+    expect(container.querySelector('[data-photo-frame="image-led"]')).toBeTruthy();
+  });
+
   it('uses the Icelandic alt text when rendered in Icelandic', () => {
     render(PlacePhotos, {
       photos: [photo],
