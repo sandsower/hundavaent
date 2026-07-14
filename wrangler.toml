@@ -6,10 +6,6 @@ compatibility_flags = ["nodejs_compat"]
 send_metrics = false
 upload_source_maps = true
 
-[observability]
-enabled = true
-head_sampling_rate = 1
-
 [env.preview]
 
 [env.preview.secrets]
