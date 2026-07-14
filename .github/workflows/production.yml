@@ -277,8 +277,8 @@ jobs:
             echo "The Supabase URL does not match the production project ref." >&2
             exit 1
           fi
-          if [[ "${PUBLIC_APP_URL}" != "https://hv.valenzuela.is" ]]; then
-            echo "The production application URL must be the provisional domain." >&2
+          if [[ "${PUBLIC_APP_URL}" != "https://hundavaent.is" ]]; then
+            echo "The production application URL must be the canonical domain." >&2
             exit 1
           fi
           if [[ "${PUBLIC_MAP_STYLE_URL}" != https://api.maptiler.com/* ]] || [[ "${PUBLIC_MAP_STYLE_URL}" != *"?key="* && "${PUBLIC_MAP_STYLE_URL}" != *"&key="* ]]; then
