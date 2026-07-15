@@ -440,6 +440,37 @@ describe('Member auth routes', () => {
     });
   });
 
+  it('normalizes and forwards the Favorite anchor fallback into the sign-in modal', async () => {
+    const placeId = '30000000-0000-4000-8000-000000000003';
+    await expect(
+      load({
+        locals: { requestId: 'request-account-favorite-intent', supabase: null },
+        params: { lang: 'en' },
+        url: new URL(
+          `http://localhost/en/account?returnTo=${encodeURIComponent(`/en?place=${placeId}`)}&intentAction=favourite&placeId=${placeId}`
+        )
+      } as never)
+    ).rejects.toMatchObject({
+      status: 303,
+      location: `/en?auth=open&authReturnTo=${encodeURIComponent(`/en?place=${placeId}`)}&authStatus=unavailable&authIntent=favourite&authPlace=${placeId}`
+    });
+  });
+
+  it('drops malformed Favorite intent parameters at the Account boundary', async () => {
+    await expect(
+      load({
+        locals: { requestId: 'request-account-invalid-favorite-intent', supabase: null },
+        params: { lang: 'en' },
+        url: new URL(
+          'http://localhost/en/account?returnTo=%2Fen&intentAction=favourite&placeId=not-a-place'
+        )
+      } as never)
+    ).rejects.toMatchObject({
+      status: 303,
+      location: '/en?auth=open&authReturnTo=%2Fen&authStatus=unavailable'
+    });
+  });
+
   it('fails closed when provider configuration is unavailable', async () => {
     const conflictingLoad = _createLoad(() => ({
       status: 'unavailable',

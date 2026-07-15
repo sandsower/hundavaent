@@ -37,7 +37,7 @@
     signedIn?: boolean;
     favourite?: boolean;
     signInHref?: string;
-    onFavouriteChange?: (placeId: string, favourite: boolean) => void;
+    onFavouriteChange?: (placeId: string, favourite: boolean, trigger: HTMLButtonElement) => void;
     correctionHref?: (
       placeId: string,
       kind: 'correct' | 'report' | 'rate',

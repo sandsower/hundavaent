@@ -40,6 +40,12 @@ const places = [
   }
 ];
 
+const focusPlaces = [
+  places[0],
+  { ...places[0], placeId: '30000000-0000-4000-8000-000000000004', name: 'Second Place' },
+  { ...places[0], placeId: '30000000-0000-4000-8000-000000000005', name: 'Third Place' }
+];
+
 const complexProfile = {
   placeId: places[0].placeId,
   name: 'Published Place',
@@ -153,6 +159,8 @@ describe('MapListShell synchronization', () => {
     );
 
     expect(accountUrl.pathname).toBe('/en/account');
+    expect(accountUrl.searchParams.get('intentAction')).toBe('favourite');
+    expect(accountUrl.searchParams.get('placeId')).toBe(places[0].placeId);
     expect(returnTo.pathname).toBe('/en');
     expect(returnTo.searchParams.get('place')).toBe(places[0].placeId);
     expect(returnTo.searchParams.has('favourite')).toBe(false);
@@ -270,6 +278,127 @@ describe('MapListShell synchronization', () => {
 
     expect(window.location.search).toContain('favorites=1');
     expect(screen.getByRole('button', { name: 'Show 0 results' })).toBeTruthy();
+  });
+
+  it('does not expose Favorites-only when the private projection is unavailable', async () => {
+    history.replaceState(null, '', '/en?view=list');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: { ...defaultDiscoveryState, view: 'list' },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile),
+      signedIn: true,
+      favouritesAvailable: false
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+
+    expect(screen.queryByRole('checkbox', { name: 'Favorites only' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Show 1 result' })).toBeTruthy();
+  });
+
+  it.each([
+    ['first', 0, 'Second Place'],
+    ['middle', 1, 'Third Place'],
+    ['final', 2, 'Second Place']
+  ])(
+    'restores focus after removing the focused %s Favorite result',
+    async (_position, index, expectedName) => {
+      history.replaceState(null, '', '/en?view=list&favorites=1');
+      const removed = focusPlaces[index];
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+          if (init?.method !== 'PUT') throw new Error('Unexpected request');
+          return new Response(JSON.stringify({ placeId: removed.placeId, isFavourite: false }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          });
+        })
+      );
+
+      try {
+        render(MapListShell, {
+          places: focusPlaces,
+          lang: 'en',
+          copy: catalogues.en,
+          initialState: {
+            ...defaultDiscoveryState,
+            view: 'list',
+            filters: { ...defaultDiscoveryState.filters, favoritesOnly: true }
+          },
+          adapter: createDomTestMapAdapter(),
+          replaceUrl,
+          pushUrl,
+          signedIn: true,
+          initialFavouritePlaceIds: focusPlaces.map((place) => place.placeId)
+        });
+        const trigger = screen.getByRole('button', {
+          name: `Remove ${removed.name} from favorites`
+        });
+        trigger.focus();
+
+        await fireEvent.click(trigger);
+
+        await waitFor(() =>
+          expect(
+            screen.getByRole('button', { name: `Remove ${expectedName} from favorites` })
+          ).toHaveFocus()
+        );
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    }
+  );
+
+  it('restores focus when cross-tab invalidation removes the focused Favorite result', async () => {
+    history.replaceState(null, '', '/en?view=list&favorites=1');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ placeIds: [focusPlaces[0].placeId, focusPlaces[2].placeId] }),
+            { status: 200, headers: { 'content-type': 'application/json' } }
+          )
+      )
+    );
+    const external = new BroadcastChannel('hundavaent-favourites');
+
+    try {
+      render(MapListShell, {
+        places: focusPlaces,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: {
+          ...defaultDiscoveryState,
+          view: 'list',
+          filters: { ...defaultDiscoveryState.filters, favoritesOnly: true }
+        },
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        signedIn: true,
+        initialFavouritePlaceIds: focusPlaces.map((place) => place.placeId)
+      });
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 0));
+      screen.getByRole('button', { name: 'Remove Second Place from favorites' }).focus();
+
+      external.postMessage({ type: 'invalidate', sourceId: 'external-tab' });
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: 'Remove Third Place from favorites' })
+        ).toHaveFocus()
+      );
+    } finally {
+      external.close();
+      vi.unstubAllGlobals();
+    }
   });
 
   it('clears a selected Place and restores stable focus when it leaves Favorites-only results', async () => {
@@ -432,28 +561,43 @@ describe('MapListShell synchronization', () => {
     );
   });
 
-  it('keeps Favorite and Share together in the selected Place header', () => {
+  it('keeps Favorite and Share together in the selected Place header', async () => {
     history.replaceState(null, '', '/en?place=30000000-0000-4000-8000-000000000003');
-    render(MapListShell, {
-      places,
-      lang: 'en',
-      copy: catalogues.en,
-      initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
-      adapter: createDomTestMapAdapter(),
-      replaceUrl,
-      pushUrl,
-      loadPlace: vi.fn(async () => complexProfile),
-      signedIn: true
-    });
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ hasRecentCheckIn: false, checkedInAt: null, proximityConfirmed: null }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile),
+        signedIn: true
+      });
 
-    const card = screen.getByLabelText('Selected place');
-    const favorite = within(card).getByRole('button', {
-      name: 'Add Published Place to favorites'
-    });
-    const share = within(card).getByRole('button', { name: 'Share Published Place' });
-    const close = within(card).getByRole('button', { name: 'Close selected place' });
-    expect(favorite.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(share.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      const card = screen.getByLabelText('Selected place');
+      const favorite = within(card).getByRole('button', {
+        name: 'Add Published Place to favorites'
+      });
+      const share = within(card).getByRole('button', { name: 'Share Published Place' });
+      const close = within(card).getByRole('button', { name: 'Close selected place' });
+      expect(
+        favorite.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+      expect(share.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('asks the friendly welcome question in Icelandic with concise trust metadata', () => {

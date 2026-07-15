@@ -14,7 +14,7 @@
     signedIn?: boolean;
     favouritePlaceIds?: string[];
     signInHref?: (placeId: string) => string;
-    onFavouriteChange?: (placeId: string, favourite: boolean) => void;
+    onFavouriteChange?: (placeId: string, favourite: boolean, trigger: HTMLButtonElement) => void;
   }
 
   let {

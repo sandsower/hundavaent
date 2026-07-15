@@ -1,7 +1,7 @@
 export type AuthOrigin = 'header' | 'favourite' | 'rating';
 
 export type PendingAuthIntent =
-  | { action: 'favourite'; placeId: string; placeName: string }
+  | { action: 'favourite'; placeId: string; placeName?: string }
   | { action: 'rating'; placeId: string; placeName: string; overallRating: number };
 
 export interface AuthRequest {
@@ -23,8 +23,15 @@ export function isAuthRequest(value: unknown): value is AuthRequest {
   if (!['header', 'favourite', 'rating'].includes(candidate.origin ?? '')) return false;
   if (!candidate.intent) return candidate.origin === 'header' && !candidate.continuationToken;
   if (candidate.continuationToken && candidate.continuationToken.length < 32) return false;
-  if (!candidate.intent.placeId || !candidate.intent.placeName) return false;
+  if (!candidate.intent.placeId) return false;
+  if (
+    candidate.intent.placeName !== undefined &&
+    (typeof candidate.intent.placeName !== 'string' || candidate.intent.placeName.trim() === '')
+  ) {
+    return false;
+  }
   if (candidate.intent.action === 'favourite') return candidate.origin === 'favourite';
+  if (!candidate.intent.placeName) return false;
   return (
     candidate.intent.action === 'rating' &&
     candidate.origin === 'rating' &&

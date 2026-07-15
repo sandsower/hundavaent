@@ -87,4 +87,42 @@ describe('AuthDialog', () => {
     });
     expect(screen.getByRole('button', { name: 'Send again in 30s' })).toBeDisabled();
   });
+
+  it('preserves a server-normalized Favorite intent after the anchor fallback navigates', async () => {
+    const placeId = '30000000-0000-4000-8000-000000000003';
+    history.replaceState(
+      null,
+      '',
+      `/en?auth=open&authReturnTo=%2Fen%3Fplace%3D${placeId}&authIntent=favourite&authPlace=${placeId}`
+    );
+    let submitted: FormData | null = null;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: RequestInfo | URL, options?: RequestInit) => {
+        submitted = options?.body as FormData;
+        return new Response(JSON.stringify({ status: 'link_sent', resendAfterSeconds: 30 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        });
+      })
+    );
+
+    render(AuthDialog, {
+      lang: 'en',
+      copy: catalogues.en,
+      providers: { email: true, facebook: true }
+    });
+
+    await fireEvent.input(await screen.findByLabelText('Email address'), {
+      target: { value: 'fallback@example.is' }
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Send me a sign-in link' }));
+
+    await waitFor(() => expect(submitted).not.toBeNull());
+    expect(Object.fromEntries(submitted!.entries())).toMatchObject({
+      intentAction: 'favourite',
+      placeId,
+      returnTo: `/en?place=${placeId}`
+    });
+  });
 });

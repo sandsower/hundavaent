@@ -61,6 +61,7 @@
     pushUrl?: (url: string) => void;
     loadPlace?: (placeId: string, lang: Locale) => Promise<PublishedPlaceProfile>;
     signedIn?: boolean;
+    favouritesAvailable?: boolean;
     initialFavouritePlaceIds?: string[];
     proximityAssistEnabled?: boolean;
     fitPlacesOnMount?: boolean;
@@ -77,6 +78,7 @@
     pushUrl = (url) => sveltePushState(resolve(url as `/${string}`), {}),
     loadPlace = loadPublishedPlace,
     signedIn = false,
+    favouritesAvailable = true,
     initialFavouritePlaceIds = [],
     proximityAssistEnabled = false,
     fitPlacesOnMount = false
@@ -294,42 +296,99 @@
         payload.placeIds.every((id) => typeof id === 'string')
       ) {
         const nextFavouritePlaceIds = [...payload.placeIds];
+        const focusRecovery = captureFavouriteFocusRecovery(nextFavouritePlaceIds);
         favouritePlaceIds = nextFavouritePlaceIds;
-        clearSelectionRemovedByFavoritesFilter(nextFavouritePlaceIds);
+        const selectionRemoved = clearSelectionRemovedByFavoritesFilter(nextFavouritePlaceIds);
+        restoreFavouriteFocus(focusRecovery, selectionRemoved);
       }
     } catch {
       // The current server-rendered state remains usable while another tab retries.
     }
   }
 
-  function applyFavouriteState(placeId: string, favourite: boolean): void {
+  function applyFavouriteState(
+    placeId: string,
+    favourite: boolean,
+    trigger: HTMLButtonElement
+  ): void {
     favouriteRefreshVersion += 1;
     const next = new SvelteSet(favouritePlaceIds);
     if (favourite) next.add(placeId);
     else next.delete(placeId);
-    favouritePlaceIds = [...next];
+    const nextFavouritePlaceIds = [...next];
+    const focusRecovery = captureFavouriteFocusRecovery(nextFavouritePlaceIds, trigger);
+    favouritePlaceIds = nextFavouritePlaceIds;
 
     if (!favourite && discoveryState.filters.favoritesOnly) {
-      clearSelectionRemovedByFavoritesFilter([...next]);
+      const selectionRemoved = clearSelectionRemovedByFavoritesFilter(nextFavouritePlaceIds);
+      restoreFavouriteFocus(focusRecovery, selectionRemoved);
     }
   }
 
-  function clearSelectionRemovedByFavoritesFilter(nextFavouritePlaceIds: readonly string[]): void {
+  function clearSelectionRemovedByFavoritesFilter(
+    nextFavouritePlaceIds: readonly string[]
+  ): boolean {
     const selectedPlaceId = discoveryState.selectedPlaceId;
     if (
       !discoveryState.filters.favoritesOnly ||
       !selectedPlaceId ||
       nextFavouritePlaceIds.includes(selectedPlaceId)
     ) {
-      return;
+      return false;
     }
 
     selectionFocusOrigin = null;
     commitState({ ...discoveryState, selectedPlaceId: null }, 'replace');
     announceResultCount(filteredPlaces.length);
-    void tick().then(() =>
-      document.querySelector<HTMLButtonElement>('.discovery-controls .filters-button')?.focus()
-    );
+    return true;
+  }
+
+  interface FavouriteFocusRecovery {
+    nextPlaceId: string | null;
+  }
+
+  function captureFavouriteFocusRecovery(
+    nextFavouritePlaceIds: readonly string[],
+    trigger?: HTMLButtonElement
+  ): FavouriteFocusRecovery | null {
+    if (!discoveryState.filters.favoritesOnly) return null;
+    const active = trigger ?? document.activeElement;
+    if (!(active instanceof HTMLElement)) return null;
+    const owner = active.closest<HTMLElement>('[data-favourite-place]');
+    const removedPlaceId = owner?.dataset.favouritePlace;
+    if (!removedPlaceId || nextFavouritePlaceIds.includes(removedPlaceId)) return null;
+
+    const visiblePlaceIds = resultPlaces.map((place) => place.placeId);
+    const removedIndex = visiblePlaceIds.indexOf(removedPlaceId);
+    if (removedIndex < 0) return { nextPlaceId: null };
+    const later = visiblePlaceIds
+      .slice(removedIndex + 1)
+      .find((placeId) => nextFavouritePlaceIds.includes(placeId));
+    const earlier = visiblePlaceIds
+      .slice(0, removedIndex)
+      .reverse()
+      .find((placeId) => nextFavouritePlaceIds.includes(placeId));
+    return { nextPlaceId: later ?? earlier ?? null };
+  }
+
+  function restoreFavouriteFocus(
+    recovery: FavouriteFocusRecovery | null,
+    selectionRemoved: boolean
+  ): void {
+    if (!recovery) return;
+    void tick().then(() => {
+      if (!selectionRemoved && recovery.nextPlaceId) {
+        const owner = [...document.querySelectorAll<HTMLElement>('[data-favourite-place]')].find(
+          (candidate) => candidate.dataset.favouritePlace === recovery.nextPlaceId
+        );
+        const control = owner?.querySelector<HTMLElement>('button, a');
+        if (control) {
+          control.focus();
+          return;
+        }
+      }
+      document.querySelector<HTMLButtonElement>('.discovery-controls .filters-button')?.focus();
+    });
   }
 
   function favouriteSignInHref(placeId: string): string {
@@ -339,7 +398,7 @@
         : new URL(window.location.href);
     url.searchParams.set('place', placeId);
     const returnTo = `${url.pathname}${url.search}${url.hash}`;
-    return `/${lang}/account?returnTo=${encodeURIComponent(returnTo)}`;
+    return `/${lang}/account?returnTo=${encodeURIComponent(returnTo)}&intentAction=favourite&placeId=${encodeURIComponent(placeId)}`;
   }
 
   // Builds a Correction, Report, or Rating entry link for a specific Place field or Access
@@ -722,6 +781,7 @@
       {suggestHref}
       showSuggest={filteredPlaces.length === 0}
       {signedIn}
+      {favouritesAvailable}
       onQueryChange={updateQuery}
       onFiltersChange={updateFilters}
       onClear={clearFilters}
