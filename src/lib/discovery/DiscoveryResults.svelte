@@ -79,12 +79,12 @@
 
 <style>
   .results-tray {
-    max-height: min(30rem, 55dvh);
-    overflow: auto;
-    padding: 0.85rem;
-    border-color: var(--hv-border-strong);
-    background: rgb(251 252 249 / 97%);
-    box-shadow: var(--hv-shadow-floating);
+    min-height: 100%;
+    padding: 1rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .tray-heading {

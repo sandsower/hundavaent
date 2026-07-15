@@ -120,6 +120,10 @@
   </div>
 
   <div class="card-body" data-card-scroll-body>
+    {#if profile}
+      <PlacePhotos photos={profile.photos} placeName={place.name} {lang} {copy} featured />
+    {/if}
+
     <section
       class="hv-notice welcome-answer"
       data-tone={welcomeTone}
@@ -145,6 +149,16 @@
         <p class="complex-summary">{copy['place.restrictedCondition']}</p>
       {/if}
     </section>
+
+    <div class="trust-summary">
+      <span class="hv-status" data-status={reconfirmationDue ? 'attention' : 'verified'}>
+        {reconfirmationDue ? copy['status.reconfirmationDue'] : copy['status.verified']}
+      </span>
+      <span>
+        {copy['place.lastVerified']}
+        <time datetime={place.verifiedAt}>{formatLocalizedDate(place.verifiedAt, lang)}</time>
+      </span>
+    </div>
 
     {#if signedIn}
       <div class="member-actions">
@@ -181,19 +195,6 @@
       </p>
     {/if}
 
-    {#if profile?.dogFriendlinessSummary.visible && correctionHref}
-      <RatingSummary
-        summary={profile.dogFriendlinessSummary}
-        {copy}
-        {signedIn}
-        rateHref={correctionHref(place.placeId, 'rate')}
-      />
-    {/if}
-
-    {#if profile}
-      <PlacePhotos photos={profile.photos} placeName={place.name} {lang} {copy} />
-    {/if}
-
     {#if loading && !profile}
       <p class="hv-notice details-status" data-tone="info" role="status">
         {copy['place.loadingDetails']}
@@ -207,6 +208,15 @@
       <details class="hv-disclosure">
         <summary>{copy['place.showCompleteAccess']}</summary>
         <div class="complete-details">
+          {#if profile.dogFriendlinessSummary.visible && correctionHref}
+            <RatingSummary
+              summary={profile.dogFriendlinessSummary}
+              {copy}
+              {signedIn}
+              rateHref={correctionHref(place.placeId, 'rate')}
+            />
+          {/if}
+
           <section aria-labelledby={`access-${place.placeId}`}>
             <h3 id={`access-${place.placeId}`}>{copy['place.accessHeading']}</h3>
             <ol class="conditions">
@@ -325,10 +335,13 @@
 <style>
   .selected-place {
     display: flex;
+    height: 100%;
     flex-direction: column;
-    max-height: min(78vh, 42rem);
+    max-height: none;
     overflow: hidden;
-    box-shadow: var(--hv-shadow-floating);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .card-body {
@@ -346,12 +359,35 @@
 
   .member-actions {
     display: grid;
-    gap: 0.65rem;
-    margin-block: 0.85rem;
+    gap: 0.45rem;
+    margin-block: 0.65rem;
+  }
+
+  .card-body > :global(.place-photos) {
+    margin-block: 0 0.8rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+  }
+
+  .member-actions :global(.check-in) {
+    margin-top: 0;
+    padding-top: 0.6rem;
+  }
+
+  .member-actions :global(.explanation),
+  .member-actions :global(.location-explanation) {
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+
+  .member-actions :global(.actions) {
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   }
 
   .welcome-answer {
-    border-inline-start: 0.3rem solid var(--hv-color-fjord);
+    border-color: var(--hv-color-basalt);
+    border-inline-start: 0.35rem solid var(--hv-color-fjord);
+    border-radius: var(--hv-radius-control);
   }
 
   .welcome-answer[data-access-state='verified'] {
@@ -393,6 +429,20 @@
     background: var(--hv-color-snow-raised);
     padding: 0.25rem 0.55rem;
     font-size: 0.78rem;
+    font-weight: 750;
+  }
+
+  .trust-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px dashed var(--hv-border-subtle);
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.75rem;
     font-weight: 750;
   }
 

@@ -271,11 +271,14 @@
 
 <style>
   .discovery-controls {
-    width: min(30rem, calc(100vw - 5.5rem));
-    padding: 0.85rem;
-    border-color: var(--hv-border-strong);
-    background: rgb(251 252 249 / 96%);
-    box-shadow: var(--hv-shadow-floating);
+    width: 100%;
+    max-height: 100%;
+    overflow: auto;
+    padding: 1rem;
+    border: 0;
+    border-radius: 0;
+    background: var(--hv-color-snow-raised);
+    box-shadow: none;
   }
 
   .search-row {
@@ -317,14 +320,27 @@
     grid-column: 1 / -1;
   }
 
+  .search-row input {
+    padding-inline: 0;
+    border: 0;
+    border-bottom: 2px solid var(--hv-color-basalt);
+    border-radius: 0;
+    background: transparent;
+  }
+
   button {
     padding: 0.45rem 0.75rem;
     cursor: pointer;
   }
 
-  button.active,
   .results-button {
+    background: var(--hv-color-basalt);
+    color: var(--hv-color-snow-raised);
+  }
+
+  button.active {
     background: var(--hv-color-signal);
+    color: var(--hv-color-basalt);
   }
 
   button span[aria-hidden='true'] {
@@ -435,9 +451,9 @@
 
   @media (max-width: 48rem) {
     .discovery-controls {
-      width: calc(100vw - 2.5rem);
-      max-height: min(31rem, calc(100dvh - 10rem));
-      overflow: auto;
+      width: 100%;
+      max-height: none;
+      overflow: visible;
     }
 
     .search-row {
