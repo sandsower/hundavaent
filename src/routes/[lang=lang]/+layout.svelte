@@ -245,7 +245,7 @@
     box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
-  @media (max-width: 34rem) {
+  @media (max-width: 42rem) {
     .site-header {
       display: grid;
       height: var(--hv-app-header-height);

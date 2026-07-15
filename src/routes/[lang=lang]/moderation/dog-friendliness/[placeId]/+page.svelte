@@ -399,7 +399,7 @@
   }
   .note-meta dt {
     font-size: 0.72rem;
-    color: var(--hv-color-basalt-muted);
+    color: var(--hv-color-basalt);
     font-weight: 750;
   }
   .note-meta dd {
@@ -434,6 +434,10 @@
   a,
   summary {
     color: var(--hv-color-fjord);
+  }
+  .private-note a,
+  .private-note summary {
+    color: var(--hv-color-basalt);
   }
   .disposition-form {
     grid-template-columns: 1fr 2fr auto;

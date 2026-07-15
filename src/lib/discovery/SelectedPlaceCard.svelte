@@ -512,14 +512,14 @@
 
   .source-reference {
     overflow-wrap: anywhere;
-    color: var(--hv-color-basalt-muted);
+    color: var(--hv-color-basalt);
   }
 
   .source-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 0.25rem 0.55rem;
-    color: var(--hv-color-basalt-muted);
+    color: var(--hv-color-basalt);
     font-size: 0.75rem;
   }
 

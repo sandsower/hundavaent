@@ -1018,7 +1018,7 @@
     border: 1px solid var(--hv-color-fjord);
     border-radius: var(--hv-radius-control);
     background: var(--hv-color-fjord-soft);
-    color: var(--hv-color-fjord);
+    color: var(--hv-color-basalt);
     font-weight: 850;
     font-size: 0.75rem;
   }
@@ -1069,6 +1069,10 @@
 
   li.missing > span {
     background: var(--hv-color-danger);
+  }
+
+  li.missing a {
+    color: var(--hv-color-basalt);
   }
 
   .details {
@@ -1313,7 +1317,7 @@
     border: 1px solid var(--hv-color-fjord);
     border-radius: var(--hv-radius-control);
     background: var(--hv-color-fjord-soft);
-    color: var(--hv-color-fjord);
+    color: var(--hv-color-basalt);
     font-weight: 800;
     font-size: 0.85rem;
   }

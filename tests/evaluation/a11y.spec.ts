@@ -745,6 +745,7 @@ test('Dog-Friendliness Rating form, public Summary, and Moderator exclusion view
     }
 
     await page.goto(`/en?place=${placeId}&view=map`);
+    await selected.locator('summary').click();
     const ratingEvidence = page.locator('[data-rating-summary][data-rating-visible="true"]');
     await expect(ratingEvidence).toBeVisible();
     await expect(ratingEvidence.locator('[data-status="info"]')).toHaveCount(2);
