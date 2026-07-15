@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(20);
+select plan(21);
 
 select has_column(
   'private',
@@ -73,13 +73,19 @@ select ok(
 );
 
 select ok(
-  position('set_access_availability_queue' in pg_get_functiondef(
-    'public.create_candidate_place(jsonb,uuid)'::regprocedure
-  )) > 0
-  and position('set_access_availability_queue' in pg_get_functiondef(
-    'private.create_suggestion_candidate(jsonb,uuid,uuid,uuid,uuid)'::regprocedure
-  )) > 0,
-  'Candidate and suggestion writers assign timing in insertion order'
+  not exists (
+    select 1
+    from (
+      values
+        ('private.create_candidate_place_pre_geometry(jsonb,uuid)'::regprocedure),
+        ('private.create_suggestion_candidate(jsonb,uuid,uuid,uuid,uuid)'::regprocedure),
+        ('public.resolve_access_dispute(jsonb,uuid)'::regprocedure),
+        ('public.resolve_place_flag(uuid,text,text,text,text,jsonb,jsonb,jsonb,uuid)'::regprocedure)
+    ) as writer(procedure_id)
+    where position('availability_state' in pg_get_functiondef(writer.procedure_id)) = 0
+      or position('resolve_access_availability' in pg_get_functiondef(writer.procedure_id)) = 0
+  ),
+  'Every Access Condition writer inserts resolved timing state directly'
 );
 
 select throws_ok(
@@ -147,59 +153,42 @@ select ok(
   'The table constraint rejects windows on not-stated timing'
 );
 
-select private.set_access_availability_queue('[
-  {"availability_state":"whenever_open","availability_window":{}},
-  {"availability_state":"limited","availability_window":{"days":[1]}}
-]'::jsonb);
-
-with target_place as (
-  select id from private.places order by id limit 1
-), inserted as (
-  insert into private.access_conditions (
-    place_id, revision, access_area, restraint_condition, dog_eligibility,
-    availability_window, permission_requirement
-  )
-  select target_place.id, 901 + input.ordinal, input.access_area::private.access_area,
-    'leash_required', '{"scope":"all_dogs"}'::jsonb, input.availability_window,
-    'standing_permission'
-  from target_place
-  cross join (values
-    (1, 'indoors', '{}'::jsonb),
-    (2, 'outdoors', '{"days":[1]}'::jsonb)
-  ) input(ordinal, access_area, availability_window)
-  order by input.ordinal
-  returning access_area::text, availability_state::text
-)
 select is(
-  (select jsonb_object_agg(access_area, availability_state) from inserted),
-  '{"indoors":"whenever_open","outdoors":"limited"}'::jsonb,
-  'A multi-condition insert assigns each timing state atomically in input order'
+  (select count(*) from pg_trigger
+    where tgrelid = 'private.access_conditions'::regclass and not tgisinternal),
+  0::bigint,
+  'Access timing has no table-wide trigger or hidden insert bridge'
 );
 
-select private.set_access_availability_queue('[
-  {"availability_state":"not_stated","availability_window":{}},
-  {"availability_state":"whenever_open","availability_window":{}}
-]'::jsonb);
-
-with target_place as (
-  select id from private.places order by id limit 1
-), inserted as (
-  insert into private.access_conditions (
-    place_id, revision, access_area, restraint_condition, dog_eligibility,
-    availability_window, permission_requirement
-  )
-  select target_place.id, 903 + input.ordinal, input.access_area::private.access_area,
-    'leash_required', '{"scope":"all_dogs"}'::jsonb, '{}'::jsonb,
-    'standing_permission'
-  from target_place
-  cross join (values (1, 'indoors'), (2, 'outdoors')) input(ordinal, access_area)
-  order by input.ordinal
-  returning access_area::text, availability_state::text
-)
 select is(
-  (select jsonb_object_agg(access_area, availability_state) from inserted),
-  '{"indoors":"not_stated","outdoors":"whenever_open"}'::jsonb,
-  'A repeated multi-condition insert does not leak or reorder timing state'
+  (select provolatile::text from pg_proc
+    where oid = 'private.resolve_access_availability(jsonb)'::regprocedure),
+  'i',
+  'Availability defaulting is a pure immutable resolver'
+);
+
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'private.create_candidate_place_pre_geometry(jsonb,uuid)',
+    'execute'
+  )
+  and not has_function_privilege(
+    'authenticated',
+    'private.create_suggestion_candidate(jsonb,uuid,uuid,uuid,uuid)',
+    'execute'
+  )
+  and not has_function_privilege(
+    'authenticated',
+    'private.resolve_access_availability(jsonb)',
+    'execute'
+  )
+  and not has_function_privilege(
+    'authenticated',
+    'private.validate_access_condition_value(jsonb)',
+    'execute'
+  ),
+  'Private writer and validation primitives preserve their restricted ACLs'
 );
 
 select * from finish();

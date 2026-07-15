@@ -173,6 +173,35 @@ describe('Member Correction and Report submission', () => {
       'access_condition'
     );
     expect(screen.getAllByText('Dogs are generally allowed').length).toBeGreaterThan(0);
+    expect((screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement).value).toBe(
+      'not_stated'
+    );
+  });
+
+  it('preserves whenever-open timing when correcting another Access Condition field', () => {
+    const wheneverOpenPlace = {
+      ...place,
+      accessConditions: [
+        { ...place.accessConditions[0], availabilityState: 'whenever_open' as const }
+      ]
+    };
+    render(CorrectionPage, {
+      params: { lang: 'en', id: place.placeId },
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        signInUrl: null,
+        place: wheneverOpenPlace,
+        presetField: null,
+        presetConditionId: place.accessConditions[0].id
+      },
+      form: null
+    } as never);
+
+    expect((screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement).value).toBe(
+      'whenever_open'
+    );
+    expect(screen.queryByLabelText('Dog access starts at')).toBeNull();
   });
 
   it('announces the fail-closed abuse boundary without rendering a usable Correction form', () => {
@@ -313,6 +342,47 @@ describe('Moderator Correction and Report queue', () => {
 });
 
 describe('Moderator Correction and Report detail', () => {
+  it('preserves the proposed whenever-open state when applying an Access Condition Correction', () => {
+    const accessCorrection = {
+      ...correctionFlag,
+      targetKind: 'access_condition' as const,
+      targetField: null,
+      accessConditionId: place.accessConditions[0].id,
+      currentVerificationId: '76600000-0000-4000-8000-000000000001',
+      currentVerificationStatus: 'verified',
+      currentVerificationVerifiedAt: '2026-01-01T00:00:00Z',
+      currentVerificationFreshnessUntil: '2030-01-01T00:00:00Z',
+      currentVerificationEvidence: [],
+      proposedValue: {
+        access_area: 'indoors',
+        access_area_note: null,
+        restraint_condition: 'off_leash_permitted',
+        restraint_note: null,
+        dog_eligibility: { scope: 'all_dogs' },
+        availability_state: 'whenever_open',
+        availability_window: {},
+        permission_requirement: 'standing_permission'
+      }
+    } as ModerationPlaceFlag;
+    render(FlagReviewPage, {
+      params: { lang: 'en', id: accessCorrection.flagId },
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        flag: accessCorrection,
+        related: [],
+        resolved: false,
+        contributionConfirmed: false
+      },
+      form: null
+    } as never);
+
+    expect((screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement).value).toBe(
+      'whenever_open'
+    );
+    expect(screen.queryByLabelText('Dog access starts at')).toBeNull();
+  });
+
   it('compares the live value, snapshot, and proposed Correction, and offers the applied outcome', () => {
     render(FlagReviewPage, {
       params: { lang: 'en', id: correctionFlag.flagId },

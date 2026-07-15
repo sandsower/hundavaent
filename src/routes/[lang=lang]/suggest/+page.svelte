@@ -15,6 +15,7 @@
   let accessArea = $state('outdoors');
   let restraintCondition = $state('leash_required');
   let scheduleOpen = $state(false);
+  let availabilityState = $state<'whenever_open' | 'limited' | 'not_stated'>('not_stated');
   let mapAdapter = $state<MapAdapter>(
     untrack(() =>
       createMapLibreAdapter({
@@ -189,34 +190,49 @@
             type="button"
             class="hv-control text-toggle"
             aria-expanded={scheduleOpen}
-            onclick={() => (scheduleOpen = !scheduleOpen)}
+            onclick={() => {
+              scheduleOpen = !scheduleOpen;
+              if (scheduleOpen && availabilityState === 'not_stated') {
+                availabilityState = 'limited';
+              }
+            }}
           >
             {data.copy['suggestion.scheduleToggle']}
           </button>
           {#if scheduleOpen}
-            <div class="hv-grid schedule-fields" data-columns="3">
-              <label class="hv-stack"
-                >{data.copy['suggestion.scheduleDays']}<input
-                  class="hv-field"
-                  name="availabilityDays"
-                  placeholder="1,2,3,4,5"
-                /></label
-              >
-              <label class="hv-stack"
-                >{data.copy['suggestion.scheduleStarts']}<input
-                  class="hv-field"
-                  name="availabilityStartsAt"
-                  type="time"
-                /></label
-              >
-              <label class="hv-stack"
-                >{data.copy['suggestion.scheduleEnds']}<input
-                  class="hv-field"
-                  name="availabilityEndsAt"
-                  type="time"
-                /></label
-              >
-            </div>
+            <label class="hv-stack">
+              {data.copy['moderation.availabilityStateLabel']}
+              <select class="hv-field" name="availabilityState" bind:value={availabilityState}>
+                <option value="not_stated">{data.copy['accessSymbols.notStated']}</option>
+                <option value="whenever_open">{data.copy['accessSymbols.wheneverOpen']}</option>
+                <option value="limited">{data.copy['accessSymbols.limited']}</option>
+              </select>
+            </label>
+            {#if availabilityState === 'limited'}
+              <div class="hv-grid schedule-fields" data-columns="3">
+                <label class="hv-stack"
+                  >{data.copy['suggestion.scheduleDays']}<input
+                    class="hv-field"
+                    name="availabilityDays"
+                    placeholder="1,2,3,4,5"
+                  /></label
+                >
+                <label class="hv-stack"
+                  >{data.copy['suggestion.scheduleStarts']}<input
+                    class="hv-field"
+                    name="availabilityStartsAt"
+                    type="time"
+                  /></label
+                >
+                <label class="hv-stack"
+                  >{data.copy['suggestion.scheduleEnds']}<input
+                    class="hv-field"
+                    name="availabilityEndsAt"
+                    type="time"
+                  /></label
+                >
+              </div>
+            {/if}
           {/if}
         </fieldset>
 

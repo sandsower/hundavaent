@@ -18,7 +18,6 @@
   let { placeName, conditions, copy, onOpenDetails = () => undefined }: Props = $props();
   const componentId = $props.id();
   let activeDimension = $state<AccessSymbolDimension | 'complex' | null>(null);
-  let visibleTooltip = $state<AccessSymbolDimension | null>(null);
   const presentation = $derived(buildAccessSymbolPresentation(conditions));
   const labels: Record<AccessSymbolState, MessageKey> = {
     indoors: 'accessSymbols.indoors',
@@ -111,10 +110,12 @@
   aria-label={copy['accessSymbols.label'].replace('{name}', placeName)}
 >
   {#if presentation.kind === 'complex'}
+    {@const detailId = `${componentId}-complex-detail`}
     <button
       type="button"
       class="symbol complex special"
       aria-expanded={activeDimension === 'complex'}
+      aria-controls={detailId}
       onclick={() => {
         activeDimension = activeDimension === 'complex' ? null : 'complex';
         onOpenDetails();
@@ -124,7 +125,7 @@
       <span>{copy['accessSymbols.differentConditions']}</span>
     </button>
     {#if activeDimension === 'complex'}
-      <p class="persistent-detail" role="status">
+      <p id={detailId} class="persistent-detail" role="status">
         {copy['accessSymbols.differentConditionsDetail'].replace(
           '{count}',
           String(presentation.conditionCount)
@@ -134,7 +135,6 @@
   {:else}
     <div class="symbols">
       {#each presentation.symbols as symbol (symbol.dimension)}
-        {@const tooltipId = `${componentId}-${symbol.dimension}-tooltip`}
         {@const detailId = `${componentId}-${symbol.dimension}-detail`}
         <button
           type="button"
@@ -148,12 +148,7 @@
           class:not-stated={symbol.state === 'not_stated'}
           aria-label={label(symbol)}
           aria-expanded={activeDimension === symbol.dimension}
-          aria-describedby={tooltipId}
           aria-controls={detailId}
-          onmouseenter={() => (visibleTooltip = symbol.dimension)}
-          onmouseleave={() => (visibleTooltip = null)}
-          onfocus={() => (visibleTooltip = symbol.dimension)}
-          onblur={() => (visibleTooltip = null)}
           onclick={() => activate(symbol)}
         >
           <span class="icon" aria-hidden="true">
@@ -197,12 +192,7 @@
               >
             {/if}
           </span>
-          <span
-            id={tooltipId}
-            class="tooltip"
-            role="tooltip"
-            aria-hidden={visibleTooltip !== symbol.dimension}>{label(symbol)}</span
-          >
+          <span class="tooltip" role="tooltip" aria-hidden="true">{label(symbol)}</span>
         </button>
         {#if activeDimension === symbol.dimension}
           <p id={detailId} class="persistent-detail symbol-detail" role="status">

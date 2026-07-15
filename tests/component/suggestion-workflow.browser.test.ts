@@ -167,6 +167,27 @@ describe('Member Suggestion workflow', () => {
     expect(screen.getByRole('button', { name: submitLabel })).toBeTruthy();
   });
 
+  it('lets a Member choose each timing state and only shows a window for limited access', async () => {
+    render(SuggestionPage, {
+      params: { lang: 'en' },
+      data: { lang: 'en', copy: catalogues.en, unavailable: false },
+      form: null
+    } as never);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Only welcome at certain times?' }));
+    const timing = screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement;
+    expect(timing.value).toBe('limited');
+    expect(Array.from(timing.options, (option) => option.value)).toEqual([
+      'not_stated',
+      'whenever_open',
+      'limited'
+    ]);
+    await fireEvent.change(timing, { target: { value: 'limited' } });
+    expect(screen.getByLabelText('Which weekdays? (1-7, separated by commas)')).toBeTruthy();
+    await fireEvent.change(timing, { target: { value: 'whenever_open' } });
+    expect(screen.queryByLabelText('Which weekdays? (1-7, separated by commas)')).toBeNull();
+  });
+
   it('announces the fail-closed suggestion-abuse boundary without rendering a usable form', () => {
     render(SuggestionPage, {
       params: { lang: 'en' },
@@ -254,6 +275,12 @@ describe('Moderator Suggestion workflow', () => {
     ).toBeTruthy();
 
     expect((screen.getByLabelText('Outcome') as HTMLSelectElement).value).toBe('accepted');
+    const timing = screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement;
+    expect(timing.value).toBe('limited');
+    expect(screen.getByLabelText(catalogues.en['suggestion.availabilityDays'])).toBeTruthy();
+    await fireEvent.change(timing, { target: { value: 'whenever_open' } });
+    expect(screen.queryByLabelText(catalogues.en['suggestion.availabilityDays'])).toBeNull();
+    expect(screen.getAllByLabelText('Name')).toHaveLength(2);
     expect(
       (screen.getByLabelText('Member explanation in Icelandic') as HTMLTextAreaElement).value
     ).toBe('Yfirfarið.');

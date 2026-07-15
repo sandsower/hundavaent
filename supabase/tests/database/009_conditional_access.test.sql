@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(23);
+select plan(24);
 
 insert into auth.users (id) values ('74000000-0000-4000-8000-000000000001');
 insert into security.role_grants (user_id, role)
@@ -38,6 +38,16 @@ select is(
   (select count(*) from private.access_conditions where place_id = (select place_id from conditional_candidate)),
   2::bigint,
   'Candidate creation retains multiple Access Conditions'
+);
+
+select is(
+  (
+    select array_agg(availability_state::text order by access_area::text)
+    from private.access_conditions
+    where place_id = (select place_id from conditional_candidate)
+  ),
+  array['limited', 'not_stated']::text[],
+  'Candidate creation writes each explicit availability state directly'
 );
 
 select is(
@@ -216,11 +226,12 @@ select throws_ok(
 select throws_ok(
   $$
     insert into private.access_conditions (
-      place_id, access_area, restraint_condition, dog_eligibility, availability_window, permission_requirement
+      place_id, access_area, restraint_condition, dog_eligibility, availability_state,
+      availability_window, permission_requirement
     ) values (
       (select place_id from conditional_candidate), 'indoors', 'leash_required',
       '{"scope":"restricted","maximumDogs":1.5}'::jsonb,
-      '{"days":[0,8],"startsOn":"2026-02-30"}'::jsonb, 'standing_permission'
+      'limited', '{"days":[0,8],"startsOn":"2026-02-30"}'::jsonb, 'standing_permission'
     )
   $$,
   '23514', null,
@@ -230,10 +241,11 @@ select throws_ok(
 select throws_ok(
   $$
     insert into private.access_conditions (
-      place_id, access_area, restraint_condition, dog_eligibility, availability_window, permission_requirement
+      place_id, access_area, restraint_condition, dog_eligibility, availability_state,
+      availability_window, permission_requirement
     ) values (
       (select place_id from conditional_candidate), 'other_bounded', 'other_sourced',
-      '{"scope":"all_dogs"}'::jsonb, '{}'::jsonb, 'standing_permission'
+      '{"scope":"all_dogs"}'::jsonb, 'not_stated', '{}'::jsonb, 'standing_permission'
     )
   $$,
   '23514', null,
@@ -243,10 +255,11 @@ select throws_ok(
 select throws_ok(
   $$
     insert into private.access_conditions (
-      place_id, access_area, restraint_condition, dog_eligibility, availability_window, permission_requirement
+      place_id, access_area, restraint_condition, dog_eligibility, availability_state,
+      availability_window, permission_requirement
     ) values (
       (select place_id from conditional_candidate), 'indoors', 'leash_required',
-      '{"scope":"all_dogs","maximumDogs":1}'::jsonb, '{}'::jsonb, 'standing_permission'
+      '{"scope":"all_dogs","maximumDogs":1}'::jsonb, 'not_stated', '{}'::jsonb, 'standing_permission'
     )
   $$,
   '23514', null,
@@ -256,10 +269,11 @@ select throws_ok(
 select throws_ok(
   $$
     insert into private.access_conditions (
-      place_id, access_area, restraint_condition, dog_eligibility, availability_window, permission_requirement
+      place_id, access_area, restraint_condition, dog_eligibility, availability_state,
+      availability_window, permission_requirement
     ) values (
       (select place_id from conditional_candidate), 'indoors', 'leash_required',
-      '{"scope":"restricted"}'::jsonb, '{}'::jsonb, 'standing_permission'
+      '{"scope":"restricted"}'::jsonb, 'not_stated', '{}'::jsonb, 'standing_permission'
     )
   $$,
   '23514', null,
@@ -269,11 +283,12 @@ select throws_ok(
 select throws_ok(
   $$
     insert into private.access_conditions (
-      place_id, access_area, restraint_condition, dog_eligibility, availability_window, permission_requirement
+      place_id, access_area, restraint_condition, dog_eligibility, availability_state,
+      availability_window, permission_requirement
     ) values (
       (select place_id from conditional_candidate), 'indoors', 'leash_required',
       '{"scope":"restricted","maximumDogs":1,"unknown":true}'::jsonb,
-      '{}'::jsonb, 'standing_permission'
+      'not_stated', '{}'::jsonb, 'standing_permission'
     )
   $$,
   '23514', null,
@@ -283,10 +298,11 @@ select throws_ok(
 select throws_ok(
   $$
     insert into private.access_conditions (
-      place_id, access_area, restraint_condition, dog_eligibility, availability_window, permission_requirement
+      place_id, access_area, restraint_condition, dog_eligibility, availability_state,
+      availability_window, permission_requirement
     ) values (
       (select place_id from conditional_candidate), 'outdoors', 'leash_required',
-      '{"scope":"all_dogs"}'::jsonb, '{"days":[]}'::jsonb, 'standing_permission'
+      '{"scope":"all_dogs"}'::jsonb, 'limited', '{"days":[]}'::jsonb, 'standing_permission'
     )
   $$,
   '23514', null,
@@ -296,11 +312,12 @@ select throws_ok(
 select throws_ok(
   $$
     insert into private.access_conditions (
-      place_id, access_area, restraint_condition, dog_eligibility, availability_window, permission_requirement
+      place_id, access_area, restraint_condition, dog_eligibility, availability_state,
+      availability_window, permission_requirement
     ) values (
       (select place_id from conditional_candidate), 'indoors', 'leash_required',
       '{"scope":"all_dogs"}'::jsonb,
-      '{"startsOn":"2026-09-01","endsOn":"2026-06-01","unknown":true}'::jsonb,
+      'limited', '{"startsOn":"2026-09-01","endsOn":"2026-06-01","unknown":true}'::jsonb,
       'standing_permission'
     )
   $$,
