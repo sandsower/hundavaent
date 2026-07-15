@@ -260,8 +260,8 @@
 
 <style>
   .workspace-shell {
-    width: min(100% - 1.5rem, 96rem);
-    margin: 0.75rem auto 4rem;
+    width: calc(100% - 1rem);
+    margin: 0.5rem auto 2rem;
   }
   :global(body) {
     background: var(--hv-color-snow);
@@ -278,7 +278,7 @@
     display: inline-block;
     border: 1px solid var(--hv-color-basalt);
     border-radius: var(--hv-radius-control);
-    background: var(--hv-color-signal);
+    background: var(--hv-color-snow-raised);
     padding: 0.65rem 0.9rem;
     color: var(--hv-color-basalt);
     font: inherit;
@@ -316,8 +316,8 @@
   }
   @media (max-width: 44rem) {
     .workspace-shell {
-      width: min(100% - 1rem, 78rem);
-      margin-top: 0.75rem;
+      width: calc(100% - 0.75rem);
+      margin-top: 0.4rem;
     }
     .decision-options {
       grid-template-columns: repeat(2, minmax(0, 1fr));
