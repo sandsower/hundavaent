@@ -13,10 +13,84 @@ export const enCatalogue = {
   'nav.language': 'Language',
   'language.is': 'Íslenska',
   'language.en': 'English',
-  'stub.aboutTitle': 'About Hundavænt',
-  'stub.aboutBody': 'More information is coming soon.',
-  'stub.accountTitle': 'Log in or register',
-  'stub.accountBody': 'Account access is coming soon.',
+  'about.metaTitle': 'About Hundavænt',
+  'about.metaDescription':
+    'The personal story behind Hundavænt, a community place guide for dog owners in Iceland.',
+  'about.heroEyebrow': 'Our story · Reykjavík',
+  'about.heroTitle': 'We wanted to bring Miles with us.',
+  'about.heroLede':
+    'When my wife and I wanted to take Miles somewhere, we often had the same problem: the information we needed was nowhere to be found.',
+  'about.heroStory':
+    'I moved from Mexico to Iceland in 2013. We got Miles, our long-haired dachshund, in 2019, just before the pandemic. As life opened up again, we wanted to bring him to cafés, restaurants and indoor places, or find a dog park nearby when we were somewhere unfamiliar.',
+  'about.photoAlt': 'Vic holding Miles, a long-haired dachshund',
+  'about.photoCaption': 'Vic and Miles',
+  'about.browseAction': 'Browse the map',
+  'about.offersAction': 'What Hundavænt offers',
+  'about.problemTitle': 'Most of the useful information travelled by word of mouth.',
+  'about.problemBodyOne':
+    'A place might welcome dogs without saying so anywhere. Another might allow them only outside, in one area or if you asked first. Dog parks appeared on maps, but the maps did not tell me whether I could get there easily or what kind of condition the place was in.',
+  'about.problemBodyTwo':
+    'That is why I built Hundavænt. I wanted one place where dog owners could see the details before leaving home, then help each other keep those details useful.',
+  'about.historyEyebrow': 'A changing city',
+  'about.historyTitle': 'Reykjavík has made more room for dogs.',
+  'about.historyIntro':
+    'It has not happened all at once, and every place still sets its own conditions. More doors are opening, and I think the places making a genuine effort deserve to be found.',
+  'about.history1924Date': '1924',
+  'about.history1924Title': 'Dogs were banned in Reykjavík',
+  'about.history1924Body':
+    'For most of the twentieth century, keeping a dog in the city was prohibited.',
+  'about.history1984Date': '1984',
+  'about.history1984Title': 'The rules began to loosen',
+  'about.history1984Body':
+    'Ownership became possible by exemption. Streets including Laugavegur were still restricted later in the decade.',
+  'about.historyTodayDate': 'Today',
+  'about.historyTodayTitle': 'More places are making room',
+  'about.historyTodayBody':
+    'Dogs can ride capital-area Strætó buses outside weekday peak hours under clear conditions, and small dogs are welcome every day in Kringlan with some exclusions.',
+  'about.offersEyebrow': 'A place companion',
+  'about.offersTitle': 'A map for the details that matter.',
+  'about.offersIntro':
+    'Hundavænt brings practical access information and the experience of local dog owners into one place, while keeping those two kinds of information clear.',
+  'about.offerDiscoverCue': 'Discover',
+  'about.offerDiscoverTitle': 'Find somewhere that fits',
+  'about.offerDiscoverBody':
+    'Browse nearby places and filter for cafés, restaurants, parks, shops, indoor access and the conditions that matter to you.',
+  'about.offerAccessCue': 'Access',
+  'about.offerAccessTitle': 'Know before you leave',
+  'about.offerAccessBody':
+    'See where dogs are allowed, whether a leash is required, whether you need to ask first and when the information was last checked.',
+  'about.offerRememberCue': 'Remember',
+  'about.offerRememberTitle': 'Keep the places you care about',
+  'about.offerRememberBody':
+    'Save places for later, keep a private history of visits and share how welcoming a place felt when you went there with your dog.',
+  'about.offerContributeCue': 'Contribute',
+  'about.offerContributeTitle': 'Help fill the gaps',
+  'about.offerContributeBody':
+    'Suggest somewhere missing, correct information that has changed or report a concern so another dog owner does not have to guess.',
+  'about.trustEyebrow': 'How trust works',
+  'about.trustTitle': 'Shared by dog people, checked before it spreads.',
+  'about.trustIntro':
+    'Anyone can suggest a place or flag information that looks wrong. A moderator reviews access information and its sources before it becomes verified public information. That distinction matters when you are standing outside with a dog and deciding whether it is okay to walk in.',
+  'about.verifiedStatus': 'Verified access',
+  'about.accessTitle': 'Dog Access',
+  'about.accessSubtitle': 'The factual part',
+  'about.accessBody':
+    'It describes where dogs are allowed and which conditions apply. Hundavænt shows when that information was verified.',
+  'about.friendlinessTitle': 'Dog-Friendliness',
+  'about.friendlinessSubtitle': 'The experience',
+  'about.friendlinessBody':
+    "Ratings describe how welcome, clear, comfortable and thoughtful a visit felt. They never change a place's verified access rules.",
+  'about.visionEyebrow': 'Starting near home',
+  'about.visionTitle': 'The capital region first. Maybe all of Iceland next.',
+  'about.visionBodyOne':
+    'Hundavænt begins where we live and where I can keep the first information useful. If enough people find it worthwhile and want to help, I hope it can grow across Iceland.',
+  'about.visionBodyTwo':
+    'Later, it may also become a place where dog owners connect more directly. For now, the best way to build that community is to use the map and add what is missing.',
+  'about.suggestAction': 'Suggest a place',
+  'about.sourcesTitle': 'Context sources',
+  'about.sourceHistory': 'Reykjavík dog rules history',
+  'about.sourceBus': 'Strætó pet rules',
+  'about.sourceMall': 'Kringlan dog policy',
   'account.navSignedIn': 'My account',
   'account.title': 'Welcome to Hundavænt',
   'account.intro': 'Save places, remember visits, and share useful tips with other dog people.',
