@@ -194,6 +194,7 @@ insert into private.access_conditions (
   access_area,
   restraint_condition,
   dog_eligibility,
+  availability_state,
   availability_window,
   permission_requirement,
   created_at
@@ -205,6 +206,7 @@ values (
   'outdoors',
   'leash_required',
   '{"scope":"all_dogs"}'::jsonb,
+  'whenever_open',
   '{}'::jsonb,
   'standing_permission',
   '2026-07-09T10:00:00Z'

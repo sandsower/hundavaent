@@ -305,7 +305,8 @@ select is(
       'proposed_value', jsonb_build_object(
         'access_area', 'outdoors', 'access_area_note', null, 'restraint_condition', 'leash_required',
         'restraint_note', null, 'dog_eligibility', jsonb_build_object('scope', 'all_dogs'),
-        'availability_window', '{}'::jsonb, 'permission_requirement', 'standing_permission'
+        'availability_state', 'whenever_open', 'availability_window', '{}'::jsonb,
+        'permission_requirement', 'standing_permission'
       )
     ),
     '86000000-0000-4000-8000-000000000013'
@@ -602,7 +603,8 @@ select is(
       'replacement_condition', jsonb_build_object(
         'access_area', 'outdoors', 'access_area_note', null, 'restraint_condition', 'leash_required',
         'restraint_note', null, 'dog_eligibility', jsonb_build_object('scope', 'all_dogs'),
-        'availability_window', '{}'::jsonb, 'permission_requirement', 'standing_permission'
+        'availability_state', 'whenever_open', 'availability_window', '{}'::jsonb,
+        'permission_requirement', 'standing_permission'
       ),
       'evidence', jsonb_build_object(
         'kind', 'official_website', 'source_label', 'Moderator-confirmed policy page',
@@ -616,6 +618,24 @@ select is(
   'applied',
   'A Moderator can apply an Access Condition Correction atomically'
 );
+
+reset role;
+
+select is(
+  (
+    select availability_state::text
+    from private.access_conditions
+    where place_id = '76300000-0000-4000-8000-000000000001'
+      and superseded_at is null
+      and access_area = 'outdoors'
+      and permission_requirement = 'standing_permission'
+  ),
+  'whenever_open'::text,
+  'Applied Correction replacement writes its explicit availability state directly'
+);
+
+select set_config('request.jwt.claim.sub', '76000000-0000-4000-8000-000000000003', true);
+set local role authenticated;
 
 -- Resolution: a second, distinct-Member claim on the same target keeps its own outcome ----------
 

@@ -39,70 +39,12 @@ begin
 end;
 $$;
 
-create function private.set_access_availability_queue(condition_values jsonb)
-returns void
-language plpgsql volatile set search_path = '' as $$
-declare
-  condition_value jsonb;
-begin
-  if jsonb_typeof(condition_values) is distinct from 'array' then
-    raise exception using errcode = '22023', message = 'Access timing state is invalid';
-  end if;
-  for condition_value in select value from jsonb_array_elements(condition_values)
-  loop
-    perform private.resolve_access_availability(condition_value);
-  end loop;
-  perform pg_catalog.set_config('hundavaent.access_availability_queue', condition_values::text, true);
-  perform pg_catalog.set_config('hundavaent.access_availability_index', '0', true);
-end;
-$$;
-
-create function private.assign_access_availability()
-returns trigger
-language plpgsql volatile set search_path = '' as $$
-declare
-  queued_values jsonb;
-  queued_index integer;
-  queued_value jsonb;
-begin
-  queued_values := nullif(
-    pg_catalog.current_setting('hundavaent.access_availability_queue', true), ''
-  )::jsonb;
-  queued_index := coalesce(nullif(
-    pg_catalog.current_setting('hundavaent.access_availability_index', true), ''
-  )::integer, 0);
-  if queued_values is not null and queued_index < jsonb_array_length(queued_values) then
-    queued_value := queued_values -> queued_index;
-    new.availability_state := private.resolve_access_availability(queued_value);
-    if queued_index + 1 = jsonb_array_length(queued_values) then
-      perform pg_catalog.set_config('hundavaent.access_availability_queue', '[]', true);
-      perform pg_catalog.set_config('hundavaent.access_availability_index', '0', true);
-    else
-      perform pg_catalog.set_config(
-        'hundavaent.access_availability_index', (queued_index + 1)::text, true
-      );
-    end if;
-  else
-    new.availability_state := private.resolve_access_availability(jsonb_build_object(
-      'availability_state', new.availability_state,
-      'availability_window', new.availability_window
-    ));
-  end if;
-  return new;
-end;
-$$;
-
-create trigger access_conditions_assign_availability
-before insert on private.access_conditions
-for each row execute function private.assign_access_availability();
-
-comment on function private.set_access_availability_queue(jsonb) is
-  'Transaction-local ordered bridge for legacy writers that cannot yet name availability_state.';
-comment on function private.assign_access_availability() is
-  'Assigns and validates timing inside each Access Condition insert; exhausted queues clear immediately.';
+revoke execute on function private.resolve_access_availability(jsonb)
+  from public, anon, authenticated, service_role;
 
 alter table private.access_conditions
-  alter column availability_state set not null;
+  alter column availability_state set not null,
+  alter column availability_state set default 'not_stated';
 
 alter table private.access_conditions
   add constraint access_availability_consistency_check check (
@@ -111,6 +53,311 @@ alter table private.access_conditions
     or (availability_state = 'not_stated' and availability_window = '{}'::jsonb)
   );
 
+create or replace function private.create_candidate_place_pre_geometry(
+  command_payload jsonb,
+  command_request_id uuid
+)
+returns table (place_id uuid, version bigint)
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  actor_id uuid := security.require_moderator();
+  created_operator_id uuid;
+  created_location_id uuid;
+  created_place_id uuid;
+  created_evidence_id uuid;
+  condition jsonb;
+  conditions jsonb;
+  evidence_record jsonb;
+  evidence_records jsonb;
+  operator_name text := nullif(btrim(command_payload #>> '{operator,name}'), '');
+  address_line text := nullif(btrim(command_payload #>> '{location,address_line}'), '');
+  locality text := nullif(btrim(command_payload #>> '{location,locality}'), '');
+  postal_code text := nullif(btrim(command_payload #>> '{location,postal_code}'), '');
+  municipality text := nullif(btrim(command_payload #>> '{location,municipality}'), '');
+  category_value text := nullif(btrim(command_payload ->> 'category'), '');
+  name_is text := nullif(btrim(command_payload #>> '{translations,is,name}'), '');
+  description_is text := nullif(btrim(command_payload #>> '{translations,is,description}'), '');
+  name_en text := nullif(btrim(command_payload #>> '{translations,en,name}'), '');
+  description_en text := nullif(btrim(command_payload #>> '{translations,en,description}'), '');
+begin
+  if command_request_id is null or command_payload is null or jsonb_typeof(command_payload) <> 'object' then
+    raise exception using errcode = '22023', message = 'Candidate command is invalid';
+  end if;
+
+  conditions := command_payload -> 'access_conditions';
+  if conditions is null and command_payload ? 'access_condition' then
+    conditions := jsonb_build_array(command_payload -> 'access_condition');
+  end if;
+  evidence_records := command_payload -> 'evidence_records';
+  if evidence_records is null and command_payload ? 'evidence' then
+    evidence_records := jsonb_build_array(command_payload -> 'evidence');
+  end if;
+
+  if operator_name is null or address_line is null or locality is null or postal_code is null
+    or municipality is null or category_value is null or name_is is null or description_is is null
+    or name_en is null or description_en is null
+    or jsonb_typeof(conditions) is distinct from 'array' or jsonb_array_length(conditions) = 0
+    or jsonb_typeof(evidence_records) is distinct from 'array' or jsonb_array_length(evidence_records) = 0
+  then
+    raise exception using errcode = '22023', message = 'Candidate command is incomplete';
+  end if;
+
+  if not private.is_capital_region_municipality(municipality) then
+    raise exception using errcode = '22023', message = 'Location is outside the capital region';
+  end if;
+
+  insert into private.operators (name) values (operator_name) returning id into created_operator_id;
+  insert into private.locations (
+    address_line, locality, postal_code, country_code, municipality, latitude, longitude
+  ) values (
+    address_line, locality, postal_code, 'IS', municipality,
+    (command_payload #>> '{location,latitude}')::double precision,
+    (command_payload #>> '{location,longitude}')::double precision
+  ) returning id into created_location_id;
+
+  insert into private.places (
+    operator_id, location_id, purpose, lifecycle, category, website_url, phone,
+    opening_hours, dog_amenities, version, created_by
+  ) values (
+    created_operator_id, created_location_id, 'dog_access_destination', 'candidate',
+    category_value::private.place_category, nullif(btrim(command_payload ->> 'website_url'), ''),
+    nullif(btrim(command_payload ->> 'phone'), ''),
+    coalesce(command_payload -> 'opening_hours', '{}'::jsonb),
+    coalesce(command_payload -> 'dog_amenities', '[]'::jsonb), 1, actor_id
+  ) returning id into created_place_id;
+
+  insert into private.place_translations (place_id, locale, name, description)
+  values
+    (created_place_id, 'is', name_is, description_is),
+    (created_place_id, 'en', name_en, description_en);
+
+  for evidence_record in select value from jsonb_array_elements(evidence_records)
+  loop
+    if not private.jsonb_has_only_keys(
+        evidence_record,
+        array['kind', 'source_url', 'source_citation', 'source_label', 'observed_at', 'source_metadata']
+      )
+      or nullif(btrim(evidence_record ->> 'source_label'), '') is null
+      or (nullif(btrim(evidence_record ->> 'source_url'), '') is null
+        and nullif(btrim(evidence_record ->> 'source_citation'), '') is null)
+    then
+      raise exception using errcode = '22023', message = 'Evidence source is incomplete';
+    end if;
+    insert into private.evidence (
+      place_id, kind, source_url, source_citation, source_label, observed_at, recorded_by, source_metadata
+    ) values (
+      created_place_id, (evidence_record ->> 'kind')::private.evidence_kind,
+      nullif(btrim(evidence_record ->> 'source_url'), ''),
+      nullif(btrim(evidence_record ->> 'source_citation'), ''),
+      btrim(evidence_record ->> 'source_label'),
+      (evidence_record ->> 'observed_at')::timestamptz, actor_id,
+      coalesce(evidence_record -> 'source_metadata', '{}'::jsonb)
+    ) returning id into created_evidence_id;
+  end loop;
+
+  for condition in select value from jsonb_array_elements(conditions)
+  loop
+    if not private.jsonb_has_only_keys(
+      condition,
+      array[
+        'access_area', 'access_area_note', 'restraint_condition', 'restraint_note',
+        'dog_eligibility', 'availability_state', 'availability_window', 'permission_requirement'
+      ]
+    )
+      or jsonb_typeof(condition -> 'dog_eligibility') is distinct from 'object'
+      or jsonb_typeof(condition -> 'availability_window') is distinct from 'object'
+    then
+      raise exception using errcode = '22023', message = 'Access Condition shape is invalid';
+    end if;
+    insert into private.access_conditions (
+      place_id, revision, access_area, access_area_note, restraint_condition, restraint_note,
+      dog_eligibility, availability_state, availability_window, permission_requirement, created_by
+    ) values (
+      created_place_id, 1, (condition ->> 'access_area')::private.access_area,
+      nullif(btrim(condition ->> 'access_area_note'), ''),
+      (condition ->> 'restraint_condition')::private.restraint_condition,
+      nullif(btrim(condition ->> 'restraint_note'), ''),
+      coalesce(condition -> 'dog_eligibility', '{"scope":"all_dogs"}'::jsonb),
+      private.resolve_access_availability(condition),
+      coalesce(condition -> 'availability_window', '{}'::jsonb),
+      (condition ->> 'permission_requirement')::private.permission_requirement, actor_id
+    );
+  end loop;
+
+  perform private.append_audit_event(
+    'place.candidate_created', 'place', created_place_id, command_request_id,
+    jsonb_build_object('version', 1, 'category', category_value, 'condition_count', jsonb_array_length(conditions))
+  );
+  return query select created_place_id, 1::bigint;
+exception
+  when invalid_text_representation or check_violation or not_null_violation then
+    raise exception using errcode = '22023', message = 'Candidate structured information is invalid';
+end;
+$$;
+
+create or replace function private.create_suggestion_candidate(
+  command_payload jsonb,
+  command_request_id uuid,
+  actor_id uuid,
+  operator_identity_place_id uuid,
+  location_identity_place_id uuid
+)
+returns uuid
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  operator_id uuid;
+  location_id uuid;
+  place_id uuid;
+  evidence_id uuid;
+begin
+  if command_request_id is null or actor_id is null then
+    raise exception using errcode = '22023', message = 'Candidate command is invalid';
+  end if;
+
+  if operator_identity_place_id is null then
+    insert into private.operators (name)
+    values (btrim(command_payload #>> '{operator,name}'))
+    returning id into operator_id;
+  else
+    select place.operator_id into operator_id
+    from private.places as place
+    where place.id = operator_identity_place_id;
+  end if;
+
+  if location_identity_place_id is null then
+    insert into private.locations (
+      address_line,
+      locality,
+      postal_code,
+      country_code,
+      municipality,
+      latitude,
+      longitude
+    ) values (
+      command_payload #>> '{location,address_line}',
+      command_payload #>> '{location,locality}',
+      command_payload #>> '{location,postal_code}',
+      'IS',
+      command_payload #>> '{location,municipality}',
+      (command_payload #>> '{location,latitude}')::double precision,
+      (command_payload #>> '{location,longitude}')::double precision
+    ) returning id into location_id;
+  else
+    select place.location_id into location_id
+    from private.places as place
+    where place.id = location_identity_place_id;
+  end if;
+
+  insert into private.places (
+    operator_id,
+    location_id,
+    purpose,
+    lifecycle,
+    category,
+    website_url,
+    phone,
+    opening_hours,
+    dog_amenities,
+    version,
+    created_by
+  ) values (
+    operator_id,
+    location_id,
+    'dog_access_destination',
+    'candidate',
+    (command_payload ->> 'category')::private.place_category,
+    nullif(btrim(command_payload ->> 'website_url'), ''),
+    nullif(btrim(command_payload ->> 'phone'), ''),
+    coalesce(command_payload -> 'opening_hours', '{}'::jsonb),
+    coalesce(command_payload -> 'dog_amenities', '[]'::jsonb),
+    1,
+    actor_id
+  ) returning id into place_id;
+
+  insert into private.place_translations (place_id, locale, name, description)
+  values
+    (
+      place_id,
+      'is',
+      command_payload #>> '{translations,is,name}',
+      command_payload #>> '{translations,is,description}'
+    ),
+    (
+      place_id,
+      'en',
+      command_payload #>> '{translations,en,name}',
+      command_payload #>> '{translations,en,description}'
+    );
+
+  insert into private.evidence (
+    place_id,
+    kind,
+    source_url,
+    source_citation,
+    source_label,
+    observed_at,
+    recorded_by,
+    source_metadata
+  ) values (
+    place_id,
+    (command_payload #>> '{evidence,kind}')::private.evidence_kind,
+    nullif(btrim(command_payload #>> '{evidence,source_url}'), ''),
+    nullif(btrim(command_payload #>> '{evidence,source_citation}'), ''),
+    command_payload #>> '{evidence,source_label}',
+    (command_payload #>> '{evidence,observed_at}')::timestamptz,
+    actor_id,
+    coalesce(command_payload #> '{evidence,source_metadata}', '{}'::jsonb)
+  ) returning id into evidence_id;
+
+  insert into private.access_conditions (
+    place_id,
+    revision,
+    access_area,
+    access_area_note,
+    restraint_condition,
+    restraint_note,
+    dog_eligibility,
+    availability_state,
+    availability_window,
+    permission_requirement,
+    created_by
+  ) values (
+    place_id,
+    1,
+    (command_payload #>> '{access_condition,access_area}')::private.access_area,
+    nullif(btrim(command_payload #>> '{access_condition,access_area_note}'), ''),
+    (command_payload #>> '{access_condition,restraint_condition}')::private.restraint_condition,
+    nullif(btrim(command_payload #>> '{access_condition,restraint_note}'), ''),
+    coalesce(command_payload #> '{access_condition,dog_eligibility}', '{"scope":"all_dogs"}'::jsonb),
+    private.resolve_access_availability(command_payload -> 'access_condition'),
+    coalesce(command_payload #> '{access_condition,availability_window}', '{}'::jsonb),
+    (command_payload #>> '{access_condition,permission_requirement}')::private.permission_requirement,
+    actor_id
+  );
+
+  perform private.append_audit_event(
+    'place.candidate_created',
+    'place',
+    place_id,
+    command_request_id,
+    jsonb_build_object('version', 1, 'category', command_payload ->> 'category', 'condition_count', 1)
+  );
+
+  return place_id;
+exception
+  when invalid_text_representation or check_violation or not_null_violation then
+    raise exception using errcode = '22023', message = 'Candidate structured information is invalid';
+end;
+$$;
+
 create or replace function public.create_candidate_place(
   command_payload jsonb,
   command_request_id uuid
@@ -118,12 +365,10 @@ create or replace function public.create_candidate_place(
 returns table (place_id uuid, version bigint)
 language plpgsql volatile security definer set search_path = '' as $$
 declare
-  input_conditions jsonb := command_payload -> 'access_conditions';
   requested_precision private.location_geometry_precision;
   requested_source text := nullif(btrim(command_payload #>> '{location,geometry_source}'), '');
   created_place_id uuid;
   created_version bigint;
-  legacy_payload jsonb;
 begin
   perform security.require_moderator();
   requested_precision := (command_payload #>> '{location,geometry_precision}')
@@ -131,20 +376,10 @@ begin
   if requested_source is null then
     raise exception using errcode = '22023', message = 'Location geometry source is required';
   end if;
-  if input_conditions is null and command_payload ? 'access_condition' then
-    input_conditions := jsonb_build_array(command_payload -> 'access_condition');
-  end if;
-  perform private.set_access_availability_queue(input_conditions);
-  select (command_payload - 'access_condition') || jsonb_build_object(
-    'access_conditions',
-    jsonb_agg(input.value - 'availability_state' order by input.ordinality)
-  )
-  into legacy_payload
-  from jsonb_array_elements(input_conditions) with ordinality input;
   select candidate.place_id, candidate.version
   into created_place_id, created_version
   from private.create_candidate_place_pre_geometry(
-    legacy_payload, command_request_id
+    command_payload, command_request_id
   ) as candidate;
   update private.locations as location_record
   set geometry_precision = requested_precision,
@@ -153,35 +388,10 @@ begin
   from private.places as place_record
   where place_record.id = created_place_id
     and location_record.id = place_record.location_id;
-  perform private.set_access_availability_queue('[]'::jsonb);
   return query select created_place_id, created_version;
 exception
   when invalid_text_representation or check_violation or not_null_violation then
     raise exception using errcode = '22023', message = 'Candidate geometry or access timing is invalid';
-end;
-$$;
-
-alter function private.create_suggestion_candidate(jsonb, uuid, uuid, uuid, uuid)
-  rename to create_suggestion_candidate_pre_access_availability;
-
-create function private.create_suggestion_candidate(
-  command_payload jsonb, command_request_id uuid, actor_id uuid,
-  operator_identity_place_id uuid, location_identity_place_id uuid
-)
-returns uuid
-language plpgsql volatile security definer set search_path = '' as $$
-declare
-  created_place_id uuid;
-begin
-  perform private.set_access_availability_queue(
-    jsonb_build_array(command_payload -> 'access_condition')
-  );
-  created_place_id := private.create_suggestion_candidate_pre_access_availability(
-    command_payload, command_request_id, actor_id,
-    operator_identity_place_id, location_identity_place_id
-  );
-  perform private.set_access_availability_queue('[]'::jsonb);
-  return created_place_id;
 end;
 $$;
 
@@ -282,12 +492,6 @@ begin
     raise exception using errcode = '40001', message = 'Owning Place is not published';
   end if;
 
-  perform private.set_access_availability_queue(
-    case when requested_outcome = 'confirmed'
-      then jsonb_build_array(command_payload -> 'replacement_condition')
-      else '[]'::jsonb end
-  );
-
   created_evidence_id := private.record_lifecycle_evidence(
     dispute_record.place_id, command_payload -> 'evidence', actor_id
   );
@@ -309,7 +513,7 @@ begin
 
     insert into private.access_conditions (
       place_id, revision, supersedes_condition_id, access_area, access_area_note,
-      restraint_condition, restraint_note, dog_eligibility, availability_window,
+      restraint_condition, restraint_note, dog_eligibility, availability_state, availability_window,
       permission_requirement, created_by, created_at
     ) values (
       old_condition.place_id, old_condition.revision + 1, old_condition.id,
@@ -318,6 +522,7 @@ begin
       (command_payload #>> '{replacement_condition,restraint_condition}')::private.restraint_condition,
       nullif(btrim(command_payload #>> '{replacement_condition,restraint_note}'), ''),
       coalesce(command_payload #> '{replacement_condition,dog_eligibility}', '{"scope":"all_dogs"}'::jsonb),
+      private.resolve_access_availability(command_payload -> 'replacement_condition'),
       coalesce(command_payload #> '{replacement_condition,availability_window}', '{}'::jsonb),
       (command_payload #>> '{replacement_condition,permission_requirement}')::private.permission_requirement,
       actor_id, requested_resolved_at
@@ -380,13 +585,307 @@ alter function private.validate_access_condition_value(jsonb)
 
 create function private.validate_access_condition_value(value jsonb)
 returns void
-language plpgsql volatile set search_path = '' as $$
+language plpgsql immutable set search_path = '' as $$
 begin
   perform private.validate_access_condition_value_pre_access_availability(
     value - 'availability_state'
   );
   perform private.resolve_access_availability(value);
-  perform private.set_access_availability_queue(jsonb_build_array(value));
+end;
+$$;
+
+revoke execute on function private.validate_access_condition_value(jsonb)
+  from public, anon, authenticated, service_role;
+
+create or replace function public.resolve_place_flag(
+  requested_flag_id uuid,
+  requested_outcome text,
+  member_reason_is text,
+  member_reason_en text,
+  private_note text,
+  application_payload jsonb,
+  dispute_command jsonb,
+  transition_command jsonb,
+  command_request_id uuid
+)
+returns table (
+  flag_id uuid,
+  status text,
+  applied_access_condition_id uuid,
+  dispute_id uuid,
+  transition_id uuid
+)
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  actor_id uuid := security.require_moderator();
+  flag_record private.place_flags%rowtype;
+  place_row private.places%rowtype;
+  condition_row private.access_conditions%rowtype;
+  verification_row private.verifications%rowtype;
+  new_condition_id uuid;
+  new_verification_id uuid;
+  new_evidence_id uuid;
+  result_dispute_id uuid;
+  result_transition_id uuid;
+  occurred_at timestamptz := statement_timestamp();
+begin
+  if requested_flag_id is null or command_request_id is null then
+    raise exception using errcode = '22023', message = 'Resolution identifiers are required';
+  end if;
+
+  if requested_outcome <> all (
+    array['needs_information','applied','confirmed_useful','dispute_opened','place_inactivated','rejected']::text[]
+  ) then
+    raise exception using errcode = '22023', message = 'Resolution outcome is invalid';
+  end if;
+
+  if nullif(btrim(member_reason_is), '') is null or nullif(btrim(member_reason_en), '') is null then
+    raise exception using errcode = '22023', message = 'Bilingual Member-safe outcome reason is required';
+  end if;
+
+  select flag.* into flag_record
+  from private.place_flags flag
+  where flag.id = requested_flag_id
+  for update;
+
+  if not found then
+    raise exception using errcode = '22023', message = 'Correction or Report was not found';
+  end if;
+
+  if flag_record.status::text = requested_outcome and flag_record.resolution_request_id = command_request_id then
+    return query select flag_record.id, flag_record.status::text, flag_record.applied_access_condition_id,
+      flag_record.dispute_id, flag_record.transition_id;
+    return;
+  end if;
+
+  if flag_record.status in ('applied', 'confirmed_useful', 'dispute_opened', 'place_inactivated', 'rejected') then
+    raise exception using errcode = '55006', message = 'Correction or Report outcome is final';
+  end if;
+
+  if requested_outcome = 'applied' and flag_record.kind <> 'correction' then
+    raise exception using errcode = '22023', message = 'Only a Correction can be applied';
+  end if;
+  if requested_outcome = 'confirmed_useful' and flag_record.kind <> 'report' then
+    raise exception using errcode = '22023', message = 'Only a Report can be confirmed useful';
+  end if;
+  if requested_outcome = 'dispute_opened' and flag_record.target_kind <> 'access_condition' then
+    raise exception using errcode = '22023', message = 'A dispute requires an Access Condition target';
+  end if;
+
+  if requested_outcome = 'applied' then
+    if flag_record.target_kind = 'place_field' then
+      if application_payload is null
+        or jsonb_typeof(application_payload -> 'field_value') is distinct from 'object'
+        or (application_payload ->> 'expected_version') is null
+      then
+        raise exception using errcode = '22023', message = 'Application command is incomplete';
+      end if;
+      perform private.validate_place_field_value(flag_record.target_field, application_payload -> 'field_value');
+
+      select place.* into place_row from private.places place where place.id = flag_record.place_id for update;
+      if not found
+        or place_row.version <> (application_payload ->> 'expected_version')::bigint
+        or place_row.lifecycle <> 'published'
+      then
+        raise exception using errcode = '40001', message = 'Place state changed';
+      end if;
+
+      if flag_record.target_field = 'name' then
+        update private.place_translations
+        set name = case locale
+          when 'is'::private.locale_code then btrim(application_payload #>> '{field_value,is}')
+          else btrim(application_payload #>> '{field_value,en}') end,
+          updated_at = occurred_at
+        where place_id = place_row.id;
+      elsif flag_record.target_field = 'description' then
+        update private.place_translations
+        set description = case locale
+          when 'is'::private.locale_code then btrim(application_payload #>> '{field_value,is}')
+          else btrim(application_payload #>> '{field_value,en}') end,
+          updated_at = occurred_at
+        where place_id = place_row.id;
+      elsif flag_record.target_field = 'website_url' then
+        update private.places
+        set website_url = nullif(btrim(application_payload #>> '{field_value,value}'), '')
+        where id = place_row.id;
+      elsif flag_record.target_field = 'phone' then
+        update private.places
+        set phone = nullif(btrim(application_payload #>> '{field_value,value}'), '')
+        where id = place_row.id;
+      elsif flag_record.target_field = 'opening_hours' then
+        update private.places
+        set opening_hours = coalesce(application_payload #> '{field_value,value}', '{}'::jsonb)
+        where id = place_row.id;
+      elsif flag_record.target_field = 'dog_amenities' then
+        update private.places
+        set dog_amenities = coalesce(application_payload #> '{field_value,value}', '[]'::jsonb)
+        where id = place_row.id;
+      end if;
+
+      update private.places set version = version + 1, updated_at = occurred_at where id = place_row.id;
+
+      perform private.append_audit_event(
+        'place.corrected', 'place', place_row.id, command_request_id,
+        jsonb_build_object('field', flag_record.target_field, 'flag_id', flag_record.id, 'version', place_row.version + 1)
+      );
+    else
+      if application_payload is null
+        or jsonb_typeof(application_payload -> 'replacement_condition') is distinct from 'object'
+        or jsonb_typeof(application_payload -> 'evidence') is distinct from 'object'
+        or (application_payload ->> 'expected_verification_id') is null
+        or (application_payload ->> 'verified_at') is null
+        or (application_payload ->> 'freshness_until') is null
+      then
+        raise exception using errcode = '22023', message = 'Application command is incomplete';
+      end if;
+      perform private.validate_access_condition_value(application_payload -> 'replacement_condition');
+      perform private.validate_place_flag_evidence(application_payload -> 'evidence');
+      if (application_payload ->> 'freshness_until')::timestamptz <= (application_payload ->> 'verified_at')::timestamptz then
+        raise exception using errcode = '22023', message = 'Freshness boundary must follow Verification';
+      end if;
+
+      select place.* into place_row from private.places place where place.id = flag_record.place_id for update;
+      if not found or place_row.lifecycle <> 'published' then
+        raise exception using errcode = '40001', message = 'Owning Place is not published';
+      end if;
+
+      select condition.* into condition_row
+      from private.access_conditions condition
+      where condition.id = flag_record.access_condition_id and condition.place_id = place_row.id
+      for update;
+      if not found or condition_row.superseded_at is not null then
+        raise exception using errcode = '40001', message = 'Access Condition state changed';
+      end if;
+
+      select verification.* into verification_row
+      from private.verifications verification
+      where verification.access_condition_id = condition_row.id and verification.superseded_at is null
+      for update;
+      if not found
+        or verification_row.id <> (application_payload ->> 'expected_verification_id')::uuid
+        or verification_row.status <> 'verified'
+      then
+        raise exception using errcode = '40001', message = 'Verification state changed';
+      end if;
+
+      new_evidence_id := private.record_lifecycle_evidence(place_row.id, application_payload -> 'evidence', actor_id);
+
+      update private.verifications set superseded_at = occurred_at where id = verification_row.id;
+      update private.access_conditions set superseded_at = occurred_at where id = condition_row.id;
+
+      insert into private.access_conditions (
+        place_id, revision, supersedes_condition_id, access_area, access_area_note,
+        restraint_condition, restraint_note, dog_eligibility, availability_state, availability_window,
+        permission_requirement, created_by, created_at
+      ) values (
+        condition_row.place_id, condition_row.revision + 1, condition_row.id,
+        (application_payload #>> '{replacement_condition,access_area}')::private.access_area,
+        nullif(btrim(application_payload #>> '{replacement_condition,access_area_note}'), ''),
+        (application_payload #>> '{replacement_condition,restraint_condition}')::private.restraint_condition,
+        nullif(btrim(application_payload #>> '{replacement_condition,restraint_note}'), ''),
+        coalesce(application_payload #> '{replacement_condition,dog_eligibility}', '{"scope":"all_dogs"}'::jsonb),
+        private.resolve_access_availability(application_payload -> 'replacement_condition'),
+        coalesce(application_payload #> '{replacement_condition,availability_window}', '{}'::jsonb),
+        (application_payload #>> '{replacement_condition,permission_requirement}')::private.permission_requirement,
+        actor_id, occurred_at
+      ) returning id into new_condition_id;
+
+      insert into private.verifications (
+        access_condition_id, status, verified_by, verified_at, freshness_until, decision_metadata,
+        command_request_id
+      ) values (
+        new_condition_id, 'verified', actor_id, (application_payload ->> 'verified_at')::timestamptz,
+        (application_payload ->> 'freshness_until')::timestamptz,
+        jsonb_build_object('flag_id', flag_record.id), command_request_id
+      ) returning id into new_verification_id;
+
+      insert into private.verification_evidence (verification_id, evidence_id)
+      values (new_verification_id, new_evidence_id);
+
+      perform private.append_audit_event(
+        'access.corrected', 'access_condition', new_condition_id, command_request_id,
+        jsonb_build_object(
+          'flag_id', flag_record.id, 'displaced_condition_id', condition_row.id,
+          'verification_id', new_verification_id, 'evidence_id', new_evidence_id
+        )
+      );
+    end if;
+  elsif requested_outcome = 'dispute_opened' then
+    if dispute_command is null
+      or nullif(btrim(dispute_command ->> 'reason'), '') is null
+      or jsonb_typeof(dispute_command -> 'evidence') is distinct from 'object'
+      or (dispute_command ->> 'expected_verification_id') is null
+    then
+      raise exception using errcode = '22023', message = 'Dispute command is incomplete';
+    end if;
+    select dispute.dispute_id into result_dispute_id
+    from public.open_access_dispute(
+      jsonb_build_object(
+        'access_condition_id', flag_record.access_condition_id,
+        'expected_verification_id', dispute_command ->> 'expected_verification_id',
+        'reason', btrim(dispute_command ->> 'reason'),
+        'opened_at', occurred_at,
+        'evidence', dispute_command -> 'evidence'
+      ),
+      command_request_id
+    ) as dispute (dispute_id, disputed_verification_id, opened_at);
+  elsif requested_outcome = 'place_inactivated' then
+    if transition_command is null
+      or nullif(btrim(transition_command ->> 'decision_notes'), '') is null
+      or (transition_command ->> 'expected_version') is null
+    then
+      raise exception using errcode = '22023', message = 'Inactivation command is incomplete';
+    end if;
+    select transition.transition_id into result_transition_id
+    from public.transition_place_identity(
+      jsonb_build_object(
+        'place_id', flag_record.place_id,
+        'expected_version', (transition_command ->> 'expected_version')::bigint,
+        'kind', 'inactive',
+        'decided_at', occurred_at,
+        'decision_notes', btrim(transition_command ->> 'decision_notes')
+      ),
+      command_request_id
+    ) as transition (transition_id, predecessor_place_id, successor_place_id, transition_kind, predecessor_version);
+  end if;
+
+  update private.place_flags
+  set
+    status = requested_outcome::private.place_flag_status,
+    applied_access_condition_id = new_condition_id,
+    dispute_id = result_dispute_id,
+    transition_id = result_transition_id,
+    resolution_request_id = command_request_id,
+    resolved_at = case when requested_outcome = 'needs_information' then null else occurred_at end,
+    updated_at = occurred_at
+  where id = requested_flag_id;
+
+  insert into private.place_flag_status_events (
+    flag_id, status, member_reason_is, member_reason_en, private_note, moderator_id
+  ) values (
+    requested_flag_id, requested_outcome::private.place_flag_status, btrim(member_reason_is),
+    btrim(member_reason_en), nullif(btrim(private_note), ''), actor_id
+  );
+
+  perform private.append_audit_event(
+    'place_flag.' || requested_outcome, 'place_flag', requested_flag_id, command_request_id,
+    jsonb_strip_nulls(jsonb_build_object(
+      'previous_status', flag_record.status::text,
+      'status', requested_outcome,
+      'applied_access_condition_id', new_condition_id,
+      'dispute_id', result_dispute_id,
+      'transition_id', result_transition_id
+    ))
+  );
+
+  return query select requested_flag_id, requested_outcome, new_condition_id, result_dispute_id, result_transition_id;
+exception
+  when invalid_text_representation or check_violation or not_null_violation then
+    raise exception using errcode = '22023', message = 'Resolution command is invalid';
 end;
 $$;
 

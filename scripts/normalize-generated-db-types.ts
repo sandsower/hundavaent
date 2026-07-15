@@ -26,9 +26,6 @@ if (
 
 await writeFile(
   generatedTypesPath,
-  (
-    source.slice(0, functionStart) +
-    normalizedFunctionTypes +
-    source.slice(functionEnd)
-  ).trimEnd() + '\n'
+  (source.slice(0, functionStart) + normalizedFunctionTypes + source.slice(functionEnd)).trimEnd() +
+    '\n'
 );

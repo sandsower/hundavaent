@@ -354,6 +354,7 @@ select lives_ok(
       'replacement_condition', jsonb_build_object(
         'access_area', 'outdoors', 'restraint_condition', 'leash_required',
         'dog_eligibility', jsonb_build_object('scope', 'all_dogs'),
+        'availability_state', 'whenever_open',
         'availability_window', '{}'::jsonb,
         'permission_requirement', 'advance_approval'
       ),
@@ -365,6 +366,17 @@ select lives_ok(
     '75900000-0000-4000-8000-000000000002'
   ),
   'Confirming a contradiction replaces and verifies the condition atomically'
+);
+select is(
+  (
+    select availability_state::text
+    from private.access_conditions
+    where place_id = '75300000-0000-4000-8000-000000000001'
+      and permission_requirement = 'advance_approval'
+      and superseded_at is null
+  ),
+  'whenever_open'::text,
+  'Confirmed dispute replacement writes its explicit availability state directly'
 );
 select ok(
   (select superseded_at is not null from private.access_conditions

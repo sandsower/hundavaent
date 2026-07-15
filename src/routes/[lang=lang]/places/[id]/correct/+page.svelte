@@ -45,6 +45,7 @@
   );
   let accessArea = $state<(typeof accessAreas)[number]>('indoors');
   let restraintCondition = $state<(typeof restraints)[number]>('leash_required');
+  let availabilityState = $state<'whenever_open' | 'limited' | 'not_stated'>('not_stated');
 
   const selectedCondition = $derived(
     data.place?.accessConditions.find((condition) => condition.id === accessConditionId) ?? null
@@ -54,6 +55,7 @@
     if (selectedCondition) {
       accessArea = selectedCondition.accessArea;
       restraintCondition = selectedCondition.restraintCondition;
+      availabilityState = selectedCondition.availabilityState ?? 'not_stated';
     }
   });
 
@@ -273,34 +275,44 @@
                 />
               </label>
             {/if}
-            <div class="hv-grid" data-columns="2">
-              <label class="hv-stack">
-                {data.copy['correction.availabilityStarts']}
-                <input
-                  class="hv-field"
-                  name="availabilityStartsAt"
-                  type="time"
-                  value={selectedCondition.availabilityWindow.startsAt ?? ''}
-                />
-              </label>
-              <label class="hv-stack">
-                {data.copy['correction.availabilityEnds']}
-                <input
-                  class="hv-field"
-                  name="availabilityEndsAt"
-                  type="time"
-                  value={selectedCondition.availabilityWindow.endsAt ?? ''}
-                />
-              </label>
-            </div>
             <label class="hv-stack">
-              {data.copy['correction.availabilityDays']}
-              <input
-                class="hv-field"
-                name="availabilityDays"
-                value={(selectedCondition.availabilityWindow.days ?? []).join(',')}
-              />
+              {data.copy['moderation.availabilityStateLabel']}
+              <select class="hv-field" name="availabilityState" bind:value={availabilityState}>
+                <option value="not_stated">{data.copy['accessSymbols.notStated']}</option>
+                <option value="whenever_open">{data.copy['accessSymbols.wheneverOpen']}</option>
+                <option value="limited">{data.copy['accessSymbols.limited']}</option>
+              </select>
             </label>
+            {#if availabilityState === 'limited'}
+              <div class="hv-grid" data-columns="2">
+                <label class="hv-stack">
+                  {data.copy['correction.availabilityStarts']}
+                  <input
+                    class="hv-field"
+                    name="availabilityStartsAt"
+                    type="time"
+                    value={selectedCondition.availabilityWindow.startsAt ?? ''}
+                  />
+                </label>
+                <label class="hv-stack">
+                  {data.copy['correction.availabilityEnds']}
+                  <input
+                    class="hv-field"
+                    name="availabilityEndsAt"
+                    type="time"
+                    value={selectedCondition.availabilityWindow.endsAt ?? ''}
+                  />
+                </label>
+              </div>
+              <label class="hv-stack">
+                {data.copy['correction.availabilityDays']}
+                <input
+                  class="hv-field"
+                  name="availabilityDays"
+                  value={(selectedCondition.availabilityWindow.days ?? []).join(',')}
+                />
+              </label>
+            {/if}
           </fieldset>
         {/if}
 

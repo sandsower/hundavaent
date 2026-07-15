@@ -337,6 +337,63 @@ describe('Corrections and Reports workspace action orchestration', () => {
     );
   });
 
+  it('preserves whenever-open timing when applying an Access Condition replacement', async () => {
+    const accessCorrectionDetail = {
+      ...detailRow,
+      kind: 'correction',
+      target_kind: 'access_condition',
+      proposed_value: {
+        access_area: 'indoors',
+        access_area_note: null,
+        restraint_condition: 'off_leash_permitted',
+        restraint_note: null,
+        dog_eligibility: { scope: 'all_dogs' },
+        availability_state: 'whenever_open',
+        availability_window: {},
+        permission_requirement: 'standing_permission'
+      }
+    };
+    const { flagClient, rpc } = client({
+      get_moderation_place_flag: { data: [accessCorrectionDetail], error: null }
+    });
+
+    const result = await executeModerationCorrectionAction('resolve', {
+      flagClient,
+      flagId: detailRow.flag_id,
+      requestId: 'request-1',
+      formData: form({
+        outcome: 'applied',
+        accessArea: 'indoors',
+        restraintCondition: 'off_leash_permitted',
+        permissionRequirement: 'standing_permission',
+        availabilityState: 'whenever_open',
+        evidenceKind: 'official_website',
+        evidenceSourceLabel: 'Venue policy',
+        evidenceUrl: 'https://example.invalid/policy',
+        evidenceObservedAt: '2026-07-11T09:00',
+        expectedVerificationId: detailRow.current_verification_id,
+        verifiedAt: '2026-07-11T09:00',
+        freshnessUntil: '2027-07-11T09:00'
+      })
+    });
+
+    expect(result).toEqual({
+      status: 'confirmed',
+      effect: { kind: 'resolved', value: 'applied' }
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'resolve_place_flag',
+      expect.objectContaining({
+        application_payload: expect.objectContaining({
+          replacement_condition: expect.objectContaining({
+            availability_state: 'whenever_open',
+            availability_window: {}
+          })
+        })
+      })
+    );
+  });
+
   it.each([
     ['40001', 409, 'conflict'],
     ['42501', 403, 'forbidden'],

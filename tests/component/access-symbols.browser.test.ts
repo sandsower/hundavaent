@@ -40,12 +40,16 @@ describe('AccessSymbols', () => {
 
     const control = screen.getByRole('button', { name: /Different conditions apply/ });
     expect(screen.getAllByRole('button')).toHaveLength(1);
+    const detailId = control.getAttribute('aria-controls');
+    expect(detailId).toBeTruthy();
     await fireEvent.click(control);
     expect(onOpenDetails).toHaveBeenCalledOnce();
-    expect(screen.getByRole('status').textContent).toContain('2 different access conditions');
+    expect(document.getElementById(detailId!)?.textContent).toContain(
+      '2 different access conditions'
+    );
   });
 
-  it('connects controls to hidden tooltips and reveals the actual bounded rule on click', async () => {
+  it('keeps visual tooltips out of the accessible name and reveals the bounded rule on click', async () => {
     render(AccessSymbols, {
       placeName: 'Brikk',
       conditions: [
@@ -60,9 +64,10 @@ describe('AccessSymbols', () => {
     });
 
     const outdoors = screen.getByRole('button', { name: 'Special conditions' });
-    const tooltipId = outdoors.getAttribute('aria-describedby');
-    expect(tooltipId).toBeTruthy();
-    const tooltip = document.getElementById(tooltipId!);
+    expect(outdoors.hasAttribute('aria-describedby')).toBe(false);
+    const tooltip = outdoors.querySelector('[role="tooltip"]');
+    expect(tooltip?.getAttribute('aria-hidden')).toBe('true');
+    await fireEvent.focus(outdoors);
     expect(tooltip?.getAttribute('aria-hidden')).toBe('true');
 
     await fireEvent.click(outdoors);
