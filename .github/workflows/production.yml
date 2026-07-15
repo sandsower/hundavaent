@@ -130,7 +130,7 @@ jobs:
           }
           snapshot_query() {
             local query="$1"
-            psql -X -qAt -v ON_ERROR_STOP=1 \
+            psql -X -qAt -F ' ' -v ON_ERROR_STOP=1 \
               -v recovery_snapshot="${recovery_snapshot}" "${db_url}" <<SQL
           BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
           SET TRANSACTION SNAPSHOT :'recovery_snapshot';

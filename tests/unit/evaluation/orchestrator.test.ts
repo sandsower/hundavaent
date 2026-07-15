@@ -78,6 +78,7 @@ describe('release evaluation orchestration', () => {
     expect(workflow).not.toContain('docker run --rm supabase/postgres:17.6.1.143');
     expect(workflow).toContain('pg_dump --version');
     expect(workflow).toContain('psql -X -qAt -v ON_ERROR_STOP=1 "$1"');
+    expect(workflow).toContain("psql -X -qAt -F ' ' -v ON_ERROR_STOP=1");
     expect(workflow).toContain('${query};\n          COMMIT;');
     expect(workflow).toContain('--quote-all-identifier');
     expect(workflow).toContain('--role "postgres"');
