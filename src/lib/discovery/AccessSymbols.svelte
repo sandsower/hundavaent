@@ -418,6 +418,8 @@
   }
 
   .tooltip {
+    --tooltip-translate-x: -50%;
+
     position: absolute;
     z-index: 3;
     bottom: calc(100% + 0.45rem);
@@ -434,7 +436,7 @@
     visibility: hidden;
     pointer-events: none;
     text-align: center;
-    transform: translate(-50%, 0.25rem);
+    transform: translate(var(--tooltip-translate-x), 0.25rem);
     transition:
       opacity 160ms ease,
       transform 160ms ease,
@@ -445,8 +447,30 @@
   .symbol:focus-visible .tooltip {
     opacity: 1;
     visibility: visible;
-    transform: translate(-50%, 0);
+    transform: translate(var(--tooltip-translate-x), 0);
     transition-delay: 0s;
+  }
+
+  .symbol:first-of-type .tooltip {
+    --tooltip-translate-x: 0;
+
+    left: 0;
+  }
+
+  .symbol:last-of-type .tooltip {
+    --tooltip-translate-x: 0;
+
+    right: 0;
+    left: auto;
+  }
+
+  .symbol.complex .tooltip {
+    --tooltip-translate-x: 0;
+
+    right: 0;
+    left: 0;
+    width: auto;
+    max-width: none;
   }
 
   .complex {

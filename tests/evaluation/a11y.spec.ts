@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import { evaluationFixtureIds, evaluationModerator } from './fixtures';
 import { expect, test, type EvaluationEvidenceRecorder } from './evidence-fixture';
@@ -124,16 +124,40 @@ async function expectNoHorizontalPageScroll(page: Page): Promise<void> {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
 }
 
+async function expectTooltipContained(button: Locator, container: Locator): Promise<void> {
+  const tooltip = button.locator('[role="tooltip"]');
+  await button.hover();
+  await expect(tooltip).toHaveCSS('visibility', 'visible');
+  const [tooltipBox, containerBox] = await Promise.all([
+    tooltip.boundingBox(),
+    container.boundingBox()
+  ]);
+
+  expect(tooltipBox).not.toBeNull();
+  expect(containerBox).not.toBeNull();
+  expect(tooltipBox!.x).toBeGreaterThanOrEqual(containerBox!.x - 0.5);
+  expect(tooltipBox!.x + tooltipBox!.width).toBeLessThanOrEqual(
+    containerBox!.x + containerBox!.width + 0.5
+  );
+}
+
 test('public discovery and floating access details are keyboard-operable and Axe-clean', async ({
   page,
   evidence
 }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/en?view=map');
   await waitForHydration(page);
   // The desktop result rail is persistent. The Show results control only exists on the
   // compact map-first layout, so exercise the rail directly at this wide viewport.
   const listSelection = page.getByRole('button', { name: 'Select Published Place' });
   await expect(listSelection).toBeVisible();
+  const listAccessSymbols = page
+    .getByRole('region', { name: 'Places found' })
+    .getByRole('group', { name: 'Dog access at Published Place' });
+  const listSymbolButtons = listAccessSymbols.getByRole('button');
+  await expectTooltipContained(listSymbolButtons.first(), listAccessSymbols);
+  await expectTooltipContained(listSymbolButtons.last(), listAccessSymbols);
   await listSelection.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
@@ -170,6 +194,8 @@ test('public discovery and floating access details are keyboard-operable and Axe
   });
   const symbolButtons = accessSymbols.getByRole('button');
   await expect(symbolButtons).toHaveCount(5);
+  await expectTooltipContained(symbolButtons.first(), accessSymbols);
+  await expectTooltipContained(symbolButtons.last(), accessSymbols);
   await symbolButtons.first().focus();
   await page.keyboard.press('Enter');
   await expect(symbolButtons.first()).toHaveAttribute('aria-expanded', 'true');

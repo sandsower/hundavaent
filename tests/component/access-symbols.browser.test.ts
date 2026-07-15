@@ -13,6 +13,14 @@ const simpleCondition = {
   availabilityWindow: {}
 };
 
+function expectContained(child: Element, parent: Element): void {
+  const childRect = child.getBoundingClientRect();
+  const parentRect = parent.getBoundingClientRect();
+
+  expect(childRect.left).toBeGreaterThanOrEqual(parentRect.left - 0.5);
+  expect(childRect.right).toBeLessThanOrEqual(parentRect.right + 0.5);
+}
+
 describe('AccessSymbols', () => {
   it('renders five labelled controls and keeps activated details visible', async () => {
     render(AccessSymbols, {
@@ -27,6 +35,32 @@ describe('AccessSymbols', () => {
     await fireEvent.click(timing);
     expect(timing.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByRole('status').textContent).toContain('does not imply permission');
+  });
+
+  it('keeps the first and last symbol tooltips inside the AccessSymbols bounds', () => {
+    const { container } = render(AccessSymbols, {
+      placeName: 'Brikk',
+      conditions: [simpleCondition],
+      copy: catalogues.en
+    });
+    const presentation = container.querySelector<HTMLElement>('.access-presentation')!;
+    presentation.style.width = '20rem';
+    const symbols = presentation.querySelectorAll<HTMLButtonElement>('.symbols > .symbol');
+
+    expectContained(symbols[0].querySelector('[role="tooltip"]')!, presentation);
+    expectContained(symbols[symbols.length - 1].querySelector('[role="tooltip"]')!, presentation);
+  });
+
+  it('keeps the complex-condition tooltip inside narrow AccessSymbols bounds', () => {
+    const { container } = render(AccessSymbols, {
+      placeName: 'Brikk',
+      conditions: [simpleCondition, { ...simpleCondition, accessArea: 'outdoors' as const }],
+      copy: catalogues.en
+    });
+    const presentation = container.querySelector<HTMLElement>('.access-presentation')!;
+    presentation.style.width = '8rem';
+
+    expectContained(presentation.querySelector('.complex [role="tooltip"]')!, presentation);
   });
 
   it('shows a single special-condition control for complex access', async () => {
