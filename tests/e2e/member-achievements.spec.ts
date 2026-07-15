@@ -89,7 +89,7 @@ test('unauthenticated requests cannot reach or discover any Achievement state', 
   await expect(page).toHaveURL(
     `/en?auth=open&authReturnTo=${encodeURIComponent(achievementsPath)}`
   );
-  await expect(page.getByLabel('Email address')).toBeVisible();
+  await expect(page.getByRole('dialog').getByLabel('Email address')).toBeVisible();
   await expect(page.getByText('First Favourite')).toHaveCount(0);
   await expect(page.getByText('Not earned yet')).toHaveCount(0);
 
@@ -144,8 +144,8 @@ test('the surface fails closed while the policy is dark', async ({ page }) => {
 async function signInMember(page: Page, email: string): Promise<void> {
   await page.goto('/en/account');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: /Send (me a )?sign-in link/ }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(email);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(email);
   await page.goto(magicLink);
   await waitForHydration(page);

@@ -38,7 +38,7 @@ test.describe('public discovery locale routes', () => {
     await expect(page.getByText('Dog-friendly places', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Find dog-friendly places in the capital region.')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/en/about');
-    await expect(page.getByRole('link', { name: 'Log in / Register' })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toHaveAttribute(
       'href',
       '/en/account?returnTo=%2Fen'
     );
@@ -65,9 +65,13 @@ test.describe('public discovery locale routes', () => {
     await expect(page.getByText('More information is coming soon.')).toBeVisible();
 
     await page.goto('/is/account');
-    await expect(page.getByRole('heading', { name: 'Velkomin á Hundavænt' })).toBeVisible();
-    await expect(page.getByLabel('Netfang')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Senda innskráningartengil' })).toBeEnabled();
+    await expect(page).toHaveURL('/is?auth=open&authReturnTo=%2Fis');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: 'Halda áfram með Hundavænt' })).toBeVisible();
+    await expect(dialog.getByLabel('Netfang')).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Senda mér innskráningartengil' })
+    ).toBeEnabled();
   });
 
   test('uses one map-first selected Place state across desktop and mobile', async ({ page }) => {

@@ -69,12 +69,15 @@
   function captureAuthResult(): void {
     const url = new URL(window.location.href);
     const result = url.searchParams.get('authResult');
-    if (!result) return;
+    const retryResolved = url.searchParams.get('pendingRetryResolved') === '1';
+    if (!result && !retryResolved) return;
 
-    postHogAnalytics.capture('auth completed', {
-      method: url.searchParams.get('authMethod') === 'facebook' ? 'facebook' : 'email',
-      outcome: result === 'success' ? 'success' : 'failed'
-    });
+    if (result) {
+      postHogAnalytics.capture('auth completed', {
+        method: url.searchParams.get('authMethod') === 'facebook' ? 'facebook' : 'email',
+        outcome: result === 'success' ? 'success' : 'failed'
+      });
+    }
     const pendingAction = url.searchParams.get('pendingAction');
     const pendingResult = url.searchParams.get('pendingResult');
     if (pendingAction === 'favourite' || pendingAction === 'rating') {
@@ -84,7 +87,11 @@
       });
     }
 
-    for (const name of ['authResult', 'authMethod', 'pendingAction', 'pendingResult']) {
+    const namesToRemove = ['authResult', 'authMethod', 'pendingAction', 'pendingRetryResolved'];
+    if (pendingResult !== 'retryable') {
+      namesToRemove.push('pendingResult', 'pendingIntent');
+    }
+    for (const name of namesToRemove) {
       url.searchParams.delete(name);
     }
     const cleanedUrl = `${url.pathname}${url.search}${url.hash}` as `/${string}`;

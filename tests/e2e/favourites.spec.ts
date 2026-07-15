@@ -12,9 +12,10 @@ const placeId = evaluationFixtureIds.places.published;
 
 async function completeEmailSignIn(page: Page, email: string): Promise<void> {
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: /Send (me a )?sign-in link/ }).click();
-  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Email address').fill(email);
+  await dialog.getByRole('button', { name: 'Send me a sign-in link' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Check your email' })).toBeVisible();
   await page.goto(await waitForLocalMagicLink(email));
   // The magic-link redirect lands on a freshly server-rendered page. Waiting for it to finish
   // hydrating keeps callers from interacting (or navigating away) before Svelte has attached

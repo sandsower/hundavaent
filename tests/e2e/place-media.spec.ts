@@ -45,8 +45,8 @@ test('a Moderator uploads Evidence and a Photo, approves the Photo, and it rende
   page
 }) => {
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fplaces%2Fnew');
-  await page.getByLabel('Email address').fill(moderatorEmail);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(moderatorEmail);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await expect(page.getByText('The link has been sent.')).toBeVisible();
 
   const magicLink = await waitForLocalMagicLink(moderatorEmail);

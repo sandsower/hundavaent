@@ -14,6 +14,7 @@ function eventWith(
       overall_rating: number | null;
     };
     memberAccount?: boolean;
+    completion?: { action: string; completion_status: string } | 'error' | 'throw' | 'unavailable';
   } = {}
 ) {
   const getUser = vi.fn(async () => ({ data: { user: options.user ?? null }, error: null }));
@@ -50,6 +51,12 @@ function eventWith(
           : [],
         error: null
       };
+    }
+    if (name === 'complete_auth_pending_intent') {
+      if (options.completion === 'throw') throw new Error('network interruption');
+      if (options.completion === 'error') return { data: null, error: { code: 'network' } };
+      if (options.completion === 'unavailable') return { data: [], error: null };
+      return { data: options.completion ? [options.completion] : [], error: null };
     }
     throw new Error(`Unexpected RPC ${name}`);
   });
@@ -129,6 +136,60 @@ describe('Member-aware public layout', () => {
         placeId: '30000000-0000-4000-8000-000000000003',
         placeName: 'Brikk'
       }
+    });
+  });
+
+  it('retries a transient pending completion for an activated Member without activating again', async () => {
+    const continuationToken = 'r'.repeat(43);
+    const { event, rpc } = eventWith({
+      cookie: 'sb-project-auth-token.0',
+      user: { id: 'member-1' },
+      memberAccount: true,
+      completion: { action: 'rating', completion_status: 'completed' },
+      url: `https://hundavaent.test/en?authResult=success&authMethod=email&pendingResult=retryable&pendingIntent=${continuationToken}`
+    });
+
+    await expect(load(event as never)).rejects.toMatchObject({
+      status: 303,
+      location:
+        '/en?authResult=success&authMethod=email&pendingResult=completed&pendingAction=rating&pendingRetryResolved=1'
+    });
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+      'get_current_member_account',
+      'complete_auth_pending_intent'
+    ]);
+  });
+
+  it.each(['error', 'throw'] as const)(
+    'keeps the canonical continuation attached when the authenticated retry returns an RPC %s',
+    async (completion) => {
+      const continuationToken = 'r'.repeat(43);
+      const { event } = eventWith({
+        cookie: 'sb-project-auth-token.0',
+        user: { id: 'member-1' },
+        memberAccount: true,
+        completion,
+        url: `https://hundavaent.test/en?pendingResult=retryable&pendingIntent=${continuationToken}`
+      });
+
+      const result = await load(event as never);
+      expect(result).toMatchObject({ signedIn: true });
+    }
+  );
+
+  it('cleans an expired or consumed continuation after an authenticated retry', async () => {
+    const continuationToken = 'r'.repeat(43);
+    const { event } = eventWith({
+      cookie: 'sb-project-auth-token.0',
+      user: { id: 'member-1' },
+      memberAccount: true,
+      completion: 'unavailable',
+      url: `https://hundavaent.test/en?pendingResult=retryable&pendingIntent=${continuationToken}`
+    });
+
+    await expect(load(event as never)).rejects.toMatchObject({
+      status: 303,
+      location: '/en?pendingResult=unavailable&pendingRetryResolved=1'
     });
   });
 });

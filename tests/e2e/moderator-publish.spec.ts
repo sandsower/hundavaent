@@ -27,8 +27,8 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   page
 }) => {
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fplaces%2Fnew');
-  await page.getByLabel('Email address').fill(evaluationPublisher.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationPublisher.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await expect(page.getByText('The link has been sent.')).toBeVisible();
 
   const magicLink = await waitForLocalMagicLink(evaluationPublisher.email);

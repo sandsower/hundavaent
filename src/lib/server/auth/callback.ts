@@ -4,6 +4,10 @@ import type { User } from '@supabase/supabase-js';
 import { parseLocale } from '$i18n';
 import type { MemberAuthConfigResolution, MemberProvider } from '$server/auth/member';
 import type { MemberProviderPolicyResolution } from '$server/auth/provider-policy';
+import {
+  authPendingIntentTokenPattern,
+  completePendingAuthIntent
+} from '$server/auth/pending-intent';
 import { normalizeMemberReturnTo, normalizeModerationReturnTo } from '$server/auth/return-to';
 import type { RequestSupabaseClient } from '$server/db/clients';
 
@@ -20,7 +24,7 @@ export interface SessionCleanupOutcome {
   expiredCookieCount: number;
 }
 
-export const authPendingIntentTokenPattern = /^[A-Za-z0-9_-]{43}$/;
+export { authPendingIntentTokenPattern } from '$server/auth/pending-intent';
 
 export function createAuthCallback(dependencies: AuthCallbackDependencies): RequestHandler {
   return async ({ cookies, locals, params, url }) => {
@@ -176,6 +180,7 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
       let activationError: unknown;
       let pendingAction: string | null = null;
       let pendingResult: string | null = pendingIntent ? 'unavailable' : null;
+      let retryPendingIntent: string | null = null;
 
       try {
         ({ error: activationError } = await locals.supabase.rpc('activate_current_member', {
@@ -193,21 +198,17 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
       }
 
       if (pendingIntent && authPendingIntentTokenPattern.test(pendingIntent)) {
-        try {
-          const { data: completions, error } = await locals.supabase.rpc(
-            'complete_auth_pending_intent',
-            {
-              pending_token: pendingIntent,
-              command_request_id: locals.requestId
-            }
-          );
-          const completion = completions?.[0];
-          if (!error && completion) {
-            pendingAction = completion.action;
-            pendingResult = completion.completion_status;
-          }
-        } catch {
-          // Member activation is authoritative. A stale optional continuation never revokes it.
+        const completion = await completePendingAuthIntent(
+          locals.supabase,
+          pendingIntent,
+          locals.requestId
+        );
+        if (completion.status === 'completed') {
+          pendingAction = completion.action;
+          pendingResult = completion.completionStatus;
+        } else if (completion.status === 'retryable') {
+          pendingResult = 'retryable';
+          retryPendingIntent = pendingIntent;
         }
       }
 
@@ -217,7 +218,8 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
           authResult: 'success',
           authMethod: requestedMethod,
           pendingAction,
-          pendingResult
+          pendingResult,
+          pendingIntent: retryPendingIntent
         })
       );
     }
@@ -286,6 +288,7 @@ function withAuthResult(
     authMethod: string;
     pendingAction: string | null;
     pendingResult: string | null;
+    pendingIntent: string | null;
   }
 ): string {
   const target = new URL(returnTo, 'https://hundavaent.local');
@@ -293,6 +296,13 @@ function withAuthResult(
   target.searchParams.set('authMethod', result.authMethod);
   if (result.pendingAction) target.searchParams.set('pendingAction', result.pendingAction);
   if (result.pendingResult) target.searchParams.set('pendingResult', result.pendingResult);
+  if (
+    result.pendingResult === 'retryable' &&
+    result.pendingIntent &&
+    authPendingIntentTokenPattern.test(result.pendingIntent)
+  ) {
+    target.searchParams.set('pendingIntent', result.pendingIntent);
+  }
   return `${target.pathname}${target.search}${target.hash}`;
 }
 
@@ -340,6 +350,8 @@ function redirectToRecovery(
   const recovery = new URL(returnTo, 'https://hundavaent.local');
   recovery.searchParams.set('auth', 'open');
   recovery.searchParams.set('authStatus', authStatus);
-  if (pendingIntent) recovery.searchParams.set('pendingIntent', pendingIntent);
+  if (pendingIntent && authPendingIntentTokenPattern.test(pendingIntent)) {
+    recovery.searchParams.set('pendingIntent', pendingIntent);
+  }
   redirect(303, `${recovery.pathname}${recovery.search}${recovery.hash}`);
 }

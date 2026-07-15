@@ -158,8 +158,8 @@ async function signInMember(page: Page, email: string): Promise<void> {
     `/en/account?returnTo=${encodeURIComponent(`/en/places/${correctable.placeId}/correct`)}`
   );
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(email);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(email);
   await page.goto(magicLink);
 }
@@ -170,8 +170,8 @@ async function signInModerator(page: Page): Promise<void> {
   await clearLocalEvaluationMailbox();
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fcorrections-and-reports');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
   await page.goto(magicLink);
   await expect(page).toHaveURL('/en/moderation/corrections-and-reports');

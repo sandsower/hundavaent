@@ -1,6 +1,6 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
-  import { replaceState } from '$app/navigation';
+  import { afterNavigate, replaceState } from '$app/navigation';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
 
@@ -33,6 +33,10 @@
         : copy['auth.continue']
   );
 
+  afterNavigate(() => {
+    queueMicrotask(openFromCurrentUrl);
+  });
+
   onMount(() => {
     const receiveRequest = (event: Event) => {
       const detail = (event as CustomEvent<unknown>).detail;
@@ -40,19 +44,24 @@
     };
     window.addEventListener(authRequestEventName, receiveRequest);
 
-    const url = new URL(window.location.href);
-    if (url.searchParams.get('auth') === 'open') {
-      open(initialRequest ?? { origin: 'header' });
-      const status = url.searchParams.get('authStatus');
-      if (status === 'denied' || status === 'provider_failed') error = copy['auth.facebookFailed'];
-      else if (status) error = copy['auth.failed'];
-    }
+    openFromCurrentUrl();
 
     return () => {
       window.removeEventListener(authRequestEventName, receiveRequest);
       stopResendTimer();
     };
   });
+
+  function openFromCurrentUrl(): void {
+    if (typeof window === 'undefined' || !dialog || dialog.open) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('auth') !== 'open') return;
+
+    open(initialRequest ?? { origin: 'header' });
+    const status = url.searchParams.get('authStatus');
+    if (status === 'denied' || status === 'provider_failed') error = copy['auth.facebookFailed'];
+    else if (status) error = copy['auth.failed'];
+  }
 
   function open(nextRequest: AuthRequest): void {
     request = nextRequest;

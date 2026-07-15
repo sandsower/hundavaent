@@ -17,9 +17,10 @@ const farCoordinates = { latitude: 64.1523, longitude: -21.9555 }; // roughly 1.
 
 async function completeEmailSignIn(page: Page, email: string): Promise<void> {
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
-  await expect(page.getByText('Your link is on its way. Check your email.')).toBeVisible();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Email address').fill(email);
+  await dialog.getByRole('button', { name: 'Send me a sign-in link' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Check your email' })).toBeVisible();
   await page.goto(await waitForLocalMagicLink(email));
   await waitForHydration(page);
 }
@@ -38,18 +39,11 @@ test('a signed-out Visitor can sign in from the header and returns to the same P
   await expect(
     page.getByRole('link', { name: 'Sign in to check in at Published Place' })
   ).toHaveCount(0);
-  const signIn = page.getByRole('link', { name: 'Log in / Register' });
+  const signIn = page.getByRole('link', { name: 'Sign in', exact: true });
   await expect(signIn).toBeVisible();
   await signIn.click();
-  await expect(page).toHaveURL(/\/en\/account\?/);
-
-  const accountUrl = new URL(page.url());
-  const returnTo = accountUrl.searchParams.get('returnTo');
-  expect(returnTo).not.toBeNull();
-  const returnUrl = new URL(returnTo ?? '', page.url());
-  expect(returnUrl.pathname).toBe('/en');
-  expect(returnUrl.searchParams.get('place')).toBe(placeId);
-  expect(returnUrl.searchParams.get('view')).toBe('map');
+  await expect(page).toHaveURL(originPath);
+  await expect(page.getByRole('dialog')).toBeVisible();
 
   const email = `check-in-return-${Date.now()}@example.invalid`;
   await completeEmailSignIn(page, email);
@@ -115,11 +109,10 @@ test('checking in again shows the already-checked-in copy in Icelandic', async (
   // The Icelandic account page renders Icelandic form labels, so the shared English sign-in
   // helper does not apply here.
   await waitForHydration(page);
-  await page.getByLabel('Netfang').fill(email);
-  await page.getByRole('button', { name: 'Senda innskráningartengil' }).click();
-  await expect(
-    page.getByText('Tengillinn er á leiðinni. Athugaðu tölvupóstinn þinn.')
-  ).toBeVisible();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Netfang').fill(email);
+  await dialog.getByRole('button', { name: 'Senda mér innskráningartengil' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Athugaðu tölvupóstinn' })).toBeVisible();
   await page.goto(await waitForLocalMagicLink(email));
   await waitForHydration(page);
 

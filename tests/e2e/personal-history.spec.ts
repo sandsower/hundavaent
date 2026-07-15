@@ -19,9 +19,10 @@ const { favouriteOnly, mixed, predecessor, successor } = localPersonalHistoryFix
 
 async function completeEmailSignIn(page: Page, email: string): Promise<void> {
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
-  await expect(page.getByText('Your link is on its way. Check your email.')).toBeVisible();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Email address').fill(email);
+  await dialog.getByRole('button', { name: 'Send me a sign-in link' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Check your email' })).toBeVisible();
   await page.goto(await waitForLocalMagicLink(email));
   await waitForHydration(page);
 }
@@ -40,9 +41,8 @@ test('a signed-out Visitor is invited to sign in and returns to the personal his
   page
 }) => {
   await page.goto('/en/history');
-  await expect(page).toHaveURL(/\/en\/account\?/);
-  const accountUrl = new URL(page.url());
-  expect(accountUrl.searchParams.get('returnTo')).toBe('/en/history');
+  await expect(page).toHaveURL('/en?auth=open&authReturnTo=%2Fen%2Fhistory');
+  await expect(page.getByRole('dialog')).toBeVisible();
 
   const email = `history-return-${Date.now()}@example.invalid`;
   await completeEmailSignIn(page, email);
