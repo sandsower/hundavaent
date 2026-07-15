@@ -83,6 +83,7 @@ jobs:
           mkdir -p recovery
           encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"], safe=""))')"
           db_url="postgresql://postgres.${SUPABASE_PROJECT_REF}:${encoded_password}@${SUPABASE_POOLER_HOST}:5432/postgres"
+          postgres_dump_image="public.ecr.aws/supabase/postgres:17.6.1.143@sha256:80d7b27c3e8d77cfa7226eee9508671796da214781ff15a35b3670d7ad5ee453"
           recovery_snapshot_input="${RUNNER_TEMP}/hundavaent-recovery-snapshot-${GITHUB_RUN_ID}.in"
           recovery_snapshot_output="${RUNNER_TEMP}/hundavaent-recovery-snapshot-${GITHUB_RUN_ID}.out"
           recovery_snapshot_pid=""
@@ -99,7 +100,7 @@ jobs:
           }
           export_recovery_snapshot() {
             mkfifo "${recovery_snapshot_input}" "${recovery_snapshot_output}"
-            psql -qAt -v ON_ERROR_STOP=1 "$1" \
+            psql -X -qAt -v ON_ERROR_STOP=1 "$1" \
               < "${recovery_snapshot_input}" > "${recovery_snapshot_output}" \
               2> recovery/production-snapshot.log &
             recovery_snapshot_pid="$!"
@@ -143,7 +144,7 @@ jobs:
             local output="$2"
             {
               printf 'SET session_replication_role = replica;\n\n'
-              docker run --rm supabase/postgres:17.6.1.143 pg_dump \
+              docker run --rm "${postgres_dump_image}" pg_dump \
                 --dbname "${db_url}" \
                 --data-only \
                 --quote-all-identifier \
@@ -159,6 +160,7 @@ jobs:
             } > "${output}"
           }
           trap cleanup_recovery_snapshot EXIT
+          docker run --rm "${postgres_dump_image}" pg_dump --version
           pnpm exec supabase db dump --db-url "${db_url}" --role-only -f recovery/roles.sql
           pnpm exec supabase db dump --db-url "${db_url}" -f recovery/schema.sql
           export_recovery_snapshot "${db_url}"

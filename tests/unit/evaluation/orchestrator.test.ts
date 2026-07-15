@@ -72,7 +72,12 @@ describe('release evaluation orchestration', () => {
     expect(workflow).not.toMatch(/LOCK TABLE/i);
     expect(workflow).toContain('SET TRANSACTION SNAPSHOT');
     expect(workflow).toContain('--snapshot "${recovery_snapshot}"');
-    expect(workflow).toContain('supabase/postgres:17.6.1.143 pg_dump');
+    expect(workflow).toContain(
+      'public.ecr.aws/supabase/postgres:17.6.1.143@sha256:80d7b27c3e8d77cfa7226eee9508671796da214781ff15a35b3670d7ad5ee453'
+    );
+    expect(workflow).not.toContain('docker run --rm supabase/postgres:17.6.1.143');
+    expect(workflow).toContain('pg_dump --version');
+    expect(workflow).toContain('psql -X -qAt -v ON_ERROR_STOP=1 "$1"');
     expect(workflow).toContain('--quote-all-identifier');
     expect(workflow).toContain('--role "postgres"');
     expect(workflow).toContain('--exclude-table "auth.schema_migrations"');
