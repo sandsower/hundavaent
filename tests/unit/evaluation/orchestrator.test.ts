@@ -147,6 +147,12 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain("-c 'create database hundavaent_recovery template postgres'");
     expect(workflow).toContain('alter database postgres with allow_connections false');
     expect(workflow).toContain('alter database postgres with allow_connections true');
+    const disallowConnections = workflow.indexOf(
+      'alter database postgres with allow_connections false'
+    );
+    expect(
+      workflow.lastIndexOf('psql -v ON_ERROR_STOP=1 "${restore_admin_url}"', disallowConnections)
+    ).toBeGreaterThan(0);
     expect(workflow).toContain('recovery_db_url="${RESTORE_DB_URL%/postgres}/hundavaent_recovery"');
     expect(workflow).toContain(
       'actual="$(psql -At "${recovery_db_url}" -c "select count(*) from ${table}")"'

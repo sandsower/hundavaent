@@ -320,7 +320,7 @@ jobs:
                 -c 'alter database postgres with allow_connections true' >/dev/null
             }
             trap restore_postgres_connections EXIT
-            psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" \
+            psql -v ON_ERROR_STOP=1 "${restore_admin_url}" \
               -c 'alter database postgres with allow_connections false'
             psql -v ON_ERROR_STOP=1 "${restore_admin_url}" -c "
               select pg_terminate_backend(pid)
