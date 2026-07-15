@@ -110,5 +110,38 @@ describe('private inline Rating API', () => {
         requested_welcome_score: null
       })
     );
+    const payload = (await response.json()) as { rating: Record<string, unknown> };
+    expect(payload.rating).not.toHaveProperty('excluded');
+    expect(payload.rating).not.toHaveProperty('privateNoteClassification');
+    expect(payload.rating).not.toHaveProperty('linkedReportId');
+  });
+
+  it('returns a genuine command conflict as 409', async () => {
+    const client = memberClient();
+    client.rpc.mockImplementation(async (name: string) => {
+      if (name === 'get_current_member_account')
+        return { data: [{ member_id: 'member' }], error: null };
+      if (name === 'save_inline_dog_friendliness_rating')
+        return { data: null, error: { code: '55006' } };
+      return { data: null, error: { code: 'unexpected' } };
+    });
+
+    const response = await PUT({
+      cookies: {},
+      locals: { supabase: client, requestId: crypto.randomUUID() },
+      params: { placeId },
+      request: jsonRequest({
+        overall: 4,
+        welcome: null,
+        clarity: null,
+        comfort: null,
+        thoughtfulness: null,
+        noteUpdate: false,
+        privateNote: null
+      })
+    } as never);
+
+    expect(response.status).toBe(409);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
   });
 });

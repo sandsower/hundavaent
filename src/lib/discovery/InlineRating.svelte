@@ -46,6 +46,9 @@
   let failed: Snapshot | null = null;
   let noteTimer: ReturnType<typeof setTimeout> | undefined;
   let noteDirty = false;
+  let latestDirty: Snapshot | null = null;
+  let interactionVersion = 0;
+  let destroyed = false;
 
   const lowScore = $derived(
     overall !== null &&
@@ -59,32 +62,37 @@
   });
 
   onDestroy(() => {
+    destroyed = true;
     if (noteTimer) clearTimeout(noteTimer);
-    if (signedIn && noteDirty && overall !== null) {
+    const finalSnapshot =
+      signedIn && overall !== null ? (noteDirty ? snapshot(true) : latestDirty) : null;
+    if (finalSnapshot) {
       void fetch(`/api/ratings/${encodeURIComponent(placeId)}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(snapshot(true)),
+        body: JSON.stringify(finalSnapshot),
         keepalive: true
       });
     }
   });
 
   async function load(): Promise<void> {
+    const loadVersion = interactionVersion;
     status = 'loading';
     try {
       const response = await fetch(`/api/ratings/${encodeURIComponent(placeId)}`);
       if (!response.ok) throw new Error('load failed');
       const payload = (await response.json()) as { rating: CurrentRating | null };
+      if (destroyed || loadVersion !== interactionVersion) return;
       if (payload.rating?.overallScore) {
         overall = payload.rating.overallScore;
         values = { ...payload.rating.scores };
         note = payload.rating.privateNote ?? '';
         existingNote = payload.rating.privateNote !== null;
       }
-      status = 'idle';
+      if (!destroyed) status = 'idle';
     } catch {
-      status = 'error';
+      if (!destroyed && loadVersion === interactionVersion) status = 'error';
     }
   }
 
@@ -96,17 +104,20 @@
       });
       return;
     }
+    interactionVersion += 1;
     overall = value;
     expanded = true;
     enqueue(snapshot(false));
   }
 
   function chooseCategory(category: Category, value: number): void {
+    interactionVersion += 1;
     values[category] = value;
     enqueue(snapshot(false));
   }
 
   function resetCategory(category: Category): void {
+    interactionVersion += 1;
     values[category] = null;
     enqueue(snapshot(false));
   }
@@ -118,13 +129,14 @@
 
   function enqueue(next: Snapshot): void {
     queued = next;
+    latestDirty = next;
     failed = null;
     if (!draining) void drain();
   }
 
   async function drain(): Promise<void> {
     draining = true;
-    while (queued) {
+    while (queued && !destroyed) {
       const next = queued;
       queued = null;
       status = 'saving';
@@ -135,21 +147,23 @@
           body: JSON.stringify(next)
         });
         if (!response.ok) throw new Error('save failed');
-        if (!queued) status = 'saved';
+        if (!queued && !destroyed) status = 'saved';
         if (next.noteUpdate) {
           noteDirty = false;
           existingNote = next.privateNote !== null;
         }
+        if (!queued && latestDirty === next) latestDirty = null;
       } catch {
-        failed = next;
-        status = 'error';
+        failed = queued ?? next;
         queued = null;
+        if (!destroyed) status = 'error';
       }
     }
     draining = false;
   }
 
   function scheduleNote(): void {
+    interactionVersion += 1;
     noteDirty = true;
     if (noteTimer) clearTimeout(noteTimer);
     noteTimer = setTimeout(flushNote, 650);
@@ -159,6 +173,13 @@
     if (noteTimer) clearTimeout(noteTimer);
     noteTimer = undefined;
     if (noteDirty && overall !== null) enqueue(snapshot(true));
+  }
+
+  function labelScore(score: number): string {
+    return (score === 1 ? copy['rating.star.one'] : copy['rating.star.many']).replace(
+      '{score}',
+      String(score)
+    );
   }
 </script>
 
@@ -181,7 +202,12 @@
     </p>
   {/if}
 
-  <StarRating label={copy['rating.inline.overall']} value={overall} onSelect={chooseOverall} />
+  <StarRating
+    label={copy['rating.inline.overall']}
+    value={overall}
+    onSelect={chooseOverall}
+    scoreLabel={labelScore}
+  />
 
   {#if status === 'error'}
     <button class="retry" type="button" onclick={() => (failed ? enqueue(failed) : load())}
@@ -199,6 +225,7 @@
             value={values[category] ?? overall}
             inherited={values[category] === null}
             onSelect={(value) => chooseCategory(category, value)}
+            scoreLabel={labelScore}
           />
           {#if values[category] !== null}
             <button class="reset" type="button" onclick={() => resetCategory(category)}

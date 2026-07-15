@@ -63,7 +63,14 @@ export const PUT: RequestHandler = async (event) => {
     event.locals.requestId
   );
   if (result.status !== 'success') {
-    const status = result.status === 'forbidden' ? 401 : result.status === 'invalid' ? 400 : 503;
+    const status =
+      result.status === 'forbidden'
+        ? 401
+        : result.status === 'invalid'
+          ? 400
+          : result.status === 'conflict'
+            ? 409
+            : 503;
     return privateJson({ error: result.status }, status);
   }
   return privateJson({ rating: result.value });
