@@ -135,7 +135,7 @@ jobs:
           BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
           SET TRANSACTION SNAPSHOT :'recovery_snapshot';
           SET LOCAL ROLE postgres;
-          ${query}
+          ${query};
           COMMIT;
           SQL
           }
