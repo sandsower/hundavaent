@@ -44,4 +44,36 @@ describe('AccessSymbols', () => {
     expect(onOpenDetails).toHaveBeenCalledOnce();
     expect(screen.getByRole('status').textContent).toContain('2 different access conditions');
   });
+
+  it('connects controls to hidden tooltips and reveals the actual bounded rule on click', async () => {
+    render(AccessSymbols, {
+      placeName: 'Brikk',
+      conditions: [
+        {
+          ...simpleCondition,
+          accessArea: 'outdoors' as const,
+          availabilityState: 'limited' as const,
+          availabilityWindow: { days: [1, 2], startsAt: '10:00', endsAt: '16:00' }
+        }
+      ],
+      copy: catalogues.en
+    });
+
+    const outdoors = screen.getByRole('button', { name: 'Special conditions' });
+    const tooltipId = outdoors.getAttribute('aria-describedby');
+    expect(tooltipId).toBeTruthy();
+    const tooltip = document.getElementById(tooltipId!);
+    expect(tooltip?.getAttribute('aria-hidden')).toBe('true');
+
+    await fireEvent.click(outdoors);
+    const detailId = outdoors.getAttribute('aria-controls');
+    expect(detailId).toBeTruthy();
+    expect(document.getElementById(detailId!)?.textContent).toContain('outdoors');
+
+    const limited = screen.getByRole('button', { name: 'Only at certain times' });
+    await fireEvent.click(limited);
+    expect(document.getElementById(limited.getAttribute('aria-controls')!)?.textContent).toContain(
+      '10:00'
+    );
+  });
 });

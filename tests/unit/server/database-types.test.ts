@@ -3,8 +3,8 @@ import { describe, expectTypeOf, it } from 'vitest';
 import type { Database, Json } from '$server/db/generated.types';
 
 type PublicFunctions = Database['public']['Functions'];
-type ListPublishedPlace = PublicFunctions['list_published_places']['Returns'][number];
-type PublishedPlaceProfile = PublicFunctions['get_published_place_profile']['Returns'][number];
+type ListPublishedPlace = PublicFunctions['list_published_places_v2']['Returns'][number];
+type PublishedPlaceProfile = PublicFunctions['get_published_place_profile_v2']['Returns'][number];
 
 describe('generated public database types', () => {
   it('types the reviewed list projection', () => {
@@ -27,7 +27,7 @@ describe('generated public database types', () => {
   });
 
   it('types the reviewed profile projection', () => {
-    expectTypeOf<PublicFunctions['get_published_place_profile']['Args']>().toEqualTypeOf<{
+    expectTypeOf<PublicFunctions['get_published_place_profile_v2']['Args']>().toEqualTypeOf<{
       requested_locale: string;
       requested_place_id: string;
     }>();

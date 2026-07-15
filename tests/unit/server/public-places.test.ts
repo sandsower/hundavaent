@@ -24,9 +24,8 @@ const listRow = {
       accessArea: 'outdoors',
       restraintCondition: 'leash_required',
       permissionRequirement: 'standing_permission',
-      dogEligibility: { scope: 'all_dogs' },
-      availabilityState: 'not_stated',
-      availabilityWindow: {}
+      dogEligibilityState: 'all_dogs',
+      availabilityState: 'not_stated'
     }
   ]
 };
@@ -60,7 +59,7 @@ const profileRow = {
 function createClient(
   responses: Partial<
     Record<
-      'list_published_places' | 'get_published_place_profile' | 'get_public_place_status',
+      'list_published_places_v2' | 'get_published_place_profile_v2' | 'get_public_place_status',
       { data: unknown; error: { code: string; message: string } | null }
     >
   >
@@ -76,7 +75,7 @@ function createClient(
 describe('listPublished', () => {
   it('maps the fixed localized list projection', async () => {
     const { client, rpc } = createClient({
-      list_published_places: { data: [listRow], error: null }
+      list_published_places_v2: { data: [listRow], error: null }
     });
 
     await expect(listPublished(client, 'en')).resolves.toEqual({
@@ -99,15 +98,14 @@ describe('listPublished', () => {
               accessArea: 'outdoors',
               restraintCondition: 'leash_required',
               permissionRequirement: 'standing_permission',
-              dogEligibility: { scope: 'all_dogs' },
-              availabilityState: 'not_stated',
-              availabilityWindow: {}
+              dogEligibilityState: 'all_dogs',
+              availabilityState: 'not_stated'
             }
           ]
         }
       ]
     });
-    expect(rpc).toHaveBeenCalledWith('list_published_places', {
+    expect(rpc).toHaveBeenCalledWith('list_published_places_v2', {
       requested_locale: 'en'
     });
   });
@@ -125,22 +123,20 @@ describe('listPublished', () => {
           accessArea: 'indoors',
           restraintCondition: 'carrier_required',
           permissionRequirement: 'standing_permission',
-          dogEligibility: { scope: 'restricted', maximumWeightKg: 10 },
-          availabilityState: 'limited',
-          availabilityWindow: { endsAt: '17:00' }
+          dogEligibilityState: 'small_dogs_only',
+          availabilityState: 'limited'
         },
         {
           accessArea: 'outdoors',
           restraintCondition: 'leash_required',
           permissionRequirement: 'ask_on_arrival',
-          dogEligibility: { scope: 'all_dogs' },
-          availabilityState: 'not_stated',
-          availabilityWindow: {}
+          dogEligibilityState: 'all_dogs',
+          availabilityState: 'not_stated'
         }
       ]
     };
     const { client } = createClient({
-      list_published_places: { data: [multiConditionRow], error: null }
+      list_published_places_v2: { data: [multiConditionRow], error: null }
     });
 
     await expect(listPublished(client, 'en')).resolves.toEqual({
@@ -160,22 +156,22 @@ describe('listPublished', () => {
 
   it('accepts an empty list, omits invalid coordinates, and rejects malformed public fields', async () => {
     const empty = createClient({
-      list_published_places: { data: [], error: null }
+      list_published_places_v2: { data: [], error: null }
     }).client;
     const invalidCoordinates = createClient({
-      list_published_places: {
+      list_published_places_v2: {
         data: [{ ...listRow, latitude: 'private provider shape' }],
         error: null
       }
     }).client;
     const malformed = createClient({
-      list_published_places: {
+      list_published_places_v2: {
         data: [{ ...listRow, name: '' }],
         error: null
       }
     }).client;
     const malformedDimensions = createClient({
-      list_published_places: {
+      list_published_places_v2: {
         data: [
           {
             ...listRow,
@@ -184,9 +180,8 @@ describe('listPublished', () => {
                 accessArea: 'private_value',
                 restraintCondition: 'leash_required',
                 permissionRequirement: 'standing_permission',
-                dogEligibility: { scope: 'all_dogs' },
-                availabilityState: 'not_stated',
-                availabilityWindow: {}
+                dogEligibilityState: 'all_dogs',
+                availabilityState: 'not_stated'
               }
             ]
           }
@@ -213,7 +208,7 @@ describe('listPublished', () => {
 
   it('redacts provider and thrown failures', async () => {
     const failed = createClient({
-      list_published_places: {
+      list_published_places_v2: {
         data: null,
         error: { code: 'XX000', message: 'private database detail' }
       }
@@ -236,7 +231,7 @@ describe('listPublished', () => {
 describe('getPublishedProfile', () => {
   it('maps the fixed localized profile and its access facts', async () => {
     const { client, rpc } = createClient({
-      get_published_place_profile: { data: [profileRow], error: null }
+      get_published_place_profile_v2: { data: [profileRow], error: null }
     });
 
     const result = await getPublishedProfile(client, 'place-1', 'is');
@@ -262,7 +257,7 @@ describe('getPublishedProfile', () => {
         accessInformationUrls: ['https://example.invalid/source']
       }
     });
-    expect(rpc).toHaveBeenCalledWith('get_published_place_profile', {
+    expect(rpc).toHaveBeenCalledWith('get_published_place_profile_v2', {
       requested_place_id: 'place-1',
       requested_locale: 'is'
     });
@@ -270,7 +265,7 @@ describe('getPublishedProfile', () => {
 
   it('returns not found without revealing private Place existence', async () => {
     const { client } = createClient({
-      get_published_place_profile: { data: [], error: null }
+      get_published_place_profile_v2: { data: [], error: null }
     });
 
     await expect(getPublishedProfile(client, 'private-place', 'en')).resolves.toEqual({
@@ -280,13 +275,13 @@ describe('getPublishedProfile', () => {
 
   it('rejects inconsistent rows and redacts provider failures', async () => {
     const malformed = createClient({
-      get_published_place_profile: {
+      get_published_place_profile_v2: {
         data: [profileRow, { ...profileRow, place_id: 'other-place' }],
         error: null
       }
     }).client;
     const failed = createClient({
-      get_published_place_profile: {
+      get_published_place_profile_v2: {
         data: null,
         error: { code: 'XX000', message: 'private database detail' }
       }
@@ -309,7 +304,7 @@ describe('getPublishedProfile', () => {
     { availability_window: { startsAt: '10:00', unknownRule: true } }
   ])('returns invalid_response for malformed structured access RPC data', async (override) => {
     const { client } = createClient({
-      get_published_place_profile: { data: [{ ...profileRow, ...override }], error: null }
+      get_published_place_profile_v2: { data: [{ ...profileRow, ...override }], error: null }
     });
 
     await expect(getPublishedProfile(client, 'place-1', 'en')).resolves.toEqual({
@@ -319,7 +314,7 @@ describe('getPublishedProfile', () => {
 
   it('rejects access-information projections containing undeclared private fields', async () => {
     const { client } = createClient({
-      get_published_place_profile: {
+      get_published_place_profile_v2: {
         data: [
           {
             ...profileRow,

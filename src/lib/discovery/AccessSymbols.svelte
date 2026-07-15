@@ -16,14 +16,10 @@
   }
 
   let { placeName, conditions, copy, onOpenDetails = () => undefined }: Props = $props();
+  const componentId = $props.id();
   let activeDimension = $state<AccessSymbolDimension | 'complex' | null>(null);
+  let visibleTooltip = $state<AccessSymbolDimension | null>(null);
   const presentation = $derived(buildAccessSymbolPresentation(conditions));
-  const activeSymbol = $derived(
-    presentation.kind === 'simple'
-      ? presentation.symbols.find((symbol) => symbol.dimension === activeDimension)
-      : null
-  );
-
   const labels: Record<AccessSymbolState, MessageKey> = {
     indoors: 'accessSymbols.indoors',
     leash_required: 'accessSymbols.leash',
@@ -66,6 +62,47 @@
     }
     return copy[details[symbol.state]];
   }
+
+  function actualRule(symbol: AccessSymbol): string {
+    const condition = symbol.condition;
+    if (symbol.dimension === 'area') {
+      return [condition.accessArea.replaceAll('_', ' '), condition.accessAreaNote]
+        .filter(Boolean)
+        .join(': ');
+    }
+    if (symbol.dimension === 'restraint') {
+      return [condition.restraintCondition.replaceAll('_', ' '), condition.restraintNote]
+        .filter(Boolean)
+        .join(': ');
+    }
+    if (symbol.dimension === 'permission') {
+      return condition.permissionRequirement.replaceAll('_', ' ');
+    }
+    if (symbol.dimension === 'dogs') {
+      const eligibility = condition.dogEligibility;
+      if (!eligibility)
+        return condition.dogEligibilityState?.replaceAll('_', ' ') ?? detail(symbol);
+      const parts = [eligibility.scope.replaceAll('_', ' ')];
+      if (eligibility.maximumWeightKg !== undefined) {
+        parts.push(`${eligibility.maximumWeightKg} kg maximum`);
+      }
+      return parts.join(', ');
+    }
+    const window = condition.availabilityWindow ?? {};
+    const values = [
+      Array.isArray(window.days) ? `days ${window.days.join(', ')}` : '',
+      typeof window.startsAt === 'string' ? window.startsAt : '',
+      typeof window.endsAt === 'string' ? window.endsAt : ''
+    ].filter(Boolean);
+    return values.length > 0 ? values.join(' - ') : detail(symbol);
+  }
+
+  function activate(symbol: AccessSymbol): void {
+    activeDimension = activeDimension === symbol.dimension ? null : symbol.dimension;
+    if (activeDimension && (symbol.state === 'special' || symbol.state === 'limited')) {
+      onOpenDetails();
+    }
+  }
 </script>
 
 <div
@@ -97,6 +134,8 @@
   {:else}
     <div class="symbols">
       {#each presentation.symbols as symbol (symbol.dimension)}
+        {@const tooltipId = `${componentId}-${symbol.dimension}-tooltip`}
+        {@const detailId = `${componentId}-${symbol.dimension}-detail`}
         <button
           type="button"
           class="symbol"
@@ -109,8 +148,13 @@
           class:not-stated={symbol.state === 'not_stated'}
           aria-label={label(symbol)}
           aria-expanded={activeDimension === symbol.dimension}
-          onclick={() =>
-            (activeDimension = activeDimension === symbol.dimension ? null : symbol.dimension)}
+          aria-describedby={tooltipId}
+          aria-controls={detailId}
+          onmouseenter={() => (visibleTooltip = symbol.dimension)}
+          onmouseleave={() => (visibleTooltip = null)}
+          onfocus={() => (visibleTooltip = symbol.dimension)}
+          onblur={() => (visibleTooltip = null)}
+          onclick={() => activate(symbol)}
         >
           <span class="icon" aria-hidden="true">
             {#if symbol.state === 'unrestricted'}
@@ -153,16 +197,21 @@
               >
             {/if}
           </span>
-          <span class="tooltip" role="tooltip">{label(symbol)}</span>
+          <span
+            id={tooltipId}
+            class="tooltip"
+            role="tooltip"
+            aria-hidden={visibleTooltip !== symbol.dimension}>{label(symbol)}</span
+          >
         </button>
+        {#if activeDimension === symbol.dimension}
+          <p id={detailId} class="persistent-detail symbol-detail" role="status">
+            <strong>{label(symbol)}</strong>
+            {actualRule(symbol)}
+          </p>
+        {/if}
       {/each}
     </div>
-    {#if activeSymbol}
-      <p class="persistent-detail" role="status">
-        <strong>{label(activeSymbol)}</strong>
-        {detail(activeSymbol)}
-      </p>
-    {/if}
   {/if}
 </div>
 
@@ -176,6 +225,10 @@
     display: grid;
     grid-template-columns: repeat(5, minmax(2.65rem, 1fr));
     gap: 0.4rem;
+  }
+
+  .symbol-detail {
+    grid-column: 1 / -1;
   }
 
   .symbol {
@@ -266,18 +319,22 @@
     font-size: 0.72rem;
     font-weight: 750;
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
     text-align: center;
     transform: translate(-50%, 0.25rem);
     transition:
       opacity 160ms ease,
-      transform 160ms ease;
+      transform 160ms ease,
+      visibility 0s linear 160ms;
   }
 
   .symbol:hover .tooltip,
   .symbol:focus-visible .tooltip {
     opacity: 1;
+    visibility: visible;
     transform: translate(-50%, 0);
+    transition-delay: 0s;
   }
 
   .complex {

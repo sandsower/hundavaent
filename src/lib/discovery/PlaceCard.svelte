@@ -72,7 +72,12 @@
         <strong>{place.name}</strong>
         <span>{copy[categoryKeys[place.category]]} · {place.locality}</span>
       </button>
-      <AccessSymbols placeName={place.name} conditions={place.accessConditions} {copy} />
+      <AccessSymbols
+        placeName={place.name}
+        conditions={place.accessConditions}
+        {copy}
+        onOpenDetails={() => selectButton && onSelect(place.placeId, selectButton)}
+      />
     </div>
   {:else}
     <div class="place-summary">

@@ -21,9 +21,12 @@ export type AccessSymbolState =
 
 export interface AccessSymbolCondition {
   accessArea: AccessArea;
+  accessAreaNote?: string | null;
   restraintCondition: RestraintCondition;
+  restraintNote?: string | null;
   permissionRequirement: PermissionRequirement;
   dogEligibility?: DogEligibility;
+  dogEligibilityState?: 'all_dogs' | 'small_dogs_only' | 'special' | 'not_stated';
   availabilityState?: AvailabilityState;
   availabilityWindow?: AvailabilityWindow;
 }
@@ -31,6 +34,7 @@ export interface AccessSymbolCondition {
 export interface AccessSymbol {
   dimension: AccessSymbolDimension;
   state: AccessSymbolState;
+  condition: AccessSymbolCondition;
 }
 
 export type AccessSymbolPresentation =
@@ -51,13 +55,26 @@ export function buildAccessSymbolPresentation(
   return {
     kind: 'simple',
     symbols: [
-      { dimension: 'area', state: areaState(condition.accessArea) },
-      { dimension: 'restraint', state: restraintState(condition.restraintCondition) },
-      { dimension: 'permission', state: permissionState(condition.permissionRequirement) },
-      { dimension: 'dogs', state: dogState(condition.dogEligibility) },
+      { dimension: 'area', state: areaState(condition.accessArea), condition },
+      {
+        dimension: 'restraint',
+        state: restraintState(condition.restraintCondition),
+        condition
+      },
+      {
+        dimension: 'permission',
+        state: permissionState(condition.permissionRequirement),
+        condition
+      },
+      {
+        dimension: 'dogs',
+        state: dogState(condition.dogEligibility, condition.dogEligibilityState),
+        condition
+      },
       {
         dimension: 'timing',
-        state: timingState(condition.availabilityState ?? 'not_stated')
+        state: timingState(condition.availabilityState ?? 'not_stated'),
+        condition
       }
     ]
   };
@@ -75,7 +92,14 @@ function permissionState(permission: PermissionRequirement): AccessSymbolState {
   return permission === 'standing_permission' ? 'unrestricted' : 'special';
 }
 
-function dogState(eligibility: DogEligibility | undefined): AccessSymbolState {
+function dogState(
+  eligibility: DogEligibility | undefined,
+  summaryState: AccessSymbolCondition['dogEligibilityState']
+): AccessSymbolState {
+  if (summaryState === 'all_dogs') return 'unrestricted';
+  if (summaryState === 'small_dogs_only') return 'small_dogs_only';
+  if (summaryState === 'special') return 'special';
+  if (summaryState === 'not_stated') return 'not_stated';
   if (!eligibility) return 'not_stated';
   if (eligibility.scope === 'all_dogs') return 'unrestricted';
   if (eligibility.maximumWeightKg !== undefined) return 'small_dogs_only';

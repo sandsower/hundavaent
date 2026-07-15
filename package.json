@@ -35,7 +35,7 @@
     "verify:launch-inventory": "node --experimental-strip-types scripts/verify-launch-inventory-ingestion.ts",
     "acquire:place-photos": "node --experimental-strip-types scripts/acquire-place-photos.ts",
     "audit:place-photos": "node --experimental-strip-types scripts/audit-place-photo-acquisition.ts",
-    "db:types": "supabase gen types typescript --local --schema public > src/lib/server/db/generated.types.ts && prettier --write src/lib/server/db/generated.types.ts"
+    "db:types": "supabase gen types typescript --local --schema public > src/lib/server/db/generated.types.ts && node --experimental-strip-types scripts/normalize-generated-db-types.ts && prettier --write src/lib/server/db/generated.types.ts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.2.8",

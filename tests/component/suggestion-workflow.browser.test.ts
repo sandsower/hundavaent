@@ -39,6 +39,7 @@ const proposal = {
     restraint_condition: 'leash_required' as const,
     restraint_note: null,
     dog_eligibility: { scope: 'all_dogs' as const },
+    availability_state: 'limited' as const,
     availability_window: { days: [1, 2], startsAt: '09:00', endsAt: '17:00' },
     permission_requirement: 'standing_permission' as const
   },

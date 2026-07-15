@@ -145,42 +145,42 @@ select lives_ok(
 reset role;
 
 select is(
-  (select access_condition_count from public.list_published_places('en') where place_id = (select place_id from conditional_candidate)),
+  (select access_condition_count from public.list_published_places_v2('en') where place_id = (select place_id from conditional_candidate)),
   2::bigint,
   'Public discovery reports the complete condition count'
 );
 
 select is(
-  (select simple_access_summary from public.list_published_places('en') where place_id = (select place_id from conditional_candidate)),
+  (select simple_access_summary from public.list_published_places_v2('en') where place_id = (select place_id from conditional_candidate)),
   false,
   'A complex or multiple-condition summary cannot imply it includes every restriction'
 );
 
 select is(
-  (select access_conditions from public.list_published_places('en') where place_id = (select place_id from conditional_candidate)),
+  (select access_conditions from public.list_published_places_v2('en') where place_id = (select place_id from conditional_candidate)),
   '[
-    {"accessArea":"indoors","restraintCondition":"carrier_required","permissionRequirement":"standing_permission","dogEligibility":{"scope":"restricted","maximumWeightKg":10},"availabilityState":"limited","availabilityWindow":{"days":[1,2,3,4,5],"endsAt":"17:00","endsOn":"2026-08-31","startsOn":"2026-06-01"}},
-    {"accessArea":"outdoors","restraintCondition":"leash_required","permissionRequirement":"ask_on_arrival","dogEligibility":{"scope":"all_dogs"},"availabilityState":"not_stated","availabilityWindow":{}}
+    {"accessArea":"indoors","restraintCondition":"carrier_required","permissionRequirement":"standing_permission","dogEligibilityState":"small_dogs_only","availabilityState":"limited"},
+    {"accessArea":"outdoors","restraintCondition":"leash_required","permissionRequirement":"ask_on_arrival","dogEligibilityState":"all_dogs","availabilityState":"not_stated"}
   ]'::jsonb,
   'A multi-condition Place exposes correlated verified condition dimensions for discovery matching'
 );
 
 select is(
   (select jsonb_build_array(access_area, restraint_condition, permission_requirement)
-   from public.list_published_places('en') where place_id = (select place_id from conditional_candidate)),
+   from public.list_published_places_v2('en') where place_id = (select place_id from conditional_candidate)),
   '[null,null,null]'::jsonb,
   'Multi-condition discovery dimensions do not create a misleading concise summary'
 );
 
 select is(
-  (select count(*) from public.get_published_place_profile((select place_id from conditional_candidate), 'en')),
+  (select count(*) from public.get_published_place_profile_v2((select place_id from conditional_candidate), 'en')),
   2::bigint,
   'The public floating-card projection contains every verified condition'
 );
 
 select is(
   (select access_information_urls
-   from public.get_published_place_profile((select place_id from conditional_candidate), 'en')
+   from public.get_published_place_profile_v2((select place_id from conditional_candidate), 'en')
    where access_area = 'indoors'),
   '["https://example.invalid/indoor"]'::jsonb,
   'Indoor access exposes its relevant access-information link'
@@ -188,7 +188,7 @@ select is(
 
 select is(
   (select access_information_urls
-   from public.get_published_place_profile((select place_id from conditional_candidate), 'en')
+   from public.get_published_place_profile_v2((select place_id from conditional_candidate), 'en')
    where access_area = 'outdoors'),
   '[]'::jsonb,
   'A condition without a public link does not expose internal provenance'
@@ -196,7 +196,7 @@ select is(
 
 select ok(
   not exists (
-    select 1 from public.get_published_place_profile((select place_id from conditional_candidate), 'en') profile,
+    select 1 from public.get_published_place_profile_v2((select place_id from conditional_candidate), 'en') profile,
       jsonb_array_elements_text(profile.access_information_urls) access_url
     where access_url = 'https://example.invalid/contradiction'
   ),

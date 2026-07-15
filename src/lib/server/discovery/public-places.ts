@@ -19,8 +19,9 @@ import {
 import { listPublishedPlacePhotos, signPlaceMediaUrl } from '$server/place-media/place-media';
 import type { PlacePhotoRightsBasis } from '$server/place-media/place-media-input';
 
-type ListRow = Database['public']['Functions']['list_published_places']['Returns'][number];
-type ProfileRow = Database['public']['Functions']['get_published_place_profile']['Returns'][number];
+type ListRow = Database['public']['Functions']['list_published_places_v2']['Returns'][number];
+type ProfileRow =
+  Database['public']['Functions']['get_published_place_profile_v2']['Returns'][number];
 type StatusRow = Database['public']['Functions']['get_public_place_status']['Returns'][number];
 
 export interface PublishedPlaceSummary {
@@ -42,9 +43,8 @@ export interface PublishedAccessConditionSummary {
   accessArea: AccessArea;
   restraintCondition: RestraintCondition;
   permissionRequirement: PermissionRequirement;
-  dogEligibility?: DogEligibility;
+  dogEligibilityState?: 'all_dogs' | 'small_dogs_only' | 'special' | 'not_stated';
   availabilityState?: AvailabilityState;
-  availabilityWindow?: AvailabilityWindow;
 }
 
 export interface PublishedAccessFacts {
@@ -126,7 +126,7 @@ export async function listPublished(
   locale: Locale
 ): Promise<PublicListResult> {
   try {
-    const { data, error } = await client.rpc('list_published_places', {
+    const { data, error } = await client.rpc('list_published_places_v2', {
       requested_locale: locale
     });
 
@@ -153,7 +153,7 @@ export async function getPublishedProfile(
   locale: Locale
 ): Promise<PublicProfileResult> {
   try {
-    const { data, error } = await client.rpc('get_published_place_profile', {
+    const { data, error } = await client.rpc('get_published_place_profile_v2', {
       requested_place_id: placeId,
       requested_locale: locale
     });
@@ -382,10 +382,10 @@ function parsePublishedAccessConditionSummaries(
       !restraintConditions.has(condition.restraintCondition) ||
       typeof condition.permissionRequirement !== 'string' ||
       !permissionRequirements.has(condition.permissionRequirement) ||
-      parseDogEligibility(condition.dogEligibility) === null ||
+      typeof condition.dogEligibilityState !== 'string' ||
+      !dogEligibilitySummaryStates.has(condition.dogEligibilityState) ||
       typeof condition.availabilityState !== 'string' ||
-      !availabilityStates.has(condition.availabilityState) ||
-      parseAvailabilityWindow(condition.availabilityWindow) === null
+      !availabilityStates.has(condition.availabilityState)
     ) {
       return null;
     }
@@ -394,9 +394,9 @@ function parsePublishedAccessConditionSummaries(
       accessArea: condition.accessArea as AccessArea,
       restraintCondition: condition.restraintCondition as RestraintCondition,
       permissionRequirement: condition.permissionRequirement as PermissionRequirement,
-      dogEligibility: parseDogEligibility(condition.dogEligibility)!,
-      availabilityState: condition.availabilityState as AvailabilityState,
-      availabilityWindow: parseAvailabilityWindow(condition.availabilityWindow)!
+      dogEligibilityState:
+        condition.dogEligibilityState as PublishedAccessConditionSummary['dogEligibilityState'],
+      availabilityState: condition.availabilityState as AvailabilityState
     });
   }
   return parsed;
@@ -541,11 +541,16 @@ const permissionRequirements = new Set<string>([
   'advance_approval'
 ]);
 const availabilityStates = new Set<string>(['whenever_open', 'limited', 'not_stated']);
+const dogEligibilitySummaryStates = new Set<string>([
+  'all_dogs',
+  'small_dogs_only',
+  'special',
+  'not_stated'
+]);
 const publishedAccessConditionSummaryKeys = new Set([
   'accessArea',
   'restraintCondition',
   'permissionRequirement',
-  'dogEligibility',
-  'availabilityState',
-  'availabilityWindow'
+  'dogEligibilityState',
+  'availabilityState'
 ]);
