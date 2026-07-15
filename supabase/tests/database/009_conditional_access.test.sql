@@ -25,8 +25,8 @@ select * from public.create_candidate_place(
       {"kind":"public_record","source_citation":"Outdoor rule 4","source_label":"Outdoor policy","observed_at":"2026-07-08T10:00:00Z"}
     ],
     "access_conditions":[
-      {"access_area":"indoors","restraint_condition":"carrier_required","dog_eligibility":{"scope":"restricted","maximumWeightKg":10},"availability_window":{"days":[1,2,3,4,5],"endsAt":"17:00","startsOn":"2026-06-01","endsOn":"2026-08-31"},"permission_requirement":"standing_permission"},
-      {"access_area":"outdoors","restraint_condition":"leash_required","dog_eligibility":{"scope":"all_dogs"},"availability_window":{},"permission_requirement":"ask_on_arrival"}
+      {"access_area":"indoors","restraint_condition":"carrier_required","dog_eligibility":{"scope":"restricted","maximumWeightKg":10},"availability_state":"limited","availability_window":{"days":[1,2,3,4,5],"endsAt":"17:00","startsOn":"2026-06-01","endsOn":"2026-08-31"},"permission_requirement":"standing_permission"},
+      {"access_area":"outdoors","restraint_condition":"leash_required","dog_eligibility":{"scope":"all_dogs"},"availability_state":"not_stated","availability_window":{},"permission_requirement":"ask_on_arrival"}
     ]
   }'::jsonb,
   '84000000-0000-4000-8000-000000000001'
@@ -159,8 +159,8 @@ select is(
 select is(
   (select access_conditions from public.list_published_places('en') where place_id = (select place_id from conditional_candidate)),
   '[
-    {"accessArea":"indoors","restraintCondition":"carrier_required","permissionRequirement":"standing_permission"},
-    {"accessArea":"outdoors","restraintCondition":"leash_required","permissionRequirement":"ask_on_arrival"}
+    {"accessArea":"indoors","restraintCondition":"carrier_required","permissionRequirement":"standing_permission","dogEligibility":{"scope":"restricted","maximumWeightKg":10},"availabilityState":"limited","availabilityWindow":{"days":[1,2,3,4,5],"endsAt":"17:00","endsOn":"2026-08-31","startsOn":"2026-06-01"}},
+    {"accessArea":"outdoors","restraintCondition":"leash_required","permissionRequirement":"ask_on_arrival","dogEligibility":{"scope":"all_dogs"},"availabilityState":"not_stated","availabilityWindow":{}}
   ]'::jsonb,
   'A multi-condition Place exposes correlated verified condition dimensions for discovery matching'
 );
@@ -179,40 +179,28 @@ select is(
 );
 
 select is(
-  (select evidence_sources -> 0
+  (select access_information_urls
    from public.get_published_place_profile((select place_id from conditional_candidate), 'en')
    where access_area = 'indoors'),
-  jsonb_build_object(
-    'kind', 'official_website',
-    'sourceUrl', 'https://example.invalid/indoor',
-    'sourceCitation', null,
-    'sourceLabel', 'Indoor policy',
-    'observedAt', '2026-07-09T10:00:00Z'::timestamptz
-  ),
-  'Indoor access exposes its complete supporting Evidence provenance'
+  '["https://example.invalid/indoor"]'::jsonb,
+  'Indoor access exposes its relevant access-information link'
 );
 
 select is(
-  (select evidence_sources -> 0
+  (select access_information_urls
    from public.get_published_place_profile((select place_id from conditional_candidate), 'en')
    where access_area = 'outdoors'),
-  jsonb_build_object(
-    'kind', 'public_record',
-    'sourceUrl', null,
-    'sourceCitation', 'Outdoor rule 4',
-    'sourceLabel', 'Outdoor policy',
-    'observedAt', '2026-07-08T10:00:00Z'::timestamptz
-  ),
-  'Outdoor access exposes its complete supporting Evidence provenance'
+  '[]'::jsonb,
+  'A condition without a public link does not expose internal provenance'
 );
 
 select ok(
   not exists (
     select 1 from public.get_published_place_profile((select place_id from conditional_candidate), 'en') profile,
-      jsonb_array_elements(profile.evidence_sources) source
-    where source ->> 'sourceLabel' = 'Contradictory unverified report'
+      jsonb_array_elements_text(profile.access_information_urls) access_url
+    where access_url = 'https://example.invalid/contradiction'
   ),
-  'Contradictory unverified Evidence remains private'
+  'An unreviewed contradictory link remains private'
 );
 
 select throws_ok(

@@ -432,14 +432,14 @@ export type Database = {
           access_area: string
           access_area_note: string
           access_condition_id: string
+          access_information_urls: Json
           address_line: string
+          availability_state: string
           availability_window: Json
           category: string
           description: string
           dog_amenities: Json
           dog_eligibility: Json
-          evidence_sources: Json
-          freshness_until: string
           latitude: number
           locality: string
           longitude: number
@@ -451,7 +451,6 @@ export type Database = {
           postal_code: string
           restraint_condition: string
           restraint_note: string
-          verified_at: string
           website_url: string
         }[]
       }
@@ -494,8 +493,8 @@ export type Database = {
           place_id: string
           saved_at: string
           successor_available: boolean
-          successor_name: string | null
-          successor_place_id: string | null
+          successor_name: string
+          successor_place_id: string
         }[]
       }
       list_member_contributor_priority: {
@@ -609,6 +608,13 @@ export type Database = {
           submitted_at: string
           suggestion_id: string
           updated_at: string
+        }[]
+      }
+      list_moderation_queue_summary: {
+        Args: never
+        Returns: {
+          actionable_count: number
+          queue_id: string
         }[]
       }
       list_moderation_rating_note_dispositions: {
@@ -765,7 +771,6 @@ export type Database = {
           place_id: string
           restraint_condition: string
           simple_access_summary: boolean
-          verified_at: string
         }[]
       }
       list_related_place_flags: {

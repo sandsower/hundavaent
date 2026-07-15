@@ -1,6 +1,6 @@
 import type { VerificationStatus } from '$domain/access';
+import type { EvidenceKind } from '$domain/evidence';
 import type { Json } from '$server/db/generated.types';
-import type { PublishedEvidenceSource } from '$server/discovery/public-places';
 import type {
   AccessConditionValue,
   CorrectionPayload,
@@ -105,7 +105,7 @@ export interface ModerationPlaceFlag {
   currentVerificationStatus: VerificationStatus | null;
   currentVerificationVerifiedAt: string | null;
   currentVerificationFreshnessUntil: string | null;
-  currentVerificationEvidence: PublishedEvidenceSource[] | null;
+  currentVerificationEvidence: ModerationEvidenceSource[] | null;
   proposedValue: (PlaceFieldValue | AccessConditionValue) | null;
   reportReason: ReportReason | null;
   isSafetyConcern: boolean;
@@ -119,6 +119,14 @@ export interface ModerationPlaceFlag {
   contributionId: string | null;
   submittedAt: string;
   updatedAt: string;
+}
+
+export interface ModerationEvidenceSource {
+  kind: EvidenceKind;
+  sourceUrl: string | null;
+  sourceCitation: string | null;
+  sourceLabel: string;
+  observedAt: string;
 }
 
 export interface RelatedPlaceFlag {
@@ -312,7 +320,7 @@ export async function getModerationPlaceFlag(
         currentVerificationVerifiedAt: row.current_verification_verified_at,
         currentVerificationFreshnessUntil: row.current_verification_freshness_until,
         currentVerificationEvidence: row.current_verification_evidence as unknown as
-          PublishedEvidenceSource[] | null,
+          ModerationEvidenceSource[] | null,
         proposedValue: row.proposed_value as unknown as
           (PlaceFieldValue | AccessConditionValue) | null,
         reportReason: row.report_reason,

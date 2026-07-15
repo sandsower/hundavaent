@@ -1,11 +1,11 @@
 import type {
   AccessArea,
+  AvailabilityState,
   AvailabilityWindow,
   DogEligibility,
   PermissionRequirement,
   RestraintCondition
 } from '$domain/access';
-import type { EvidenceKind } from '$domain/evidence';
 import { parseAvailabilityWindow, parseDogEligibility } from '$domain/access-schema';
 import type { PlaceCategory } from '$domain/place';
 import type { Locale } from '$i18n';
@@ -65,6 +65,9 @@ export interface PublishedAccessConditionSummary {
   accessArea: AccessArea;
   restraintCondition: RestraintCondition;
   permissionRequirement: PermissionRequirement;
+  dogEligibility?: DogEligibility;
+  availabilityState?: AvailabilityState;
+  availabilityWindow?: AvailabilityWindow;
 }
 
 export interface PublishedAccessFacts {
@@ -75,18 +78,9 @@ export interface PublishedAccessFacts {
   restraintNote: string | null;
   dogEligibility: DogEligibility;
   availabilityWindow: AvailabilityWindow;
+  availabilityState?: AvailabilityState;
   permissionRequirement: PermissionRequirement;
-  evidenceSources: PublishedEvidenceSource[];
-  verifiedAt: string;
-  freshnessUntil: string;
-}
-
-export interface PublishedEvidenceSource {
-  kind: EvidenceKind;
-  sourceUrl: string | null;
-  sourceCitation: string | null;
-  sourceLabel: string;
-  observedAt: string;
+  accessInformationUrls?: string[];
 }
 
 export interface PublishedPlacePhoto {
@@ -122,6 +116,7 @@ export interface PublishedPlaceProfile {
   phone: string | null;
   openingHours: Readonly<Record<string, Json>>;
   dogAmenities: string[];
+  accessInformationUrls?: string[];
   accessConditions: PublishedAccessFacts[];
   dogFriendlinessSummary: DogFriendlinessSummary;
   photos: PublishedPlacePhoto[];
@@ -297,6 +292,9 @@ export async function getPublishedProfile(
         openingHours: first.opening_hours as Readonly<Record<string, Json>>,
         dogAmenities: first.dog_amenities as string[],
         accessConditions: data.map(mapAccessFacts),
+        accessInformationUrls: [
+          ...new Set(data.flatMap((row) => parseUrlList(row.access_information_urls) ?? []))
+        ],
         dogFriendlinessSummary,
         photos
       }
@@ -476,8 +474,8 @@ function isPrimaryPhotoRow(
 function mapAccessFacts(row: ProfileRow): PublishedAccessFacts {
   const dogEligibility = parseDogEligibility(row.dog_eligibility);
   const availabilityWindow = parseAvailabilityWindow(row.availability_window);
-  const evidenceSources = parseEvidenceSources(row.evidence_sources);
-  if (!dogEligibility || !availabilityWindow || !evidenceSources) {
+  const accessInformationUrls = parseUrlList(row.access_information_urls);
+  if (!dogEligibility || !availabilityWindow || !accessInformationUrls) {
     throw new Error('Invalid access facts reached mapper');
   }
   return {
@@ -488,10 +486,9 @@ function mapAccessFacts(row: ProfileRow): PublishedAccessFacts {
     restraintNote: row.restraint_note,
     dogEligibility,
     availabilityWindow,
+    availabilityState: row.availability_state as AvailabilityState,
     permissionRequirement: row.permission_requirement as PermissionRequirement,
-    evidenceSources,
-    verifiedAt: row.verified_at,
-    freshnessUntil: row.freshness_until
+    accessInformationUrls
   };
 }
 
@@ -517,7 +514,7 @@ function isListRowWithoutCoordinates(row: ListRow): boolean {
       : row.access_area === null &&
         row.restraint_condition === null &&
         row.permission_requirement === null) &&
-    isDate(row.verified_at)
+    true
   );
 }
 
@@ -536,7 +533,11 @@ function parsePublishedAccessConditionSummaries(
       typeof condition.restraintCondition !== 'string' ||
       !restraintConditions.has(condition.restraintCondition) ||
       typeof condition.permissionRequirement !== 'string' ||
-      !permissionRequirements.has(condition.permissionRequirement)
+      !permissionRequirements.has(condition.permissionRequirement) ||
+      parseDogEligibility(condition.dogEligibility) === null ||
+      typeof condition.availabilityState !== 'string' ||
+      !availabilityStates.has(condition.availabilityState) ||
+      parseAvailabilityWindow(condition.availabilityWindow) === null
     ) {
       return null;
     }
@@ -544,7 +545,10 @@ function parsePublishedAccessConditionSummaries(
     parsed.push({
       accessArea: condition.accessArea as AccessArea,
       restraintCondition: condition.restraintCondition as RestraintCondition,
-      permissionRequirement: condition.permissionRequirement as PermissionRequirement
+      permissionRequirement: condition.permissionRequirement as PermissionRequirement,
+      dogEligibility: parseDogEligibility(condition.dogEligibility)!,
+      availabilityState: condition.availabilityState as AvailabilityState,
+      availabilityWindow: parseAvailabilityWindow(condition.availabilityWindow)!
     });
   }
   return parsed;
@@ -587,10 +591,9 @@ function isProfileRow(row: ProfileRow): boolean {
     isOptionalText(row.restraint_note) &&
     parseDogEligibility(row.dog_eligibility) !== null &&
     parseAvailabilityWindow(row.availability_window) !== null &&
+    availabilityStates.has(row.availability_state) &&
     permissionRequirements.has(row.permission_requirement) &&
-    parseEvidenceSources(row.evidence_sources) !== null &&
-    isDate(row.verified_at) &&
-    isDate(row.freshness_until)
+    parseUrlList(row.access_information_urls) !== null
   );
 }
 
@@ -639,10 +642,6 @@ function isLongitude(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= -180 && value <= 180;
 }
 
-function isDate(value: unknown): value is string {
-  return typeof value === 'string' && Number.isFinite(Date.parse(value));
-}
-
 function isJsonObject(value: Json): value is { [key: string]: Json | undefined } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -651,34 +650,25 @@ function isStringArray(value: Json): value is string[] {
   return Array.isArray(value) && value.every(hasText);
 }
 
-function parseEvidenceSources(value: Json): PublishedEvidenceSource[] | null {
-  if (!Array.isArray(value) || value.length === 0) return null;
-
-  const parsed: PublishedEvidenceSource[] = [];
-  for (const source of value) {
-    if (
-      !isJsonObject(source) ||
-      !hasOnlyKeys(source, evidenceSourceKeys) ||
-      typeof source.kind !== 'string' ||
-      !evidenceKinds.has(source.kind) ||
-      !hasText(source.sourceLabel) ||
-      !isOptionalText(source.sourceUrl) ||
-      !isOptionalText(source.sourceCitation) ||
-      !isDate(source.observedAt) ||
-      (!hasText(source.sourceUrl) && !hasText(source.sourceCitation))
-    ) {
-      return null;
-    }
-
-    parsed.push({
-      kind: source.kind as EvidenceKind,
-      sourceUrl: source.sourceUrl,
-      sourceCitation: source.sourceCitation,
-      sourceLabel: source.sourceLabel,
-      observedAt: source.observedAt
-    });
+function parseUrlList(value: Json): string[] | null {
+  if (!Array.isArray(value)) {
+    return null;
   }
-  return parsed;
+  const urls: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string' || !isUrl(item)) return null;
+    urls.push(item);
+  }
+  return [...new Set(urls)];
+}
+
+function isUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
 }
 
 function hasOnlyKeys(
@@ -736,8 +726,12 @@ const evidenceSourceKeys = new Set([
   'sourceLabel',
   'observedAt'
 ]);
+const availabilityStates = new Set<string>(['whenever_open', 'limited', 'not_stated']);
 const publishedAccessConditionSummaryKeys = new Set([
   'accessArea',
   'restraintCondition',
-  'permissionRequirement'
+  'permissionRequirement',
+  'dogEligibility',
+  'availabilityState',
+  'availabilityWindow'
 ]);

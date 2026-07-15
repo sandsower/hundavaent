@@ -222,6 +222,7 @@
         restraintNote: condition.restraintNote ?? undefined,
         dogEligibility: condition.dogEligibility,
         availabilityWindow: condition.availabilityWindow,
+        availabilityState: condition.availabilityState,
         permissionRequirement: condition.permissionRequirement,
         supersededAt: null
       },

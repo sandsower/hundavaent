@@ -452,8 +452,7 @@ select is(
     'permission_requirement',
     'place_id',
     'restraint_condition',
-    'simple_access_summary',
-    'verified_at'
+    'simple_access_summary'
   ]::text[],
   'The list projection exposes exactly its reviewed public field allowlist'
 );
@@ -471,14 +470,14 @@ select is(
     'access_area',
     'access_area_note',
     'access_condition_id',
+    'access_information_urls',
     'address_line',
+    'availability_state',
     'availability_window',
     'category',
     'description',
     'dog_amenities',
     'dog_eligibility',
-    'evidence_sources',
-    'freshness_until',
     'latitude',
     'locality',
     'longitude',
@@ -490,7 +489,6 @@ select is(
     'postal_code',
     'restraint_condition',
     'restraint_note',
-    'verified_at',
     'website_url'
   ]::text[],
   'The profile projection exposes exactly its reviewed public field allowlist'

@@ -3,9 +3,9 @@
 
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import type { PlaceCategory } from '$domain/place';
-  import { accessAreaMessageKeys } from '$i18n/structured-place';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
+  import AccessSymbols from '$lib/discovery/AccessSymbols.svelte';
   import PhotoCredit from './PhotoCredit.svelte';
   import RefreshablePlaceImage from './RefreshablePlaceImage.svelte';
 
@@ -85,34 +85,26 @@
     </figure>
   {/if}
   {#if interactive}
-    <button
-      type="button"
-      class="place-summary"
-      data-place-id={place.placeId}
-      aria-label={copy['directory.selectPlace'].replace('{name}', place.name)}
-      aria-pressed={selected}
-      bind:this={selectButton}
-      onclick={(event) => onSelect(place.placeId, event.currentTarget)}
-    >
-      <strong>{place.name}</strong>
-      <span>{copy[categoryKeys[place.category]]} · {place.locality}</span>
-      {#if place.accessArea}
-        <span class="access-sign hv-status" data-status="verified">
-          <strong>{copy['status.verified']}</strong>
-          <span>· {copy[accessAreaMessageKeys[place.accessArea]]}</span>
-        </span>
-      {/if}
-    </button>
+    <div class="place-summary">
+      <button
+        type="button"
+        class="place-target"
+        data-place-id={place.placeId}
+        aria-label={copy['directory.selectPlace'].replace('{name}', place.name)}
+        aria-pressed={selected}
+        bind:this={selectButton}
+        onclick={(event) => onSelect(place.placeId, event.currentTarget)}
+      >
+        <strong>{place.name}</strong>
+        <span>{copy[categoryKeys[place.category]]} · {place.locality}</span>
+      </button>
+      <AccessSymbols placeName={place.name} conditions={place.accessConditions} {copy} />
+    </div>
   {:else}
     <div class="place-summary">
       <strong>{place.name}</strong>
       <span>{copy[categoryKeys[place.category]]} · {place.locality}</span>
-      {#if place.accessArea}
-        <span class="access-sign hv-status" data-status="verified">
-          <strong>{copy['status.verified']}</strong>
-          <span>· {copy[accessAreaMessageKeys[place.accessArea]]}</span>
-        </span>
-      {/if}
+      <AccessSymbols placeName={place.name} conditions={place.accessConditions} {copy} />
     </div>
   {/if}
   {#if interactive}
@@ -169,7 +161,8 @@
     box-shadow: inset 0.3rem 0 0 var(--hv-color-signal);
   }
 
-  .place-summary {
+  .place-summary,
+  .place-target {
     display: grid;
     gap: 0.25rem;
     padding: 0.35rem;
@@ -180,18 +173,18 @@
     text-align: left;
   }
 
+  .place-target {
+    padding: 0;
+  }
+
   .place-summary strong {
     font-family: var(--hv-font-display);
     font-size: 1.25rem;
     font-weight: 650;
   }
 
-  .access-sign {
-    display: flex;
-    width: fit-content;
-    gap: 0.3rem;
-    margin-top: 0.25rem;
-    font-family: var(--hv-font-ui);
+  .place-summary :global(.access-presentation) {
+    margin-top: 0.3rem;
   }
 
   button:focus-visible {

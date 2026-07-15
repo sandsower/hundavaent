@@ -156,7 +156,7 @@ function availabilityIcelandic(condition: AccessCondition): string {
 }
 
 function hasKnownAvailability(condition: AccessCondition): boolean {
-  return Object.keys(condition.availabilityWindow).length > 0;
+  return condition.availabilityState !== undefined && condition.availabilityState !== 'not_stated';
 }
 
 function formatNumber(value: number, locale: Locale): string {

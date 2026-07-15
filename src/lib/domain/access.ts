@@ -23,6 +23,8 @@ export interface AvailabilityWindow {
   notes?: string;
 }
 
+export type AvailabilityState = 'whenever_open' | 'limited' | 'not_stated';
+
 export interface AccessCondition {
   id: string;
   placeId: string;
@@ -34,6 +36,7 @@ export interface AccessCondition {
   permissionRequirement: PermissionRequirement;
   dogEligibility: DogEligibility;
   availabilityWindow: AvailabilityWindow;
+  availabilityState?: AvailabilityState;
   supersededAt: string | null;
   supersedesConditionId?: string | null;
 }
@@ -73,6 +76,7 @@ export function createStandingAccessCondition(
     permissionRequirement: 'standing_permission',
     dogEligibility: { scope: 'all_dogs' },
     availabilityWindow: {},
+    availabilityState: 'not_stated',
     supersededAt: null
   };
 }
