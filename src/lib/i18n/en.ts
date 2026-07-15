@@ -849,6 +849,7 @@ export const enCatalogue = {
   'rating.inline.heading': 'Rate this place',
   'rating.inline.overall': 'Overall rating',
   'rating.inline.saved': 'Saved',
+  'rating.inline.saveFailed': 'Not saved. Try again.',
   'rating.inline.reset': 'Use overall',
   'rating.inline.note': 'What could be better? (optional)',
   'rating.star.one': '{score} star',

@@ -18,6 +18,7 @@ function deferred<T>() {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   requestAuthentication.mockReset();
 });
@@ -157,6 +158,63 @@ describe('InlineRating', () => {
     expect(bodies[1]).toMatchObject({ overall: 2, welcome: 4 });
   });
 
+  it('does not let an older note save clear a newer unsaved edit', async () => {
+    const firstNoteSave = deferred<Response>();
+    const bodies: Array<Record<string, unknown>> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if (!init?.method) return new Response(JSON.stringify({ rating: null }));
+        bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+        if (bodies.length === 2) return firstNoteSave.promise;
+        return new Response(JSON.stringify({ rating: null }));
+      })
+    );
+    render(InlineRating, {
+      placeId,
+      placeName: 'Brikk',
+      copy: catalogues.en,
+      signedIn: true,
+      summary: null
+    });
+    await fireEvent.click(screen.getByRole('radio', { name: '2 stars' }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+
+    vi.useFakeTimers();
+    const note = screen.getByRole('textbox', { name: 'What could be better? (optional)' });
+    await fireEvent.input(note, { target: { value: 'First note' } });
+    await vi.advanceTimersByTimeAsync(651);
+    expect(bodies).toHaveLength(2);
+
+    await fireEvent.input(note, { target: { value: 'Newer note' } });
+    firstNoteSave.resolve(new Response(JSON.stringify({ rating: null })));
+    await vi.advanceTimersByTimeAsync(651);
+
+    expect(bodies).toHaveLength(3);
+    expect(bodies[2]).toMatchObject({ noteUpdate: true, privateNote: 'Newer note' });
+  });
+
+  it('announces save failure and keeps retry reachable', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if (!init?.method) return new Response(JSON.stringify({ rating: null }));
+        return new Response(null, { status: 503 });
+      })
+    );
+    render(InlineRating, {
+      placeId,
+      placeName: 'Brikk',
+      copy: catalogues.en,
+      signedIn: true,
+      summary: null
+    });
+    await fireEvent.click(screen.getByRole('radio', { name: '2 stars' }));
+
+    expect(await screen.findByText('Not saved. Try again.')).toHaveAttribute('aria-live', 'polite');
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+  });
+
   it('flushes the latest dirty snapshot with keepalive when unmounted', async () => {
     const pendingSave = deferred<Response>();
     const calls: RequestInit[] = [];
@@ -177,7 +235,7 @@ describe('InlineRating', () => {
       signedIn: true,
       summary: null
     });
-    await waitFor(() => expect(screen.queryByText('Retry')).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull());
     await fireEvent.click(screen.getByRole('radio', { name: '2 stars' }));
     await fireEvent.click(
       screen.getByRole('radiogroup', { name: 'Welcome' }).querySelectorAll('[role="radio"]')[3]

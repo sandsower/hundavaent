@@ -1,19 +1,15 @@
 begin;
 
--- This migration intentionally changes the Rating contract before launch. Refuse to reinterpret
--- production identity or Rating data if the stated no-user premise is no longer true.
+-- This migration intentionally changes the Rating contract before launch. Existing identities,
+-- Member accounts, and pending intents are compatible; only legacy Rating rows lack a safe
+-- overall-score backfill.
 do $$
 begin
   if exists (select 1 from private.dog_friendliness_ratings)
-    or exists (select 1 from private.dog_friendliness_rating_events)
-    or exists (select 1 from private.member_accounts)
-    or exists (select 1 from private.auth_pending_intents)
-    or exists (select 1 from private.pending_member_rating_completions)
-    or exists (select 1 from auth.users)
-    or exists (select 1 from auth.identities) then
+    or exists (select 1 from private.dog_friendliness_rating_events) then
     raise exception using
       errcode = '55000',
-      message = 'Inline Rating migration requires an empty identity, pending-intent, and Rating store';
+      message = 'Inline Rating migration requires an empty legacy Rating store';
   end if;
 end
 $$;

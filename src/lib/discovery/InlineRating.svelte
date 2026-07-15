@@ -19,6 +19,7 @@
     thoughtfulness: number | null;
     noteUpdate: boolean;
     privateNote: string | null;
+    noteRevision: number | null;
   }
   interface Props {
     placeId: string;
@@ -46,6 +47,7 @@
   let failed: Snapshot | null = null;
   let noteTimer: ReturnType<typeof setTimeout> | undefined;
   let noteDirty = false;
+  let noteRevision = 0;
   let latestDirty: Snapshot | null = null;
   let interactionVersion = 0;
   let destroyed = false;
@@ -70,7 +72,7 @@
       void fetch(`/api/ratings/${encodeURIComponent(placeId)}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(finalSnapshot),
+        body: JSON.stringify(requestPayload(finalSnapshot)),
         keepalive: true
       });
     }
@@ -124,7 +126,25 @@
 
   function snapshot(noteUpdate: boolean): Snapshot {
     if (overall === null) throw new Error('overall required');
-    return { overall, ...values, noteUpdate, privateNote: note.trim() || null };
+    return {
+      overall,
+      ...values,
+      noteUpdate,
+      privateNote: note.trim() || null,
+      noteRevision: noteUpdate ? noteRevision : null
+    };
+  }
+
+  function requestPayload(current: Snapshot) {
+    return {
+      overall: current.overall,
+      welcome: current.welcome,
+      clarity: current.clarity,
+      comfort: current.comfort,
+      thoughtfulness: current.thoughtfulness,
+      noteUpdate: current.noteUpdate,
+      privateNote: current.privateNote
+    };
   }
 
   function enqueue(next: Snapshot): void {
@@ -144,11 +164,11 @@
         const response = await fetch(`/api/ratings/${encodeURIComponent(placeId)}`, {
           method: 'PUT',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(next)
+          body: JSON.stringify(requestPayload(next))
         });
         if (!response.ok) throw new Error('save failed');
         if (!queued && !destroyed) status = 'saved';
-        if (next.noteUpdate) {
+        if (next.noteUpdate && next.noteRevision === noteRevision) {
           noteDirty = false;
           existingNote = next.privateNote !== null;
         }
@@ -164,6 +184,7 @@
 
   function scheduleNote(): void {
     interactionVersion += 1;
+    noteRevision += 1;
     noteDirty = true;
     if (noteTimer) clearTimeout(noteTimer);
     noteTimer = setTimeout(flushNote, 650);
@@ -186,12 +207,14 @@
 <section class="inline-rating" aria-labelledby={`rating-${placeId}`} data-inline-rating>
   <div class="rating-heading">
     <h3 id={`rating-${placeId}`}>{copy['rating.inline.heading']}</h3>
-    <span class="save-status" aria-live="polite">
+    <span class="save-status" aria-live="polite" aria-atomic="true">
       {status === 'saving'
         ? copy['rating.saving']
         : status === 'saved'
           ? copy['rating.inline.saved']
-          : ''}
+          : status === 'error'
+            ? copy['rating.inline.saveFailed']
+            : ''}
     </span>
   </div>
 
