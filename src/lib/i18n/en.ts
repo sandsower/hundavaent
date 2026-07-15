@@ -26,15 +26,15 @@ export const enCatalogue = {
   'about.photoCaption': 'Vic and Miles',
   'about.browseAction': 'Browse the map',
   'about.offersAction': 'What Hundavænt offers',
-  'about.problemTitle': 'Most of the useful information travelled by word of mouth.',
+  'about.problemTitle': 'Most of the useful information travels only by word of mouth.',
   'about.problemBodyOne':
     'A place might welcome dogs without saying so anywhere. Another might allow them only outside, in one area or if you asked first. Dog parks appeared on maps, but the maps did not tell me whether I could get there easily or what kind of condition the place was in.',
   'about.problemBodyTwo':
-    'That is why I built Hundavænt. I wanted one place where dog owners could see the details before leaving home, then help each other keep those details useful.',
+    'That is why I built Hundavænt. I wanted one place where dog owners like us could see the details before leaving home, then help each other keep those details useful.',
   'about.historyEyebrow': 'A changing city',
   'about.historyTitle': 'Reykjavík has made more room for dogs.',
   'about.historyIntro':
-    'It has not happened all at once, and every place still sets its own conditions. More doors are opening, and I think the places making a genuine effort deserve to be found.',
+    'It has not happened all at once, and every place still sets its own conditions. More doors are opening, and I think places that are making a genuine effort deserve to be found.',
   'about.history1924Date': '1924',
   'about.history1924Title': 'Dogs were banned in Reykjavík',
   'about.history1924Body':
@@ -68,24 +68,24 @@ export const enCatalogue = {
   'about.offerContributeBody':
     'Suggest somewhere missing, correct information that has changed or report a concern so another dog owner does not have to guess.',
   'about.trustEyebrow': 'How trust works',
-  'about.trustTitle': 'Shared by dog people, checked before it spreads.',
+  'about.trustTitle': 'Shared and verified by dog people.',
   'about.trustIntro':
     'Anyone can suggest a place or flag information that looks wrong. A moderator reviews access information and its sources before it becomes verified public information. That distinction matters when you are standing outside with a dog and deciding whether it is okay to walk in.',
   'about.verifiedStatus': 'Verified access',
   'about.accessTitle': 'Dog Access',
   'about.accessSubtitle': 'The factual part',
   'about.accessBody':
-    'It describes where dogs are allowed and which conditions apply. Hundavænt shows when that information was verified.',
+    'This describes where dogs are allowed and which conditions apply. Hundavænt also shows when that information was verified.',
   'about.friendlinessTitle': 'Dog-Friendliness',
   'about.friendlinessSubtitle': 'The experience',
   'about.friendlinessBody':
     "Ratings describe how welcome, clear, comfortable and thoughtful a visit felt. They never change a place's verified access rules.",
   'about.visionEyebrow': 'Starting near home',
-  'about.visionTitle': 'The capital region first. Maybe all of Iceland next.',
+  'about.visionTitle': 'The capital region first. Maybe all of Iceland next?',
   'about.visionBodyOne':
-    'Hundavænt begins where we live and where I can keep the first information useful. If enough people find it worthwhile and want to help, I hope it can grow across Iceland.',
+    'Hundavænt begins where we live and where I can keep the information useful. If enough people find it worthwhile and want to help, I hope it can grow across Iceland.',
   'about.visionBodyTwo':
-    'Later, it may also become a place where dog owners connect more directly. For now, the best way to build that community is to use the map and add what is missing.',
+    'Later, it may also become a place where dog owners can connect more directly. For now, the best way to build that community is to use the map and add what is missing.',
   'about.suggestAction': 'Suggest a place',
   'about.sourcesTitle': 'Context sources',
   'about.sourceHistory': 'Reykjavík dog rules history',
