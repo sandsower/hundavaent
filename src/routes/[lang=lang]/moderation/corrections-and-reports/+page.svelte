@@ -31,7 +31,7 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="queue-shell">
+<main class="queue-shell" data-ui-mode="operations">
   <h1>{data.copy['flag.moderationTitle']}</h1>
 
   {#if data.flags.length === 0}
@@ -81,17 +81,22 @@
 
 <style>
   .queue-shell {
-    width: min(100% - 2rem, 64rem);
-    margin: 3rem auto;
+    width: min(100% - 2rem, var(--hv-content-wide));
+    margin: var(--hv-space-section) auto 4rem;
   }
   h1 {
     margin: 0 0 1.5rem;
+    color: var(--hv-color-basalt);
+    font-family: var(--hv-font-display);
     font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 650;
+    line-height: 1;
+    letter-spacing: -0.03em;
   }
   .empty {
-    border: 2px solid var(--ink);
-    border-radius: 1rem;
-    background: var(--mint);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-fjord-soft);
     padding: 1rem;
     font-weight: 850;
   }
@@ -106,50 +111,52 @@
     gap: 1rem;
     align-items: center;
     justify-content: space-between;
-    border: 2px solid var(--ink);
-    border-radius: 1.1rem;
-    background: var(--paper-raised);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
     padding: 1rem;
-    box-shadow: 0.25rem 0.3rem 0 var(--teal);
+    box-shadow: var(--hv-shadow-raised);
   }
   .eyebrow {
     margin: 0;
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     font-size: 0.8rem;
     font-weight: 950;
     text-transform: uppercase;
   }
   .safety {
-    border-radius: 999px;
-    background: var(--coral-soft);
+    border: 1px solid var(--hv-color-danger);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-danger-soft);
     padding: 0.2rem 0.5rem;
-    color: var(--coral-dark);
+    color: var(--hv-color-danger);
   }
   h2 {
     margin: 0.2rem 0;
   }
   li a {
     flex-shrink: 0;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
-    color: var(--ink);
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-basalt);
+    color: var(--hv-color-snow-raised);
     padding: 0.6rem 1rem;
     font-weight: 900;
   }
   a:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
   a.next,
   a.previous {
     display: inline-block;
     margin-top: 1.5rem;
     margin-right: 1rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
-    color: var(--ink);
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
+    color: var(--hv-color-basalt);
     padding: 0.6rem 1rem;
     font-weight: 900;
   }
