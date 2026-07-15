@@ -31,8 +31,7 @@ const places: PublishedPlaceSummary[] = [
         permissionRequirement: 'ask_on_arrival'
       }
     ],
-    primaryPhoto: null,
-    verifiedAt: '2026-07-09T11:00:00Z'
+    primaryPhoto: null
   },
   {
     placeId: '30000000-0000-4000-8000-000000000002',
@@ -53,8 +52,7 @@ const places: PublishedPlaceSummary[] = [
         permissionRequirement: 'standing_permission'
       }
     ],
-    primaryPhoto: null,
-    verifiedAt: '2026-07-09T11:00:00Z'
+    primaryPhoto: null
   },
   {
     placeId: '30000000-0000-4000-8000-000000000003',
@@ -75,8 +73,7 @@ const places: PublishedPlaceSummary[] = [
         permissionRequirement: 'advance_approval'
       }
     ],
-    primaryPhoto: null,
-    verifiedAt: '2026-07-09T11:00:00Z'
+    primaryPhoto: null
   }
 ];
 

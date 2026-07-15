@@ -26,8 +26,7 @@ const places = [
         restraintCondition: 'leash_required' as const,
         permissionRequirement: 'standing_permission' as const
       }
-    ],
-    verifiedAt: '2026-07-09T11:00:00.000Z'
+    ]
   }
 ];
 const camera: MapCamera = { latitude: 64.1466, longitude: -21.9426, zoom: 11 };

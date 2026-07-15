@@ -43,7 +43,6 @@ export interface PublishedPlaceSummary {
   permissionRequirement: PermissionRequirement | null;
   accessConditions: PublishedAccessConditionSummary[];
   primaryPhoto: PublishedPlacePrimaryPhoto | null;
-  verifiedAt: string;
 }
 
 export interface PublishedPlacePrimaryPhoto {
@@ -443,8 +442,7 @@ function mapListRow(row: ListRow): PublishedPlaceSummary {
     restraintCondition: row.restraint_condition as RestraintCondition | null,
     permissionRequirement: row.permission_requirement as PermissionRequirement | null,
     accessConditions,
-    primaryPhoto: null,
-    verifiedAt: row.verified_at
+    primaryPhoto: null
   };
 }
 
@@ -703,14 +701,6 @@ const permissionRequirements = new Set<string>([
   'ask_on_arrival',
   'advance_approval'
 ]);
-const evidenceKinds = new Set<string>([
-  'official_website',
-  'venue_representative',
-  'member_report',
-  'direct_observation',
-  'public_record',
-  'other'
-]);
 const photoRightsBases = new Set<string>([
   'explicit_permission',
   'cc0',
@@ -718,13 +708,6 @@ const photoRightsBases = new Set<string>([
   'cc_by',
   'cc_by_sa',
   'official_reuse'
-]);
-const evidenceSourceKeys = new Set([
-  'kind',
-  'sourceUrl',
-  'sourceCitation',
-  'sourceLabel',
-  'observedAt'
 ]);
 const availabilityStates = new Set<string>(['whenever_open', 'limited', 'not_stated']);
 const dogEligibilitySummaryStates = new Set<string>([

@@ -168,8 +168,7 @@ describe('listPublished', () => {
             attributionText: 'A. Photographer',
             attributionUrl: 'https://photos.example.invalid/a-photographer',
             urlExpiresAt: expect.any(String)
-          },
-          verifiedAt: '2026-07-09T11:00:00.000Z'
+          }
         }
       ]
     });

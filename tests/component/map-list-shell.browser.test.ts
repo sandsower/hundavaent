@@ -53,8 +53,7 @@ const places = [
       attributionText: 'A. Photographer',
       attributionUrl: null,
       urlExpiresAt: '2099-01-01T00:00:00.000Z'
-    },
-    verifiedAt: '2026-07-09T11:00:00.000Z'
+    }
   }
 ];
 
@@ -944,7 +943,7 @@ describe('MapListShell synchronization', () => {
 
     const selectedPlace = screen.getByLabelText(cardLabel);
     await fireEvent.click(await within(selectedPlace).findByText(expandLabel));
-    const explanation = within(selectedPlace).getByText(/rear room only/).textContent ?? '';
+    const explanation = selectedPlace.querySelector('.condition-card p')?.textContent ?? '';
     expect(explanation).toContain(lang === 'en' ? '10.5 kg' : '10,5 kg');
     expect(explanation).toContain('2');
     expect(explanation).toContain('calm dogs only');

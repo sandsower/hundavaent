@@ -24,8 +24,7 @@ const places = [
         permissionRequirement: 'standing_permission' as const
       }
     ],
-    primaryPhoto: null,
-    verifiedAt: '2026-07-09T11:00:00.000Z'
+    primaryPhoto: null
   },
   {
     placeId: '30000000-0000-4000-8000-000000000004',
@@ -46,8 +45,7 @@ const places = [
         permissionRequirement: 'ask_on_arrival' as const
       }
     ],
-    primaryPhoto: null,
-    verifiedAt: '2026-07-09T12:00:00.000Z'
+    primaryPhoto: null
   }
 ];
 
