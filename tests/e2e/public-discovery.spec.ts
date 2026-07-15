@@ -75,7 +75,7 @@ test.describe('public discovery locale routes', () => {
     await expect(page.getByAltText('Vic holding Miles, a long-haired dachshund')).toBeVisible();
     await expect(
       page.getByRole('heading', {
-        name: 'Most of the useful information travelled by word of mouth.'
+        name: 'Most of the useful information travels only by word of mouth.'
       })
     ).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Dog Access' })).toBeVisible();
@@ -167,7 +167,7 @@ test.describe('public discovery locale routes', () => {
     await page.goto('/en');
     await waitForHydration(page);
     await page.getByRole('button', { name: 'More filters' }).click();
-    await page.getByLabel('Place type').selectOption('outdoors');
+    await page.getByRole('combobox', { name: 'Place type' }).selectOption('outdoors');
     await page.getByRole('combobox', { name: 'Area', exact: true }).selectOption('Reykjavík');
     await page.getByLabel('Dog access area').selectOption('outdoors');
     await page.getByLabel('Leash and restraint').selectOption('leash_required');

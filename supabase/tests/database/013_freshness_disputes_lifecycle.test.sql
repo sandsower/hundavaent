@@ -296,8 +296,8 @@ select is(
      '75300000-0000-4000-8000-000000000001', 'en'
    )
    where access_condition_id = '75400000-0000-4000-8000-000000000001'),
-  '["https://example.invalid/cafe"]'::jsonb,
-  'Dismissal restores the reviewed access-information link without exposing moderator details'
+  '[]'::jsonb,
+  'Dismissal restores access without exposing reviewed source links'
 );
 select is(
   (select status::text
@@ -398,8 +398,8 @@ select is(
      '75300000-0000-4000-8000-000000000001', 'en'
    )
    where permission_requirement = 'advance_approval'),
-  '["https://example.invalid/replacement"]'::jsonb,
-  'Confirmed replacement exposes only its reviewed access-information link'
+  '[]'::jsonb,
+  'Confirmed replacement keeps reviewed source links private'
 );
 select is(
   (select status::text

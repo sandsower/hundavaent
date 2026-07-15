@@ -149,10 +149,8 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   const englishAccessLinks = englishCard.getByRole('link', {
     name: /^Access information(?: \d+)?$/
   });
-  await expect(englishAccessLinks).not.toHaveCount(0);
-  await expect(englishCard.locator(`a[href="${candidate.evidenceUrl}"]`)).toHaveText(
-    /^Access information(?: \d+)?$/
-  );
+  await expect(englishAccessLinks).toHaveCount(0);
+  await expect(englishCard.locator(`a[href="${candidate.evidenceUrl}"]`)).toHaveCount(0);
   await expect(englishCard.getByText(candidate.evidenceSourceLabel)).toHaveCount(0);
   await expect(englishCard.getByText('Supporting public record')).toHaveCount(0);
   await expect(englishCard.getByText('Municipal rule 4')).toHaveCount(0);
@@ -181,10 +179,8 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   const icelandicAccessLinks = icelandicCard.getByRole('link', {
     name: /^Upplýsingar um aðgang(?: \d+)?$/
   });
-  await expect(icelandicAccessLinks).not.toHaveCount(0);
-  await expect(icelandicCard.locator(`a[href="${candidate.evidenceUrl}"]`)).toHaveText(
-    /^Upplýsingar um aðgang(?: \d+)?$/
-  );
+  await expect(icelandicAccessLinks).toHaveCount(0);
+  await expect(icelandicCard.locator(`a[href="${candidate.evidenceUrl}"]`)).toHaveCount(0);
   await expect(icelandicCard.getByText(candidate.evidenceSourceLabel)).toHaveCount(0);
   await expect(icelandicCard.getByText('Supporting public record')).toHaveCount(0);
   await expect(icelandicCard.getByText('Municipal rule 4')).toHaveCount(0);

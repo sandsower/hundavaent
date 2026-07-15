@@ -192,8 +192,8 @@ select is(
   (select access_information_urls
    from public.get_published_place_profile_v2((select place_id from conditional_candidate), 'en')
    where access_area = 'indoors'),
-  '["https://example.invalid/indoor"]'::jsonb,
-  'Indoor access exposes its relevant access-information link'
+  '[]'::jsonb,
+  'Verified access Evidence stays private in the visitor profile'
 );
 
 select is(

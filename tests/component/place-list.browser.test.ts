@@ -62,7 +62,7 @@ describe('PlaceList', () => {
 
     expect(screen.getByRole('list', { name: 'List' })).toBeTruthy();
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
-    expect(screen.getByText(/Park or outdoor area/)).toBeTruthy();
+    expect(screen.getByText('Outdoor place · Park', { exact: true })).toBeTruthy();
     expect(
       screen.getByRole('link', { name: 'Sign in to add Published Place to favorites' })
     ).toBeTruthy();
