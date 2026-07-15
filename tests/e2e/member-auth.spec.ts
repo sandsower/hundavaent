@@ -131,7 +131,7 @@ test('a Moderator retains the ordinary private Member account experience', async
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation');
   await waitForHydration(page);
   await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
   await page.goto(magicLink);
   await expect(page).toHaveURL(/\/en\/moderation\?queue=suggestions(?:&|$)/);

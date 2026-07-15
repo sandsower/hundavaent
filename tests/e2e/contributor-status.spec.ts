@@ -75,7 +75,10 @@ test('unauthenticated requests cannot reach or discover any Contributor status',
   // 3a. The private Member view denies and redirects an unauthenticated request; it never renders.
   const contributorStatusPath = '/en/account/contributor-status';
   await page.goto(contributorStatusPath);
-  await expect(page).toHaveURL(`/en/account?returnTo=${encodeURIComponent(contributorStatusPath)}`);
+  await expect(page).toHaveURL(
+    `/en?auth=open&authReturnTo=${encodeURIComponent(contributorStatusPath)}`
+  );
+  await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByLabel('Email address')).toBeVisible();
   await expect(page.getByText('Not yet a Contributor')).toHaveCount(0);
   await expect(page.getByText('Trusted Contributor')).toHaveCount(0);
@@ -121,7 +124,7 @@ async function signInMember(page: Page, email: string): Promise<void> {
   await page.goto('/en/account');
   await waitForHydration(page);
   await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('button', { name: /Send (me a )?sign-in link/ }).click();
   const magicLink = await waitForLocalMagicLink(email);
   await page.goto(magicLink);
 }
@@ -129,8 +132,8 @@ async function signInMember(page: Page, email: string): Promise<void> {
 async function signInModerator(page: Page): Promise<void> {
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fsuggestions');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
   await page.goto(magicLink);
   await expect(page).toHaveURL('/en/moderation/suggestions');

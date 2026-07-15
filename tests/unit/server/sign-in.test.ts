@@ -44,6 +44,12 @@ describe('Member sign-in boundaries', () => {
     );
   });
 
+  it('preserves a known private account destination through sign-in', () => {
+    expect(normalizeMemberReturnTo('/en/account/achievements', 'en')).toBe(
+      '/en/account/achievements'
+    );
+  });
+
   it.each([
     'https://attacker.example/en',
     '//attacker.example/en',

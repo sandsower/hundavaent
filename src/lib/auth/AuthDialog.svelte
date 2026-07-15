@@ -77,6 +77,7 @@
     for (const name of [
       'auth',
       'authStatus',
+      'authReturnTo',
       'authResult',
       'authMethod',
       'pendingAction',
@@ -92,11 +93,15 @@
   function formData(method: 'email' | 'facebook'): FormData {
     const data = new FormData();
     const returnUrl = new URL(window.location.href);
-    for (const name of ['auth', 'authStatus', 'pendingIntent']) {
+    const requestedReturnTo = returnUrl.searchParams.get('authReturnTo');
+    for (const name of ['auth', 'authStatus', 'authReturnTo', 'pendingIntent']) {
       returnUrl.searchParams.delete(name);
     }
     data.set('method', method);
-    data.set('returnTo', `${returnUrl.pathname}${returnUrl.search}${returnUrl.hash}`);
+    data.set(
+      'returnTo',
+      requestedReturnTo ?? `${returnUrl.pathname}${returnUrl.search}${returnUrl.hash}`
+    );
     if (method === 'email') data.set('email', email);
     if (request.intent) {
       data.set('intentAction', request.intent.action);

@@ -69,7 +69,13 @@ interface PendingException {
   context: BrowserExceptionContext;
 }
 
+interface PendingProductEvent {
+  event: keyof ProductAnalyticsEvents;
+  properties: ProductAnalyticsEvents[keyof ProductAnalyticsEvents];
+}
+
 const MAX_PENDING_EXCEPTIONS = 20;
+const MAX_PENDING_PRODUCT_EVENTS = 50;
 const URL_PROPERTY_NAMES = new Set(['$current_url', '$referrer', '$pathname']);
 const URL_IN_TEXT_PATTERN = /https?:\/\/[^\s"'<>]+/g;
 
@@ -114,8 +120,16 @@ export const sanitizePostHogEvent: BeforeSendFn = (event) => {
 export function createPostHogAnalytics() {
   let client: PostHogClient | undefined;
   let initialized = false;
+  let preparing = false;
   const seenErrors = new WeakSet<object>();
   const pendingExceptions: PendingException[] = [];
+  const pendingProductEvents: PendingProductEvent[] = [];
+
+  function prepare(): boolean {
+    if (initialized) return false;
+    preparing = true;
+    return true;
+  }
 
   function initialize(environment: PostHogPublicEnvironment, nextClient: PostHogClient): boolean {
     if (initialized) return false;
@@ -144,6 +158,11 @@ export function createPostHogAnalytics() {
     }
     client = nextClient;
     initialized = true;
+    preparing = false;
+
+    for (const pendingEvent of pendingProductEvents.splice(0)) {
+      sendProductEvent(pendingEvent.event, pendingEvent.properties);
+    }
 
     for (const exception of pendingExceptions.splice(0)) {
       sendException(exception.error, exception.context);
@@ -154,6 +173,20 @@ export function createPostHogAnalytics() {
   function capture<EventName extends keyof ProductAnalyticsEvents>(
     event: EventName,
     properties: ProductAnalyticsEvents[EventName]
+  ): boolean {
+    if (!client) {
+      if (!preparing) return false;
+      if (pendingProductEvents.length >= MAX_PENDING_PRODUCT_EVENTS) return false;
+      pendingProductEvents.push({ event, properties: { ...properties } });
+      return true;
+    }
+
+    return sendProductEvent(event, properties);
+  }
+
+  function sendProductEvent(
+    event: keyof ProductAnalyticsEvents,
+    properties: ProductAnalyticsEvents[keyof ProductAnalyticsEvents]
   ): boolean {
     if (!client) return false;
     try {
@@ -213,7 +246,7 @@ export function createPostHogAnalytics() {
     }
   }
 
-  return { initialize, capture, captureException, startBrowserErrorTracking };
+  return { prepare, initialize, capture, captureException, startBrowserErrorTracking };
 }
 
 export const postHogAnalytics = createPostHogAnalytics();

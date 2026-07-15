@@ -65,7 +65,14 @@ function emailIdentityUser() {
     data: {
       user: {
         id: 'member-1',
-        identities: [{ id: 'email-identity', provider: 'email' }]
+        email: 'member@example.is',
+        identities: [
+          {
+            id: 'email-identity',
+            provider: 'email',
+            identity_data: { email: 'member@example.is' }
+          }
+        ]
       }
     },
     error: null
@@ -346,7 +353,12 @@ describe('Member auth routes', () => {
   });
 
   it('turns an expired session into a recoverable anonymous account state', async () => {
+    const deleteCookie = vi.fn();
     const result = await inspectAccountLoad({
+      cookies: {
+        getAll: () => [{ name: 'sb-test-auth-token', value: 'expired' }],
+        delete: deleteCookie
+      },
       locals: {
         requestId: 'request-expired',
         supabase: {
@@ -367,6 +379,49 @@ describe('Member auth routes', () => {
       returnTo: '/en/places/place-1',
       authStatus: 'session_expired'
     });
+    expect(deleteCookie).toHaveBeenCalledWith('sb-test-auth-token', { path: '/' });
+  });
+
+  it('clears an Auth-only account session that has no canonical Member', async () => {
+    const signOut = vi.fn(async () => ({ error: null }));
+    const deleteCookie = vi.fn();
+    const result = await inspectAccountLoad({
+      cookies: {
+        getAll: () => [{ name: 'sb-test-auth-token', value: 'orphaned' }],
+        delete: deleteCookie
+      },
+      locals: {
+        requestId: 'request-orphaned',
+        supabase: {
+          auth: {
+            getUser: async () => ({ data: { user: { id: 'orphan' } }, error: null }),
+            signOut
+          },
+          rpc: async (name: string) => {
+            if (name === 'get_member_provider_policy') {
+              return {
+                data: [
+                  {
+                    policy_version: 'member-linked-providers-v2',
+                    email_enabled: true,
+                    facebook_enabled: true,
+                    automatic_linking_verified_email: true
+                  }
+                ],
+                error: null
+              };
+            }
+            return { data: [], error: null };
+          }
+        }
+      },
+      params: { lang: 'en' },
+      url: new URL('http://localhost/en/account?returnTo=%2Fen')
+    } as never);
+
+    expect(result).toMatchObject({ member: null, authStatus: 'unavailable' });
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(deleteCookie).toHaveBeenCalledWith('sb-test-auth-token', { path: '/' });
   });
 
   it('redirects signed-out Account navigation back to the contextual sign-in modal', async () => {
@@ -380,7 +435,8 @@ describe('Member auth routes', () => {
       } as never)
     ).rejects.toMatchObject({
       status: 303,
-      location: '/en?place=30000000-0000-4000-8000-000000000003&auth=open&authStatus=unavailable'
+      location:
+        '/en?auth=open&authReturnTo=%2Fen%3Fplace%3D30000000-0000-4000-8000-000000000003&authStatus=unavailable'
     });
   });
 
@@ -913,11 +969,13 @@ describe('Member auth routes', () => {
       },
       rpc: async (name: string) => {
         calls.push(name);
-        if (name === 'activate_current_member_with_intent') {
+        if (name === 'activate_current_member') {
+          return { data: 'member-1', error: null };
+        }
+        if (name === 'complete_auth_pending_intent') {
           return {
             data: [
               {
-                member_id: 'member-1',
                 action: 'favourite',
                 place_id: 'place-1',
                 overall_rating: null,
@@ -936,7 +994,7 @@ describe('Member auth routes', () => {
         locals: { requestId: 'request-pending-favourite', supabase },
         params: { lang: 'en' },
         url: new URL(
-          'http://localhost/en/auth/callback?flow=member&method=email&returnTo=%2Fen%3Fplace%3Dplace-1&pendingIntent=opaque-continuation-token-that-is-long-enough&code=one-time-code'
+          `http://localhost/en/auth/callback?flow=member&method=email&returnTo=%2Fen%3Fplace%3Dplace-1&pendingIntent=${'A'.repeat(43)}&code=one-time-code`
         )
       } as never)
     ).rejects.toMatchObject({
@@ -944,7 +1002,67 @@ describe('Member auth routes', () => {
       location:
         '/en?place=place-1&authResult=success&authMethod=email&pendingAction=favourite&pendingResult=completed'
     });
-    expect(calls).toEqual(['activate_current_member_with_intent']);
+    expect(calls).toEqual(['activate_current_member', 'complete_auth_pending_intent']);
+  });
+
+  it('keeps the activated Member when a pending action is unavailable', async () => {
+    const calls: string[] = [];
+    const supabase = {
+      auth: {
+        exchangeCodeForSession: async () => ({ error: null }),
+        getUser: async () => emailIdentityUser()
+      },
+      rpc: async (name: string) => {
+        calls.push(name);
+        if (name === 'activate_current_member') return { data: 'member-1', error: null };
+        if (name === 'complete_auth_pending_intent') return { data: [], error: null };
+        throw new Error(`Unexpected RPC ${name}`);
+      }
+    };
+
+    await expect(
+      callback({
+        locals: { requestId: 'request-expired-pending', supabase },
+        params: { lang: 'en' },
+        url: new URL(
+          `http://localhost/en/auth/callback?flow=member&method=email&returnTo=%2Fen&pendingIntent=${'A'.repeat(43)}&code=one-time-code`
+        )
+      } as never)
+    ).rejects.toMatchObject({
+      status: 303,
+      location: '/en?authResult=success&authMethod=email&pendingResult=unavailable'
+    });
+    expect(calls).toEqual(['activate_current_member', 'complete_auth_pending_intent']);
+  });
+
+  it('activates without hashing or completing a malformed pending token', async () => {
+    const rpc = vi.fn(async (name: string) => {
+      if (name === 'activate_current_member') return { data: 'member-1', error: null };
+      throw new Error(`Unexpected RPC ${name}`);
+    });
+
+    await expect(
+      callback({
+        locals: {
+          requestId: 'request-malformed-pending',
+          supabase: {
+            auth: {
+              exchangeCodeForSession: async () => ({ error: null }),
+              getUser: async () => emailIdentityUser()
+            },
+            rpc
+          }
+        },
+        params: { lang: 'en' },
+        url: new URL(
+          'http://localhost/en/auth/callback?flow=member&method=email&returnTo=%2Fen&pendingIntent=not-a-token&code=one-time-code'
+        )
+      } as never)
+    ).rejects.toMatchObject({
+      status: 303,
+      location: '/en?authResult=success&authMethod=email&pendingResult=unavailable'
+    });
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
   it('rejects a session whose server-returned identity does not match the enabled provider', async () => {
@@ -1015,9 +1133,18 @@ describe('Member auth routes', () => {
           data: {
             user: {
               id: 'member-1',
+              email: 'Member@Example.is',
               identities: [
-                { id: 'email-identity', provider: 'email' },
-                { id: 'facebook-identity', provider: 'facebook' }
+                {
+                  id: 'email-identity',
+                  provider: 'email',
+                  identity_data: { email: ' member@example.is ' }
+                },
+                {
+                  id: 'facebook-identity',
+                  provider: 'facebook',
+                  identity_data: { email: 'MEMBER@example.is' }
+                }
               ]
             }
           },
@@ -1039,6 +1166,44 @@ describe('Member auth routes', () => {
       status: 303,
       location: '/en?authResult=success&authMethod=email'
     });
+  });
+
+  it.each([
+    { label: 'missing identity email', identity_data: {} },
+    { label: 'blank identity email', identity_data: { email: '   ' } },
+    { label: 'mismatched identity email', identity_data: { email: 'other@example.is' } }
+  ])('rejects an approved provider with $label', async ({ identity_data }) => {
+    const supabase = {
+      auth: {
+        exchangeCodeForSession: async () => ({ error: null }),
+        getUser: async () => ({
+          data: {
+            user: {
+              id: 'member-1',
+              email: 'member@example.is',
+              identities: [{ id: 'email-identity', provider: 'email', identity_data }]
+            }
+          },
+          error: null
+        }),
+        signOut: async () => ({ error: null })
+      },
+      rpc: vi.fn()
+    };
+
+    await expect(
+      callback({
+        locals: { requestId: 'request-invalid-identity-email', supabase },
+        params: { lang: 'en' },
+        url: new URL(
+          'http://localhost/en/auth/callback?flow=member&method=email&returnTo=%2Fen&code=one-time-code'
+        )
+      } as never)
+    ).rejects.toMatchObject({
+      status: 303,
+      location: '/en?auth=open&authStatus=unavailable'
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
   it('recovers when callback exchange or atomic activation operations reject', async () => {

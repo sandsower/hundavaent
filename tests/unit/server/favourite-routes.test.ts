@@ -29,15 +29,48 @@ describe('Favourite API privacy headers', () => {
 
     const failed = {
       auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'member' } }, error: null })) },
-      rpc: vi.fn(async () => ({ data: null, error: { code: 'network' } }))
+      rpc: vi.fn(async (name: string) =>
+        name === 'get_current_member_account'
+          ? { data: [{ member_id: 'member' }], error: null }
+          : { data: null, error: { code: 'network' } }
+      )
     };
     expectPrivate(await GET({ locals: { supabase: failed } } as never), 503);
 
     const success = {
       auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'member' } }, error: null })) },
-      rpc: vi.fn(async () => ({ data: [{ place_id: placeId }], error: null }))
+      rpc: vi.fn(async (name: string) =>
+        name === 'get_current_member_account'
+          ? { data: [{ member_id: 'member' }], error: null }
+          : { data: [{ place_id: placeId }], error: null }
+      )
     };
     expectPrivate(await GET({ locals: { supabase: success } } as never), 200);
+  });
+
+  it('clears an Auth-only session instead of exposing Member Favorites', async () => {
+    const signOut = vi.fn(async () => ({ error: null }));
+    const deleteCookie = vi.fn();
+    const orphaned = {
+      auth: {
+        getUser: vi.fn(async () => ({ data: { user: { id: 'orphan' } }, error: null })),
+        signOut
+      },
+      rpc: vi.fn(async () => ({ data: [], error: null }))
+    };
+
+    const response = await GET({
+      cookies: {
+        getAll: () => [{ name: 'sb-test-auth-token', value: 'orphaned' }],
+        delete: deleteCookie
+      },
+      locals: { supabase: orphaned }
+    } as never);
+
+    expectPrivate(response, 401);
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(deleteCookie).toHaveBeenCalledWith('sb-test-auth-token', { path: '/' });
+    expect(orphaned.rpc).toHaveBeenCalledTimes(1);
   });
 
   it('applies private cache headers to every mutation success and error path', async () => {
@@ -105,7 +138,11 @@ describe('Favourite API privacy headers', () => {
 
     const failed = {
       auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'member' } }, error: null })) },
-      rpc: vi.fn(async () => ({ data: null, error: { code: 'conflict' } }))
+      rpc: vi.fn(async (name: string) =>
+        name === 'get_current_member_account'
+          ? { data: [{ member_id: 'member' }], error: null }
+          : { data: null, error: { code: 'conflict' } }
+      )
     };
     expectPrivate(
       await PUT({
@@ -118,10 +155,14 @@ describe('Favourite API privacy headers', () => {
 
     const success = {
       auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'member' } }, error: null })) },
-      rpc: vi.fn(async () => ({
-        data: [{ place_id: placeId, is_favourite: true, changed_at: '2026-07-11T10:00:00Z' }],
-        error: null
-      }))
+      rpc: vi.fn(async (name: string) =>
+        name === 'get_current_member_account'
+          ? { data: [{ member_id: 'member' }], error: null }
+          : {
+              data: [{ place_id: placeId, is_favourite: true, changed_at: '2026-07-11T10:00:00Z' }],
+              error: null
+            }
+      )
     };
     expectPrivate(
       await PUT({

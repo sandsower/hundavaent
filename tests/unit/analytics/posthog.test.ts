@@ -124,6 +124,30 @@ describe('PostHog analytics configuration', () => {
     });
   });
 
+  it('queues a product event until initialization and flushes it exactly once', () => {
+    const analytics = createPostHogAnalytics();
+    const client = createClient();
+
+    expect(analytics.prepare()).toBe(true);
+    expect(
+      analytics.capture('auth completed', {
+        method: 'email',
+        outcome: 'success'
+      })
+    ).toBe(true);
+    expect(client.capture).not.toHaveBeenCalled();
+
+    expect(analytics.initialize(environment, client)).toBe(true);
+    expect(client.capture).toHaveBeenCalledTimes(1);
+    expect(client.capture).toHaveBeenCalledWith('auth completed', {
+      method: 'email',
+      outcome: 'success'
+    });
+
+    expect(analytics.initialize(environment, client)).toBe(false);
+    expect(client.capture).toHaveBeenCalledTimes(1);
+  });
+
   it('captures acquisition steps without personal or provider-profile fields', () => {
     const analytics = createPostHogAnalytics();
     const client = createClient();

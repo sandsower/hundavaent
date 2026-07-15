@@ -15,6 +15,7 @@ import {
 import { resolveConfiguredMemberProviders } from '$server/auth/provider-policy';
 import { hasOptionalRole } from '$server/auth/role-capability';
 import { isValidEmail, normalizeMemberReturnTo } from '$server/auth/return-to';
+import { AuthenticationExpiredError, getMemberSession } from '$server/auth/session';
 
 import type { Actions, PageServerLoad } from './$types';
 import type { MemberAuthConfigResolution } from '$server/auth/member';
@@ -30,7 +31,7 @@ function configError(): 'unavailable' {
 export function _createLoad(
   resolveAuthConfig: () => MemberAuthConfigResolution = authConfig
 ): PageServerLoad {
-  return async ({ locals, params, url }) => {
+  return async ({ cookies, locals, params, url }) => {
     const lang = parseLocale(params.lang);
     const resolution = resolveAuthConfig();
     const config = resolution.status === 'ready' ? resolution.config : null;
@@ -61,62 +62,40 @@ export function _createLoad(
     const resolvedConfigurationStatus =
       configurationStatus ?? (providers.email || providers.facebook ? null : 'unavailable');
 
-    let authResult: Awaited<ReturnType<typeof locals.supabase.auth.getUser>>;
+    let session: Awaited<ReturnType<typeof getMemberSession>>;
 
     try {
-      authResult = await locals.supabase.auth.getUser();
-    } catch {
+      session = await getMemberSession(locals.supabase);
+    } catch (error) {
+      if (error instanceof AuthenticationExpiredError) {
+        await clearRequestAuthSession(locals.supabase, cookies);
+      }
       return {
         member: null,
         returnTo,
-        authStatus: 'unavailable',
+        authStatus: error instanceof AuthenticationExpiredError ? 'session_expired' : 'unavailable',
         providers,
         canModerate: false
       };
     }
 
-    const { data: authData, error: authError } = authResult;
-
-    if (authError || !authData.user) {
+    if (session.status === 'anonymous') {
       return {
         member: null,
         returnTo,
-        authStatus:
-          authError && authError.name !== 'AuthSessionMissingError'
-            ? 'session_expired'
-            : (authStatus ?? resolvedConfigurationStatus),
+        authStatus: authStatus ?? resolvedConfigurationStatus,
         providers,
         canModerate: false
       };
     }
 
-    let accountResult: Awaited<
-      ReturnType<typeof locals.supabase.rpc<'get_current_member_account'>>
-    >;
-
-    try {
-      accountResult = await locals.supabase.rpc('get_current_member_account');
-    } catch {
+    if (session.status === 'orphaned') {
+      await clearRequestAuthSession(locals.supabase, cookies);
       return {
         member: null,
         returnTo,
         authStatus: 'unavailable',
         providers,
-        canModerate: false
-      };
-    }
-
-    const { data: accounts, error: accountError } = accountResult;
-
-    if (accountError || !accounts?.[0]) {
-      return {
-        member: null,
-        returnTo,
-        authStatus: 'unavailable',
-        providers: {
-          email: config?.emailEnabled ?? false,
-          facebook: config?.facebookEnabled ?? false
-        },
         canModerate: false
       };
     }
@@ -125,10 +104,10 @@ export function _createLoad(
 
     return {
       member: {
-        ...getPrivateMemberIdentity(authData.user),
-        createdAt: accounts[0].created_at,
-        deletionStatus: accounts[0].deletion_status,
-        deletionRequestedAt: accounts[0].deletion_requested_at
+        ...getPrivateMemberIdentity(session.user),
+        createdAt: session.account.created_at,
+        deletionStatus: session.account.deletion_status,
+        deletionRequestedAt: session.account.deletion_requested_at
       },
       returnTo,
       authStatus: null,
@@ -144,8 +123,9 @@ export const load: PageServerLoad = async (event) => {
   const result = await loadAccount(event);
   if (!result) return result;
   if (!result.member) {
-    const destination = new URL(result.returnTo, 'https://hundavaent.local');
+    const destination = new URL(`/${parseLocale(event.params.lang)}`, 'https://hundavaent.local');
     destination.searchParams.set('auth', 'open');
+    destination.searchParams.set('authReturnTo', result.returnTo);
     if (result.authStatus) destination.searchParams.set('authStatus', result.authStatus);
     redirect(303, `${destination.pathname}${destination.search}${destination.hash}`);
   }

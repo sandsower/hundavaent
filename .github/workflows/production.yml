@@ -334,11 +334,18 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_PROJECT_REF }}
       SUPABASE_POOLER_HOST: aws-0-eu-west-1.pooler.supabase.com
+      MEMBER_ACTIVATION_SECRET: ${{ secrets.HUNDAVAENT_PRODUCTION_MEMBER_ACTIVATION_SECRET }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.sha }}
           fetch-depth: 0
+      - name: Verify the exact migration SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${{ inputs.sha }}" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "${{ inputs.sha }}"
       - uses: pnpm/action-setup@v6
         with:
           version: 11.7.0
@@ -353,13 +360,24 @@ jobs:
           set -euo pipefail
           encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"], safe=""))')"
           db_url="postgresql://postgres.${SUPABASE_PROJECT_REF}:${encoded_password}@${SUPABASE_POOLER_HOST}:5432/postgres"
+          if [[ ! "${MEMBER_ACTIVATION_SECRET}" =~ ^[A-Za-z0-9_-]{43,}$ ]]; then
+            echo "The Member activation secret must be high-entropy base64url." >&2
+            exit 1
+          fi
           pnpm exec supabase db push --db-url "${db_url}" --dry-run --yes
           pnpm exec supabase db push --db-url "${db_url}" --yes
+          PGOPTIONS="-c app.member_activation_secret=${MEMBER_ACTIVATION_SECRET}" \
+            psql -v ON_ERROR_STOP=1 "${db_url}" \
+            -c "select public.configure_member_activation_capability(current_setting('app.member_activation_secret'))"
+          app_fingerprint="$(printf '%s' "${MEMBER_ACTIVATION_SECRET}" | sha256sum | cut -d' ' -f1)"
+          db_fingerprint="$(psql -At "${db_url}" -c "select encode(extensions.digest(convert_to(secret, 'UTF8'), 'sha256'), 'hex') from private.member_activation_capabilities where singleton")"
+          test "${app_fingerprint}" = "${db_fingerprint}"
           {
             echo "### Production migrations"
             echo
             echo "- Commit: ${{ inputs.sha }}"
             echo "- Migrations applied after tested recovery point"
+            echo "- Member activation capability fingerprint: ${app_fingerprint}"
           } >> "${GITHUB_STEP_SUMMARY}"
 
   deploy:
@@ -388,11 +406,20 @@ jobs:
       SITE_GATE_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SITE_GATE_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_PROJECT_REF }}
       EVALUATION_ENABLED: 'false'
+      AUTH_EMAIL_ENABLED: ${{ vars.HUNDAVAENT_PRODUCTION_AUTH_EMAIL_ENABLED }}
+      AUTH_FACEBOOK_ENABLED: ${{ vars.HUNDAVAENT_PRODUCTION_AUTH_FACEBOOK_ENABLED }}
+      MEMBER_ACTIVATION_SECRET: ${{ secrets.HUNDAVAENT_PRODUCTION_MEMBER_ACTIVATION_SECRET }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.sha }}
           fetch-depth: 0
+      - name: Verify the exact deploy SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${{ inputs.sha }}" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "${{ inputs.sha }}"
       - uses: pnpm/action-setup@v6
         with:
           version: 11.7.0
@@ -418,6 +445,9 @@ jobs:
             APP_ENVIRONMENT
             APP_RELEASE
             SITE_GATE_PASSWORD
+            AUTH_EMAIL_ENABLED
+            AUTH_FACEBOOK_ENABLED
+            MEMBER_ACTIVATION_SECRET
           )
           for name in "${required[@]}"; do
             if [[ -z "${!name:-}" ]]; then
@@ -431,6 +461,18 @@ jobs:
           fi
           if [[ "${PUBLIC_APP_URL}" != "https://hundavaent.is" ]]; then
             echo "The production application URL must be the canonical domain." >&2
+            exit 1
+          fi
+          if [[ "${APP_RELEASE}" != "${{ inputs.sha }}" ]]; then
+            echo "APP_RELEASE must be the exact requested SHA." >&2
+            exit 1
+          fi
+          if [[ ! "${AUTH_EMAIL_ENABLED}" =~ ^(true|false)$ || ! "${AUTH_FACEBOOK_ENABLED}" =~ ^(true|false)$ ]]; then
+            echo "Production provider flags must be explicit true or false values." >&2
+            exit 1
+          fi
+          if [[ ! "${MEMBER_ACTIVATION_SECRET}" =~ ^[A-Za-z0-9_-]{43,}$ ]]; then
+            echo "The Member activation secret must be high-entropy base64url." >&2
             exit 1
           fi
           if [[ "${PUBLIC_MAP_STYLE_URL}" != https://api.maptiler.com/* ]] || [[ "${PUBLIC_MAP_STYLE_URL}" != *"?key="* && "${PUBLIC_MAP_STYLE_URL}" != *"&key="* ]]; then
@@ -461,6 +503,9 @@ jobs:
             --arg app_environment "${APP_ENVIRONMENT}" \
             --arg app_release "${APP_RELEASE}" \
             --arg gate_password "${SITE_GATE_PASSWORD}" \
+            --arg auth_email_enabled "${AUTH_EMAIL_ENABLED}" \
+            --arg auth_facebook_enabled "${AUTH_FACEBOOK_ENABLED}" \
+            --arg member_activation_secret "${MEMBER_ACTIVATION_SECRET}" \
             '{
               PUBLIC_SUPABASE_URL: $supabase_url,
               PUBLIC_SUPABASE_PUBLISHABLE_KEY: $supabase_key,
@@ -470,7 +515,10 @@ jobs:
               PUBLIC_POSTHOG_HOST: $posthog_host,
               APP_ENVIRONMENT: $app_environment,
               APP_RELEASE: $app_release,
-              SITE_GATE_PASSWORD: $gate_password
+              SITE_GATE_PASSWORD: $gate_password,
+              AUTH_EMAIL_ENABLED: $auth_email_enabled,
+              AUTH_FACEBOOK_ENABLED: $auth_facebook_enabled,
+              MEMBER_ACTIVATION_SECRET: $member_activation_secret
             }' > "${secrets_file}"
           chmod 600 "${secrets_file}"
           pnpm exec wrangler pages secret bulk "${secrets_file}" \

@@ -86,7 +86,9 @@ test('unauthenticated requests cannot reach or discover any Achievement state', 
   // The private route denies and redirects an unauthenticated request; it never renders.
   const achievementsPath = '/en/account/achievements';
   await page.goto(achievementsPath);
-  await expect(page).toHaveURL(`/en/account?returnTo=${encodeURIComponent(achievementsPath)}`);
+  await expect(page).toHaveURL(
+    `/en?auth=open&authReturnTo=${encodeURIComponent(achievementsPath)}`
+  );
   await expect(page.getByLabel('Email address')).toBeVisible();
   await expect(page.getByText('First Favourite')).toHaveCount(0);
   await expect(page.getByText('Not earned yet')).toHaveCount(0);
@@ -143,7 +145,7 @@ async function signInMember(page: Page, email: string): Promise<void> {
   await page.goto('/en/account');
   await waitForHydration(page);
   await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('button', { name: /Send (me a )?sign-in link/ }).click();
   const magicLink = await waitForLocalMagicLink(email);
   await page.goto(magicLink);
   await waitForHydration(page);

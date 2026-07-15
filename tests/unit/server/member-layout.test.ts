@@ -13,9 +13,12 @@ function eventWith(
       place_name: string;
       overall_rating: number | null;
     };
+    memberAccount?: boolean;
   } = {}
 ) {
   const getUser = vi.fn(async () => ({ data: { user: options.user ?? null }, error: null }));
+  const signOut = vi.fn(async () => ({ error: null }));
+  const deleteCookie = vi.fn();
   const rpc = vi.fn(async (name: string) => {
     if (name === 'get_member_provider_policy') {
       return {
@@ -33,17 +36,37 @@ function eventWith(
     if (name === 'get_auth_pending_intent') {
       return { data: options.pending ? [options.pending] : [], error: null };
     }
+    if (name === 'get_current_member_account') {
+      return {
+        data: options.memberAccount
+          ? [
+              {
+                member_id: options.user?.id,
+                created_at: '2026-07-15T10:00:00Z',
+                deletion_status: null,
+                deletion_requested_at: null
+              }
+            ]
+          : [],
+        error: null
+      };
+    }
     throw new Error(`Unexpected RPC ${name}`);
   });
   return {
     event: {
-      cookies: { getAll: () => (options.cookie ? [{ name: options.cookie, value: 'value' }] : []) },
-      locals: { requestId: 'request-layout', supabase: { auth: { getUser }, rpc } },
+      cookies: {
+        getAll: () => (options.cookie ? [{ name: options.cookie, value: 'value' }] : []),
+        delete: deleteCookie
+      },
+      locals: { requestId: 'request-layout', supabase: { auth: { getUser, signOut }, rpc } },
       params: { lang: 'en' },
       url: new URL(options.url ?? 'https://hundavaent.test/en')
     },
     getUser,
-    rpc
+    rpc,
+    signOut,
+    deleteCookie
   };
 }
 
@@ -60,12 +83,28 @@ describe('Member-aware public layout', () => {
   it('validates a session cookie on the server before showing Member navigation', async () => {
     const { event, getUser } = eventWith({
       cookie: 'sb-project-auth-token.0',
-      user: { id: 'member-1' }
+      user: { id: 'member-1' },
+      memberAccount: true
     });
     const result = await load(event as never);
 
     expect(result).toMatchObject({ lang: 'en', signedIn: true });
     expect(getUser).toHaveBeenCalledOnce();
+  });
+
+  it('clears an authenticated Auth session that has no canonical Member account', async () => {
+    const { event, rpc, signOut, deleteCookie } = eventWith({
+      cookie: 'sb-project-auth-token.0',
+      user: { id: 'orphan-auth-user' },
+      memberAccount: false
+    });
+
+    const result = await load(event as never);
+
+    expect(result).not.toHaveProperty('signedIn');
+    expect(rpc).toHaveBeenCalledWith('get_current_member_account');
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(deleteCookie).toHaveBeenCalledWith('sb-project-auth-token.0', { path: '/' });
   });
 
   it('recovers the safe action-specific context from an opaque continuation token', async () => {
