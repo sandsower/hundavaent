@@ -25,12 +25,10 @@
     border-top: 1px solid var(--hv-color-basalt);
     background: var(--hv-color-snow-raised);
     padding: 0.9rem 1.1rem;
-    box-shadow: 0 -0.4rem 1.2rem rgb(30 45 49 / 10%);
+    box-shadow: none;
   }
   .decision-dock:focus-within {
-    box-shadow:
-      0 -0.4rem 1.2rem rgb(30 45 49 / 10%),
-      inset 0 0 0 3px var(--hv-focus-ring);
+    box-shadow: inset 0 0 0 3px var(--hv-focus-ring);
   }
   .decision-dock > fieldset {
     min-width: 0;

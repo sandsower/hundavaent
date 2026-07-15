@@ -94,10 +94,10 @@
   }
   .count {
     min-width: 1.75rem;
-    border-radius: 999px;
+    border-radius: var(--hv-radius-control);
     background: var(--hv-color-basalt);
     padding: 0.18rem 0.42rem;
-    color: white;
+    color: var(--hv-color-snow-raised);
     font-size: 0.72rem;
     font-weight: 900;
     text-align: center;

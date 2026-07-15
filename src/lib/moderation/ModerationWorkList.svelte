@@ -213,7 +213,7 @@
   }
   .badge {
     flex: none;
-    border-radius: 999px;
+    border-radius: var(--hv-radius-control);
     background: var(--hv-color-fjord-soft);
     padding: 0.16rem 0.4rem;
     font-size: 0.65rem;
