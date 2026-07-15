@@ -109,6 +109,50 @@ describe('Favourite API privacy headers', () => {
     expect(expired.rpc).not.toHaveBeenCalled();
   });
 
+  it.each([
+    [
+      'GET rate limit',
+      (event: never) => GET(event),
+      { message: 'Too many requests', code: 'over_request_rate_limit', status: 429 }
+    ],
+    [
+      'PUT upstream failure',
+      (event: never) => PUT(event),
+      { message: 'Auth service unavailable', code: 'unexpected_failure', status: 503 }
+    ]
+  ] as const)(
+    'preserves the Favorite session and returns 503 for a returned temporary %s error',
+    async (label, run, providerError) => {
+      const signOut = vi.fn(async () => ({ error: null }));
+      const deleteCookie = vi.fn();
+      const temporary = {
+        auth: {
+          getUser: vi.fn(async () => ({ data: { user: null }, error: providerError })),
+          signOut
+        },
+        rpc: vi.fn()
+      };
+      const common = {
+        cookies: {
+          getAll: () => [{ name: 'sb-test-auth-token', value: 'still-valid' }],
+          delete: deleteCookie
+        },
+        locals: { supabase: temporary },
+        params: { placeId }
+      };
+      const response = await run(
+        (label.startsWith('PUT')
+          ? { ...common, request: jsonRequest({ desiredState: true }) }
+          : common) as never
+      );
+
+      expectPrivate(response, 503);
+      expect(signOut).not.toHaveBeenCalled();
+      expect(deleteCookie).not.toHaveBeenCalled();
+      expect(temporary.rpc).not.toHaveBeenCalled();
+    }
+  );
+
   it('applies private cache headers to every mutation success and error path', async () => {
     expectPrivate(
       await PUT({

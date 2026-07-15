@@ -13,7 +13,20 @@ interface ProviderError {
   message: string;
   name?: string;
   code?: string;
+  status?: number;
 }
+
+const invalidSessionErrorCodes = new Set([
+  'bad_jwt',
+  'invalid_jwt',
+  'invalid_token',
+  'jwt_expired',
+  'refresh_token_already_used',
+  'refresh_token_not_found',
+  'session_expired'
+]);
+
+const invalidSessionErrorNames = new Set(['AuthInvalidCredentialsError', 'AuthInvalidJwtError']);
 
 export interface CallerScopedSupabaseClient {
   auth: {
@@ -93,7 +106,10 @@ export async function getMemberSession(client: RequestSupabaseClient): Promise<M
   if (authResult.error && isMissingSessionError(authResult.error)) {
     return { status: 'anonymous' };
   }
-  if (authResult.error) throw new AuthenticationExpiredError();
+  if (authResult.error) {
+    if (isInvalidSessionError(authResult.error)) throw new AuthenticationExpiredError();
+    throw new AuthenticationUnavailableError();
+  }
   if (!authResult.data.user) return { status: 'anonymous' };
 
   try {
@@ -115,4 +131,14 @@ function isMissingSessionError(error: ProviderError): boolean {
     error.code === 'session_not_found' ||
     error.message === 'Auth session missing!'
   );
+}
+
+function isInvalidSessionError(error: ProviderError): boolean {
+  if (error.code && invalidSessionErrorCodes.has(error.code)) return true;
+  if (error.name && invalidSessionErrorNames.has(error.name)) return true;
+
+  const message = error.message.toLowerCase();
+  const mentionsCredential = /\b(jwt|access token|refresh token|session)\b/.test(message);
+  const confirmsInvalidity = /\b(expired|invalid)\b/.test(message);
+  return mentionsCredential && confirmsInvalidity;
 }
