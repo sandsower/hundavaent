@@ -75,7 +75,7 @@
 
 <style>
   .sign-in-shell {
-    min-height: calc(100dvh - 5rem);
+    min-height: calc(100dvh - var(--hv-app-header-height, 4.4rem));
     display: grid;
     place-items: center;
     padding: 2rem 1rem;

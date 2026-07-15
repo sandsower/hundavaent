@@ -55,6 +55,18 @@
     overflow: hidden;
   }
 
+  @media (min-width: 58.0625rem) {
+    :global(body:has(.noscript-results)) .directory-shell {
+      height: auto;
+      min-height: calc(100dvh - var(--hv-app-header-height, 4.4rem));
+      overflow: visible;
+    }
+
+    :global(body:has(.noscript-results)) .directory-shell :global(.map-list-shell) {
+      height: calc(100dvh - var(--hv-app-header-height, 4.4rem));
+    }
+  }
+
   @media (max-width: 58rem) {
     .directory-shell {
       height: auto;
