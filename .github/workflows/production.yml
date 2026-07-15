@@ -738,9 +738,9 @@ jobs:
           fi
           pnpm exec supabase db push --db-url "${db_url}" --dry-run --yes
           pnpm exec supabase db push --db-url "${db_url}" --yes
-          PGOPTIONS="-c app.member_activation_secret=${MEMBER_ACTIVATION_SECRET}" \
-            psql -v ON_ERROR_STOP=1 "${db_url}" \
-            -c "select public.configure_member_activation_capability(current_setting('app.member_activation_secret'))"
+          psql -v ON_ERROR_STOP=1 -v activation_secret="${MEMBER_ACTIVATION_SECRET}" "${db_url}" <<'SQL'
+          select public.configure_member_activation_capability(:'activation_secret');
+          SQL
           app_fingerprint="$(printf '%s' "${MEMBER_ACTIVATION_SECRET}" | sha256sum | cut -d' ' -f1)"
           db_fingerprint="$(psql -At "${db_url}" -c "select encode(extensions.digest(convert_to(secret, 'UTF8'), 'sha256'), 'hex') from private.member_activation_capabilities where singleton")"
           test "${app_fingerprint}" = "${db_fingerprint}"
