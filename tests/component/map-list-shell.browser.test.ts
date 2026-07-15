@@ -828,6 +828,44 @@ describe('MapListShell synchronization', () => {
     );
   });
 
+  it('keeps selected-place text fully opaque throughout the approved entry motion', async () => {
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+    const selectedPlace = await screen.findByRole('complementary', { name: 'Selected place' });
+    const welcomeAnswer = within(selectedPlace)
+      .getByRole('heading', { name: 'Are dogs welcome?' })
+      .closest<HTMLElement>('.welcome-answer');
+    const disclosure = (await within(selectedPlace).findByText('Details')).closest<HTMLElement>(
+      '.hv-disclosure'
+    );
+    expect(welcomeAnswer).toBeTruthy();
+    expect(disclosure).toBeTruthy();
+    if (!welcomeAnswer || !disclosure) throw new Error('Expected animated selected-place content');
+
+    for (const element of [welcomeAnswer, disclosure]) {
+      const animation = element
+        .getAnimations()
+        .find((candidate) => candidate.animationName.includes('detail-content-enter'));
+      expect(animation).toBeTruthy();
+      if (!animation) throw new Error('Expected the selected-place entry animation');
+      animation.pause();
+      animation.currentTime = 0;
+      expect(getComputedStyle(element).opacity).toBe('1');
+      expect(getComputedStyle(element).transform).not.toBe('none');
+    }
+  });
+
   it('isolates cached and late profile responses by locale and Place', async () => {
     history.replaceState(null, '', `/en?place=${places[0].placeId}`);
     const englishRequest = deferred<typeof complexProfile>();
