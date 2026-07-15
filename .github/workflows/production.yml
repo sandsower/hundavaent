@@ -83,8 +83,74 @@ jobs:
           mkdir -p recovery
           encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"], safe=""))')"
           db_url="postgresql://postgres.${SUPABASE_PROJECT_REF}:${encoded_password}@${SUPABASE_POOLER_HOST}:5432/postgres"
+          recovery_lock_input="${RUNNER_TEMP}/hundavaent-recovery-lock-${GITHUB_RUN_ID}.in"
+          recovery_lock_output="${RUNNER_TEMP}/hundavaent-recovery-lock-${GITHUB_RUN_ID}.out"
+          recovery_lock_pid=""
+          recovery_lock_active="false"
+          cleanup_recovery_lock() {
+            set +e
+            if [[ "${recovery_lock_active}" == "true" ]]; then
+              printf 'ROLLBACK;\n\\q\n' >&9
+              exec 9>&-
+              wait "${recovery_lock_pid}"
+            fi
+            rm -f "${recovery_lock_input}" "${recovery_lock_output}"
+          }
+          acquire_recovery_lock() {
+            local lock_status
+            mkfifo "${recovery_lock_input}" "${recovery_lock_output}"
+            psql -qAt -v ON_ERROR_STOP=1 "$1" \
+              < "${recovery_lock_input}" > "${recovery_lock_output}" \
+              2> recovery/production-lock.log &
+            recovery_lock_pid="$!"
+            exec 9> "${recovery_lock_input}"
+            recovery_lock_active="true"
+            cat >&9 <<'RECOVERY_LOCK_SQL'
+          BEGIN ISOLATION LEVEL REPEATABLE READ;
+          SET LOCAL lock_timeout = '120s';
+          DO $recovery_lock$
+          DECLARE
+            table_list text;
+          BEGIN
+            SELECT string_agg(
+              format('%I.%I', n.nspname, c.relname),
+              ', ' ORDER BY n.nspname, c.relname
+            )
+            INTO table_list
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE c.relkind = 'r'
+              AND n.nspname IN ('public', 'private', 'security', 'auth');
+            IF table_list IS NULL THEN
+              RAISE EXCEPTION 'No recovery tables are available to lock';
+            END IF;
+            EXECUTE 'lock table ' || table_list || ' in share mode';
+          END
+          $recovery_lock$;
+          \echo RECOVERY_LOCK_READY
+          RECOVERY_LOCK_SQL
+            if ! IFS= read -r lock_status < "${recovery_lock_output}" || \
+                [[ "${lock_status}" != "RECOVERY_LOCK_READY" ]]; then
+              cat recovery/production-lock.log >&2
+              echo "Could not acquire a consistent production recovery lock." >&2
+              return 1
+            fi
+          }
+          release_recovery_lock() {
+            printf 'COMMIT;\n\\q\n' >&9
+            exec 9>&-
+            if ! wait "${recovery_lock_pid}"; then
+              cat recovery/production-lock.log >&2
+              echo "Could not commit the production recovery lock transaction." >&2
+              return 1
+            fi
+            recovery_lock_active="false"
+            rm -f "${recovery_lock_input}" "${recovery_lock_output}"
+          }
+          trap cleanup_recovery_lock EXIT
           pnpm exec supabase db dump --db-url "${db_url}" --role-only -f recovery/roles.sql
           pnpm exec supabase db dump --db-url "${db_url}" -f recovery/schema.sql
+          acquire_recovery_lock "${db_url}"
           pnpm exec supabase db dump --db-url "${db_url}" --data-only --use-copy \
             --schema public,private,security -f recovery/data.sql
           # Skip auth handling only when both the canonical Member projection
@@ -122,6 +188,17 @@ jobs:
             echo "required" > recovery/auth-recovery-mode.txt
             pnpm exec supabase db dump --db-url "${db_url}" --data-only --use-copy \
               --schema auth -f recovery/auth-data.sql
+            psql -At "${db_url}" -c "
+              select n.nspname || '.' || c.relname
+              from pg_class c
+              join pg_namespace n on n.oid = c.relnamespace
+              where c.relkind = 'r' and n.nspname = 'auth'" |
+              while read -r table; do
+                echo "${table} $(psql -At "${db_url}" -c "select count(*) from ${table}")"
+              done | sort > recovery/auth-production-counts.txt
+            node --experimental-strip-types scripts/verify-recovery-copy-dump.ts \
+              recovery/auth-data.sql recovery/auth-production-counts.txt \
+              recovery/auth-dump-counts.txt
           fi
           # Exact per-table production counts for the dumped schemas; the
           # verify step fails if the dump does not cover every one of them.
@@ -133,6 +210,9 @@ jobs:
             while read -r table; do
               echo "${table} $(psql -At "${db_url}" -c "select count(*) from ${table}")"
             done | sort > recovery/production-counts.txt
+          node --experimental-strip-types scripts/verify-recovery-copy-dump.ts \
+            recovery/data.sql recovery/production-counts.txt recovery/dump-counts.txt
+          release_recovery_lock
           cat recovery/production-counts.txt
           ls -l recovery
 
@@ -144,28 +224,21 @@ jobs:
           psql "${RESTORE_DB_URL}" -f recovery/roles.sql || true
           psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/schema.sql
           psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/data.sql
-          # Auth data restores into a live GoTrue-matched project during real
-          # recovery; the scratch image's auth schema can lag, so this check
-          # is best-effort while the dump itself stays in the artifact.
-          if [[ -s recovery/auth-data.sql ]]; then
-            if ! psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/auth-data.sql; then
-              echo "::warning::Auth data restore is not testable against the scratch image (GoTrue schema drift); the dump is still captured in the artifact."
+          if [[ "$(cat recovery/auth-recovery-mode.txt)" == "required" ]]; then
+            if [[ ! -s recovery/auth-data.sql ]]; then
+              echo "Required Auth recovery dump is missing or empty." >&2
+              exit 1
             fi
+            psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/auth-data.sql
           fi
 
       - name: Verify restored row counts match the dump
         shell: bash
         run: |
           set -euo pipefail
-          # Every table in the data dump must hold exactly the rows the dump carries.
-          awk '/^COPY /{ table=$2; gsub(/"/, "", table); count=0; next } /^\\\.$/{ if (table != "") { print table, count; table="" } next } table != "" { count++ }' \
-            recovery/data.sql | sort > recovery/dump-counts.txt
-          # The dump must cover every production table in scope with the same
-          # row counts, or the recovery point is incomplete.
-          if ! diff -u recovery/production-counts.txt recovery/dump-counts.txt; then
-            echo "The data dump does not match production's own table counts." >&2
-            exit 1
-          fi
+          # Dump counts were parsed and matched against production while the
+          # recovery write lock was still held.
+          test -s recovery/dump-counts.txt
           psql -At "${RESTORE_DB_URL}" -c "
             select schemaname || '.' || relname || ' ' || n_live_tup
             from pg_stat_user_tables" |
@@ -180,12 +253,23 @@ jobs:
             echo "Restored table counts do not match the dump." >&2
             exit 1
           fi
+          auth_recovery_mode="$(cat recovery/auth-recovery-mode.txt)"
+          if [[ "${auth_recovery_mode}" == "required" ]]; then
+            : > recovery/auth-restored-counts.txt
+            while read -r table _; do
+              actual="$(psql -At "${RESTORE_DB_URL}" -c "select count(*) from ${table}")"
+              echo "${table} ${actual}" >> recovery/auth-restored-counts.txt
+            done < recovery/auth-dump-counts.txt
+            if ! diff -u recovery/auth-dump-counts.txt recovery/auth-restored-counts.txt; then
+              echo "Restored Auth table counts do not match the dump." >&2
+              exit 1
+            fi
+          fi
           tables="$(wc -l < recovery/dump-counts.txt)"
           rows="$(awk '{ sum += $2 } END { print sum + 0 }' recovery/dump-counts.txt)"
           member_count="$(cat recovery/member-count.txt)"
           auth_user_count="$(cat recovery/auth-user-count.txt)"
           auth_identity_count="$(cat recovery/auth-identity-count.txt)"
-          auth_recovery_mode="$(cat recovery/auth-recovery-mode.txt)"
           echo "Restore verified: ${tables} tables, ${rows} rows."
           if [[ "${rows}" == "0" ]]; then
             echo "::warning::Production data dump contains zero rows."

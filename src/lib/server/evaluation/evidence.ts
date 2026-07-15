@@ -172,6 +172,14 @@ export function validateTestEvidenceArtifact(input: unknown): string[] {
     errors.push('required Axe result is missing');
   }
   if (
+    isRecord(input.test) &&
+    isNonEmptyString(input.test.file) &&
+    input.test.file.endsWith('a11y.spec.ts') &&
+    (!required.includes('axe') || axe.length === 0)
+  ) {
+    errors.push('accessibility test evidence must declare and contain Axe proof');
+  }
+  if (
     required.includes('axe') &&
     axe.some((result) => isRecord(result) && Number(result.violations) > 0)
   ) {

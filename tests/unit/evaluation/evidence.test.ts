@@ -230,4 +230,17 @@ describe('per-test evaluation evidence', () => {
       ])
     );
   });
+
+  it('rejects accessibility artifacts that omit required Axe proof', () => {
+    const invalid: TestEvidenceArtifact = {
+      ...structuredClone(completeArtifact),
+      test: { ...completeArtifact.test, file: 'tests/evaluation/a11y.spec.ts' },
+      required: [],
+      axe: []
+    };
+
+    expect(validateTestEvidenceArtifact(invalid)).toContain(
+      'accessibility test evidence must declare and contain Axe proof'
+    );
+  });
 });

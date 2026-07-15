@@ -26,6 +26,7 @@ import {
   getEvaluationLaneRuntime,
   type EvaluationLaneResult
 } from '../../../scripts/evaluation-lanes';
+import { verifyRecoveryCopyDump } from '../../../scripts/verify-recovery-copy-dump';
 
 describe('release evaluation orchestration', () => {
   it('keeps production recovery fail-closed around the no-Member auth fast path', () => {
@@ -50,6 +51,62 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('retaining full auth recovery handling');
     expect(workflow).toContain('[[ "${auth_user_count}" == "0" ]]');
     expect(workflow).toContain('[[ "${auth_identity_count}" == "0" ]]');
+  });
+
+  it('holds a production write lock across application and identity capture', () => {
+    const workflow = readFileSync(
+      new URL('../../../.github/workflows/production.yml', import.meta.url),
+      'utf8'
+    );
+    const acquire = workflow.indexOf('acquire_recovery_lock "${db_url}"');
+    const applicationDump = workflow.indexOf('--schema public,private,security');
+    const identityCounts = workflow.indexOf('(select count(*) from auth.identities)');
+    const authDump = workflow.indexOf('--schema auth -f recovery/auth-data.sql');
+    const release = workflow.indexOf('release_recovery_lock', authDump);
+
+    expect(workflow).toContain("IN ('public', 'private', 'security', 'auth')");
+    expect(workflow).toContain("'lock table ' || table_list || ' in share mode'");
+    expect(acquire).toBeGreaterThan(0);
+    expect(applicationDump).toBeGreaterThan(acquire);
+    expect(identityCounts).toBeGreaterThan(applicationDump);
+    expect(authDump).toBeGreaterThan(identityCounts);
+    expect(release).toBeGreaterThan(authDump);
+  });
+
+  it('rejects invalid or incomplete Auth COPY recovery dumps', () => {
+    expect(
+      verifyRecoveryCopyDump(
+        'COPY auth.users (id) FROM stdin;\nuser-1\n\\.\nCOPY auth.identities (id) FROM stdin;\nidentity-1\n\\.\n',
+        'auth.identities 1\nauth.users 1\n'
+      )
+    ).toBe('auth.identities 1\nauth.users 1');
+    expect(() =>
+      verifyRecoveryCopyDump('COPY auth.users (id) FROM stdin;\nuser-1\n', 'auth.users 1\n')
+    ).toThrow('unterminated');
+    expect(() =>
+      verifyRecoveryCopyDump(
+        'COPY auth.users (id) FROM stdin;\nuser-1\n\\.\n',
+        'auth.users 1\nauth.identities 1\n'
+      )
+    ).toThrow('dump is missing table auth.identities');
+  });
+
+  it('requires non-empty Auth recovery to restore and match every table', () => {
+    const workflow = readFileSync(
+      new URL('../../../.github/workflows/production.yml', import.meta.url),
+      'utf8'
+    );
+
+    expect(workflow).not.toContain('Auth data restore is not testable');
+    expect(workflow).toContain(
+      'psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/auth-data.sql'
+    );
+    expect(workflow).toContain('recovery/auth-production-counts.txt');
+    expect(workflow).toContain('recovery/auth-dump-counts.txt');
+    expect(workflow).toContain('recovery/auth-restored-counts.txt');
+    expect(workflow).toContain(
+      'diff -u recovery/auth-dump-counts.txt recovery/auth-restored-counts.txt'
+    );
   });
 
   it('assigns every concurrent lane a distinct runtime identity and port set', () => {
