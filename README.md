@@ -162,9 +162,9 @@ The preview workflow is then the external evidence source for visual and health 
 
 The manual `Hundavaent production recovery and build` workflow accepts one reviewed, full 40-character commit SHA.
 Run the manual clean evaluation successfully for that exact SHA before starting the protected production workflow.
-When production proves that `private.member_accounts` has no rows, recovery skips only the auth-user dump and restore path.
-Any positive or unprovable Member count automatically retains full auth recovery handling, while public, private, and security data always receive the complete dump and restore proof.
-It checks out that exact commit, builds the Cloudflare Pages artifact with the protected `production` environment, creates a custom PostgreSQL dump of the complete application schemas plus auth data whenever Members may exist, and restores that dump into an ephemeral Supabase PostgreSQL 17 container.
+When production proves that `private.member_accounts`, `auth.users`, and `auth.identities` all have no rows, recovery skips only the auth-user dump and restore path.
+Any positive or unprovable Member or Auth count automatically retains full auth recovery handling, including pending pre-activation identities, while public, private, and security data always receive the complete dump and restore proof.
+It checks out that exact commit, builds the Cloudflare Pages artifact with the protected `production` environment, creates a custom PostgreSQL dump of the complete application schemas plus auth data whenever Members or Auth identities may exist, and restores that dump into an ephemeral Supabase PostgreSQL 17 container.
 The workflow refuses empty or invalid dumps and requires restored application schemas plus at least one baseline Place record.
 Only after the restore passes does it encrypt the dump with AES-256-CBC and retain the encrypted recovery point, its checksum manifest, and the exact Cloudflare build for 30 days.
 

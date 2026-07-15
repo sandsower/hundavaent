@@ -6,16 +6,19 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   rmSync,
+  statSync,
   writeFileSync
 } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import {
   EVIDENCE_SCHEMA_VERSION,
   validateEvidenceManifest,
+  validateTestEvidenceArtifact,
   type EvidenceManifest,
   type EvidenceVerdict,
   type ScreenshotEvidence,
@@ -50,9 +53,14 @@ export interface EvaluationStageResult {
   failure?: string;
 }
 
-interface LoadedTestEvidence {
+export interface LoadedTestEvidence {
   path: string;
   artifact: TestEvidenceArtifact;
+}
+
+export interface LoadedTestEvidenceResult {
+  evidence: LoadedTestEvidence[];
+  failures: string[];
 }
 
 export interface ManifestAssemblyInput {
@@ -63,18 +71,24 @@ export interface ManifestAssemblyInput {
 }
 
 export interface CollectedEvaluationLanes {
+  laneResults: EvaluationLaneResult[];
   stageResults: EvaluationStageResult[];
   failures: string[];
 }
 
 export function collectEvaluationLaneResults(
-  laneResults: EvaluationLaneResult[],
+  laneResults: unknown[],
   expectedCommitSha: string
 ): CollectedEvaluationLanes {
   const failures: string[] = [];
   const lanes = new Map<EvaluationLaneName, EvaluationLaneResult>();
 
-  for (const result of laneResults) {
+  for (const input of laneResults) {
+    if (!isUnknownRecord(input)) {
+      failures.push('invalid evaluation lane record');
+      continue;
+    }
+    const result = input as unknown as EvaluationLaneResult;
     if (!isEvaluationLaneName(result.lane)) {
       failures.push(`unknown evaluation lane: ${String(result.lane)}`);
       continue;
@@ -92,10 +106,29 @@ export function collectEvaluationLaneResults(
         (stage) =>
           typeof stage?.name !== 'string' ||
           typeof stage.passed !== 'boolean' ||
+          !(
+            stage.exitCode === null ||
+            (Number.isInteger(stage.exitCode) && Number(stage.exitCode) >= 0)
+          ) ||
           !Array.isArray(stage.evidencePaths)
       )
     ) {
       failures.push(`${result.lane} lane has an invalid stage result`);
+      continue;
+    }
+    if (
+      typeof result.requestedCommitSha !== 'string' ||
+      typeof result.commitSha !== 'string' ||
+      typeof result.startedAt !== 'string' ||
+      Number.isNaN(Date.parse(result.startedAt)) ||
+      typeof result.finishedAt !== 'string' ||
+      Number.isNaN(Date.parse(result.finishedAt)) ||
+      typeof result.durationMs !== 'number' ||
+      !Number.isFinite(result.durationMs) ||
+      result.durationMs < 0 ||
+      Date.parse(result.finishedAt) - Date.parse(result.startedAt) !== result.durationMs
+    ) {
+      failures.push(`${result.lane} lane metadata is invalid`);
       continue;
     }
     if (lanes.has(result.lane)) {
@@ -110,9 +143,32 @@ export function collectEvaluationLaneResults(
       failures.push(`${result.lane} lane observed unexpected commit ${result.commitSha}`);
     }
 
-    const stageNames = new Set(result.stages.map((stage) => stage.name));
+    const expectedStages = evaluationLaneStages[result.lane];
+    const stageCounts = new Map<string, number>();
+    for (const stage of result.stages) {
+      stageCounts.set(stage.name, (stageCounts.get(stage.name) ?? 0) + 1);
+      if (!expectedStages.includes(stage.name)) {
+        failures.push(`${result.lane} lane contains foreign stage: ${stage.name}`);
+      }
+      if ((stage.passed && stage.exitCode !== 0) || (!stage.passed && stage.exitCode === 0)) {
+        failures.push(
+          `${result.lane} lane stage ${stage.name} has inconsistent passed/exitCode values`
+        );
+      }
+      if (
+        stage.evidencePaths.length === 0 ||
+        stage.evidencePaths.some((path) => typeof path !== 'string' || path.trim().length === 0)
+      ) {
+        failures.push(
+          `${result.lane} lane stage ${stage.name} must contain non-empty evidence paths`
+        );
+      }
+    }
+    for (const [stageName, count] of stageCounts) {
+      if (count > 1) failures.push(`${result.lane} lane contains duplicate stage: ${stageName}`);
+    }
     for (const requiredStage of evaluationLaneStages[result.lane]) {
-      if (!stageNames.has(requiredStage)) {
+      if ((stageCounts.get(requiredStage) ?? 0) === 0) {
         failures.push(`${result.lane} lane is missing required stage: ${requiredStage}`);
       }
     }
@@ -123,9 +179,155 @@ export function collectEvaluationLaneResults(
   }
 
   return {
+    laneResults: evaluationLaneNames.flatMap((lane) => {
+      const result = lanes.get(lane);
+      return result ? [result] : [];
+    }),
     stageResults: evaluationLaneNames.flatMap((lane) => lanes.get(lane)?.stages ?? []),
     failures: unique(failures)
   };
+}
+
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+const stageArtifactRoots: Record<string, readonly string[]> = {
+  e2e: ['test-results/evaluation/stages', 'test-results/e2e'],
+  a11y: ['test-results/evaluation/stages', 'test-results/a11y'],
+  visual: ['test-results/evaluation/stages', 'test-results/visual'],
+  performance: ['test-results/evaluation/stages', 'test-results/performance']
+};
+
+export function validateEvaluationLaneArtifactFiles(
+  laneResults: EvaluationLaneResult[],
+  root: string = repositoryRoot
+): string[] {
+  const failures: string[] = [];
+
+  for (const result of laneResults) {
+    if (!isEvaluationLaneName(result.lane) || !Array.isArray(result.stages)) continue;
+    for (const stage of result.stages) {
+      if (!stage || typeof stage.name !== 'string' || !Array.isArray(stage.evidencePaths)) continue;
+      const allowedRoots = stageArtifactRoots[stage.name] ?? ['test-results/evaluation/stages'];
+      const coveredRoots = new Set<string>();
+
+      for (const evidencePath of stage.evidencePaths) {
+        if (typeof evidencePath !== 'string' || evidencePath.trim().length === 0) continue;
+        const validation = validateArtifactFile(
+          evidencePath,
+          allowedRoots,
+          root,
+          `${stage.name} evidence`
+        );
+        failures.push(...validation.failures);
+        if (validation.matchedRoot) coveredRoots.add(validation.matchedRoot);
+      }
+
+      for (const requiredRoot of allowedRoots) {
+        if (!coveredRoots.has(requiredRoot)) {
+          failures.push(`${stage.name} evidence is missing required artifact root ${requiredRoot}`);
+        }
+      }
+    }
+  }
+
+  return unique(failures);
+}
+
+export function validateManifestArtifactFiles(
+  manifest: EvidenceManifest,
+  root: string = repositoryRoot
+): string[] {
+  const paths = unique([
+    ...manifest.scenarios.flatMap((scenario) => scenario.evidencePaths),
+    manifest.accessibility.treePath,
+    ...manifest.visual.screenshots.map((screenshot) => screenshot.path)
+  ]);
+
+  return unique(
+    paths.flatMap(
+      (path) => validateArtifactFile(path, ['test-results'], root, 'manifest path').failures
+    )
+  );
+}
+
+interface ArtifactFileValidation {
+  failures: string[];
+  matchedRoot?: string;
+}
+
+function validateArtifactFile(
+  artifactPath: string,
+  allowedRoots: readonly string[],
+  root: string,
+  label: string
+): ArtifactFileValidation {
+  if (isAbsolute(artifactPath)) {
+    return { failures: [`${label} escapes its allowed artifact roots: ${artifactPath}`] };
+  }
+
+  const candidate = resolve(root, artifactPath);
+  const lexicalRoot = allowedRoots.find((allowedRoot) =>
+    isPathWithin(resolve(root, allowedRoot), candidate)
+  );
+  if (!lexicalRoot) {
+    return { failures: [`${label} escapes its allowed artifact roots: ${artifactPath}`] };
+  }
+  if (!existsSync(candidate)) {
+    return { failures: [`${label} is missing: ${artifactPath}`], matchedRoot: lexicalRoot };
+  }
+
+  let realCandidate: string;
+  try {
+    realCandidate = realpathSync(candidate);
+  } catch (error) {
+    return {
+      failures: [
+        `${label} could not be resolved: ${artifactPath}: ${error instanceof Error ? error.message : String(error)}`
+      ],
+      matchedRoot: lexicalRoot
+    };
+  }
+  const realRoot = allowedRoots.find((allowedRoot) => {
+    const absoluteRoot = resolve(root, allowedRoot);
+    if (!existsSync(absoluteRoot)) return false;
+    try {
+      const realRepositoryRoot = realpathSync(root);
+      const realAllowedRoot = realpathSync(absoluteRoot);
+      return (
+        isPathWithin(realRepositoryRoot, realAllowedRoot) &&
+        isPathWithin(realAllowedRoot, realCandidate)
+      );
+    } catch {
+      return false;
+    }
+  });
+  if (!realRoot) {
+    return { failures: [`${label} escapes its allowed artifact roots: ${artifactPath}`] };
+  }
+  try {
+    if (!statSync(realCandidate).isFile()) {
+      return {
+        failures: [`${label} is not a regular file: ${artifactPath}`],
+        matchedRoot: realRoot
+      };
+    }
+  } catch (error) {
+    return {
+      failures: [
+        `${label} could not be inspected: ${artifactPath}: ${error instanceof Error ? error.message : String(error)}`
+      ],
+      matchedRoot: realRoot
+    };
+  }
+
+  return { failures: [], matchedRoot: realRoot };
+}
+
+function isPathWithin(root: string, candidate: string): boolean {
+  const pathFromRoot = relative(root, candidate);
+  return pathFromRoot === '' || (!pathFromRoot.startsWith('..') && !isAbsolute(pathFromRoot));
 }
 
 const scenarioStages: Record<string, string[]> = {
@@ -178,11 +380,12 @@ export function assembleEvidenceManifest({
     }))
   );
   const performanceMeasurements = performanceEvidence.flatMap((item) => item.artifact.timings);
-  const axeViolations = a11yEvidence
+  const axeViolations = testEvidence
     .flatMap((item) => item.artifact.axe)
     .reduce((total, result) => total + result.violations, 0);
 
   if (a11yEvidence.length === 0) failures.push('accessibility evidence is missing');
+  if (axeViolations > 0) failures.push('accessibility evidence contains Axe violations');
   if (screenshots.filter((item) => item.locale === 'is').length < 8) {
     failures.push('Icelandic visual evidence is incomplete');
   }
@@ -190,6 +393,9 @@ export function assembleEvidenceManifest({
     failures.push('English visual evidence is incomplete');
   }
   if (performanceMeasurements.length === 0) failures.push('performance evidence is missing');
+  for (const measurement of performanceMeasurements) {
+    if (!measurement.passed) failures.push(`performance timing failed: ${measurement.name}`);
+  }
 
   const scenarios = evaluationScenarioCatalogue.scenarios.map((scenario) => {
     const requiredStages = scenarioStages[scenario.id] ?? [];
@@ -292,44 +498,6 @@ async function runCommandStage(
   });
 }
 
-interface RetriedResetBoundaryOptions {
-  attempts?: number;
-  retryDelayMs?: number;
-  sleep?: (milliseconds: number) => Promise<void>;
-  onRetry?: (attempt: number) => void;
-}
-
-export async function runRetriedResetBoundary(
-  runReset: () => Promise<EvaluationStageResult>,
-  runHealth: () => Promise<EvaluationStageResult>,
-  {
-    attempts = 3,
-    retryDelayMs = 2_000,
-    sleep = (milliseconds) =>
-      new Promise<void>((resolveWait) => setTimeout(resolveWait, milliseconds)),
-    onRetry = () => undefined
-  }: RetriedResetBoundaryOptions = {}
-): Promise<EvaluationStageResult[]> {
-  let resetResult: EvaluationStageResult | undefined;
-  let healthResult: EvaluationStageResult | undefined;
-
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    resetResult = await runReset();
-    healthResult = resetResult.passed ? await runHealth() : undefined;
-
-    if (resetResult.passed && healthResult?.passed) {
-      return [resetResult, healthResult];
-    }
-
-    if (attempt < attempts) {
-      onRetry(attempt);
-      await sleep(retryDelayMs);
-    }
-  }
-
-  return healthResult ? [resetResult!, healthResult] : [resetResult!];
-}
-
 async function startManagedServer(lane: 'e2e' | 'a11y' | 'visual'): Promise<{
   child: ChildProcess;
   result: EvaluationStageResult;
@@ -390,6 +558,35 @@ async function startManagedServer(lane: 'e2e' | 'a11y' | 'visual'): Promise<{
   }
 }
 
+async function captureSupabaseHealth(
+  lane: 'database' | 'e2e' | 'a11y' | 'visual' | 'performance'
+): Promise<EvaluationStageResult> {
+  const name = `supabase-health-${lane}`;
+  const logPath = join(stageRoot, `${name}.log`);
+
+  try {
+    const authHealthUrl = new URL('/auth/v1/health', getLocalSupabaseStatus().apiUrl).toString();
+    await waitForHealth({ url: authHealthUrl, timeoutMs: 60_000 });
+    writeFileSync(logPath, `Healthy: ${authHealthUrl}\n`, 'utf8');
+    return {
+      name,
+      passed: true,
+      exitCode: 0,
+      evidencePaths: [relative(repositoryRoot, logPath)]
+    };
+  } catch (error) {
+    const failure = error instanceof Error ? error.message : String(error);
+    writeFileSync(logPath, `${failure}\n`, 'utf8');
+    return {
+      name,
+      passed: false,
+      exitCode: null,
+      failure,
+      evidencePaths: [relative(repositoryRoot, logPath)]
+    };
+  }
+}
+
 export function getManagedServerEnvironment(
   status: Pick<LocalSupabaseStatus, 'apiUrl' | 'publishableKey'>,
   baseEnvironment: NodeJS.ProcessEnv = process.env,
@@ -409,10 +606,6 @@ export function getManagedServerEnvironment(
 export function getEvaluationAppOrigin(baseEnvironment: NodeJS.ProcessEnv = process.env): string {
   const port = baseEnvironment.HUNDAVAENT_E2E_APP_PORT?.trim() || '4173';
   return `http://127.0.0.1:${port}`;
-}
-
-export function getSupabaseAuthHealthUrl(status: Pick<LocalSupabaseStatus, 'apiUrl'>): string {
-  return new URL('/auth/v1/health', status.apiUrl).toString();
 }
 
 async function stopManagedServer(child: ChildProcess): Promise<void> {
@@ -441,6 +634,17 @@ async function runEvaluationLane(
     encoding: 'utf8'
   }).trim();
   let server: ChildProcess | undefined;
+
+  if (
+    commitSha === requestedCommitSha &&
+    (lane === 'database' ||
+      lane === 'e2e' ||
+      lane === 'a11y' ||
+      lane === 'visual' ||
+      lane === 'performance')
+  ) {
+    stageResults.push(await captureSupabaseHealth(lane));
+  }
 
   if (commitSha !== requestedCommitSha) {
     stageResults.push({
@@ -519,6 +723,17 @@ async function aggregateEvaluationLanes(expectedCommitSha: string): Promise<void
     ? readdirSync(laneRoot)
         .filter((name) => name.endsWith('.json'))
         .flatMap((name) => {
+          const laneArtifactPath = relative(repositoryRoot, join(laneRoot, name));
+          const fileValidation = validateArtifactFile(
+            laneArtifactPath,
+            ['test-results/evaluation/lanes'],
+            repositoryRoot,
+            'lane artifact'
+          );
+          if (fileValidation.failures.length > 0) {
+            laneReadFailures.push(...fileValidation.failures);
+            return [];
+          }
           try {
             return [JSON.parse(readFileSync(join(laneRoot, name), 'utf8')) as EvaluationLaneResult];
           } catch (error) {
@@ -530,24 +745,25 @@ async function aggregateEvaluationLanes(expectedCommitSha: string): Promise<void
         })
     : [];
   const collected = collectEvaluationLaneResults(laneResults, expectedCommitSha);
-  const missingEvidence = collected.stageResults
-    .filter((stage) => stage.passed)
-    .flatMap((stage) =>
-      stage.evidencePaths
-        .filter((path) => !existsSync(join(repositoryRoot, path)))
-        .map((path) => `${stage.name} evidence is missing: ${path}`)
-    );
+  const laneArtifactFailures = validateEvaluationLaneArtifactFiles(
+    collected.laneResults,
+    repositoryRoot
+  );
+  const loadedTestEvidence = loadTestEvidence(join(repositoryRoot, 'test-results'), repositoryRoot);
+  const testEvidence = loadedTestEvidence.evidence;
+  const testEvidenceFailures = loadedTestEvidence.failures;
   const aggregationFailures = unique([
     ...collected.failures,
     ...laneReadFailures,
-    ...missingEvidence,
+    ...laneArtifactFailures,
+    ...testEvidenceFailures,
     ...(aggregateCommitSha === expectedCommitSha
       ? []
       : [
           `aggregate observed unexpected commit ${aggregateCommitSha}; expected ${expectedCommitSha}`
         ])
   ]);
-  const measuredLaneResults = laneResults.filter(
+  const measuredLaneResults = collected.laneResults.filter(
     (result) => Number.isFinite(result.durationMs) && result.durationMs >= 0
   );
   const serialEquivalentMs = measuredLaneResults.reduce(
@@ -581,7 +797,7 @@ async function aggregateEvaluationLanes(expectedCommitSha: string): Promise<void
   writeFileSync(
     aggregationLogPath,
     aggregationFailures.length === 0
-      ? `Aggregated ${laneResults.length} exact-SHA evaluation lanes.\n`
+      ? `Aggregated ${collected.laneResults.length} exact-SHA evaluation lanes.\n`
       : `${aggregationFailures.join('\n')}\n`,
     'utf8'
   );
@@ -599,14 +815,15 @@ async function aggregateEvaluationLanes(expectedCommitSha: string): Promise<void
   const generatedAt = new Date().toISOString();
   const manifest = assembleEvidenceManifest({
     stageResults,
-    testEvidence: [
-      join(repositoryRoot, 'test-results/a11y'),
-      join(repositoryRoot, 'test-results/visual'),
-      join(repositoryRoot, 'test-results/performance')
-    ].flatMap(loadTestEvidence),
+    testEvidence,
     commitSha: expectedCommitSha,
     generatedAt
   });
+  const manifestFileFailures = validateManifestArtifactFiles(manifest, repositoryRoot);
+  if (manifestFileFailures.length > 0) {
+    manifest.verdict.status = 'fail';
+    manifest.verdict.failures.push(...manifestFileFailures);
+  }
   const validation = validateEvidenceManifest(manifest);
   if (!validation.valid) {
     manifest.verdict.status = 'fail';
@@ -618,7 +835,7 @@ async function aggregateEvaluationLanes(expectedCommitSha: string): Promise<void
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      `### Parallel evaluation\n\n- Commit: ${expectedCommitSha}\n- Lanes received: ${laneResults.length}/${evaluationLaneNames.length}\n- Serial-equivalent command time: ${formatDuration(serialEquivalentMs)}\n- Parallel command critical path: ${formatDuration(parallelCriticalPathMs)}\n- Command-time reduction: ${serialEquivalentMs === 0 ? 0 : Math.round((1 - parallelCriticalPathMs / serialEquivalentMs) * 100)}%\n- Verdict: ${manifest.verdict.status}\n`,
+      `### Parallel evaluation\n\n- Commit: ${expectedCommitSha}\n- Lanes accepted: ${collected.laneResults.length}/${evaluationLaneNames.length}\n- Serial-equivalent command time: ${formatDuration(serialEquivalentMs)}\n- Parallel command critical path: ${formatDuration(parallelCriticalPathMs)}\n- Command-time reduction: ${serialEquivalentMs === 0 ? 0 : Math.round((1 - parallelCriticalPathMs / serialEquivalentMs) * 100)}%\n- Verdict: ${manifest.verdict.status}\n`,
       'utf8'
     );
   }
@@ -657,14 +874,70 @@ async function main(): Promise<void> {
   await runEvaluationLane(lane, requestedCommitSha);
 }
 
-function loadTestEvidence(root: string): LoadedTestEvidence[] {
-  if (!existsSync(root)) return [];
-  return walkFiles(root)
-    .filter((path) => path.endsWith('.json') && path.includes('evaluation-evidence-'))
-    .map((path) => ({
-      path: relative(repositoryRoot, path),
-      artifact: JSON.parse(readFileSync(path, 'utf8')) as TestEvidenceArtifact
-    }));
+export function loadTestEvidence(
+  root: string,
+  repository: string = repositoryRoot
+): LoadedTestEvidenceResult {
+  const testResultsRoot = resolve(repository, 'test-results');
+  const scanRoot = resolve(root);
+  if (!isPathWithin(testResultsRoot, scanRoot)) {
+    return {
+      evidence: [],
+      failures: [`test evidence scan root escapes test-results: ${root}`]
+    };
+  }
+  if (!existsSync(scanRoot)) return { evidence: [], failures: [] };
+  const evidence: LoadedTestEvidence[] = [];
+  const failures: string[] = [];
+
+  for (const path of walkFiles(scanRoot).filter(
+    (candidate) => candidate.endsWith('.json') && candidate.includes('evaluation-evidence-')
+  )) {
+    const relativePath = relative(repository, path);
+    const firstArtifactSegment = relative(testResultsRoot, path).split(/[\\/]/, 1)[0];
+    const allowedRoot = join('test-results', firstArtifactSegment);
+    const evidenceFileValidation = validateArtifactFile(
+      relativePath,
+      [allowedRoot],
+      repository,
+      'test evidence file'
+    );
+    if (evidenceFileValidation.failures.length > 0) {
+      failures.push(...evidenceFileValidation.failures);
+      continue;
+    }
+
+    let input: unknown;
+    try {
+      input = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+    } catch (error) {
+      failures.push(
+        `could not parse test evidence ${relativePath}: ${error instanceof Error ? error.message : String(error)}`
+      );
+      continue;
+    }
+    const validationErrors = validateTestEvidenceArtifact(input);
+    if (validationErrors.length > 0) {
+      failures.push(
+        ...validationErrors.map((error) => `invalid test evidence ${relativePath}: ${error}`)
+      );
+      continue;
+    }
+
+    const artifact = input as TestEvidenceArtifact;
+    const screenshotFailures = artifact.screenshots.flatMap(
+      (screenshot) =>
+        validateArtifactFile(screenshot.path, [allowedRoot], repository, 'screenshot').failures
+    );
+    if (screenshotFailures.length > 0) {
+      failures.push(...screenshotFailures);
+      continue;
+    }
+
+    evidence.push({ path: relativePath, artifact });
+  }
+
+  return { evidence, failures: unique(failures) };
 }
 
 function walkFiles(root: string): string[] {

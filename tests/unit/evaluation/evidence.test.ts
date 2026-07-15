@@ -117,6 +117,24 @@ describe('evaluation evidence manifest', () => {
       );
     }
   });
+
+  it('rejects nonzero Axe violations and failed performance budgets', () => {
+    const unsafe = structuredClone(validManifest);
+    unsafe.accessibility.axeViolations = 1;
+    unsafe.performance.measurements[0].passed = false;
+
+    const result = validateEvidenceManifest(unsafe);
+
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          'accessibility.axeViolations must equal zero',
+          'performance.measurements[0] failed its budget'
+        ])
+      );
+    }
+  });
 });
 
 describe('required evaluation scenario catalogue', () => {
