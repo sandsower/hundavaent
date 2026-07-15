@@ -13,7 +13,7 @@
   let { lang, copy, title, body }: Props = $props();
 </script>
 
-<main class="stub-shell">
+<main class="stub-shell" data-ui-mode="place">
   <section class="stub-card">
     <p class="eyebrow">{copy['site.name']}</p>
     <h1>{title}</h1>
@@ -25,23 +25,24 @@
 <style>
   .stub-shell {
     display: grid;
-    min-height: calc(100vh - 6rem);
-    padding: 2rem 1rem;
+    min-height: calc(100vh - var(--hv-app-header-height));
+    padding: clamp(1.5rem, 4vw, 3rem) 1rem;
     place-items: start center;
+    background: var(--hv-color-snow);
   }
 
   .stub-card {
     width: min(100%, 42rem);
     padding: clamp(1.5rem, 5vw, 3rem);
-    border: 2px solid var(--ink);
-    border-radius: var(--radius-organic);
-    background: var(--paper-light);
-    box-shadow: 0.55rem 0.55rem 0 var(--amber);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
   }
 
   .eyebrow {
     margin: 0 0 0.5rem;
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     font-size: 0.8rem;
     font-weight: 850;
     letter-spacing: 0.12em;
@@ -50,9 +51,12 @@
 
   h1 {
     margin: 0;
+    color: var(--hv-color-basalt);
+    font-family: var(--hv-font-display);
     font-size: clamp(2.4rem, 8vw, 4.5rem);
+    font-weight: 650;
     line-height: 0.95;
-    letter-spacing: -0.05em;
+    letter-spacing: -0.035em;
   }
 
   p:not(.eyebrow) {
@@ -63,12 +67,11 @@
   a {
     display: inline-flex;
     padding: 0.7rem 1rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
-    color: var(--ink);
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-signal);
+    color: var(--hv-color-basalt);
     font-weight: 850;
     text-decoration: none;
-    box-shadow: 0 0.18rem 0 var(--ink);
   }
 </style>
