@@ -62,8 +62,12 @@ describe('PlaceList', () => {
     expect(screen.getByRole('list', { name: 'List' })).toBeTruthy();
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
     expect(screen.getByText(/Park or outdoor area/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Sign in to save Published Place' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Sign in to save Second Place' })).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: 'Sign in to add Published Place to favorites' })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: 'Sign in to add Second Place to favorites' })
+    ).toBeTruthy();
   });
 
   it('exposes selected state and activates through keyboard semantics', async () => {

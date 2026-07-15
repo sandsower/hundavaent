@@ -3,6 +3,43 @@ import { describe, expect, it, vi } from 'vitest';
 import { load } from '../../../src/routes/[lang=lang]/+page.server';
 
 describe('Discovery Member boundary', () => {
+  it('fails closed when the requested private Favorites projection is unavailable', async () => {
+    const rpc = vi.fn(async (name: string) => {
+      if (name === 'list_published_places') return { data: [], error: null };
+      if (name === 'list_current_favourite_ids') {
+        return { data: null, error: { code: 'infrastructure' } };
+      }
+      if (name === 'get_check_in_policy') {
+        return { data: [{ proximity_assist_enabled: false }], error: null };
+      }
+      throw new Error(`Unexpected RPC: ${name}`);
+    });
+
+    await expect(
+      load({
+        locals: { supabase: { rpc }, requestId: 'request-favorites-unavailable' },
+        params: { lang: 'en' },
+        parent: vi.fn(async () => ({ signedIn: true })),
+        setHeaders: vi.fn(),
+        url: new URL('http://localhost/en?favorites=1')
+      } as never)
+    ).rejects.toMatchObject({ status: 503 });
+  });
+
+  it('normalizes the private Favorites filter away for signed-out visitors', async () => {
+    const rpc = vi.fn(async () => ({ data: [], error: null }));
+
+    await expect(
+      load({
+        locals: { supabase: { rpc }, requestId: 'request-normalize-favorites' },
+        params: { lang: 'en' },
+        parent: vi.fn(async () => ({ signedIn: false })),
+        setHeaders: vi.fn(),
+        url: new URL('http://localhost/en?favorites=1&q=park')
+      } as never)
+    ).rejects.toMatchObject({ status: 303, location: '/en?q=park' });
+  });
+
   it('loads only public Places when the canonical layout is signed out', async () => {
     const rpc = vi.fn(async (name: string) => {
       if (name !== 'list_published_places') throw new Error(`Unexpected private RPC: ${name}`);

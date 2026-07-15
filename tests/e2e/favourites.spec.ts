@@ -25,7 +25,7 @@ async function completeEmailSignIn(page: Page, email: string): Promise<void> {
   await waitForHydration(page);
 }
 
-test('Favourites require explicit confirmation and stay private across views, tabs, and sessions', async ({
+test('Favorites stay private and synchronize across authentication, views, tabs, and sessions', async ({
   browser,
   context,
   page
@@ -37,11 +37,15 @@ test('Favourites require explicit confirmation and stay private across views, ta
 
   await page.goto(originPath);
   await waitForHydration(page);
-  const resultSignIn = page.getByRole('link', { name: 'Sign in to save Published Place' });
+  const resultSignIn = page.getByRole('link', {
+    name: 'Sign in to add Published Place to favorites'
+  });
   await expect(resultSignIn).toBeVisible();
   await resultSignIn.click();
   await expect(page).toHaveURL(originPath);
-  await expect(page.getByRole('dialog', { name: 'Save Published Place for later' })).toBeVisible();
+  await expect(
+    page.getByRole('dialog', { name: 'Add Published Place to your favorites' })
+  ).toBeVisible();
   const expectedReturn = new URL(originPath, 'http://localhost');
 
   await completeEmailSignIn(page, email);
@@ -61,7 +65,7 @@ test('Favourites require explicit confirmation and stay private across views, ta
   ).toEqual({ placeIds: [placeId] });
 
   await expect(
-    page.getByRole('button', { name: 'Remove Published Place from saved places' })
+    page.getByRole('button', { name: 'Remove Published Place from favorites' })
   ).toBeVisible();
   await expect(page).not.toHaveURL(/favourite=/);
   await expect(page).toHaveURL(/view=list/);
@@ -72,7 +76,7 @@ test('Favourites require explicit confirmation and stay private across views, ta
   const otherTab = await context.newPage();
   await otherTab.goto(`/en?place=${placeId}&view=map`);
   await expect(
-    otherTab.getByRole('button', { name: 'Remove Published Place from saved places' })
+    otherTab.getByRole('button', { name: 'Remove Published Place from favorites' })
   ).toBeVisible();
   // The assertion above is satisfied by the server-rendered HTML alone, but the cross-tab
   // favourite invalidation below travels over a BroadcastChannel this tab only subscribes to
@@ -82,43 +86,45 @@ test('Favourites require explicit confirmation and stay private across views, ta
   // hydration first guarantees the listener exists before anything is published.
   await waitForHydration(otherTab);
 
-  await page.getByRole('button', { name: 'Remove Published Place from saved places' }).click();
+  await page.getByRole('button', { name: 'Remove Published Place from favorites' }).click();
   // Cross-tab convergence is a multi-hop round trip (the acting tab's PUT, a broadcast, this
   // tab's own GET and re-render), so it gets headroom beyond the suite's 5s assertion default.
-  await expect(otherTab.getByRole('button', { name: 'Save Published Place' })).toBeVisible({
+  await expect(
+    otherTab.getByRole('button', { name: 'Add Published Place to favorites' })
+  ).toBeVisible({
     timeout: 15_000
   });
 
-  await page.getByRole('button', { name: 'Save Published Place' }).click();
+  await page.getByRole('button', { name: 'Add Published Place to favorites' }).click();
   await expect(
-    otherTab.getByRole('button', { name: 'Remove Published Place from saved places' })
+    otherTab.getByRole('button', { name: 'Remove Published Place from favorites' })
   ).toBeVisible({ timeout: 15_000 });
 
-  const savedResponse = await otherTab.goto('/en/saved');
+  const savedResponse = await otherTab.goto('/en/favorites');
   expect(savedResponse?.headers()['cache-control']).toBe('private, no-store');
   expect(savedResponse?.headers().vary).toContain('cookie');
-  await expect(otherTab.getByRole('heading', { name: 'Saved places' })).toBeVisible();
+  await expect(otherTab.getByRole('heading', { name: 'Favorites' })).toBeVisible();
   await expect(otherTab.getByRole('heading', { name: 'Published Place' })).toBeVisible();
   // Same reasoning as above: the saved-places page also subscribes during onMount, and its
   // remove button below must not be clicked until hydration has attached the event handler.
   await waitForHydration(otherTab);
 
-  await page.getByRole('button', { name: 'Remove Published Place from saved places' }).click();
-  await expect(otherTab.getByRole('heading', { name: 'No saved places yet' })).toBeVisible({
+  await page.getByRole('button', { name: 'Remove Published Place from favorites' }).click();
+  await expect(otherTab.getByRole('heading', { name: 'No favorites yet' })).toBeVisible({
     timeout: 15_000
   });
 
-  await page.getByRole('button', { name: 'Save Published Place' }).click();
+  await page.getByRole('button', { name: 'Add Published Place to favorites' }).click();
   await expect(otherTab.getByRole('heading', { name: 'Published Place' })).toBeVisible({
     timeout: 15_000
   });
 
-  await otherTab.getByRole('button', { name: 'Remove Published Place from saved places' }).click();
-  await expect(page.getByRole('button', { name: 'Save Published Place' })).toBeVisible({
+  await otherTab.getByRole('button', { name: 'Remove Published Place from favorites' }).click();
+  await expect(page.getByRole('button', { name: 'Add Published Place to favorites' })).toBeVisible({
     timeout: 15_000
   });
 
-  await page.getByRole('button', { name: 'Save Published Place' }).click();
+  await page.getByRole('button', { name: 'Add Published Place to favorites' }).click();
   await expect(otherTab.getByRole('heading', { name: 'Published Place' })).toBeVisible({
     timeout: 15_000
   });
@@ -128,14 +134,14 @@ test('Favourites require explicit confirmation and stay private across views, ta
   const visitorResponse = await visitor.request.get('/api/favourites');
   expect(visitorResponse.status()).toBe(401);
   const visitorPage = await visitor.newPage();
-  await visitorPage.goto('/en/saved');
+  await visitorPage.goto('/en/favorites');
   await expect(visitorPage).toHaveURL(
-    `/en?auth=open&authReturnTo=${encodeURIComponent('/en/saved')}`
+    `/en?auth=open&authReturnTo=${encodeURIComponent('/en/favorites')}`
   );
   await expect(visitorPage.getByRole('dialog')).toBeVisible();
   await visitor.close();
 
-  await page.goto('/en/account?returnTo=%2Fen%2Fsaved');
+  await page.goto('/en/account?returnTo=%2Fen%2Ffavorites');
   await waitForHydration(page);
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeEnabled();
@@ -144,7 +150,7 @@ test('Favourites require explicit confirmation and stay private across views, ta
   await clearLocalEvaluationMailbox();
   await new Promise((resolve) => setTimeout(resolve, 1_100));
   await completeEmailSignIn(page, email);
-  await expect(page).toHaveURL('/en/saved');
+  await expect(page).toHaveURL('/en/favorites');
   await expect(page.getByRole('heading', { name: 'Published Place' })).toBeVisible();
 });
 
@@ -154,22 +160,22 @@ test('an Inactive saved Place stays recognizable and removable without exposing 
   const email = `inactive-favourite-${Date.now()}@example.invalid`;
   await page.goto(`/en/account?returnTo=${encodeURIComponent(`/en?place=${placeId}&view=map`)}`);
   await completeEmailSignIn(page, email);
-  await page.getByRole('button', { name: 'Save Published Place' }).click();
+  await page.getByRole('button', { name: 'Add Published Place to favorites' }).click();
   await expect(
-    page.getByRole('button', { name: 'Remove Published Place from saved places' })
+    page.getByRole('button', { name: 'Remove Published Place from favorites' })
   ).toBeVisible();
 
   setLocalPlaceLifecycle(placeId, 'inactive');
   try {
-    await page.goto('/en/saved');
+    await page.goto('/en/favorites');
     await expect(page.getByRole('heading', { name: 'Published Place' })).toBeVisible();
     await expect(page.getByText('This place is no longer active')).toBeVisible();
     await expect(page.getByText('Private moderation details are not shown.')).toBeVisible();
     // The remove button's click handler only exists after hydration; clicking the
     // server-rendered button early would silently do nothing.
     await waitForHydration(page);
-    await page.getByRole('button', { name: 'Remove Published Place from saved places' }).click();
-    await expect(page.getByRole('heading', { name: 'No saved places yet' })).toBeVisible();
+    await page.getByRole('button', { name: 'Remove Published Place from favorites' }).click();
+    await expect(page.getByRole('heading', { name: 'No favorites yet' })).toBeVisible();
   } finally {
     setLocalPlaceLifecycle(placeId, 'published');
   }

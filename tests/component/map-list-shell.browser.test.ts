@@ -129,7 +129,7 @@ function deferred<T>() {
 }
 
 describe('MapListShell synchronization', () => {
-  it('preserves the exact signed-out result view while adding only a save intent', async () => {
+  it('preserves the exact signed-out result view without a legacy Favorite marker', async () => {
     const origin = `/en?place=${places[0].placeId}&lat=64.12&lng=-21.91&z=11&view=list&q=Published&category=outdoors&area=Reykjav%C3%ADk#saved-origin`;
     history.replaceState(null, '', origin);
     render(MapListShell, {
@@ -144,7 +144,7 @@ describe('MapListShell synchronization', () => {
     });
 
     const invitation = await screen.findByRole('link', {
-      name: 'Sign in to save Published Place'
+      name: 'Sign in to add Published Place to favorites'
     });
     const accountUrl = new URL(invitation.getAttribute('href') ?? '', window.location.origin);
     const returnTo = new URL(
@@ -155,7 +155,7 @@ describe('MapListShell synchronization', () => {
     expect(accountUrl.pathname).toBe('/en/account');
     expect(returnTo.pathname).toBe('/en');
     expect(returnTo.searchParams.get('place')).toBe(places[0].placeId);
-    expect(returnTo.searchParams.get('favourite')).toBe(places[0].placeId);
+    expect(returnTo.searchParams.has('favourite')).toBe(false);
     expect(returnTo.searchParams.get('view')).toBe('list');
     expect(returnTo.searchParams.get('q')).toBe('Published');
     expect(returnTo.searchParams.get('category')).toBe('outdoors');
@@ -166,8 +166,8 @@ describe('MapListShell synchronization', () => {
     expect(returnTo.hash).toBe('#saved-origin');
   });
 
-  it('shows explicit post-auth confirmation on the originating result surface', () => {
-    history.replaceState(null, '', `/en?favourite=${places[0].placeId}&view=list#saved-origin`);
+  it('renders the Favorite completed by the cross-device auth intent without reconfirmation', () => {
+    history.replaceState(null, '', `/en?place=${places[0].placeId}&view=list#favorite-origin`);
     render(MapListShell, {
       places,
       lang: 'en',
@@ -178,13 +178,13 @@ describe('MapListShell synchronization', () => {
       pushUrl,
       loadPlace: vi.fn(async () => complexProfile),
       signedIn: true,
-      pendingFavouritePlaceId: places[0].placeId
+      initialFavouritePlaceIds: [places[0].placeId]
     });
 
-    expect(screen.getByRole('button', { name: 'Confirm saving Published Place' })).toBeTruthy();
     expect(
-      screen.getByText('You are signed in again. Confirm that you want to save this place.')
+      screen.getByRole('button', { name: 'Remove Published Place from favorites' })
     ).toBeTruthy();
+    expect(screen.queryByText(/confirm/i)).toBeNull();
     expect(screen.queryByLabelText('Selected place')).toBeNull();
   });
 
@@ -224,10 +224,12 @@ describe('MapListShell synchronization', () => {
         })
       );
 
-      await fireEvent.click(screen.getByRole('button', { name: 'Save Published Place' }));
+      await fireEvent.click(
+        screen.getByRole('button', { name: 'Add Published Place to favorites' })
+      );
       await waitFor(() =>
         expect(
-          screen.getByRole('button', { name: 'Remove Published Place from saved places' })
+          screen.getByRole('button', { name: 'Remove Published Place from favorites' })
         ).toBeTruthy()
       );
 
@@ -240,10 +242,79 @@ describe('MapListShell synchronization', () => {
       await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
 
       expect(
-        screen.getByRole('button', { name: 'Remove Published Place from saved places' })
+        screen.getByRole('button', { name: 'Remove Published Place from favorites' })
       ).toBeTruthy();
     } finally {
       external.close();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('exposes a signed-in Favorites-only filter and serializes it canonically', async () => {
+    history.replaceState(null, '', '/en?view=list');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: { ...defaultDiscoveryState, view: 'list' },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile),
+      signedIn: true,
+      initialFavouritePlaceIds: []
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('checkbox', { name: 'Favorites only' }));
+
+    expect(window.location.search).toContain('favorites=1');
+    expect(screen.getByRole('button', { name: 'Show 0 results' })).toBeTruthy();
+  });
+
+  it('clears a selected Place and restores stable focus when it leaves Favorites-only results', async () => {
+    history.replaceState(null, '', `/en?place=${places[0].placeId}&favorites=1`);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'PUT') {
+          return new Response(JSON.stringify({ placeId: places[0].placeId, isFavourite: false }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          });
+        }
+        return new Response(JSON.stringify(complexProfile), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        });
+      })
+    );
+
+    try {
+      render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: {
+          ...defaultDiscoveryState,
+          selectedPlaceId: places[0].placeId,
+          filters: { ...defaultDiscoveryState.filters, favoritesOnly: true }
+        },
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        signedIn: true,
+        initialFavouritePlaceIds: [places[0].placeId]
+      });
+
+      await fireEvent.click(
+        screen.getByRole('button', { name: 'Remove Published Place from favorites' })
+      );
+
+      await waitFor(() => expect(screen.queryByLabelText('Selected place')).toBeNull());
+      expect(window.location.search).not.toContain('place=');
+      expect(screen.getByRole('button', { name: 'Show filters' })).toHaveFocus();
+    } finally {
       vi.unstubAllGlobals();
     }
   });
@@ -345,7 +416,9 @@ describe('MapListShell synchronization', () => {
     expect(within(selectedPlace).getByText('9 July 2026')).toBeTruthy();
     expect(within(selectedPlace).queryByText('Not yet rated')).toBeNull();
     expect(
-      within(selectedPlace).getByRole('link', { name: 'Sign in to save Published Place' })
+      within(selectedPlace).getByRole('link', {
+        name: 'Sign in to add Published Place to favorites'
+      })
     ).toBeTruthy();
     expect(within(selectedPlace).queryByText('Sign in to check in')).toBeNull();
     expect(within(selectedPlace).queryByText('Sign in to rate this place')).toBeNull();
@@ -359,7 +432,7 @@ describe('MapListShell synchronization', () => {
     );
   });
 
-  it('answers the welcome question before showing signed-in actions', () => {
+  it('keeps Favorite and Share together in the selected Place header', () => {
     history.replaceState(null, '', '/en?place=30000000-0000-4000-8000-000000000003');
     render(MapListShell, {
       places,
@@ -374,9 +447,13 @@ describe('MapListShell synchronization', () => {
     });
 
     const card = screen.getByLabelText('Selected place');
-    const question = within(card).getByRole('heading', { name: 'Are dogs welcome?' });
-    const save = within(card).getByRole('button', { name: 'Save Published Place' });
-    expect(question.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const favorite = within(card).getByRole('button', {
+      name: 'Add Published Place to favorites'
+    });
+    const share = within(card).getByRole('button', { name: 'Share Published Place' });
+    const close = within(card).getByRole('button', { name: 'Close selected place' });
+    expect(favorite.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(share.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('asks the friendly welcome question in Icelandic with concise trust metadata', () => {
@@ -812,7 +889,9 @@ describe('MapListShell synchronization', () => {
       within(fallbackList).getByRole('button', { name: 'Select Published Place' })
     ).toBeTruthy();
     expect(
-      within(fallbackList).getByRole('link', { name: 'Sign in to save Published Place' })
+      within(fallbackList).getByRole('link', {
+        name: 'Sign in to add Published Place to favorites'
+      })
     ).toBeTruthy();
 
     const fallbackResult = within(fallbackList).getByRole('button', {

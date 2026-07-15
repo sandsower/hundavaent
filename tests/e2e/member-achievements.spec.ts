@@ -47,9 +47,9 @@ test('a real Favourite moves the private catalogue from locked to newly earned t
   // 2. Saving a Favourite through the real discovery UI unlocks First Favourite.
   await page.goto('/en?view=list&q=Published');
   await waitForHydration(page);
-  await page.getByRole('button', { name: 'Save Published Place' }).click();
+  await page.getByRole('button', { name: 'Add Published Place to favorites' }).click();
   await expect(
-    page.getByRole('button', { name: 'Remove Published Place from saved places' })
+    page.getByRole('button', { name: 'Remove Published Place from favorites' })
   ).toBeVisible();
 
   // 3. The next catalogue view shows the one-time newly-earned marker with an earned date.
@@ -75,8 +75,10 @@ test('a real Favourite moves the private catalogue from locked to newly earned t
   // Retire this member's Favourite of the shared published fixture Place.
   await page.goto('/en?view=list&q=Published');
   await waitForHydration(page);
-  await page.getByRole('button', { name: 'Remove Published Place from saved places' }).click();
-  await expect(page.getByRole('button', { name: 'Save Published Place' })).toBeVisible();
+  await page.getByRole('button', { name: 'Remove Published Place from favorites' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Add Published Place to favorites' })
+  ).toBeVisible();
 });
 
 test('unauthenticated requests cannot reach or discover any Achievement state', async ({

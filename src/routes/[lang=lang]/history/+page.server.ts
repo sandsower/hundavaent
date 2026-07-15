@@ -34,7 +34,7 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
     error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
   }
   // Private personal-history route: session-gated above and never publicly cacheable, matching
-  // the check-in API and the /saved route's privacy posture.
+  // the check-in API and the /favorites route's privacy posture.
   setHeaders({ 'cache-control': 'private, no-store', vary: 'cookie' });
 
   const view = parseView(url.searchParams.get('view'));

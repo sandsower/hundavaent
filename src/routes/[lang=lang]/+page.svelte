@@ -35,7 +35,6 @@
     adapter={mapAdapter}
     signedIn={data.signedIn === true}
     initialFavouritePlaceIds={data.favouritePlaceIds ?? []}
-    pendingFavouritePlaceId={data.pendingFavourite ?? null}
     proximityAssistEnabled={data.proximityAssistEnabled === true}
     fitPlacesOnMount={data.fitPlacesOnMount === true}
   />

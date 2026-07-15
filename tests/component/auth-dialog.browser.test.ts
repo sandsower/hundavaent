@@ -30,7 +30,7 @@ describe('AuthDialog', () => {
     });
 
     expect(await screen.findByRole('dialog')).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Save Brikk for later' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Add Brikk to your favorites' })).toBeTruthy();
     const buttons = screen.getAllByRole('button');
     expect(buttons.findIndex((button) => button.textContent?.includes('Facebook'))).toBeLessThan(
       buttons.findIndex((button) => button.textContent?.includes('Send me'))

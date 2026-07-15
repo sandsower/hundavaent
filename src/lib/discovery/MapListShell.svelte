@@ -62,7 +62,6 @@
     loadPlace?: (placeId: string, lang: Locale) => Promise<PublishedPlaceProfile>;
     signedIn?: boolean;
     initialFavouritePlaceIds?: string[];
-    pendingFavouritePlaceId?: string | null;
     proximityAssistEnabled?: boolean;
     fitPlacesOnMount?: boolean;
   }
@@ -79,12 +78,10 @@
     loadPlace = loadPublishedPlace,
     signedIn = false,
     initialFavouritePlaceIds = [],
-    pendingFavouritePlaceId = null,
     proximityAssistEnabled = false,
     fitPlacesOnMount = false
   }: Props = $props();
   let favouritePlaceIds = $state<string[]>(untrack(() => [...initialFavouritePlaceIds]));
-  let pendingFavourite = $state<string | null>(untrack(() => pendingFavouritePlaceId));
   let favouriteRefreshVersion = 0;
   let discoveryState = $state<DiscoveryState>(
     untrack(() => ({
@@ -103,7 +100,7 @@
   let locationOrigin = $state<GeographicPoint | null>(null);
   let locationState = $state<'idle' | 'locating' | 'ready' | 'denied' | 'unavailable'>('idle');
   let filteredPlaces = $derived(
-    filterPublishedPlaces(places, discoveryState.filters, copy, locationOrigin)
+    filterPublishedPlaces(places, discoveryState.filters, copy, locationOrigin, favouritePlaceIds)
   );
   // Marker pins show the launch category glyph; places outside the launch
   // taxonomy fall back to the brand paw.
@@ -205,7 +202,13 @@
         new URL(window.location.href).searchParams,
         initialState.camera
       );
-      const nextFiltered = filterPublishedPlaces(places, next.filters, copy, locationOrigin);
+      const nextFiltered = filterPublishedPlaces(
+        places,
+        next.filters,
+        copy,
+        locationOrigin,
+        favouritePlaceIds
+      );
       discoveryState = {
         ...next,
         selectedPlaceId: reconcileSelectedPlace(next.selectedPlaceId, nextFiltered)
@@ -290,7 +293,9 @@
         Array.isArray(payload.placeIds) &&
         payload.placeIds.every((id) => typeof id === 'string')
       ) {
-        favouritePlaceIds = [...payload.placeIds];
+        const nextFavouritePlaceIds = [...payload.placeIds];
+        favouritePlaceIds = nextFavouritePlaceIds;
+        clearSelectionRemovedByFavoritesFilter(nextFavouritePlaceIds);
       }
     } catch {
       // The current server-rendered state remains usable while another tab retries.
@@ -304,12 +309,27 @@
     else next.delete(placeId);
     favouritePlaceIds = [...next];
 
-    if (favourite && pendingFavourite === placeId && typeof window !== 'undefined') {
-      pendingFavourite = null;
-      const url = new URL(window.location.href);
-      url.searchParams.delete('favourite');
-      replaceUrl(`${url.pathname}${url.search}${url.hash}`);
+    if (!favourite && discoveryState.filters.favoritesOnly) {
+      clearSelectionRemovedByFavoritesFilter([...next]);
     }
+  }
+
+  function clearSelectionRemovedByFavoritesFilter(nextFavouritePlaceIds: readonly string[]): void {
+    const selectedPlaceId = discoveryState.selectedPlaceId;
+    if (
+      !discoveryState.filters.favoritesOnly ||
+      !selectedPlaceId ||
+      nextFavouritePlaceIds.includes(selectedPlaceId)
+    ) {
+      return;
+    }
+
+    selectionFocusOrigin = null;
+    commitState({ ...discoveryState, selectedPlaceId: null }, 'replace');
+    announceResultCount(filteredPlaces.length);
+    void tick().then(() =>
+      document.querySelector<HTMLButtonElement>('.discovery-controls .filters-button')?.focus()
+    );
   }
 
   function favouriteSignInHref(placeId: string): string {
@@ -317,14 +337,14 @@
       typeof window === 'undefined'
         ? new URL(`https://hundavaent.local/${lang}`)
         : new URL(window.location.href);
-    url.searchParams.set('favourite', placeId);
+    url.searchParams.set('place', placeId);
     const returnTo = `${url.pathname}${url.search}${url.hash}`;
     return `/${lang}/account?returnTo=${encodeURIComponent(returnTo)}`;
   }
 
   // Builds a Correction, Report, or Rating entry link for a specific Place field or Access
   // Condition. Signed-out visitors are routed through sign-in with a return path that preserves
-  // the target, mirroring favouriteSignInHref's return-preserving redirect.
+  // the target.
   function correctionHref(
     placeId: string,
     kind: 'correct' | 'report' | 'rate',
@@ -484,7 +504,13 @@
     historyMode: 'push' | 'replace' = 'push'
   ): void {
     clusterPlaceIds = null;
-    const nextFiltered = filterPublishedPlaces(places, filters, copy, locationOrigin);
+    const nextFiltered = filterPublishedPlaces(
+      places,
+      filters,
+      copy,
+      locationOrigin,
+      favouritePlaceIds
+    );
     const selectedPlaceId = reconcileSelectedPlace(discoveryState.selectedPlaceId, nextFiltered);
     commitState({ ...discoveryState, filters, selectedPlaceId }, historyMode);
     announceResultCount(nextFiltered.length);
@@ -582,7 +608,13 @@
           ...discoveryState.filters,
           distanceKm: discoveryState.filters.distanceKm ?? (5 as const)
         };
-        const nextFiltered = filterPublishedPlaces(places, filters, copy, locationOrigin);
+        const nextFiltered = filterPublishedPlaces(
+          places,
+          filters,
+          copy,
+          locationOrigin,
+          favouritePlaceIds
+        );
         commitState(
           {
             ...discoveryState,
@@ -689,6 +721,7 @@
       {locationState}
       {suggestHref}
       showSuggest={filteredPlaces.length === 0}
+      {signedIn}
       onQueryChange={updateQuery}
       onFiltersChange={updateFilters}
       onClear={clearFilters}
@@ -716,7 +749,6 @@
               {signedIn}
               favourite={favouritePlaceIds.includes(selectedPlace.placeId)}
               signInHref={favouriteSignInHref(selectedPlace.placeId)}
-              pendingConfirmation={pendingFavourite === selectedPlace.placeId}
               onFavouriteChange={applyFavouriteState}
               {correctionHref}
               checkInSignInHref={checkInSignInHref(selectedPlace.placeId)}
@@ -741,7 +773,6 @@
             closable={discoveryState.view === 'list' && !mapFailed}
             {signedIn}
             {favouritePlaceIds}
-            pendingFavouritePlaceId={pendingFavourite}
             signInHref={favouriteSignInHref}
             onFavouriteChange={applyFavouriteState}
           />
