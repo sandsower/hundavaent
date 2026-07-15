@@ -219,9 +219,32 @@ async function capture(
   await waitForMapOverlayToSettle(page);
   const viewportWidth = await page.evaluate(() => window.innerWidth);
   const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
-  expect(documentWidth, `${name} must not overflow horizontally`).toBeLessThanOrEqual(
-    viewportWidth
-  );
+  const horizontalOverflow =
+    documentWidth > viewportWidth
+      ? await page.locator('body *').evaluateAll(
+          (elements, width) =>
+            elements
+              .map((element) => {
+                const bounds = element.getBoundingClientRect();
+                return {
+                  element: `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ''}${
+                    element.classList.length ? `.${[...element.classList].join('.')}` : ''
+                  }`,
+                  left: bounds.left,
+                  right: bounds.right,
+                  width: bounds.width
+                };
+              })
+              .filter(({ left, right }) => left < 0 || right > width)
+              .sort((a, b) => b.right - a.right)
+              .slice(0, 10),
+          viewportWidth
+        )
+      : [];
+  expect(
+    documentWidth,
+    `${name} must not overflow horizontally: ${JSON.stringify(horizontalOverflow)}`
+  ).toBeLessThanOrEqual(viewportWidth);
   await page.locator('img').evaluateAll(async (images) => {
     await Promise.all(images.map((image) => (image as HTMLImageElement).decode()));
   });
@@ -1036,6 +1059,7 @@ for (const locale of ['is', 'en'] as const) {
         name: copy[locale].selectedPlace
       });
       await expect(selectedRatingProfile).toHaveAttribute('data-overlay', 'place');
+      await selectedRatingProfile.locator('summary').click();
       const ratingEvidence = selectedRatingProfile.locator('[data-rating-summary]');
       await expect(ratingEvidence).toHaveAttribute('data-rating-visible', 'true');
       await expect(ratingEvidence).toHaveAttribute('data-surface', 'rating-evidence');

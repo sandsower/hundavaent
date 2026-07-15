@@ -256,6 +256,10 @@
 
 <style>
   .workspace {
+    display: grid;
+    height: calc(100dvh - 7.5rem);
+    min-height: 40rem;
+    grid-template-rows: auto minmax(0, 1fr);
     overflow: hidden;
     border-color: var(--hv-color-basalt);
     border-radius: var(--hv-radius-shell);
@@ -283,7 +287,7 @@
   }
   .workspace-top p {
     margin-top: 0.2rem;
-    color: #dce3df;
+    color: var(--hv-border-subtle);
     font-size: 0.78rem;
   }
   .workspace-top strong {
@@ -298,7 +302,7 @@
   .workspace-body {
     display: grid;
     grid-template-columns: minmax(11rem, 0.7fr) minmax(15rem, 0.95fr) minmax(24rem, 1.55fr);
-    min-height: 40rem;
+    min-height: 0;
   }
   .workspace-body > :global(*) {
     min-width: 0;
@@ -356,7 +360,7 @@
     right: 1.2rem;
     left: 1.2rem;
     z-index: 2;
-    border-radius: 0 0 0.65rem 0.65rem;
+    border-radius: 0 0 var(--hv-radius-shell) var(--hv-radius-shell);
     background: var(--hv-color-success-soft);
     font-size: 0.78rem;
     font-weight: 850;
@@ -416,6 +420,9 @@
   }
   @media (max-width: 44rem) {
     .workspace {
+      display: block;
+      height: auto;
+      min-height: 0;
       overflow: visible;
       border-radius: var(--hv-radius-shell);
       box-shadow: var(--hv-shadow-raised);

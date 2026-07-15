@@ -27,20 +27,18 @@
 </svelte:head>
 
 <main class="directory-shell" data-ui-mode="place">
-  <section>
-    <MapListShell
-      places={data.places}
-      lang={data.lang}
-      copy={data.copy}
-      initialState={data.discoveryState}
-      adapter={mapAdapter}
-      signedIn={data.signedIn === true}
-      initialFavouritePlaceIds={data.favouritePlaceIds ?? []}
-      pendingFavouritePlaceId={data.pendingFavourite ?? null}
-      proximityAssistEnabled={data.proximityAssistEnabled === true}
-      fitPlacesOnMount={data.fitPlacesOnMount === true}
-    />
-  </section>
+  <MapListShell
+    places={data.places}
+    lang={data.lang}
+    copy={data.copy}
+    initialState={data.discoveryState}
+    adapter={mapAdapter}
+    signedIn={data.signedIn === true}
+    initialFavouritePlaceIds={data.favouritePlaceIds ?? []}
+    pendingFavouritePlaceId={data.pendingFavourite ?? null}
+    proximityAssistEnabled={data.proximityAssistEnabled === true}
+    fitPlacesOnMount={data.fitPlacesOnMount === true}
+  />
 </main>
 
 <style>
@@ -52,8 +50,28 @@
   }
 
   .directory-shell {
-    width: min(100% - 2rem, 96rem);
-    margin: 0 auto;
-    padding: 0.75rem 0 1.25rem;
+    width: 100%;
+    height: calc(100dvh - var(--hv-app-header-height, 4.4rem));
+    overflow: hidden;
+  }
+
+  @media (min-width: 58.0625rem) {
+    :global(body:has(.noscript-results)) .directory-shell {
+      height: auto;
+      min-height: calc(100dvh - var(--hv-app-header-height, 4.4rem));
+      overflow: visible;
+    }
+
+    :global(body:has(.noscript-results)) .directory-shell :global(.map-list-shell) {
+      height: calc(100dvh - var(--hv-app-header-height, 4.4rem));
+    }
+  }
+
+  @media (max-width: 58rem) {
+    .directory-shell {
+      height: auto;
+      min-height: calc(100dvh - var(--hv-app-header-height, 7.5rem));
+      overflow: visible;
+    }
   }
 </style>

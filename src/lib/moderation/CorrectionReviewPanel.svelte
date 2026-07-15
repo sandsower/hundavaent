@@ -488,113 +488,155 @@
   }
   .eyebrow {
     margin: 0;
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     font-weight: 950;
     text-transform: uppercase;
     letter-spacing: 0.08em;
   }
   h1 {
     margin: 0.25rem 0;
-    font-size: clamp(2.25rem, 6vw, 3.5rem);
-    line-height: 0.95;
+    font-family: var(--hv-font-display);
+    font-size: clamp(2rem, 5vw, 3rem);
+    line-height: 1;
   }
   .summary {
+    margin: 0;
+    color: var(--hv-color-basalt-muted);
     font-weight: 850;
   }
   .safety {
     margin-left: 0.5rem;
-    border-radius: 999px;
-    background: var(--coral-soft);
+    border: 1px solid var(--hv-color-danger);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-danger-soft);
     padding: 0.2rem 0.5rem;
-    color: var(--coral-dark);
+    color: var(--hv-color-danger);
   }
   section,
   form {
-    margin-top: 1.5rem;
-    border: 2px solid var(--ink);
-    border-radius: 1rem;
-    background: var(--paper-raised);
-    padding: 1rem;
-    box-shadow: 0.25rem 0.3rem 0 var(--teal);
+    margin-top: 0.75rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
+    padding: 0.8rem;
+    box-shadow: none;
   }
   dl,
   ul,
   form {
     display: grid;
-    gap: 0.8rem;
+    gap: 0.6rem;
+  }
+  h2 {
+    margin: 0 0 0.6rem;
+    font-family: var(--hv-font-display);
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+  dl,
+  ul {
+    margin: 0;
+    padding: 0;
+  }
+  ul {
+    list-style: none;
   }
   dl div {
     display: grid;
-    grid-template-columns: minmax(8rem, 0.35fr) 1fr;
-    gap: 1rem;
+    grid-template-columns: minmax(7.5rem, 0.35fr) minmax(0, 1fr);
+    gap: 0.75rem;
+    padding-block: 0.45rem;
+    border-top: 1px solid var(--hv-border-subtle);
+  }
+  dt {
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.75rem;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+  }
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
   }
   li {
     display: grid;
     gap: 0.25rem;
-    border: 1px solid var(--ink);
-    border-radius: 0.75rem;
-    padding: 0.75rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-control);
+    padding: 0.6rem;
   }
   .previous-note {
     margin: 0;
-    border: 1px solid var(--ink);
-    border-radius: 0.75rem;
-    background: var(--paper-light);
-    padding: 0.75rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow);
+    padding: 0.65rem;
+  }
+  .previous-note strong {
+    display: block;
+    margin-bottom: 0.2rem;
   }
   .message.success {
-    background: var(--mint);
+    border-color: var(--hv-color-success);
+    background: var(--hv-color-success-soft);
+    color: var(--hv-color-success);
   }
   .message.error {
-    background: var(--coral-soft);
+    border-color: var(--hv-color-danger);
+    background: var(--hv-color-danger-soft);
+    color: var(--hv-color-danger);
   }
   fieldset.proposal-editor {
     display: grid;
-    gap: 1rem;
-    border: 1px solid var(--ink);
-    border-radius: 0.9rem;
-    padding: 1rem;
+    gap: 0.75rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    padding: 0.75rem;
   }
   legend {
-    padding: 0 0.5rem;
+    padding: 0 0.35rem;
     font-weight: 950;
   }
   label {
     display: grid;
-    gap: 0.35rem;
+    gap: 0.25rem;
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.78rem;
     font-weight: 800;
   }
   input,
   textarea,
   select {
     width: 100%;
-    border: 2px solid var(--ink);
-    border-radius: 0.7rem;
-    background: white;
-    padding: 0.7rem;
-    color: var(--ink);
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
+    padding: 0.55rem 0.6rem;
+    color: var(--hv-color-basalt);
     font: inherit;
   }
   input:focus-visible,
   textarea:focus-visible,
   select:focus-visible,
   button:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
   button {
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
-    color: var(--ink);
-    padding: 0.75rem 1rem;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-signal);
+    color: var(--hv-color-basalt);
+    padding: 0.65rem 0.85rem;
     font-weight: 900;
-    box-shadow: 0 0.2rem 0 var(--ink);
+    box-shadow: none;
     justify-self: start;
   }
   .grid {
     display: grid;
-    gap: 1rem;
+    gap: 0.75rem;
   }
   .two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -604,7 +646,8 @@
   }
   @media (max-width: 48rem) {
     .two,
-    .three {
+    .three,
+    dl div {
       grid-template-columns: 1fr;
     }
   }

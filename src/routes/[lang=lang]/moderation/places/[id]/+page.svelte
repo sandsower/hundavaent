@@ -10,4 +10,6 @@
   <title>{data.copy['moderation.reviewTitle']} | {data.copy['site.name']}</title>
 </svelte:head>
 
-<CandidateReviewPanel {data} {form} standalone />
+<main data-ui-mode="operations">
+  <CandidateReviewPanel {data} {form} standalone />
+</main>

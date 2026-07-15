@@ -7,9 +7,20 @@
     placeName: string;
     lang: Locale;
     copy: Catalogue;
+    featured?: boolean;
   }
 
-  let { photos, placeName, lang, copy }: Props = $props();
+  let { photos, placeName, lang, copy, featured = false }: Props = $props();
+  let visiblePhotos = $derived(selectVisiblePhotos(photos, featured));
+
+  function selectVisiblePhotos(
+    candidatePhotos: PublishedPlacePhoto[],
+    useFeaturedPhoto: boolean
+  ): PublishedPlacePhoto[] {
+    if (!useFeaturedPhoto) return candidatePhotos;
+    const featuredPhoto = candidatePhotos.find((photo) => photo.isPrimary) ?? candidatePhotos[0];
+    return featuredPhoto ? [featuredPhoto] : [];
+  }
 
   function altText(photo: PublishedPlacePhoto): string {
     const localized = lang === 'is' ? photo.altTextIs : photo.altTextEn;
@@ -20,19 +31,25 @@
 {#if photos.length > 0}
   <section
     class="place-photos hv-panel"
+    class:featured
     aria-labelledby="place-photos-heading"
     data-photos-section
-    data-surface="media-gallery"
+    data-surface={featured ? 'featured-media' : 'media-gallery'}
   >
-    <h3 id="place-photos-heading">{copy['place.photos.title']}</h3>
+    <h3 id="place-photos-heading" class:visually-hidden={featured}>{copy['place.photos.title']}</h3>
     <!-- A photo can have no provenance links, so the horizontal scroll container itself must stay
          keyboard-focusable for arrow-key scrolling (WCAG 2.1.1,
          axe scrollable-region-focusable). Svelte's blanket warning does not model this
          established exception for scrollable regions, hence the targeted ignore. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-    <div class="scroller" role="region" aria-labelledby="place-photos-heading" tabindex="0">
+    <div
+      class="scroller"
+      role={featured ? undefined : 'region'}
+      aria-labelledby="place-photos-heading"
+      tabindex={featured ? undefined : 0}
+    >
       <ul>
-        {#each photos as photo (photo.mediaId)}
+        {#each visiblePhotos as photo (photo.mediaId)}
           <li>
             <figure data-primary-photo={photo.isPrimary || undefined}>
               <div class="photo-frame" data-photo-frame="image-led">
@@ -83,6 +100,18 @@
     font-family: var(--hv-font-display);
     font-size: 1.05rem;
     line-height: 1.15;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .scroller {
@@ -160,5 +189,42 @@
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
     box-shadow: 0 0 0 2px var(--hv-focus-offset);
+  }
+
+  .featured {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .featured .scroller {
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .featured ul,
+  .featured li,
+  .featured figure {
+    width: 100%;
+  }
+
+  .featured figure {
+    border: 0;
+    border-radius: 0;
+  }
+
+  .featured .photo-frame {
+    aspect-ratio: 16 / 9;
+  }
+
+  .featured figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.65rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.7rem;
   }
 </style>

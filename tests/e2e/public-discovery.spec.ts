@@ -257,3 +257,25 @@ test.describe('public discovery locale routes', () => {
     await expect(page.getByRole('button', { name: 'Close selected place' })).toBeVisible();
   });
 });
+
+test.describe('public discovery without JavaScript', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('keeps the server-rendered fallback directory reachable on desktop', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/en');
+
+    const fallbackDirectory = page.locator('.noscript-results');
+    await expect(fallbackDirectory.getByRole('heading', { name: 'List' })).toBeVisible();
+    await expect(fallbackDirectory.getByText('Published Place', { exact: true })).toBeVisible();
+
+    const documentGeometry = await page.locator('html').evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight
+    }));
+    expect(documentGeometry.scrollHeight).toBeGreaterThan(documentGeometry.clientHeight);
+
+    await fallbackDirectory.scrollIntoViewIfNeeded();
+    await expect(fallbackDirectory).toBeInViewport();
+  });
+});

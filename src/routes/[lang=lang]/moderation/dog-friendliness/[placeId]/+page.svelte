@@ -48,7 +48,7 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="moderation-shell">
+<main class="moderation-shell" data-ui-mode="operations">
   <p class="eyebrow">{data.placeName ?? data.placeId}</p>
   <h1>{data.copy['moderation.dogFriendliness.title']}</h1>
   <p class="intro">{data.copy['moderation.dogFriendliness.intro']}</p>
@@ -254,18 +254,23 @@
 
 <style>
   .moderation-shell {
-    width: min(100% - 2rem, 60rem);
-    margin: 2rem auto 5rem;
+    width: min(100% - 2rem, var(--hv-content-wide));
+    margin: var(--hv-space-section) auto 5rem;
   }
   .eyebrow {
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     font-weight: 950;
     text-transform: uppercase;
     letter-spacing: 0.08em;
   }
   h1 {
     margin: 0.25rem 0;
+    color: var(--hv-color-basalt);
+    font-family: var(--hv-font-display);
     font-size: clamp(1.8rem, 5vw, 3rem);
+    font-weight: 650;
+    line-height: 1;
+    letter-spacing: -0.03em;
   }
   .ratings {
     display: grid;
@@ -277,10 +282,11 @@
   .rating-row {
     display: grid;
     gap: 0.75rem;
-    border: 2px solid var(--ink);
-    border-radius: 1rem;
-    background: var(--paper-raised);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
     padding: 1rem;
+    box-shadow: var(--hv-shadow-raised);
   }
   .rating-header {
     display: flex;
@@ -288,15 +294,19 @@
     font-weight: 800;
   }
   .status {
-    border-radius: 999px;
+    border: 1px solid var(--hv-color-success);
+    border-radius: var(--hv-radius-control);
     padding: 0.15rem 0.6rem;
-    background: var(--mint);
+    background: var(--hv-color-success-soft);
+    color: var(--hv-color-success);
     font-size: 0.75rem;
     font-weight: 900;
     text-transform: uppercase;
   }
   .status.excluded {
-    background: var(--coral-soft);
+    border-color: var(--hv-color-danger);
+    background: var(--hv-color-danger-soft);
+    color: var(--hv-color-danger);
   }
   .scores {
     display: grid;
@@ -306,7 +316,7 @@
   }
   .scores dt {
     font-size: 0.72rem;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
     font-weight: 750;
   }
   .scores dd {
@@ -316,7 +326,7 @@
   .exclusion-detail {
     margin: 0;
     font-size: 0.85rem;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
   }
   form {
     display: grid;
@@ -332,34 +342,50 @@
   }
   select,
   textarea {
-    border: 2px solid var(--ink);
-    border-radius: 0.6rem;
+    border: 1px solid var(--hv-border-strong);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
     padding: 0.5rem;
+    color: var(--hv-color-basalt);
     font: inherit;
   }
   button {
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-basalt);
     padding: 0.6rem 1rem;
+    color: var(--hv-color-snow-raised);
     font-weight: 900;
   }
+  select:focus-visible,
+  textarea:focus-visible,
+  button:focus-visible,
+  a:focus-visible,
+  summary:focus-visible {
+    border-radius: var(--hv-radius-control);
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
+  }
   .message {
-    border: 2px solid var(--ink);
-    border-radius: 0.75rem;
+    border: 1px solid var(--hv-color-fjord);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-fjord-soft);
     padding: 0.9rem;
     font-weight: 850;
   }
   .error {
-    background: var(--coral-soft);
+    border-color: var(--hv-color-danger);
+    background: var(--hv-color-danger-soft);
+    color: var(--hv-color-danger);
   }
   .private-note {
     display: grid;
     gap: 0.6rem;
-    border: 2px dashed var(--coral-dark);
-    border-radius: 0.9rem;
+    border: 1px solid var(--hv-color-fjord);
+    border-radius: var(--hv-radius-panel);
     padding: 0.9rem;
-    background: var(--paper);
+    background: var(--hv-color-fjord-soft);
   }
   .private-note h2 {
     margin: 0;
@@ -373,7 +399,7 @@
   }
   .note-meta dt {
     font-size: 0.72rem;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt);
     font-weight: 750;
   }
   .note-meta dd {
@@ -396,14 +422,22 @@
   }
   .note-history-list p {
     margin: 0.25rem 0 0;
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
   }
   .event-kind {
     font-weight: 800;
   }
   .event-time {
-    color: var(--ink-soft);
+    color: var(--hv-color-basalt-muted);
     font-size: 0.8rem;
+  }
+  a,
+  summary {
+    color: var(--hv-color-fjord);
+  }
+  .private-note a,
+  .private-note summary {
+    color: var(--hv-color-basalt);
   }
   .disposition-form {
     grid-template-columns: 1fr 2fr auto;
