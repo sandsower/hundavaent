@@ -409,12 +409,15 @@ jobs:
             echo "Required Storage recovery proof is missing or incomplete." >&2
             exit 1
           fi
-          psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" \
+          psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \
             -c 'alter schema storage rename to scratch_storage'
           psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/schema.sql
-          psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/storage-schema.sql
-          psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/storage-data.sql
-          psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/data.sql
+          psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \
+            -f recovery/storage-schema.sql
+          psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \
+            -f recovery/storage-data.sql
+          psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \
+            -f recovery/data.sql
 
       - name: Verify restored row counts match the dump
         shell: bash

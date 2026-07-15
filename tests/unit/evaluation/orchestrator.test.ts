@@ -198,7 +198,23 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('quote_nullable(with_check)');
     expect(workflow).toContain('[[ ! -s recovery/storage-schema.sql ]]');
     expect(workflow).not.toContain("-c 'drop schema if exists auth cascade'");
-    expect(workflow).toContain('alter schema storage rename to scratch_storage');
+    expect(workflow).toContain(
+      'psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \\\n' +
+        "            -c 'alter schema storage rename to scratch_storage'"
+    );
+    expect(workflow).toContain('psql "${RESTORE_DB_URL}" -f recovery/roles.sql || true');
+    expect(workflow).toContain(
+      'psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/schema.sql'
+    );
+    for (const recoveryFile of ['storage-schema.sql', 'storage-data.sql', 'data.sql']) {
+      expect(workflow).toContain(
+        `psql -v ON_ERROR_STOP=1 "\${RESTORE_DB_URL}?user=supabase_admin" \\\n` +
+          `            -f recovery/${recoveryFile}`
+      );
+      expect(workflow).not.toContain(
+        `psql -v ON_ERROR_STOP=1 "\${RESTORE_DB_URL}" -f recovery/${recoveryFile}`
+      );
+    }
     expect(workflow).toContain(
       'actual="$(psql -At "${recovery_db_url}" -c "select count(*) from ${table}")"'
     );
