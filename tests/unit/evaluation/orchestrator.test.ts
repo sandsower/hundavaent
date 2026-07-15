@@ -29,7 +29,7 @@ import {
 import { verifyRecoveryCopyDump } from '../../../scripts/verify-recovery-copy-dump';
 
 describe('release evaluation orchestration', () => {
-  it('keeps production recovery fail-closed around the no-Member auth fast path', () => {
+  it('skips disposable Auth identities while preserving application and Storage data', () => {
     const workflow = readFileSync(
       new URL('../../../.github/workflows/production.yml', import.meta.url),
       'utf8'
@@ -37,22 +37,18 @@ describe('release evaluation orchestration', () => {
     const applicationDump = workflow.indexOf(
       'dump_snapshot_data "public|private|security" recovery/data.sql'
     );
-    const memberCount = workflow.indexOf('select count(*) from private.member_accounts');
-    const authUserCount = workflow.indexOf('select count(*) from auth.users');
-    const authIdentityCount = workflow.indexOf('select count(*) from auth.identities');
-    const zeroMemberBranch = workflow.indexOf('[[ "${member_count}" == "0" ]]');
-    const fullAuthDump = workflow.indexOf('dump_snapshot_data "auth" recovery/auth-data.sql');
+    const storageSchema = workflow.indexOf(
+      'dump_snapshot_schema "storage" recovery/storage-schema.sql'
+    );
+    const storageData = workflow.indexOf('dump_snapshot_data "storage" recovery/storage-data.sql');
 
     expect(applicationDump).toBeGreaterThan(0);
-    expect(memberCount).toBeGreaterThan(applicationDump);
-    expect(authUserCount).toBeGreaterThan(memberCount);
-    expect(authIdentityCount).toBeGreaterThan(authUserCount);
-    expect(zeroMemberBranch).toBeGreaterThan(authIdentityCount);
-    expect(fullAuthDump).toBeGreaterThan(zeroMemberBranch);
-    expect(workflow).toContain('member_count="unknown"');
-    expect(workflow).toContain('retaining full auth recovery handling');
-    expect(workflow).toContain('[[ "${auth_user_count}" == "0" ]]');
-    expect(workflow).toContain('[[ "${auth_identity_count}" == "0" ]]');
+    expect(storageSchema).toBeGreaterThan(applicationDump);
+    expect(storageData).toBeGreaterThan(storageSchema);
+    expect(workflow).not.toContain('dump_snapshot_schema "auth"');
+    expect(workflow).not.toContain('dump_snapshot_data "auth"');
+    expect(workflow).not.toContain('select count(*) from auth.users');
+    expect(workflow).toContain('Managed Auth/test-user recovery: intentionally skipped');
   });
 
   it('uses one permission-compatible exported snapshot for every production read', () => {
@@ -64,10 +60,9 @@ describe('release evaluation orchestration', () => {
     const applicationDump = workflow.indexOf(
       'dump_snapshot_data "public|private|security" recovery/data.sql'
     );
-    const identityCounts = workflow.indexOf('(select count(*) from auth.identities)');
-    const authDump = workflow.indexOf('dump_snapshot_data "auth" recovery/auth-data.sql');
+    const storageDump = workflow.indexOf('dump_snapshot_data "storage" recovery/storage-data.sql');
     const applicationCounts = workflow.indexOf("n.nspname in ('public', 'private', 'security')");
-    const release = workflow.indexOf('release_recovery_snapshot', authDump);
+    const release = workflow.indexOf('release_recovery_snapshot', storageDump);
 
     expect(workflow).not.toMatch(/LOCK TABLE/i);
     expect(workflow).toContain('SET TRANSACTION SNAPSHOT');
@@ -84,13 +79,12 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('--role "postgres"');
     expect(workflow).not.toContain('--exclude-table "auth.schema_migrations"');
     expect(workflow).not.toContain('--exclude-table "storage.migrations"');
-    expect(workflow.match(/snapshot_query/g)).toHaveLength(9);
-    expect(workflow.match(/dump_snapshot_data/g)).toHaveLength(4);
+    expect(workflow.match(/snapshot_query/g)).toHaveLength(6);
+    expect(workflow.match(/dump_snapshot_data/g)).toHaveLength(3);
     expect(exportedSnapshot).toBeGreaterThan(0);
     expect(applicationDump).toBeGreaterThan(exportedSnapshot);
-    expect(identityCounts).toBeGreaterThan(applicationDump);
-    expect(authDump).toBeGreaterThan(identityCounts);
-    expect(applicationCounts).toBeGreaterThan(authDump);
+    expect(storageDump).toBeGreaterThan(applicationDump);
+    expect(applicationCounts).toBeGreaterThan(storageDump);
     expect(release).toBeGreaterThan(applicationCounts);
   });
 
@@ -115,59 +109,30 @@ describe('release evaluation orchestration', () => {
     );
   });
 
-  it('requires non-empty Auth recovery to restore and match every table', () => {
+  it('restores and exactly verifies Storage without preserving test Auth identities', () => {
     const workflow = readFileSync(
       new URL('../../../.github/workflows/production.yml', import.meta.url),
       'utf8'
     );
 
-    expect(workflow).not.toContain('Auth data restore is not testable');
-    expect(workflow).toContain(
-      'psql -v ON_ERROR_STOP=1 "${recovery_db_url}" -f recovery/auth-data.sql'
-    );
-    expect(workflow).toContain('recovery/auth-production-counts.txt');
-    expect(workflow).toContain('recovery/auth-dump-counts.txt');
-    expect(workflow).toContain('dump_snapshot_schema "auth" recovery/auth-schema.sql');
     expect(workflow).toContain('dump_snapshot_schema "storage" recovery/storage-schema.sql');
     expect(workflow).toContain('dump_snapshot_data "storage" recovery/storage-data.sql');
-    expect(workflow).toContain("and n.nspname = 'auth'\" |");
     expect(workflow).toContain("and n.nspname = 'storage'\" |");
-    expect(workflow).not.toContain("c.relname <> 'schema_migrations'");
     expect(workflow).not.toContain("c.relname <> 'migrations'");
     expect(workflow).toContain("array_to_string(roles, ',')");
     expect(workflow).toContain('quote_nullable(with_check)');
-    expect(workflow).toContain('[[ ! -s recovery/auth-schema.sql ]]');
     expect(workflow).toContain('[[ ! -s recovery/storage-schema.sql ]]');
     expect(workflow).not.toContain("-c 'drop schema if exists auth cascade'");
-    expect(workflow).toContain('alter schema auth rename to scratch_auth');
     expect(workflow).toContain('alter schema storage rename to scratch_storage');
-    expect(workflow).toContain(
-      'psql -v ON_ERROR_STOP=1 "${recovery_db_url}" -f recovery/auth-schema.sql'
-    );
-    expect(workflow).toContain("-c 'create database hundavaent_recovery template postgres'");
-    expect(workflow).toContain('alter database postgres with allow_connections false');
-    expect(workflow).toContain('alter database postgres with allow_connections true');
-    const disallowConnections = workflow.indexOf(
-      'alter database postgres with allow_connections false'
-    );
-    expect(
-      workflow.lastIndexOf('psql -v ON_ERROR_STOP=1 "${restore_admin_url}"', disallowConnections)
-    ).toBeGreaterThan(0);
-    expect(workflow).toContain('recovery_db_url="${RESTORE_DB_URL%/postgres}/hundavaent_recovery"');
     expect(workflow).toContain(
       'actual="$(psql -At "${recovery_db_url}" -c "select count(*) from ${table}")"'
     );
-    expect(workflow).toContain('recovery/auth-restored-counts.txt');
     expect(workflow).toContain('recovery/storage-restored-counts.txt');
-    expect(workflow).toContain('recovery/managed-restored-schema.txt');
-    expect(workflow).toContain('recovery/restored-member-auth-joins.txt');
-    expect(workflow.match(/\[\[ ! -s recovery\/auth-production-counts\.txt \]\]/g)).toHaveLength(3);
-    expect(workflow.match(/\[\[ ! -s recovery\/auth-dump-counts\.txt \]\]/g)).toHaveLength(3);
-    expect(workflow.match(/'\^auth\\\.users \[0-9\]\+\$'/g)).toHaveLength(6);
-    expect(workflow.match(/'\^auth\\\.identities \[0-9\]\+\$'/g)).toHaveLength(6);
-    expect(workflow).toContain(
-      'diff -u recovery/auth-dump-counts.txt recovery/auth-restored-counts.txt'
-    );
+    expect(workflow).toContain('recovery/storage-production-schema.txt');
+    expect(workflow).toContain('recovery/storage-restored-schema.txt');
+    expect(workflow).toContain('diff -u recovery/storage-dump-counts.txt');
+    expect(workflow).not.toContain('recovery/auth-data.sql');
+    expect(workflow).not.toContain('recovery/auth-schema.sql');
   });
 
   it('assigns every concurrent lane a distinct runtime identity and port set', () => {
