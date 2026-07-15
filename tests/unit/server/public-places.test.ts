@@ -67,24 +67,58 @@ const profileRow = {
 function createClient(
   responses: Partial<
     Record<
-      'list_published_places' | 'get_published_place_profile' | 'get_public_place_status',
+      | 'list_published_places'
+      | 'list_published_place_primary_photos'
+      | 'get_published_place_profile'
+      | 'get_public_place_status',
       { data: unknown; error: { code: string; message: string } | null }
     >
-  >
+  >,
+  signedUrls: Record<string, string> = {}
 ) {
   const rpc = vi.fn(
     async (name: keyof typeof responses) =>
       responses[name] ?? { data: null, error: { code: 'XX000', message: 'missing fake' } }
   );
 
-  return { client: { rpc } as unknown as RequestSupabaseClient, rpc };
+  const createSignedUrl = vi.fn(async (objectPath: string) => ({
+    data: signedUrls[objectPath] ? { signedUrl: signedUrls[objectPath] } : null,
+    error: signedUrls[objectPath] ? null : { message: 'not signed' }
+  }));
+
+  return {
+    client: {
+      rpc,
+      storage: { from: vi.fn(() => ({ createSignedUrl })) }
+    } as unknown as RequestSupabaseClient,
+    rpc,
+    createSignedUrl
+  };
 }
 
 describe('listPublished', () => {
   it('maps the fixed localized list projection', async () => {
-    const { client, rpc } = createClient({
-      list_published_places: { data: [listRow], error: null }
-    });
+    const { client, rpc, createSignedUrl } = createClient(
+      {
+        list_published_places: { data: [listRow], error: null },
+        list_published_place_primary_photos: {
+          data: [
+            {
+              place_id: 'place-1',
+              media_id: 'photo-1',
+              storage_bucket: 'place-photos',
+              storage_object_path: 'place-1/primary.jpg',
+              width_px: 1600,
+              height_px: 1200,
+              alt_text_is: 'Hundur á kaffihúsi',
+              alt_text_en: 'A dog at a cafe'
+            }
+          ],
+          error: null
+        }
+      },
+      { 'place-1/primary.jpg': 'https://example.invalid/signed/primary.jpg' }
+    );
 
     await expect(listPublished(client, 'en')).resolves.toEqual({
       status: 'success',
@@ -108,12 +142,66 @@ describe('listPublished', () => {
               permissionRequirement: 'standing_permission'
             }
           ],
+          primaryPhoto: {
+            mediaId: 'photo-1',
+            url: 'https://example.invalid/signed/primary.jpg',
+            widthPx: 1600,
+            heightPx: 1200,
+            altTextIs: 'Hundur á kaffihúsi',
+            altTextEn: 'A dog at a cafe'
+          },
           verifiedAt: '2026-07-09T11:00:00.000Z'
         }
       ]
     });
     expect(rpc).toHaveBeenCalledWith('list_published_places', {
       requested_locale: 'en'
+    });
+    expect(rpc).toHaveBeenCalledWith('list_published_place_primary_photos', {
+      requested_place_ids: ['place-1']
+    });
+    expect(createSignedUrl).toHaveBeenCalledWith('place-1/primary.jpg', 300);
+  });
+
+  it('loads primary photo metadata in one batch and degrades individual signing failures', async () => {
+    const secondRow = { ...listRow, place_id: 'place-2', name: 'Second Place' };
+    const { client, rpc } = createClient({
+      list_published_places: { data: [listRow, secondRow], error: null },
+      list_published_place_primary_photos: {
+        data: [
+          {
+            place_id: 'place-1',
+            media_id: 'photo-1',
+            storage_bucket: 'place-photos',
+            storage_object_path: 'place-1/primary.jpg',
+            width_px: 1600,
+            height_px: 1200,
+            alt_text_is: 'Hundur á kaffihúsi',
+            alt_text_en: 'A dog at a cafe'
+          },
+          {
+            place_id: 'place-2',
+            media_id: 'photo-2',
+            storage_bucket: 'place-photos',
+            storage_object_path: 'place-2/primary.jpg',
+            width_px: 1200,
+            height_px: 900,
+            alt_text_is: 'Hundur í garði',
+            alt_text_en: 'A dog in a park'
+          }
+        ],
+        error: null
+      }
+    });
+
+    const result = await listPublished(client, 'en');
+
+    expect(result).toMatchObject({
+      status: 'success',
+      value: [{ primaryPhoto: null }, { primaryPhoto: null }]
+    });
+    expect(rpc).toHaveBeenCalledWith('list_published_place_primary_photos', {
+      requested_place_ids: ['place-1', 'place-2']
     });
   });
 

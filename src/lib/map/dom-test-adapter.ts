@@ -1,4 +1,4 @@
-import type { MapAdapter, MapCallbacks, MapCamera, MapPlace, MapPoint } from './types';
+import type { MapAdapter, MapCallbacks, MapCamera, MapPadding, MapPlace, MapPoint } from './types';
 
 export interface DomTestMapAdapter extends MapAdapter {
   readonly destroyed: boolean;
@@ -72,11 +72,20 @@ export function createDomTestMapAdapter(): DomTestMapAdapter {
     markers.get(placeId)?.focus();
   }
 
-  function setCamera(camera: MapCamera): void {
+  function setCamera(camera: MapCamera, options: { padding?: MapPadding } = {}): void {
     if (!root) return;
     root.dataset.latitude = String(camera.latitude);
     root.dataset.longitude = String(camera.longitude);
     root.dataset.zoom = String(camera.zoom);
+    if (options.padding) setPadding(options.padding);
+  }
+
+  function setPadding(padding: MapPadding): void {
+    if (!root) return;
+    root.dataset.paddingTop = String(padding.top);
+    root.dataset.paddingRight = String(padding.right);
+    root.dataset.paddingBottom = String(padding.bottom);
+    root.dataset.paddingLeft = String(padding.left);
   }
 
   function destroy(): void {
@@ -93,6 +102,7 @@ export function createDomTestMapAdapter(): DomTestMapAdapter {
     setSelectedPlace,
     focusPlace,
     setCamera,
+    setPadding,
     destroy,
     get destroyed() {
       return isDestroyed;

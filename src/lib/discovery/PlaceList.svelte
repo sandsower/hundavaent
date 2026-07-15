@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Catalogue } from '$i18n';
+  import type { Catalogue, Locale } from '$i18n';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
 
   import PlaceCard from './PlaceCard.svelte';
@@ -7,6 +7,7 @@
   interface Props {
     places: PublishedPlaceSummary[];
     selectedPlaceId: string | null;
+    lang: Locale;
     focusSelected?: boolean;
     interactive?: boolean;
     copy: Catalogue;
@@ -21,6 +22,7 @@
   let {
     places,
     selectedPlaceId,
+    lang,
     focusSelected = false,
     interactive = true,
     copy,
@@ -38,6 +40,7 @@
     <li>
       <PlaceCard
         {place}
+        {lang}
         selected={place.placeId === selectedPlaceId}
         focusSelected={focusSelected && place.placeId === selectedPlaceId}
         {interactive}

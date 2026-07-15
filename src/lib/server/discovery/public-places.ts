@@ -36,7 +36,17 @@ export interface PublishedPlaceSummary {
   restraintCondition: RestraintCondition | null;
   permissionRequirement: PermissionRequirement | null;
   accessConditions: PublishedAccessConditionSummary[];
+  primaryPhoto: PublishedPlacePrimaryPhoto | null;
   verifiedAt: string;
+}
+
+export interface PublishedPlacePrimaryPhoto {
+  mediaId: string;
+  url: string;
+  widthPx: number;
+  heightPx: number;
+  altTextIs: string;
+  altTextEn: string;
 }
 
 export interface PublishedAccessConditionSummary {
@@ -144,13 +154,67 @@ export async function listPublished(
       return { status: 'invalid_response' };
     }
 
+    const summaries = data.filter(hasValidCoordinates).map(mapListRow);
+    const primaryPhotos = await resolvePublishedPlacePrimaryPhotos(
+      client,
+      summaries.map((place) => place.placeId)
+    );
+
     return {
       status: 'success',
-      value: data.filter(hasValidCoordinates).map(mapListRow)
+      value: summaries.map((place) => ({
+        ...place,
+        primaryPhoto: primaryPhotos.get(place.placeId) ?? null
+      }))
     };
   } catch {
     return { status: 'infrastructure_error' };
   }
+}
+
+async function resolvePublishedPlacePrimaryPhotos(
+  client: RequestSupabaseClient,
+  placeIds: string[]
+): Promise<Map<string, PublishedPlacePrimaryPhoto>> {
+  const photos = new Map<string, PublishedPlacePrimaryPhoto>();
+  if (placeIds.length === 0) return photos;
+  try {
+    const { data, error } = await client.rpc('list_published_place_primary_photos', {
+      requested_place_ids: placeIds
+    });
+    if (error || !Array.isArray(data) || !data.every(isPrimaryPhotoRow)) return photos;
+
+    const requestedIds = new Set(placeIds);
+    const resolved = await Promise.all(
+      data.map(async (row) => {
+        if (!requestedIds.has(row.place_id)) return null;
+        try {
+          const url = await signPlaceMediaUrl(client, 'place-photos', row.storage_object_path);
+          if (!url) return null;
+          return {
+            placeId: row.place_id,
+            photo: {
+              mediaId: row.media_id,
+              url,
+              widthPx: row.width_px,
+              heightPx: row.height_px,
+              altTextIs: row.alt_text_is,
+              altTextEn: row.alt_text_en
+            }
+          };
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    for (const entry of resolved) {
+      if (entry && !photos.has(entry.placeId)) photos.set(entry.placeId, entry.photo);
+    }
+  } catch {
+    // Photography is supplementary. Keep the compact directory usable when media lookup fails.
+  }
+  return photos;
 }
 
 export async function getPublishedProfile(
@@ -319,8 +383,26 @@ function mapListRow(row: ListRow): PublishedPlaceSummary {
     restraintCondition: row.restraint_condition as RestraintCondition | null,
     permissionRequirement: row.permission_requirement as PermissionRequirement | null,
     accessConditions,
+    primaryPhoto: null,
     verifiedAt: row.verified_at
   };
+}
+
+function isPrimaryPhotoRow(
+  row: Database['public']['Functions']['list_published_place_primary_photos']['Returns'][number]
+): boolean {
+  return (
+    hasText(row.place_id) &&
+    hasText(row.media_id) &&
+    row.storage_bucket === 'place-photos' &&
+    hasText(row.storage_object_path) &&
+    Number.isInteger(row.width_px) &&
+    row.width_px > 0 &&
+    Number.isInteger(row.height_px) &&
+    row.height_px > 0 &&
+    hasText(row.alt_text_is) &&
+    hasText(row.alt_text_en)
+  );
 }
 
 function mapAccessFacts(row: ProfileRow): PublishedAccessFacts {

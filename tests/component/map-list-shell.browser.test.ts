@@ -36,6 +36,14 @@ const places = [
         permissionRequirement: 'standing_permission' as const
       }
     ],
+    primaryPhoto: {
+      mediaId: 'summary-photo',
+      url: 'https://example.invalid/signed/summary.jpg',
+      widthPx: 800,
+      heightPx: 600,
+      altTextIs: 'Hundur í almenningsgarði',
+      altTextEn: 'A dog in a public park'
+    },
     verifiedAt: '2026-07-09T11:00:00.000Z'
   }
 ];
@@ -316,6 +324,170 @@ describe('MapListShell synchronization', () => {
     expect(window.location.search).toContain('lat=64.1423');
     expect(window.location.search).toContain('view=map');
     expect(document.activeElement).toBe(marker);
+  });
+
+  it('keeps the desktop result rail visible while a matching-width detail card floats over the map', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1280, 800);
+    history.replaceState(null, '', '/en');
+
+    try {
+      const { container } = render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: defaultDiscoveryState,
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+
+      const sidebar = container.querySelector<HTMLElement>('[data-directory-sidebar]');
+      const results = screen.getByRole('region', { name: 'Places found' });
+      expect(sidebar?.contains(results)).toBe(true);
+
+      await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+      const cardOverlay = container.querySelector<HTMLElement>('[data-selected-place-overlay]');
+      expect(cardOverlay).toBeTruthy();
+      if (!sidebar || !cardOverlay) throw new Error('Expected desktop rail and detail card');
+      expect(screen.getByRole('region', { name: 'Places found' })).toBeTruthy();
+
+      const sidebarWidth = sidebar.getBoundingClientRect().width;
+      await waitFor(() =>
+        expect(window.innerWidth - cardOverlay.getBoundingClientRect().right).toBeGreaterThan(0)
+      );
+      const cardRect = cardOverlay.getBoundingClientRect();
+      expect(cardRect.width).toBeCloseTo(sidebarWidth, 0);
+      expect(cardRect.top).toBeGreaterThan(0);
+      expect(window.innerWidth - cardRect.right).toBeGreaterThan(0);
+      expect(window.innerHeight - cardRect.bottom).toBeGreaterThan(0);
+      const mapRoot = container.querySelector<HTMLElement>('[data-map-adapter="dom-test"]');
+      await waitFor(() =>
+        expect(Number(mapRoot?.dataset.paddingRight ?? 0)).toBeGreaterThan(sidebarWidth)
+      );
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+
+  it('replaces the left result surface with details at the intermediate breakpoint', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1100, 800);
+    history.replaceState(null, '', '/en');
+
+    try {
+      const { container } = render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: defaultDiscoveryState,
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+
+      await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+      const sidebar = container.querySelector<HTMLElement>('[data-directory-sidebar]');
+      const cardOverlay = container.querySelector<HTMLElement>('[data-selected-place-overlay]');
+      expect(sidebar).toBeTruthy();
+      expect(cardOverlay).toBeTruthy();
+      if (!sidebar || !cardOverlay) throw new Error('Expected intermediate detail surface');
+      expect(cardOverlay.getBoundingClientRect().width).toBeCloseTo(
+        sidebar.getBoundingClientRect().width,
+        0
+      );
+      expect(getComputedStyle(cardOverlay).position).toBe('absolute');
+      await waitFor(() =>
+        expect(cardOverlay.getBoundingClientRect().left).toBeCloseTo(
+          sidebar.getBoundingClientRect().left,
+          0
+        )
+      );
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+
+  it('seeds loading details from the compact result and preserves the primary photo', async () => {
+    history.replaceState(null, '', `/en?place=${places[0].placeId}`);
+    const profileRequest = deferred<typeof complexProfile>();
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(() => profileRequest.promise)
+    });
+
+    const selectedPlace = screen.getByLabelText('Selected place');
+    expect(within(selectedPlace).getByRole('heading', { name: 'Published Place' })).toBeTruthy();
+    expect(within(selectedPlace).getByAltText('A dog in a public park')).toBeTruthy();
+    expect(within(selectedPlace).getByText('Loading every access condition…')).toBeTruthy();
+
+    profileRequest.resolve(complexProfile);
+    await waitFor(() =>
+      expect(within(selectedPlace).queryByText('Loading every access condition…')).toBeNull()
+    );
+  });
+
+  it('closes details with Escape and restores focus to the exact selection trigger', async () => {
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    const marker = await screen.findByRole('button', { name: /^Published Place$/ });
+    marker.focus();
+    await fireEvent.click(marker);
+    await fireEvent.keyDown(window, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByLabelText('Selected place')).toBeNull());
+    expect(document.activeElement).toBe(marker);
+  });
+
+  it('pushes the first selection and replaces subsequent selected places', async () => {
+    const secondPlace = {
+      ...places[0],
+      placeId: '30000000-0000-4000-8000-000000000004',
+      name: 'Second Place',
+      latitude: 64.15
+    };
+    const replace = vi.fn(replaceUrl);
+    const push = vi.fn((url: string) => history.pushState(null, '', url));
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places: [...places, secondPlace],
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl: replace,
+      pushUrl: push,
+      loadPlace: vi.fn(async (placeId) => ({
+        ...complexProfile,
+        placeId,
+        name: placeId === secondPlace.placeId ? secondPlace.name : places[0].name
+      }))
+    });
+
+    await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Second Place$/ }));
+
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(window.location.search).toContain(`place=${secondPlace.placeId}`);
   });
 
   it('renders concise localized access facts for a URL-selected Place', async () => {
@@ -1076,7 +1248,9 @@ describe('MapListShell synchronization', () => {
       const desktopColumns = shellStyle.gridTemplateColumns.split(' ').map(Number.parseFloat);
       expect(shellStyle.display).toBe('grid');
       expect(desktopColumns).toHaveLength(2);
-      expect(desktopColumns[0] / desktopColumns[1]).toBeCloseTo(0.72 / 1.28, 1);
+      expect(desktopColumns[0]).toBeGreaterThanOrEqual(320);
+      expect(desktopColumns[0]).toBeLessThanOrEqual(384);
+      expect(desktopColumns[1]).toBeGreaterThan(desktopColumns[0]);
     } finally {
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }

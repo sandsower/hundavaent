@@ -31,6 +31,7 @@ const places: PublishedPlaceSummary[] = [
         permissionRequirement: 'ask_on_arrival'
       }
     ],
+    primaryPhoto: null,
     verifiedAt: '2026-07-09T11:00:00Z'
   },
   {
@@ -52,6 +53,7 @@ const places: PublishedPlaceSummary[] = [
         permissionRequirement: 'standing_permission'
       }
     ],
+    primaryPhoto: null,
     verifiedAt: '2026-07-09T11:00:00Z'
   },
   {
@@ -73,6 +75,7 @@ const places: PublishedPlaceSummary[] = [
         permissionRequirement: 'advance_approval'
       }
     ],
+    primaryPhoto: null,
     verifiedAt: '2026-07-09T11:00:00Z'
   }
 ];

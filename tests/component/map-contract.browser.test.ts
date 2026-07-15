@@ -193,7 +193,12 @@ describe('shared Map interface', () => {
       onCameraChange
     });
 
-    await waitFor(() => expect(adapter.setCamera).toHaveBeenCalledWith(camera));
+    await waitFor(() =>
+      expect(adapter.setCamera).toHaveBeenCalledWith(camera, {
+        duration: 0,
+        padding: { top: 0, right: 0, bottom: 0, left: 0 }
+      })
+    );
     expect(onCameraChange).not.toHaveBeenCalled();
   });
 

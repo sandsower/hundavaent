@@ -3,7 +3,7 @@ import type { Map as MapLibreMap, Marker, StyleSpecification } from 'maplibre-gl
 import { clusterMapPlaces, isTerminalMapCluster } from '$lib/discovery/clusters';
 
 import { markerPinSvg } from './marker-icons';
-import type { MapAdapter, MapCallbacks, MapCamera, MapPlace } from './types';
+import type { MapAdapter, MapCallbacks, MapCamera, MapPadding, MapPlace } from './types';
 
 export interface MapLibreAdapterOptions {
   style: string | StyleSpecification;
@@ -160,19 +160,55 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
     if (markerId) markers.get(markerId)?.element.focus();
   }
 
-  function setCamera(camera: MapCamera): void {
+  function setCamera(
+    camera: MapCamera,
+    options: { duration?: number; padding?: MapPadding } = {}
+  ): void {
     if (!map) return;
     const current = map.getCenter();
+    const currentPadding = map.getPadding();
+    const nextPadding = options.padding ?? currentPadding;
     if (
       Math.abs(current.lat - camera.latitude) < 0.000001 &&
       Math.abs(current.lng - camera.longitude) < 0.000001 &&
-      Math.abs(map.getZoom() - camera.zoom) < 0.001
+      Math.abs(map.getZoom() - camera.zoom) < 0.001 &&
+      currentPadding.top === nextPadding.top &&
+      currentPadding.right === nextPadding.right &&
+      currentPadding.bottom === nextPadding.bottom &&
+      currentPadding.left === nextPadding.left
     ) {
       return;
     }
 
     applyingCamera = true;
-    map.jumpTo({ center: [camera.longitude, camera.latitude], zoom: camera.zoom });
+    if ((options.duration ?? 0) > 0) {
+      map.easeTo({
+        center: [camera.longitude, camera.latitude],
+        zoom: camera.zoom,
+        padding: nextPadding,
+        duration: options.duration
+      });
+    } else {
+      map.jumpTo({
+        center: [camera.longitude, camera.latitude],
+        zoom: camera.zoom,
+        padding: nextPadding
+      });
+    }
+  }
+
+  function setPadding(padding: MapPadding, options: { duration?: number } = {}): void {
+    if (!map) return;
+    const current = map.getPadding();
+    if (
+      current.top === padding.top &&
+      current.right === padding.right &&
+      current.bottom === padding.bottom &&
+      current.left === padding.left
+    ) {
+      return;
+    }
+    map.easeTo({ padding, duration: options.duration ?? 0 }, { hundavaentProgrammatic: true });
   }
 
   function fitToPlaces(nextPlaces: readonly MapPlace[]): void {
@@ -249,6 +285,7 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
     setSelectedPlace,
     focusPlace,
     setCamera,
+    setPadding,
     fitToPlaces,
     destroy,
     getCamera

@@ -33,6 +33,10 @@ select has_function(
   'public', 'list_published_place_photos', array['uuid'],
   'Anyone can list approved photos for a currently published Place'
 );
+select has_function(
+  'public', 'list_published_place_primary_photos', array['uuid[]'],
+  'Anyone can batch-list approved primary photos for published Places'
+);
 
 select ok(
   not has_function_privilege('anon', 'public.register_place_media(jsonb,uuid)', 'execute'),
@@ -57,6 +61,12 @@ select ok(
 select ok(
   has_function_privilege('anon', 'public.list_published_place_photos(uuid)', 'execute'),
   'Anonymous Visitors can reach the public photo listing boundary'
+);
+select ok(
+  has_function_privilege(
+    'anon', 'public.list_published_place_primary_photos(uuid[])', 'execute'
+  ),
+  'Anonymous Visitors can reach the batched primary photo boundary'
 );
 select ok(
   not has_table_privilege('authenticated', 'private.place_media', 'select'),
@@ -395,6 +405,7 @@ select results_eq(
           'rights_evidence_reference', 'Owner-supplied, permission on file',
           'attribution_text', 'A. Photographer',
           'people_review', 'no_prominent_people',
+          'make_primary', true,
           'alt_text_is', 'Hundur liggur á gólfi kaffihúss',
           'alt_text_en', 'A dog lies on a cafe floor'
         ),
@@ -417,6 +428,23 @@ select results_eq(
   $$,
   $$ values ('79300000-0000-4000-8000-000000000001/photo-one.jpg'::text) $$,
   'The public photo listing returns only the approved photo, not the still-pending one'
+);
+
+select results_eq(
+  $$
+    select place_id, storage_object_path
+    from public.list_published_place_primary_photos(
+      array[
+        '79300000-0000-4000-8000-000000000001',
+        '79300000-0000-4000-8000-000000000002'
+      ]::uuid[]
+    )
+  $$,
+  $$ values (
+    '79300000-0000-4000-8000-000000000001'::uuid,
+    '79300000-0000-4000-8000-000000000001/photo-one.jpg'::text
+  ) $$,
+  'The batched projection returns only a published Place primary photo'
 );
 
 -- The check above passes even vacuously (the Candidate Place has no photo rows at all yet), which

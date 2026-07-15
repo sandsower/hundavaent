@@ -24,6 +24,7 @@ const places = [
         permissionRequirement: 'standing_permission' as const
       }
     ],
+    primaryPhoto: null,
     verifiedAt: '2026-07-09T11:00:00.000Z'
   },
   {
@@ -45,6 +46,7 @@ const places = [
         permissionRequirement: 'ask_on_arrival' as const
       }
     ],
+    primaryPhoto: null,
     verifiedAt: '2026-07-09T12:00:00.000Z'
   }
 ];
@@ -54,6 +56,7 @@ describe('PlaceList', () => {
     render(PlaceList, {
       places,
       selectedPlaceId: null,
+      lang: 'en',
       copy: catalogues.en,
       onSelect: vi.fn(),
       signInHref: (placeId) => `/en/account?returnTo=%2Fen%3Ffavourite%3D${placeId}`
@@ -71,6 +74,7 @@ describe('PlaceList', () => {
     render(PlaceList, {
       places,
       selectedPlaceId: places[0].placeId,
+      lang: 'en',
       copy: catalogues.en,
       onSelect
     });
@@ -90,6 +94,7 @@ describe('PlaceList', () => {
     render(PlaceList, {
       places,
       selectedPlaceId: places[1].placeId,
+      lang: 'en',
       focusSelected: true,
       copy: catalogues.en,
       onSelect: vi.fn()

@@ -25,6 +25,7 @@ const representativePlaces: PublishedPlaceSummary[] = Array.from({ length: 500 }
       permissionRequirement: 'standing_permission' as const
     }
   ],
+  primaryPhoto: null,
   verifiedAt: '2026-07-09T11:00:00Z'
 }));
 

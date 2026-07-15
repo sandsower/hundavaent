@@ -21,7 +21,7 @@
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import type { PublishedPlaceProfile } from '$server/discovery/public-places';
   import MapSurface from '$lib/map/MapSurface.svelte';
-  import type { MapAdapter, MapCamera } from '$lib/map/types';
+  import type { MapAdapter, MapCamera, MapPadding } from '$lib/map/types';
 
   import DiscoveryControls from './DiscoveryControls.svelte';
   import DiscoveryResults from './DiscoveryResults.svelte';
@@ -100,6 +100,10 @@
   let clusterPlaceIds = $state<readonly string[] | null>(null);
   const clusterHistoryKey = 'hundavaentClusterPlaceIds';
   let selectionFocusOrigin = $state<HTMLButtonElement | null>(null);
+  let directorySidebar = $state<HTMLElement>();
+  let directoryRailWidth = $state(0);
+  let wideDetailLayout = $state(false);
+  let reducedMotion = $state(false);
   let locationOrigin = $state<GeographicPoint | null>(null);
   let locationState = $state<'idle' | 'locating' | 'ready' | 'denied' | 'unavailable'>('idle');
   let filteredPlaces = $derived(
@@ -142,6 +146,12 @@
   );
   let profileLoading = $derived(selectedProfileState.loading);
   let profileError = $derived(selectedProfileState.error);
+  let mapViewportPadding = $derived<MapPadding>(
+    selectedPlace && wideDetailLayout
+      ? { top: 12, right: directoryRailWidth + 24, bottom: 12, left: 12 }
+      : { top: 0, right: 0, bottom: 0, left: 0 }
+  );
+  let mapMotionDuration = $derived(reducedMotion ? 0 : 450);
   // Maps a Place ID to its most recent Check-in timestamp (or null once confirmed there is none
   // within the rolling window). Absence of the key means "not yet loaded".
   let checkInStatusByPlaceId = $state<Record<string, string | null>>({});
@@ -167,6 +177,25 @@
   });
 
   onMount(() => {
+    const wideDetailQuery = window.matchMedia('(min-width: 76rem)');
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const syncResponsiveState = () => {
+      wideDetailLayout = wideDetailQuery.matches;
+      reducedMotion = reducedMotionQuery.matches;
+    };
+    syncResponsiveState();
+    wideDetailQuery.addEventListener('change', syncResponsiveState);
+    reducedMotionQuery.addEventListener('change', syncResponsiveState);
+    const railObserver = directorySidebar
+      ? new ResizeObserver(([entry]) => {
+          if (entry) directoryRailWidth = entry.contentRect.width;
+        })
+      : null;
+    if (directorySidebar) {
+      directoryRailWidth = directorySidebar.getBoundingClientRect().width;
+      railObserver?.observe(directorySidebar);
+    }
+
     locationOrigin = loadSessionLocation(sessionStorage);
     locationState = locationOrigin
       ? 'ready'
@@ -267,13 +296,24 @@
         }
       });
     };
+    const closeSelectedOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !discoveryState.selectedPlaceId || event.defaultPrevented)
+        return;
+      event.preventDefault();
+      clearSelectedPlace();
+    };
     window.addEventListener('popstate', syncHistory);
+    window.addEventListener('keydown', closeSelectedOnEscape);
     const unsubscribeFavourites = signedIn
       ? subscribeToFavouriteInvalidation(() => void refreshFavourites())
       : () => undefined;
     return () => {
       if (filterAnalyticsTimer) clearTimeout(filterAnalyticsTimer);
       window.removeEventListener('popstate', syncHistory);
+      window.removeEventListener('keydown', closeSelectedOnEscape);
+      wideDetailQuery.removeEventListener('change', syncResponsiveState);
+      reducedMotionQuery.removeEventListener('change', syncResponsiveState);
+      railObserver?.disconnect();
       unsubscribeFavourites();
     };
   });
@@ -360,7 +400,7 @@
           zoom: Math.max(discoveryState.camera.zoom, 13)
         }
       },
-      'push'
+      discoveryState.selectedPlaceId ? 'replace' : 'push'
     );
     announcement = `${copy['directory.selectedPlace']}: ${place.name}`;
     postHogAnalytics.capture('place viewed', {
@@ -379,7 +419,7 @@
 
   function clearSelectedPlace(): void {
     const previouslySelectedPlaceId = discoveryState.selectedPlaceId;
-    commitState({ ...discoveryState, selectedPlaceId: null, view: 'map' }, 'push');
+    commitState({ ...discoveryState, selectedPlaceId: null, view: 'map' }, 'replace');
     announcement = '';
     if (previouslySelectedPlaceId) {
       const focusOrigin = selectionFocusOrigin;
@@ -668,9 +708,20 @@
   }
 </script>
 
-<div class="map-list-shell" data-responsive-shell data-map-failed={mapFailed}>
+<div
+  class="map-list-shell"
+  data-responsive-shell
+  data-map-failed={mapFailed}
+  data-detail-layout={selectedPlace && wideDetailLayout
+    ? 'floating'
+    : selectedPlace
+      ? 'rail'
+      : 'none'}
+  style:--detail-safe-right={`${mapViewportPadding.right}px`}
+>
   <aside
     class="directory-sidebar"
+    bind:this={directorySidebar}
     data-directory-sidebar
     data-rail-view={filtersOpen
       ? 'filters'
@@ -699,60 +750,72 @@
     />
 
     {#if !filtersOpen}
-      {#if selectedPlace && discoveryState.view !== 'list'}
-        <div class="selected-place-overlay rail-content">
-          <!-- Keyed so selecting a different Place recreates the card: its internal
+      <div class="rail-stack">
+        {#if selectedPlace && discoveryState.view !== 'list'}
+          <div
+            class="selected-place-overlay rail-content"
+            data-selected-place-overlay
+            data-floating={wideDetailLayout}
+          >
+            <!-- Keyed so selecting a different Place recreates the card: its internal
                interaction state (for example a completed Check-in) must never carry over. -->
-          {#key selectedPlace.placeId}
-            <SelectedPlaceCard
-              place={selectedPlace}
-              profile={selectedProfile}
-              loading={profileLoading}
-              loadFailed={profileError}
+            {#key selectedPlace.placeId}
+              <SelectedPlaceCard
+                place={selectedPlace}
+                profile={selectedProfile}
+                loading={profileLoading}
+                loadFailed={profileError}
+                {lang}
+                {copy}
+                onClose={clearSelectedPlace}
+                onRetry={() => loadSelectedProfile(selectedPlace.placeId)}
+                {signedIn}
+                favourite={favouritePlaceIds.includes(selectedPlace.placeId)}
+                signInHref={favouriteSignInHref(selectedPlace.placeId)}
+                pendingConfirmation={pendingFavourite === selectedPlace.placeId}
+                onFavouriteChange={applyFavouriteState}
+                {correctionHref}
+                checkInSignInHref={checkInSignInHref(selectedPlace.placeId)}
+                {proximityAssistEnabled}
+                initialCheckedInAt={selectedCheckInStatus}
+              />
+            {/key}
+          </div>
+        {/if}
+
+        {#if filteredPlaces.length > 0}
+          <div
+            class="results-overlay rail-content"
+            data-results-visible={discoveryState.view === 'list' || mapFailed}
+            role={mapFailed ? 'region' : undefined}
+            aria-label={mapFailed ? copy['directory.listLabel'] : undefined}
+            aria-hidden={selectedPlace && !wideDetailLayout ? 'true' : undefined}
+            inert={selectedPlace && !wideDetailLayout ? true : undefined}
+          >
+            <DiscoveryResults
+              places={resultPlaces}
+              selectedPlaceId={discoveryState.selectedPlaceId}
               {lang}
               {copy}
-              onClose={clearSelectedPlace}
-              onRetry={() => loadSelectedProfile(selectedPlace.placeId)}
+              onSelect={(placeId, trigger) =>
+                selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list')}
+              onClose={closeResults}
+              closable={discoveryState.view === 'list' && !mapFailed}
               {signedIn}
-              favourite={favouritePlaceIds.includes(selectedPlace.placeId)}
-              signInHref={favouriteSignInHref(selectedPlace.placeId)}
-              pendingConfirmation={pendingFavourite === selectedPlace.placeId}
+              {favouritePlaceIds}
+              pendingFavouritePlaceId={pendingFavourite}
+              signInHref={favouriteSignInHref}
               onFavouriteChange={applyFavouriteState}
-              {correctionHref}
-              checkInSignInHref={checkInSignInHref(selectedPlace.placeId)}
-              {proximityAssistEnabled}
-              initialCheckedInAt={selectedCheckInStatus}
             />
-          {/key}
-        </div>
-      {:else if discoveryState.view === 'list' || mapFailed}
-        <div
-          class="results-overlay rail-content"
-          role={mapFailed ? 'region' : undefined}
-          aria-label={mapFailed ? copy['directory.listLabel'] : undefined}
-        >
-          <DiscoveryResults
-            places={resultPlaces}
-            selectedPlaceId={discoveryState.selectedPlaceId}
-            {copy}
-            onSelect={(placeId, trigger) =>
-              selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list')}
-            onClose={closeResults}
-            closable={discoveryState.view === 'list' && !mapFailed}
-            {signedIn}
-            {favouritePlaceIds}
-            pendingFavouritePlaceId={pendingFavourite}
-            signInHref={favouriteSignInHref}
-            onFavouriteChange={applyFavouriteState}
-          />
-        </div>
-      {:else if filteredPlaces.length === 0}
-        <div class="empty-state rail-content" role="status">
-          <strong>{copy['directory.noResultsTitle']}</strong>
-          <span>{copy['directory.noResultsBody']}</span>
-          <button type="button" onclick={clearFilters}>{copy['directory.clearFilters']}</button>
-        </div>
-      {/if}
+          </div>
+        {:else}
+          <div class="empty-state rail-content" role="status">
+            <strong>{copy['directory.noResultsTitle']}</strong>
+            <span>{copy['directory.noResultsBody']}</span>
+            <button type="button" onclick={clearFilters}>{copy['directory.clearFilters']}</button>
+          </div>
+        {/if}
+      </div>
     {/if}
   </aside>
 
@@ -769,6 +832,8 @@
         onClusterSelect={showClusterResults}
         onCameraChange={updateCamera}
         onFailureChange={(failed) => (mapFailed = failed)}
+        viewportPadding={mapViewportPadding}
+        motionDurationMs={mapMotionDuration}
         {fitPlacesOnMount}
       />
     </div>
@@ -781,6 +846,7 @@
     <PlaceList
       places={filteredPlaces}
       selectedPlaceId={discoveryState.selectedPlaceId}
+      {lang}
       interactive={false}
       {copy}
     />
@@ -791,8 +857,11 @@
 
 <style>
   .map-list-shell {
+    --directory-rail-width: clamp(20rem, 27vw, 24rem);
+    --floating-card-inset: 0.75rem;
+    position: relative;
     display: grid;
-    grid-template-columns: minmax(19rem, 0.72fr) minmax(28rem, 1.28fr);
+    grid-template-columns: var(--directory-rail-width) minmax(0, 1fr);
     width: 100%;
     height: 100%;
     min-height: 0;
@@ -811,6 +880,14 @@
     overflow: hidden;
     border-inline-end: 1px solid var(--hv-border-subtle);
     background: var(--hv-color-snow-raised);
+  }
+
+  .rail-stack {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
   }
 
   .rail-content {
@@ -835,9 +912,14 @@
   }
 
   .selected-place-overlay {
+    position: absolute;
+    z-index: 4;
+    inset: 0;
     display: flex;
     width: 100%;
     overflow: hidden;
+    background: var(--hv-color-snow-raised);
+    animation: detail-card-enter 240ms ease-out both;
   }
 
   .selected-place-overlay :global(aside) {
@@ -848,6 +930,19 @@
 
   .results-overlay {
     width: 100%;
+    height: 100%;
+  }
+
+  @keyframes detail-card-enter {
+    from {
+      opacity: 0;
+      transform: translateX(0.75rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
 
   .empty-state {
@@ -904,6 +999,36 @@
     padding: 0;
   }
 
+  @media (min-width: 76rem) {
+    .directory-sidebar,
+    .rail-stack {
+      position: static;
+    }
+
+    .selected-place-overlay {
+      top: var(--floating-card-inset);
+      right: var(--floating-card-inset);
+      bottom: var(--floating-card-inset);
+      left: auto;
+      width: var(--directory-rail-width);
+      border: 1px solid var(--hv-border-strong);
+      border-radius: var(--hv-radius-shell);
+      box-shadow: var(--hv-shadow-floating);
+    }
+
+    .selected-place-overlay :global(aside) {
+      border-radius: inherit;
+    }
+
+    .map-list-shell[data-detail-layout='floating'] .map-stage :global(.maplibregl-ctrl-top-right),
+    .map-list-shell[data-detail-layout='floating']
+      .map-stage
+      :global(.maplibregl-ctrl-bottom-right) {
+      right: var(--detail-safe-right);
+      transition: right 240ms ease-out;
+    }
+  }
+
   @media (max-width: 58rem) {
     .map-list-shell {
       display: block;
@@ -917,6 +1042,11 @@
       overflow: visible;
       border-inline-end: 0;
       border-block-end: 1px solid var(--hv-border-subtle);
+    }
+
+    .rail-stack {
+      position: static;
+      overflow: visible;
     }
 
     .rail-content {
@@ -944,10 +1074,27 @@
       box-shadow: var(--hv-shadow-floating);
     }
 
+    .results-overlay[data-results-visible='false'] {
+      display: none;
+    }
+
     .map-stage :global(.map-surface),
     .map-stage :global(.map-container),
     .map-stage :global(.map-failure) {
       min-height: inherit;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .selected-place-overlay {
+      animation: none;
+    }
+
+    .map-list-shell[data-detail-layout='floating'] .map-stage :global(.maplibregl-ctrl-top-right),
+    .map-list-shell[data-detail-layout='floating']
+      .map-stage
+      :global(.maplibregl-ctrl-bottom-right) {
+      transition: none;
     }
   }
 

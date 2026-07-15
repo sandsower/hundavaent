@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
 
-  import type { Catalogue, MessageKey } from '$i18n';
+  import type { Catalogue, Locale, MessageKey } from '$i18n';
   import type { PlaceCategory } from '$domain/place';
   import { accessAreaMessageKeys } from '$i18n/structured-place';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
@@ -9,6 +9,7 @@
 
   interface Props {
     place: PublishedPlaceSummary;
+    lang: Locale;
     selected: boolean;
     focusSelected?: boolean;
     interactive?: boolean;
@@ -23,6 +24,7 @@
 
   let {
     place,
+    lang,
     selected,
     focusSelected = false,
     interactive = true,
@@ -57,7 +59,17 @@
   };
 </script>
 
-<article class:selected aria-label={place.name}>
+<article class:selected class:has-photo={place.primaryPhoto !== null} aria-label={place.name}>
+  {#if place.primaryPhoto}
+    <img
+      class="primary-photo"
+      src={place.primaryPhoto.url}
+      alt={lang === 'is' ? place.primaryPhoto.altTextIs : place.primaryPhoto.altTextEn}
+      width={place.primaryPhoto.widthPx}
+      height={place.primaryPhoto.heightPx}
+      loading="lazy"
+    />
+  {/if}
   {#if interactive}
     <button
       type="button"
@@ -116,6 +128,17 @@
     box-shadow: none;
   }
 
+  article.has-photo {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .primary-photo {
+    width: 4.75rem;
+    height: 4.75rem;
+    border-radius: var(--hv-radius-control);
+    object-fit: cover;
+  }
+
   article.selected {
     border-color: var(--hv-color-basalt);
     box-shadow: inset 0.3rem 0 0 var(--hv-color-signal);
@@ -155,6 +178,14 @@
   @media (max-width: 32rem) {
     article {
       grid-template-columns: 1fr;
+    }
+
+    article.has-photo {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    article > :global(.favourite-control) {
+      grid-column: 1 / -1;
     }
   }
 </style>

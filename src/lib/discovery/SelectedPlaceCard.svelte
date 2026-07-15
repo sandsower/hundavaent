@@ -120,8 +120,17 @@
   </div>
 
   <div class="card-body" data-card-scroll-body>
-    {#if profile}
+    {#if profile?.photos.length}
       <PlacePhotos photos={profile.photos} placeName={place.name} {lang} {copy} featured />
+    {:else if place.primaryPhoto}
+      <figure class="summary-photo" data-summary-photo>
+        <img
+          src={place.primaryPhoto.url}
+          alt={lang === 'is' ? place.primaryPhoto.altTextIs : place.primaryPhoto.altTextEn}
+          width={place.primaryPhoto.widthPx}
+          height={place.primaryPhoto.heightPx}
+        />
+      </figure>
     {/if}
 
     <section
@@ -347,6 +356,22 @@
     padding: 0 var(--hv-space-panel) var(--hv-space-panel);
   }
 
+  .card-body > * {
+    animation: detail-content-enter 180ms ease-out both;
+  }
+
+  @keyframes detail-content-enter {
+    from {
+      opacity: 0;
+      transform: translateY(0.25rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   .complex-summary,
   .details-status {
     margin: 0.45rem 0 0;
@@ -363,6 +388,22 @@
     margin-block: 0 0.8rem;
     border: 1px solid var(--hv-border-subtle);
     border-radius: var(--hv-radius-panel);
+  }
+
+  .summary-photo {
+    margin: 0 0 0.8rem;
+    overflow: hidden;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-fjord-soft);
+  }
+
+  .summary-photo img {
+    display: block;
+    width: 100%;
+    max-height: 14rem;
+    object-fit: cover;
+    aspect-ratio: 16 / 9;
   }
 
   .member-actions :global(.check-in) {
@@ -611,5 +652,11 @@
 
   .details-status p {
     margin-block: 0 0.65rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card-body > * {
+      animation: none;
+    }
   }
 </style>

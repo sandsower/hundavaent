@@ -42,7 +42,10 @@ test.describe('public discovery locale routes', () => {
       'href',
       '/en/account?returnTo=%2Fen'
     );
-    await expect(page.getByRole('link', { name: /Published Place/ })).toHaveCount(0);
+    const desktopResults = page.getByRole('region', { name: 'Places found' });
+    await expect(
+      desktopResults.getByRole('button', { name: 'Select Published Place' })
+    ).toBeVisible();
     await expect(page.getByText('Candidate Place')).toHaveCount(0);
     await expect(page.getByText('Unverified Place')).toHaveCount(0);
 

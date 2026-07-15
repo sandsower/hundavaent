@@ -731,6 +731,19 @@ export type Database = {
           width_px: number
         }[]
       }
+      list_published_place_primary_photos: {
+        Args: { requested_place_ids: string[] }
+        Returns: {
+          alt_text_en: string
+          alt_text_is: string
+          height_px: number
+          media_id: string
+          place_id: string
+          storage_bucket: string
+          storage_object_path: string
+          width_px: number
+        }[]
+      }
       list_published_places: {
         Args: { requested_locale: string }
         Returns: {
