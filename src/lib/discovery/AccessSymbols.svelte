@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Catalogue, MessageKey } from '$i18n';
+  import { formatLocalizedDateOnly } from '$i18n/date';
   import {
     buildAccessSymbolPresentation,
     type AccessSymbol,
@@ -118,6 +119,28 @@
   }
 
   function localizedConstraints(symbol: AccessSymbol): string[] {
+    if (symbol.dimension === 'area') {
+      return meaningfulText(symbol.condition.accessAreaNote)
+        ? [
+            framedConstraint(
+              'accessSymbols.areaNoteConstraint',
+              '{note}',
+              symbol.condition.accessAreaNote
+            )
+          ]
+        : [];
+    }
+    if (symbol.dimension === 'restraint') {
+      return meaningfulText(symbol.condition.restraintNote)
+        ? [
+            framedConstraint(
+              'accessSymbols.restraintNoteConstraint',
+              '{note}',
+              symbol.condition.restraintNote
+            )
+          ]
+        : [];
+    }
     if (symbol.dimension === 'dogs') {
       const eligibility = symbol.condition.dogEligibility;
       if (!eligibility) return [];
@@ -133,7 +156,10 @@
           : copy['accessSymbols.dogCountConstraint'].replace(
               '{count}',
               String(eligibility.maximumDogs)
-            )
+            ),
+        meaningfulText(eligibility.notes)
+          ? framedConstraint('accessSymbols.eligibilityNoteConstraint', '{note}', eligibility.notes)
+          : ''
       ].filter(Boolean);
     }
     if (symbol.dimension !== 'timing') return [];
@@ -151,8 +177,32 @@
         : '',
       typeof window.endsAt === 'string'
         ? copy['accessSymbols.endsAtConstraint'].replace('{time}', window.endsAt)
+        : '',
+      meaningfulText(window.startsOn)
+        ? copy['accessSymbols.startsOnConstraint'].replace(
+            '{date}',
+            formatLocalizedDateOnly(window.startsOn, isIcelandic ? 'is' : 'en')
+          )
+        : '',
+      meaningfulText(window.endsOn)
+        ? copy['accessSymbols.endsOnConstraint'].replace(
+            '{date}',
+            formatLocalizedDateOnly(window.endsOn, isIcelandic ? 'is' : 'en')
+          )
+        : '',
+      meaningfulText(window.notes)
+        ? framedConstraint('accessSymbols.availabilityNoteConstraint', '{note}', window.notes)
         : ''
     ].filter(Boolean);
+  }
+
+  function meaningfulText(value: string | null | undefined): value is string {
+    return typeof value === 'string' && value.trim().length > 0;
+  }
+
+  function framedConstraint(key: MessageKey, placeholder: string, value: string): string {
+    const framed = copy[key].replace(placeholder, value.trim());
+    return /[.!?]$/.test(framed) ? framed : `${framed}.`;
   }
 
   function formatWeight(value: number): string {

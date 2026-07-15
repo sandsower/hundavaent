@@ -57,14 +57,24 @@ describe('AccessSymbols', () => {
         {
           ...simpleCondition,
           accessArea: 'outdoors' as const,
+          accessAreaNote: 'Rear terrace',
+          restraintNote: 'Use the short leash by the gate.',
           permissionRequirement: 'ask_on_arrival' as const,
           dogEligibility: {
             scope: 'restricted' as const,
             maximumWeightKg: 10,
-            maximumDogs: 2
+            maximumDogs: 2,
+            notes: 'Calm dogs only.'
           },
           availabilityState: 'limited' as const,
-          availabilityWindow: { days: [1, 2], startsAt: '10:00', endsAt: '16:00' }
+          availabilityWindow: {
+            days: [1, 2],
+            startsAt: '10:00',
+            endsAt: '16:00',
+            startsOn: '2026-06-01',
+            endsOn: '2026-08-31',
+            notes: 'Weather permitting.'
+          }
         }
       ],
       copy: catalogues.en
@@ -76,6 +86,7 @@ describe('AccessSymbols', () => {
     const tooltip = outdoors.querySelector('[role="tooltip"]');
     expect(tooltip?.getAttribute('aria-hidden')).toBe('true');
     expect(tooltip?.textContent).toContain('Dogs are welcome in the outdoor customer area.');
+    expect(tooltip?.textContent).toContain('Area detail: Rear terrace.');
     expect(tooltip?.textContent).not.toContain('outdoors');
     await fireEvent.focus(outdoors);
     expect(tooltip?.getAttribute('aria-hidden')).toBe('true');
@@ -86,6 +97,12 @@ describe('AccessSymbols', () => {
     expect(document.getElementById(detailId!)?.textContent).toContain(
       'Dogs are welcome in the outdoor customer area.'
     );
+
+    const restraint = container.querySelector<HTMLButtonElement>('button.restraint')!;
+    await fireEvent.click(restraint);
+    expect(
+      document.getElementById(restraint.getAttribute('aria-controls')!)?.textContent
+    ).toContain('Control rule: Use the short leash by the gate.');
 
     const permission = container.querySelector<HTMLButtonElement>('button.permission')!;
     await fireEvent.click(permission);
@@ -99,6 +116,7 @@ describe('AccessSymbols', () => {
     expect(dogText).toContain('Only dogs within the stated size limit are welcome.');
     expect(dogText).toContain('Maximum weight: 10 kg.');
     expect(dogText).toContain('Maximum number of dogs: 2.');
+    expect(dogText).toContain('Dog eligibility: Calm dogs only.');
 
     const limited = container.querySelector<HTMLButtonElement>('button.timing')!;
     await fireEvent.click(limited);
@@ -108,8 +126,11 @@ describe('AccessSymbols', () => {
     expect(timingText).toContain('Days: Monday, Tuesday.');
     expect(timingText).toContain('From 10:00.');
     expect(timingText).toContain('Until 16:00.');
+    expect(timingText).toContain('From 1 June 2026.');
+    expect(timingText).toContain('Through 31 August 2026.');
+    expect(timingText).toContain('Timing detail: Weather permitting.');
     expect(container.textContent).not.toMatch(
-      /outdoors|designated_area|other_bounded|leash_required|off_leash_permitted|carrier_required|other_sourced|standing_permission|ask_on_arrival|advance_approval|whenever_open|not_stated|maximumWeightKg|startsAt|endsAt/
+      /outdoors|designated_area|other_bounded|leash_required|off_leash_permitted|carrier_required|other_sourced|standing_permission|ask_on_arrival|advance_approval|whenever_open|not_stated|maximumWeightKg|accessAreaNote|restraintNote|startsAt|endsAt|startsOn|endsOn/
     );
 
     await fireEvent.click(limited);
@@ -124,10 +145,23 @@ describe('AccessSymbols', () => {
         {
           ...simpleCondition,
           accessArea: 'outdoors' as const,
+          accessAreaNote: 'Aftari verönd',
+          restraintNote: 'Notið stuttan taum við hliðið.',
           permissionRequirement: 'advance_approval' as const,
-          dogEligibility: { scope: 'restricted' as const, maximumWeightKg: 7.5 },
+          dogEligibility: {
+            scope: 'restricted' as const,
+            maximumWeightKg: 7.5,
+            notes: 'Aðeins rólegir hundar.'
+          },
           availabilityState: 'limited' as const,
-          availabilityWindow: { days: [6, 7], startsAt: '11:00', endsAt: '15:00' }
+          availabilityWindow: {
+            days: [6, 7],
+            startsAt: '11:00',
+            endsAt: '15:00',
+            startsOn: '2026-06-01',
+            endsOn: '2026-08-31',
+            notes: 'Ef veður leyfir.'
+          }
         }
       ],
       copy: catalogues.is
@@ -137,10 +171,19 @@ describe('AccessSymbols', () => {
     expect(outdoors.querySelector('[role="tooltip"]')?.textContent).toContain(
       'Hundar eru velkomnir á útisvæði viðskiptavina.'
     );
+    expect(outdoors.querySelector('[role="tooltip"]')?.textContent).toContain(
+      'Nánar um svæði: Aftari verönd.'
+    );
     await fireEvent.click(outdoors);
     expect(document.getElementById(outdoors.getAttribute('aria-controls')!)?.textContent).toContain(
       'Hundar eru velkomnir á útisvæði viðskiptavina.'
     );
+
+    const restraint = container.querySelector<HTMLButtonElement>('button.restraint')!;
+    await fireEvent.click(restraint);
+    expect(
+      document.getElementById(restraint.getAttribute('aria-controls')!)?.textContent
+    ).toContain('Aðhaldsregla: Notið stuttan taum við hliðið.');
 
     const permission = container.querySelector<HTMLButtonElement>('button.permission')!;
     await fireEvent.click(permission);
@@ -153,6 +196,9 @@ describe('AccessSymbols', () => {
     expect(document.getElementById(dogs.getAttribute('aria-controls')!)?.textContent).toContain(
       'Hámarksþyngd: 7,5 kg.'
     );
+    expect(document.getElementById(dogs.getAttribute('aria-controls')!)?.textContent).toContain(
+      'Skilyrði um hunda: Aðeins rólegir hundar.'
+    );
 
     const timing = container.querySelector<HTMLButtonElement>('button.timing')!;
     await fireEvent.click(timing);
@@ -161,8 +207,11 @@ describe('AccessSymbols', () => {
     expect(timingText).toContain('Dagar: Laugardagur, Sunnudagur.');
     expect(timingText).toContain('Frá kl. 11:00.');
     expect(timingText).toContain('Til kl. 15:00.');
+    expect(timingText).toContain('Gildir frá 1. júní 2026.');
+    expect(timingText).toContain('Gildir til og með 31. ágúst 2026.');
+    expect(timingText).toContain('Nánar um tíma: Ef veður leyfir.');
     expect(container.textContent).not.toMatch(
-      /outdoors|designated_area|other_bounded|leash_required|off_leash_permitted|carrier_required|other_sourced|standing_permission|ask_on_arrival|advance_approval|whenever_open|not_stated|maximumWeightKg|startsAt|endsAt/
+      /outdoors|designated_area|other_bounded|leash_required|off_leash_permitted|carrier_required|other_sourced|standing_permission|ask_on_arrival|advance_approval|whenever_open|not_stated|maximumWeightKg|accessAreaNote|restraintNote|startsAt|endsAt|startsOn|endsOn/
     );
   });
 });
