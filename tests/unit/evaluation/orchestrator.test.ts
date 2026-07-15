@@ -34,12 +34,14 @@ describe('release evaluation orchestration', () => {
       new URL('../../../.github/workflows/production.yml', import.meta.url),
       'utf8'
     );
-    const applicationDump = workflow.indexOf('--schema public,private,security');
+    const applicationDump = workflow.indexOf(
+      'dump_snapshot_data "public|private|security" recovery/data.sql'
+    );
     const memberCount = workflow.indexOf('select count(*) from private.member_accounts');
     const authUserCount = workflow.indexOf('select count(*) from auth.users');
     const authIdentityCount = workflow.indexOf('select count(*) from auth.identities');
     const zeroMemberBranch = workflow.indexOf('[[ "${member_count}" == "0" ]]');
-    const fullAuthDump = workflow.indexOf('--schema auth -f recovery/auth-data.sql');
+    const fullAuthDump = workflow.indexOf('dump_snapshot_data "auth" recovery/auth-data.sql');
 
     expect(applicationDump).toBeGreaterThan(0);
     expect(memberCount).toBeGreaterThan(applicationDump);
@@ -53,24 +55,35 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('[[ "${auth_identity_count}" == "0" ]]');
   });
 
-  it('holds a production write lock across application and identity capture', () => {
+  it('uses one permission-compatible exported snapshot for every production read', () => {
     const workflow = readFileSync(
       new URL('../../../.github/workflows/production.yml', import.meta.url),
       'utf8'
     );
-    const acquire = workflow.indexOf('acquire_recovery_lock "${db_url}"');
-    const applicationDump = workflow.indexOf('--schema public,private,security');
+    const exportedSnapshot = workflow.indexOf('SELECT pg_export_snapshot()');
+    const applicationDump = workflow.indexOf(
+      'dump_snapshot_data "public|private|security" recovery/data.sql'
+    );
     const identityCounts = workflow.indexOf('(select count(*) from auth.identities)');
-    const authDump = workflow.indexOf('--schema auth -f recovery/auth-data.sql');
-    const release = workflow.indexOf('release_recovery_lock', authDump);
+    const authDump = workflow.indexOf('dump_snapshot_data "auth" recovery/auth-data.sql');
+    const applicationCounts = workflow.indexOf("n.nspname in ('public', 'private', 'security')");
+    const release = workflow.indexOf('release_recovery_snapshot', authDump);
 
-    expect(workflow).toContain("IN ('public', 'private', 'security', 'auth')");
-    expect(workflow).toContain("'lock table ' || table_list || ' in share mode'");
-    expect(acquire).toBeGreaterThan(0);
-    expect(applicationDump).toBeGreaterThan(acquire);
+    expect(workflow).not.toMatch(/LOCK TABLE/i);
+    expect(workflow).toContain('SET TRANSACTION SNAPSHOT');
+    expect(workflow).toContain('--snapshot "${recovery_snapshot}"');
+    expect(workflow).toContain('supabase/postgres:17.6.1.143 pg_dump');
+    expect(workflow).toContain('--quote-all-identifier');
+    expect(workflow).toContain('--role "postgres"');
+    expect(workflow).toContain('--exclude-table "auth.schema_migrations"');
+    expect(workflow.match(/snapshot_query/g)).toHaveLength(6);
+    expect(workflow.match(/dump_snapshot_data/g)).toHaveLength(3);
+    expect(exportedSnapshot).toBeGreaterThan(0);
+    expect(applicationDump).toBeGreaterThan(exportedSnapshot);
     expect(identityCounts).toBeGreaterThan(applicationDump);
     expect(authDump).toBeGreaterThan(identityCounts);
-    expect(release).toBeGreaterThan(authDump);
+    expect(applicationCounts).toBeGreaterThan(authDump);
+    expect(release).toBeGreaterThan(applicationCounts);
   });
 
   it('rejects invalid or incomplete Auth COPY recovery dumps', () => {

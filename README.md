@@ -164,7 +164,7 @@ The manual `Hundavaent production recovery and build` workflow accepts one revie
 Run the manual clean evaluation successfully for that exact SHA before starting the protected production workflow.
 When production proves that `private.member_accounts`, `auth.users`, and `auth.identities` all have no rows, recovery skips only the auth-user dump and restore path.
 Any positive or unprovable Member or Auth count automatically retains full auth recovery handling, including pending pre-activation identities, while public, private, and security data always receive the complete dump and restore proof.
-Recovery holds read-compatible production table locks across application capture, identity counting, and any required Auth capture so those artifacts describe one write-stable state.
+Recovery exports one read-only production snapshot and imports it into application capture, identity counting, and any required Auth capture so those artifacts describe one consistent state without table locks.
 When Auth recovery is required, every Auth table must match production, parse as a complete COPY dump, restore without errors, and match the scratch database row for row.
 It checks out that exact commit, builds the Cloudflare Pages artifact with the protected `production` environment, creates a custom PostgreSQL dump of the complete application schemas plus auth data whenever Members or Auth identities may exist, and restores that dump into an ephemeral Supabase PostgreSQL 17 container.
 The workflow refuses empty or invalid dumps and requires restored application schemas plus at least one baseline Place record.
