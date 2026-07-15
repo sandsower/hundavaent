@@ -56,6 +56,10 @@ to anon, authenticated;
 
 create table private.auth_pending_intents (
   token_hash bytea primary key,
+  creator_hash bytea not null,
+  creation_request_id text not null check (
+    btrim(creation_request_id) <> '' and length(creation_request_id) <= 128
+  ),
   action text not null check (action in ('favourite', 'rating')),
   place_id uuid not null references private.places(id) on delete cascade,
   overall_rating integer check (
@@ -81,6 +85,9 @@ create index auth_pending_intents_expiry_idx
   on private.auth_pending_intents (expires_at)
   where consumed_at is null;
 
+create index auth_pending_intents_creator_rate_idx
+  on private.auth_pending_intents (creator_hash, created_at);
+
 create table private.pending_member_rating_completions (
   member_id uuid not null references private.member_accounts(user_id) on delete restrict,
   place_id uuid not null references private.places(id) on delete restrict,
@@ -94,10 +101,61 @@ create table private.pending_member_rating_completions (
 alter table private.auth_pending_intents enable row level security;
 alter table private.pending_member_rating_completions enable row level security;
 
+create function private.cleanup_auth_pending_intents(cleanup_limit integer default 100)
+returns integer
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  deleted_count integer;
+begin
+  if cleanup_limit < 1 or cleanup_limit > 1000 then
+    raise exception using errcode = '22023', message = 'Cleanup limit must be between 1 and 1000';
+  end if;
+
+  with candidates as (
+    select pending.token_hash
+    from private.auth_pending_intents as pending
+    where (pending.consumed_at is null and pending.expires_at <= statement_timestamp())
+       or (pending.consumed_at < statement_timestamp() - interval '7 days')
+    order by coalesce(pending.consumed_at, pending.expires_at)
+    limit cleanup_limit
+    for update skip locked
+  )
+  delete from private.auth_pending_intents as pending
+  using candidates
+  where pending.token_hash = candidates.token_hash;
+
+  get diagnostics deleted_count = row_count;
+  return deleted_count;
+end;
+$$;
+
+create function private.cleanup_member_auth_pending_data(command_member_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+begin
+  delete from private.pending_member_rating_completions
+  where member_id = command_member_id;
+
+  delete from private.auth_pending_intents
+  where consumed_by = command_member_id;
+end;
+$$;
+
 create function public.create_auth_pending_intent(
   requested_action text,
   requested_place_id uuid,
-  requested_overall_rating integer default null
+  requested_overall_rating integer,
+  creation_subject text,
+  creation_request_id text,
+  creation_proof text
 )
 returns text
 language plpgsql
@@ -106,6 +164,8 @@ security definer
 set search_path = ''
 as $$
 declare
+  capability_secret text;
+  expected_proof text;
   raw_token text;
 begin
   if requested_action not in ('favourite', 'rating')
@@ -115,8 +175,50 @@ begin
     raise exception using errcode = '22023', message = 'Valid pending authentication action required';
   end if;
 
+  if creation_subject is null or creation_subject !~ '^[0-9a-f]{64}$'
+    or creation_request_id is null
+    or btrim(creation_request_id) = ''
+    or length(creation_request_id) > 128
+    or creation_proof is null
+    or creation_proof !~ '^[0-9a-f]{64}$' then
+    raise exception using errcode = '42501', message = 'Valid pending authentication capability required';
+  end if;
+
+  select capability.secret
+  into capability_secret
+  from private.member_activation_capabilities as capability
+  where capability.singleton;
+
+  expected_proof := encode(
+    extensions.hmac(
+      'pending:' || creation_subject || ':' || requested_action || ':' ||
+        requested_place_id::text || ':' || coalesce(requested_overall_rating::text, '') || ':' ||
+        creation_request_id || ':auth-pending-intent-v1',
+      capability_secret,
+      'sha256'
+    ),
+    'hex'
+  );
+
+  if capability_secret is null or creation_proof <> expected_proof then
+    raise exception using errcode = '42501', message = 'Valid pending authentication capability required';
+  end if;
+
   if not private.is_place_discoverable(requested_place_id) then
     raise exception using errcode = '22023', message = 'Discoverable Place required';
+  end if;
+
+  perform private.cleanup_auth_pending_intents(100);
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(creation_subject, 0));
+
+  if (
+    select count(*)
+    from private.auth_pending_intents as pending
+    where pending.creator_hash = extensions.digest(convert_to(creation_subject, 'UTF8'), 'sha256')
+      and pending.consumed_at is null
+      and pending.created_at > statement_timestamp() - interval '10 minutes'
+  ) >= 10 then
+    raise exception using errcode = '54000', message = 'Pending authentication rate limit exceeded';
   end if;
 
   raw_token := translate(
@@ -127,11 +229,15 @@ begin
 
   insert into private.auth_pending_intents (
     token_hash,
+    creator_hash,
+    creation_request_id,
     action,
     place_id,
     overall_rating
   ) values (
     extensions.digest(convert_to(raw_token, 'UTF8'), 'sha256'),
+    extensions.digest(convert_to(creation_subject, 'UTF8'), 'sha256'),
+    creation_request_id,
     requested_action,
     requested_place_id,
     requested_overall_rating
@@ -167,7 +273,7 @@ begin
     raise exception using errcode = '42501', message = 'Member activation required';
   end if;
 
-  if pending_token is null or length(pending_token) < 32
+  if pending_token is null or pending_token !~ '^[A-Za-z0-9_-]{43}$'
     or command_request_id is null
     or btrim(command_request_id) = ''
     or length(command_request_id) > 128 then
@@ -185,9 +291,6 @@ begin
   end if;
 
   if intent.consumed_at is not null then
-    if intent.consumed_by = actor_id then
-      return query select intent.action, intent.place_id, intent.overall_rating, intent.completion_status;
-    end if;
     return;
   end if;
 
@@ -233,12 +336,17 @@ returns table (
   place_name text,
   overall_rating integer
 )
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
-  select
+begin
+  if pending_token is null or pending_token !~ '^[A-Za-z0-9_-]{43}$' then
+    return;
+  end if;
+
+  return query select
     pending.action,
     pending.place_id,
     translation.name,
@@ -252,49 +360,7 @@ as $$
    end
   where pending.token_hash = extensions.digest(convert_to(pending_token, 'UTF8'), 'sha256')
     and pending.consumed_at is null
-    and pending.expires_at > statement_timestamp()
-$$;
-
-create function public.activate_current_member_with_intent(
-  activation_proof text,
-  activation_request_id text,
-  pending_token text
-)
-returns table (
-  member_id uuid,
-  action text,
-  place_id uuid,
-  overall_rating integer,
-  completion_status text
-)
-language plpgsql
-volatile
-security definer
-set search_path = ''
-as $$
-declare
-  activated_member_id uuid;
-  completion record;
-begin
-  activated_member_id := public.activate_current_member(
-    activation_proof,
-    activation_request_id
-  );
-
-  select completed.*
-  into completion
-  from public.complete_auth_pending_intent(pending_token, activation_request_id) as completed;
-
-  if not found then
-    raise exception using errcode = '22023', message = 'Pending authentication action is unavailable';
-  end if;
-
-  return query select
-    activated_member_id,
-    completion.action,
-    completion.place_id,
-    completion.overall_rating,
-    completion.completion_status;
+    and pending.expires_at > statement_timestamp();
 end;
 $$;
 
@@ -354,7 +420,7 @@ begin
     raise exception using errcode = '42501', message = 'Callback capability unavailable';
   end if;
 
-  select auth_user.created_at, lower(auth_user.email), auth_user.email_confirmed_at
+  select auth_user.created_at, nullif(lower(btrim(auth_user.email)), ''), auth_user.email_confirmed_at
   into auth_created_at, auth_email, auth_email_confirmed_at
   from auth.users as auth_user
   where auth_user.id = actor_id;
@@ -367,8 +433,8 @@ begin
     count(*),
     count(*) filter (where identity_record.provider not in ('email', 'facebook')),
     count(*) filter (
-      where identity_record.identity_data ? 'email'
-        and lower(identity_record.identity_data ->> 'email') <> auth_email
+      where nullif(lower(btrim(identity_record.identity_data ->> 'email')), '')
+        is distinct from auth_email
     )
   into identity_count, unsupported_identity_count, mismatched_email_count
   from auth.identities as identity_record
@@ -407,36 +473,99 @@ begin
 end;
 $$;
 
+create or replace function public.begin_current_account_deletion(
+  command_request_id text,
+  command_locale text,
+  command_disclosure_version text
+)
+returns table (
+  deletion_request_id uuid,
+  deletion_status text,
+  requested_at timestamptz
+)
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  actor_id uuid := auth.uid();
+begin
+  if actor_id is null then
+    raise exception using errcode = '42501', message = 'Authentication required';
+  end if;
+
+  if not exists (
+    select 1 from private.member_accounts as member_account
+    where member_account.user_id = actor_id
+  ) then
+    raise exception using errcode = '42501', message = 'Member activation required';
+  end if;
+
+  if command_locale not in ('is', 'en') then
+    raise exception using errcode = '22023', message = 'Supported locale required';
+  end if;
+
+  if command_request_id is null or btrim(command_request_id) = ''
+    or length(command_request_id) > 128 then
+    raise exception using errcode = '22023', message = 'Valid request identifier required';
+  end if;
+
+  if command_disclosure_version is null or btrim(command_disclosure_version) = '' then
+    raise exception using errcode = '22023', message = 'Disclosure version required';
+  end if;
+
+  perform private.cleanup_member_auth_pending_data(actor_id);
+
+  return query
+  with inserted as (
+    insert into private.account_deletion_requests (
+      user_id, requested_locale, disclosure_version, request_id
+    ) values (
+      actor_id, command_locale::private.locale_code, command_disclosure_version, command_request_id
+    )
+    on conflict (user_id) where status in ('requested', 'processing')
+    do update set user_id = excluded.user_id
+    returning id, status, account_deletion_requests.requested_at
+  )
+  select inserted.id, inserted.status::text, inserted.requested_at
+  from inserted;
+end;
+$$;
+
 revoke all on private.auth_pending_intents
 from public, anon, authenticated, service_role;
 revoke all on private.pending_member_rating_completions
 from public, anon, authenticated, service_role;
 
-revoke execute on function public.create_auth_pending_intent(text, uuid, integer)
+revoke execute on function private.cleanup_auth_pending_intents(integer)
+from public, anon, authenticated, service_role;
+revoke execute on function private.cleanup_member_auth_pending_data(uuid)
+from public, anon, authenticated, service_role;
+
+revoke execute on function public.create_auth_pending_intent(text, uuid, integer, text, text, text)
 from public, authenticated, service_role;
 revoke execute on function public.get_auth_pending_intent(text, text)
 from public, authenticated, service_role;
 revoke execute on function public.complete_auth_pending_intent(text, text)
 from public, anon, service_role;
-revoke execute on function public.activate_current_member_with_intent(text, text, text)
-from public, anon, service_role;
 
-grant execute on function public.create_auth_pending_intent(text, uuid, integer)
+grant execute on function public.create_auth_pending_intent(text, uuid, integer, text, text, text)
 to anon;
 grant execute on function public.get_auth_pending_intent(text, text)
 to anon;
 grant execute on function public.complete_auth_pending_intent(text, text)
 to authenticated;
-grant execute on function public.activate_current_member_with_intent(text, text, text)
-to authenticated;
 
-comment on function public.create_auth_pending_intent(text, uuid, integer) is
-  'Creates one short-lived opaque authentication continuation without storing email or provider profile data.';
+comment on function public.create_auth_pending_intent(text, uuid, integer, text, text, text) is
+  'Creates one short-lived opaque authentication continuation after a server capability and per-client rate check.';
 comment on function public.complete_auth_pending_intent(text, text) is
   'Consumes one authentication continuation exactly once after canonical Member activation.';
-comment on function public.activate_current_member_with_intent(text, text, text) is
-  'Atomically activates the canonical Member and consumes the exact pending authentication action.';
 comment on table private.pending_member_rating_completions is
-  'Integration queue for an overall rating selected before authentication. The inline-rating slice applies and marks these rows.';
+  'Integration queue for an overall rating selected before authentication. Rows are purged when account deletion begins.';
+comment on function private.cleanup_auth_pending_intents(integer) is
+  'Bounded cleanup for expired unconsumed intents and consumed intents retained for at most seven days.';
+comment on function private.cleanup_member_auth_pending_data(uuid) is
+  'Private account-deletion seam that removes consumed authentication intents and queued ratings for one Member.';
 
 commit;

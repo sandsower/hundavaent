@@ -71,3 +71,24 @@ Never paste provider secrets into Linear, source control, logs, screenshots, or 
 - Install the hosted token-hash magic-link template because local repository configuration does not update a hosted Supabase project.
 - Add both localized callback URLs to the hosted Supabase redirect allowlist.
 - Set both deployment switches and rotate the environment-specific Member activation secret only after all checks above pass.
+
+## Hosted production audit - 2026-07-15
+
+- Email sign-in is enabled in the hosted Supabase project.
+- Email confirmation is enabled.
+- The hosted Site URL is `https://hundavaent.is`.
+- The Icelandic and English callback redirects are present in the hosted redirect allowlist.
+- Facebook sign-in is disabled and `AUTH_FACEBOOK_ENABLED` must remain `false` until the hosted Facebook proof passes.
+- Manual identity linking is disabled.
+- The production release workflow binds the explicit GitHub environment variables `HUNDAVAENT_PRODUCTION_AUTH_EMAIL_ENABLED` and `HUNDAVAENT_PRODUCTION_AUTH_FACEBOOK_ENABLED`, plus the Member activation secret, to the exact deployed SHA.
+- Both production provider variables are currently `false` and must remain fail-closed until their hosted proof passes.
+- The production migration step provisions the same Member activation capability into the database and compares secret fingerprints before deployment traffic is allowed.
+- Custom production SMTP is off and the hosted token-hash email template cannot yet be installed, so email sign-in is not production-ready despite the hosted Supabase email provider being enabled.
+- Custom production SMTP, the hosted token-hash email template, delivered-link smoke tests, and automatic Facebook/email identity-linking proof remain explicit launch prerequisites.
+
+## Pending-data retention
+
+- Unconsumed pending intents expire after 30 minutes and are removed by a bounded cleanup seam.
+- Consumed pending intents are retained for no more than seven days for replay denial and then removed by the same bounded cleanup seam.
+- Beginning account deletion immediately removes that Member's consumed pending intents and queued pre-authentication ratings.
+- Cleanup functions are private and are not callable by anonymous, authenticated, or service-role API clients.

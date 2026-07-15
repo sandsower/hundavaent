@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { _createPendingIntent } from '../../../src/routes/[lang=lang]/auth/start/+server';
+import {
+  createAuthPendingIntentProof,
+  createAuthPendingIntentSubject
+} from '../../../src/lib/server/auth/member-activation-proof';
 
 function form(values: Record<string, string>): FormData {
   const data = new FormData();
@@ -19,18 +23,45 @@ describe('authentication start continuation', () => {
   });
 
   it('stores only the bounded Favorite intent through the database capability', async () => {
+    const secret = 'local-member-activation-capability-secret-v1';
+    const clientAddress = '192.0.2.1';
+    const requestId = 'create-favourite';
+    const creationSubject = await createAuthPendingIntentSubject(secret, clientAddress);
+    const creationProof = await createAuthPendingIntentProof(
+      secret,
+      creationSubject!,
+      'favourite',
+      '30000000-0000-4000-8000-000000000003',
+      null,
+      requestId
+    );
     const rpc = vi.fn(async () => ({ data: 'opaque-random-token', error: null }));
     await expect(
       _createPendingIntent(
         { rpc } as never,
-        form({ intentAction: 'favourite', placeId: '30000000-0000-4000-8000-000000000003' })
+        form({ intentAction: 'favourite', placeId: '30000000-0000-4000-8000-000000000003' }),
+        { secret, clientAddress, requestId }
       )
     ).resolves.toEqual({ status: 'ready', token: 'opaque-random-token' });
     expect(rpc).toHaveBeenCalledWith('create_auth_pending_intent', {
       requested_action: 'favourite',
       requested_place_id: '30000000-0000-4000-8000-000000000003',
-      requested_overall_rating: null
+      requested_overall_rating: null,
+      creation_subject: creationSubject,
+      creation_request_id: requestId,
+      creation_proof: creationProof
     });
+  });
+
+  it('does not expose anonymous creation without the server capability', async () => {
+    const rpc = vi.fn();
+    await expect(
+      _createPendingIntent(
+        { rpc } as never,
+        form({ intentAction: 'favourite', placeId: '30000000-0000-4000-8000-000000000003' })
+      )
+    ).resolves.toEqual({ status: 'failed' });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('rejects incomplete or out-of-range rating intents before persistence', async () => {
@@ -56,7 +87,7 @@ describe('authentication start continuation', () => {
       ],
       error: null
     }));
-    const token = 'opaque-continuation-token-that-is-long-enough';
+    const token = 'A'.repeat(43);
     await expect(
       _createPendingIntent({ rpc } as never, form({ pendingIntentToken: token }))
     ).resolves.toEqual({ status: 'ready', token });
@@ -64,5 +95,19 @@ describe('authentication start continuation', () => {
       pending_token: token,
       requested_locale: 'en'
     });
+  });
+
+  it.each([
+    'too-short',
+    'A'.repeat(42),
+    'A'.repeat(44),
+    `${'A'.repeat(42)}=`,
+    `${'A'.repeat(42)}!`
+  ])('rejects a non-canonical continuation token before hashing: %s', async (token) => {
+    const rpc = vi.fn();
+    await expect(
+      _createPendingIntent({ rpc } as never, form({ pendingIntentToken: token }))
+    ).resolves.toEqual({ status: 'invalid' });
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

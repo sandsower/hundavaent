@@ -1,4 +1,5 @@
 import { redirect, type Cookies, type RequestHandler } from '@sveltejs/kit';
+import type { User } from '@supabase/supabase-js';
 
 import { parseLocale } from '$i18n';
 import type { MemberAuthConfigResolution, MemberProvider } from '$server/auth/member';
@@ -18,6 +19,8 @@ export interface SessionCleanupOutcome {
   providerSignOut: 'succeeded' | 'failed' | 'not_attempted';
   expiredCookieCount: number;
 }
+
+export const authPendingIntentTokenPattern = /^[A-Za-z0-9_-]{43}$/;
 
 export function createAuthCallback(dependencies: AuthCallbackDependencies): RequestHandler {
   return async ({ cookies, locals, params, url }) => {
@@ -145,7 +148,7 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
       if (
         userResult.error ||
         !userResult.data.user ||
-        !hasApprovedIdentities(userResult.data.user.identities, requestedMethod)
+        !hasApprovedIdentities(userResult.data.user, requestedMethod)
       ) {
         await clearRequestAuthSession(locals.supabase, cookies);
         redirectToRecovery(lang, returnTo, true, 'unavailable', pendingIntent);
@@ -172,32 +175,13 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
 
       let activationError: unknown;
       let pendingAction: string | null = null;
-      let pendingResult: string | null = null;
+      let pendingResult: string | null = pendingIntent ? 'unavailable' : null;
 
       try {
-        if (pendingIntent) {
-          const { data: completions, error } = await locals.supabase.rpc(
-            'activate_current_member_with_intent',
-            {
-              activation_proof: activationProof,
-              activation_request_id: locals.requestId,
-              pending_token: pendingIntent
-            }
-          );
-          activationError = error;
-          const completion = completions?.[0];
-          if (!error && completion) {
-            pendingAction = completion.action;
-            pendingResult = completion.completion_status;
-          } else if (!error) {
-            activationError = new Error('Pending authentication action was not completed');
-          }
-        } else {
-          ({ error: activationError } = await locals.supabase.rpc('activate_current_member', {
-            activation_proof: activationProof,
-            activation_request_id: locals.requestId
-          }));
-        }
+        ({ error: activationError } = await locals.supabase.rpc('activate_current_member', {
+          activation_proof: activationProof,
+          activation_request_id: locals.requestId
+        }));
       } catch {
         await clearRequestAuthSession(locals.supabase, cookies);
         redirectToRecovery(lang, returnTo, true, 'unavailable', pendingIntent);
@@ -206,6 +190,25 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
       if (activationError) {
         await clearRequestAuthSession(locals.supabase, cookies);
         redirectToRecovery(lang, returnTo, true, 'unavailable', pendingIntent);
+      }
+
+      if (pendingIntent && authPendingIntentTokenPattern.test(pendingIntent)) {
+        try {
+          const { data: completions, error } = await locals.supabase.rpc(
+            'complete_auth_pending_intent',
+            {
+              pending_token: pendingIntent,
+              command_request_id: locals.requestId
+            }
+          );
+          const completion = completions?.[0];
+          if (!error && completion) {
+            pendingAction = completion.action;
+            pendingResult = completion.completion_status;
+          }
+        } catch {
+          // Member activation is authoritative. A stale optional continuation never revokes it.
+        }
       }
 
       redirect(
@@ -254,18 +257,26 @@ function policyAllowsMethod(
   return method === 'email' ? resolution.policy.emailEnabled : resolution.policy.facebookEnabled;
 }
 
-function hasApprovedIdentities(
-  identities: Array<{ provider?: string }> | undefined,
-  expectedProvider: MemberProvider
-): boolean {
+function hasApprovedIdentities(user: User, expectedProvider: MemberProvider): boolean {
+  const canonicalEmail = normalizeEmail(user.email);
+  const identities = user.identities;
   return (
+    canonicalEmail !== null &&
     identities !== undefined &&
     identities.length > 0 &&
     identities.some((identity) => identity.provider === expectedProvider) &&
     identities.every(
-      (identity) => identity.provider === 'email' || identity.provider === 'facebook'
+      (identity) =>
+        (identity.provider === 'email' || identity.provider === 'facebook') &&
+        normalizeEmail(identity.identity_data?.email) === canonicalEmail
     )
   );
+}
+
+function normalizeEmail(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized || null;
 }
 
 function withAuthResult(

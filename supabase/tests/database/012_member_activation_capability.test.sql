@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(16);
 
 insert into private.member_activation_capabilities (secret)
 values ('local-member-activation-capability-secret-v1')
@@ -15,8 +15,11 @@ values
   ('74200000-0000-4000-8000-000000000002', 'facebook@example.invalid', now()),
   ('74200000-0000-4000-8000-000000000003', 'multiple@example.invalid', now()),
   ('74200000-0000-4000-8000-000000000004', 'policy@example.invalid', now()),
-  ('74200000-0000-4000-8000-000000000005', 'valid@example.invalid', now()),
-  ('74200000-0000-4000-8000-000000000006', 'rollback@example.invalid', now());
+  ('74200000-0000-4000-8000-000000000005', ' Valid@Example.Invalid ', now()),
+  ('74200000-0000-4000-8000-000000000006', 'rollback@example.invalid', now()),
+  ('74200000-0000-4000-8000-000000000007', 'missing@example.invalid', now()),
+  ('74200000-0000-4000-8000-000000000008', 'blank@example.invalid', now()),
+  ('74200000-0000-4000-8000-000000000009', 'canonical@example.invalid', now());
 
 insert into auth.identities (
   id,
@@ -88,6 +91,36 @@ values
     now(),
     now(),
     now()
+  ),
+  (
+    '74210000-0000-4000-8000-000000000007',
+    'missing-email-provider',
+    '74200000-0000-4000-8000-000000000007',
+    '{}'::jsonb,
+    'email',
+    now(),
+    now(),
+    now()
+  ),
+  (
+    '74210000-0000-4000-8000-000000000008',
+    'blank-email-provider',
+    '74200000-0000-4000-8000-000000000008',
+    '{"email":"   "}'::jsonb,
+    'email',
+    now(),
+    now(),
+    now()
+  ),
+  (
+    '74210000-0000-4000-8000-000000000009',
+    'mismatched-email-provider',
+    '74200000-0000-4000-8000-000000000009',
+    '{"email":"different@example.invalid"}'::jsonb,
+    'email',
+    now(),
+    now(),
+    now()
   );
 
 select set_config('request.jwt.claim.sub', '74200000-0000-4000-8000-000000000001', true);
@@ -98,6 +131,36 @@ select throws_ok(
   '42501',
   'Approved verified identities required',
   'A direct authenticated RPC call with zero identities is denied'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '74200000-0000-4000-8000-000000000007', true);
+set local role authenticated;
+select throws_ok(
+  $$select public.activate_current_member(repeat('0', 64), 'missing-identity-email')$$,
+  '42501',
+  'Approved verified identities required',
+  'An approved identity without an email is denied'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '74200000-0000-4000-8000-000000000008', true);
+set local role authenticated;
+select throws_ok(
+  $$select public.activate_current_member(repeat('0', 64), 'blank-identity-email')$$,
+  '42501',
+  'Approved verified identities required',
+  'An approved identity with a blank email is denied'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '74200000-0000-4000-8000-000000000009', true);
+set local role authenticated;
+select throws_ok(
+  $$select public.activate_current_member(repeat('0', 64), 'mismatched-identity-email')$$,
+  '42501',
+  'Approved verified identities required',
+  'An approved identity with a different email is denied'
 );
 
 reset role;

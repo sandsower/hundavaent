@@ -13,8 +13,8 @@ const placeId = evaluationFixtureIds.places.published;
 async function completeEmailSignIn(page: Page, email: string): Promise<void> {
   await waitForHydration(page);
   await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
-  await expect(page.getByText('Your link is on its way. Check your email.')).toBeVisible();
+  await page.getByRole('button', { name: /Send (me a )?sign-in link/ }).click();
+  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
   await page.goto(await waitForLocalMagicLink(email));
   // The magic-link redirect lands on a freshly server-rendered page. Waiting for it to finish
   // hydrating keeps callers from interacting (or navigating away) before Svelte has attached
@@ -39,14 +39,9 @@ test('Favourites require explicit confirmation and stay private across views, ta
   const resultSignIn = page.getByRole('link', { name: 'Sign in to save Published Place' });
   await expect(resultSignIn).toBeVisible();
   await resultSignIn.click();
-  await expect(page).toHaveURL(/\/en\/account\?/);
-
-  const accountUrl = new URL(page.url());
-  expect(accountUrl.pathname).toBe('/en/account');
-  const returnTo = accountUrl.searchParams.get('returnTo');
+  await expect(page).toHaveURL(originPath);
+  await expect(page.getByRole('dialog', { name: 'Save Published Place for later' })).toBeVisible();
   const expectedReturn = new URL(originPath, 'http://localhost');
-  expectedReturn.searchParams.set('favourite', placeId);
-  expect(returnTo).toBe(`${expectedReturn.pathname}${expectedReturn.search}${expectedReturn.hash}`);
 
   await completeEmailSignIn(page, email);
   await expect
@@ -56,16 +51,14 @@ test('Favourites require explicit confirmation and stay private across views, ta
     })
     .toBe(`${expectedReturn.pathname}${expectedReturn.search}${expectedReturn.hash}`);
   await expect(page).toHaveURL(/view=list/);
-  await expect(page.getByRole('button', { name: 'Confirm saving Published Place' })).toBeVisible();
   await expect(page.getByLabel('Selected place')).toHaveCount(0);
   expect(
     await page.evaluate(async () => {
       const response = await fetch('/api/favourites');
       return response.json() as Promise<{ placeIds: string[] }>;
     })
-  ).toEqual({ placeIds: [] });
+  ).toEqual({ placeIds: [placeId] });
 
-  await page.getByRole('button', { name: 'Confirm saving Published Place' }).click();
   await expect(
     page.getByRole('button', { name: 'Remove Published Place from saved places' })
   ).toBeVisible();
@@ -135,7 +128,10 @@ test('Favourites require explicit confirmation and stay private across views, ta
   expect(visitorResponse.status()).toBe(401);
   const visitorPage = await visitor.newPage();
   await visitorPage.goto('/en/saved');
-  await expect(visitorPage).toHaveURL('/en/account?returnTo=%2Fen%2Fsaved');
+  await expect(visitorPage).toHaveURL(
+    `/en?auth=open&authReturnTo=${encodeURIComponent('/en/saved')}`
+  );
+  await expect(visitorPage.getByRole('dialog')).toBeVisible();
   await visitor.close();
 
   await page.goto('/en/account?returnTo=%2Fen%2Fsaved');
@@ -143,7 +139,7 @@ test('Favourites require explicit confirmation and stay private across views, ta
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeEnabled();
   await page.getByRole('button', { name: 'Sign out' }).click();
-  await expect(page.getByRole('heading', { name: 'Welcome to Hundavænt' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Continue with Hundavænt' })).toBeVisible();
   await clearLocalEvaluationMailbox();
   await new Promise((resolve) => setTimeout(resolve, 1_100));
   await completeEmailSignIn(page, email);

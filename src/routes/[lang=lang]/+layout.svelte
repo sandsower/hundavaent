@@ -45,6 +45,7 @@
 
     let stopBrowserErrorTracking: () => void = () => undefined;
     if (resolvePostHogConfig(postHogEnvironment)) {
+      postHogAnalytics.prepare();
       stopBrowserErrorTracking = postHogAnalytics.startBrowserErrorTracking(window);
       void import('posthog-js').then(
         ({ default: posthog }) => initializePostHog(postHogEnvironment, posthog),
