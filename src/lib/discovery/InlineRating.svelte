@@ -42,6 +42,7 @@
   let note = $state('');
   let existingNote = $state(false);
   let status = $state<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle');
+  let errorContext = $state<'load' | 'save' | null>(null);
   let queued: Snapshot | null = null;
   let draining = false;
   let failed: Snapshot | null = null;
@@ -80,6 +81,7 @@
 
   async function load(): Promise<void> {
     const loadVersion = interactionVersion;
+    errorContext = null;
     status = 'loading';
     try {
       const response = await fetch(`/api/ratings/${encodeURIComponent(placeId)}`);
@@ -94,7 +96,10 @@
       }
       if (!destroyed) status = 'idle';
     } catch {
-      if (!destroyed && loadVersion === interactionVersion) status = 'error';
+      if (!destroyed && loadVersion === interactionVersion) {
+        errorContext = 'load';
+        status = 'error';
+      }
     }
   }
 
@@ -151,6 +156,7 @@
     queued = next;
     latestDirty = next;
     failed = null;
+    errorContext = null;
     if (!draining) void drain();
   }
 
@@ -176,7 +182,10 @@
       } catch {
         failed = queued ?? next;
         queued = null;
-        if (!destroyed) status = 'error';
+        if (!destroyed) {
+          errorContext = 'save';
+          status = 'error';
+        }
       }
     }
     draining = false;
@@ -213,7 +222,11 @@
         : status === 'saved'
           ? copy['rating.inline.saved']
           : status === 'error'
-            ? copy['rating.inline.saveFailed']
+            ? errorContext === 'load'
+              ? copy['rating.inline.loadFailed']
+              : errorContext === 'save'
+                ? copy['rating.inline.saveFailed']
+                : ''
             : ''}
     </span>
   </div>
