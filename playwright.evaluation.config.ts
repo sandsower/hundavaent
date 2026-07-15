@@ -17,5 +17,12 @@ export default defineConfig({
   // feature-spec 30s budget cannot fit them as the product grows.
   timeout: 180_000,
   reporter: [['list'], ['json', { outputFile: 'test-results/evaluation/results.json' }]],
+  use: {
+    ...baseConfig.use,
+    // Keep long evidence journeys viable, but do not let one stale locator consume the complete
+    // three-minute test budget before Playwright records the real failure.
+    actionTimeout: 15_000,
+    navigationTimeout: 30_000
+  },
   webServer: productWebServer
 });

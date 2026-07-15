@@ -47,12 +47,12 @@ export interface EvaluationLaneResult {
 
 export const evaluationLaneStages: Record<EvaluationLaneName, readonly string[]> = {
   static: ['format', 'lint', 'check', 'unit', 'build'],
-  database: ['database'],
-  e2e: ['application-health-e2e', 'e2e'],
-  a11y: ['application-health-a11y', 'a11y'],
-  visual: ['application-health-visual', 'visual'],
+  database: ['supabase-health-database', 'database'],
+  e2e: ['supabase-health-e2e', 'application-health-e2e', 'e2e'],
+  a11y: ['supabase-health-a11y', 'application-health-a11y', 'a11y'],
+  visual: ['supabase-health-visual', 'application-health-visual', 'visual'],
   map: ['component', 'map-smoke'],
-  performance: ['performance']
+  performance: ['supabase-health-performance', 'performance']
 };
 
 const runtimeBasePorts: Record<EvaluationLaneName, number> = {

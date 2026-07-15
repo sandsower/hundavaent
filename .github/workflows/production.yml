@@ -87,22 +87,37 @@ jobs:
           pnpm exec supabase db dump --db-url "${db_url}" -f recovery/schema.sql
           pnpm exec supabase db dump --db-url "${db_url}" --data-only --use-copy \
             --schema public,private,security -f recovery/data.sql
-          # A canonical Member exists only after private.member_accounts is
-          # created. Skip auth-user handling solely when production proves
-          # that canonical count is exactly zero; an unknown or positive
-          # count fails closed into the full auth recovery path.
+          # Skip auth handling only when both the canonical Member projection
+          # and the pre-activation Auth identities are provably empty. This
+          # preserves pending identities that do not have a Member row yet.
           member_count="unknown"
-          if candidate_member_count="$(psql -At "${db_url}" -c \
-              "select count(*) from private.member_accounts")" && \
-              [[ "${candidate_member_count}" =~ ^[0-9]+$ ]]; then
+          auth_user_count="unknown"
+          auth_identity_count="unknown"
+          if recovery_identity_counts="$(psql -At -F ' ' "${db_url}" -c "
+              select
+                (select count(*) from private.member_accounts),
+                (select count(*) from auth.users),
+                (select count(*) from auth.identities)
+            ")" && \
+              read -r candidate_member_count candidate_auth_user_count \
+                candidate_auth_identity_count <<< "${recovery_identity_counts}" && \
+              [[ "${candidate_member_count}" =~ ^[0-9]+$ ]] && \
+              [[ "${candidate_auth_user_count}" =~ ^[0-9]+$ ]] && \
+              [[ "${candidate_auth_identity_count}" =~ ^[0-9]+$ ]]; then
             member_count="${candidate_member_count}"
+            auth_user_count="${candidate_auth_user_count}"
+            auth_identity_count="${candidate_auth_identity_count}"
           else
-            echo "::warning::Could not prove that production has zero canonical Members; retaining full auth recovery handling."
+            echo "::warning::Could not prove that production has no Member or Auth identities; retaining full auth recovery handling."
           fi
           echo "${member_count}" > recovery/member-count.txt
-          if [[ "${member_count}" == "0" ]]; then
-            echo "skipped-no-members" > recovery/auth-recovery-mode.txt
-            echo "Production has no canonical Members; auth-user backup and restore are not required."
+          echo "${auth_user_count}" > recovery/auth-user-count.txt
+          echo "${auth_identity_count}" > recovery/auth-identity-count.txt
+          if [[ "${member_count}" == "0" ]] && \
+              [[ "${auth_user_count}" == "0" ]] && \
+              [[ "${auth_identity_count}" == "0" ]]; then
+            echo "skipped-empty-identity-domain" > recovery/auth-recovery-mode.txt
+            echo "Production has no Member or Auth identities; auth backup and restore are not required."
           else
             echo "required" > recovery/auth-recovery-mode.txt
             pnpm exec supabase db dump --db-url "${db_url}" --data-only --use-copy \
@@ -168,6 +183,8 @@ jobs:
           tables="$(wc -l < recovery/dump-counts.txt)"
           rows="$(awk '{ sum += $2 } END { print sum + 0 }' recovery/dump-counts.txt)"
           member_count="$(cat recovery/member-count.txt)"
+          auth_user_count="$(cat recovery/auth-user-count.txt)"
+          auth_identity_count="$(cat recovery/auth-identity-count.txt)"
           auth_recovery_mode="$(cat recovery/auth-recovery-mode.txt)"
           echo "Restore verified: ${tables} tables, ${rows} rows."
           if [[ "${rows}" == "0" ]]; then
@@ -180,6 +197,8 @@ jobs:
             echo "- Tables: ${tables}"
             echo "- Rows: ${rows}"
             echo "- Canonical Members: ${member_count}"
+            echo "- Auth users: ${auth_user_count}"
+            echo "- Auth identities: ${auth_identity_count}"
             echo "- Auth recovery: ${auth_recovery_mode}"
             echo "- Restore test: passed against supabase/postgres:17.6.1.141"
           } >> "${GITHUB_STEP_SUMMARY}"
