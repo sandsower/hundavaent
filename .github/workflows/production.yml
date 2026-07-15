@@ -83,83 +83,93 @@ jobs:
           mkdir -p recovery
           encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"], safe=""))')"
           db_url="postgresql://postgres.${SUPABASE_PROJECT_REF}:${encoded_password}@${SUPABASE_POOLER_HOST}:5432/postgres"
-          recovery_lock_input="${RUNNER_TEMP}/hundavaent-recovery-lock-${GITHUB_RUN_ID}.in"
-          recovery_lock_output="${RUNNER_TEMP}/hundavaent-recovery-lock-${GITHUB_RUN_ID}.out"
-          recovery_lock_pid=""
-          recovery_lock_active="false"
-          cleanup_recovery_lock() {
+          recovery_snapshot_input="${RUNNER_TEMP}/hundavaent-recovery-snapshot-${GITHUB_RUN_ID}.in"
+          recovery_snapshot_output="${RUNNER_TEMP}/hundavaent-recovery-snapshot-${GITHUB_RUN_ID}.out"
+          recovery_snapshot_pid=""
+          recovery_snapshot_active="false"
+          recovery_snapshot=""
+          cleanup_recovery_snapshot() {
             set +e
-            if [[ "${recovery_lock_active}" == "true" ]]; then
+            if [[ "${recovery_snapshot_active}" == "true" ]]; then
               printf 'ROLLBACK;\n\\q\n' >&9
               exec 9>&-
-              wait "${recovery_lock_pid}"
+              wait "${recovery_snapshot_pid}"
             fi
-            rm -f "${recovery_lock_input}" "${recovery_lock_output}"
+            rm -f "${recovery_snapshot_input}" "${recovery_snapshot_output}"
           }
-          acquire_recovery_lock() {
-            local lock_status
-            mkfifo "${recovery_lock_input}" "${recovery_lock_output}"
+          export_recovery_snapshot() {
+            mkfifo "${recovery_snapshot_input}" "${recovery_snapshot_output}"
             psql -qAt -v ON_ERROR_STOP=1 "$1" \
-              < "${recovery_lock_input}" > "${recovery_lock_output}" \
-              2> recovery/production-lock.log &
-            recovery_lock_pid="$!"
-            exec 9> "${recovery_lock_input}"
-            recovery_lock_active="true"
-            cat >&9 <<'RECOVERY_LOCK_SQL'
-          BEGIN ISOLATION LEVEL REPEATABLE READ;
-          SET LOCAL lock_timeout = '120s';
-          DO $recovery_lock$
-          DECLARE
-            table_list text;
-          BEGIN
-            SELECT string_agg(
-              format('%I.%I', n.nspname, c.relname),
-              ', ' ORDER BY n.nspname, c.relname
-            )
-            INTO table_list
-            FROM pg_class c
-            JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE c.relkind = 'r'
-              AND n.nspname IN ('public', 'private', 'security', 'auth');
-            IF table_list IS NULL THEN
-              RAISE EXCEPTION 'No recovery tables are available to lock';
-            END IF;
-            EXECUTE 'lock table ' || table_list || ' in share mode';
-          END
-          $recovery_lock$;
-          \echo RECOVERY_LOCK_READY
-          RECOVERY_LOCK_SQL
-            if ! IFS= read -r lock_status < "${recovery_lock_output}" || \
-                [[ "${lock_status}" != "RECOVERY_LOCK_READY" ]]; then
-              cat recovery/production-lock.log >&2
-              echo "Could not acquire a consistent production recovery lock." >&2
+              < "${recovery_snapshot_input}" > "${recovery_snapshot_output}" \
+              2> recovery/production-snapshot.log &
+            recovery_snapshot_pid="$!"
+            exec 9> "${recovery_snapshot_input}"
+            recovery_snapshot_active="true"
+            cat >&9 <<'RECOVERY_SNAPSHOT_SQL'
+          BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+          SELECT pg_export_snapshot();
+          RECOVERY_SNAPSHOT_SQL
+            if ! IFS= read -r recovery_snapshot < "${recovery_snapshot_output}" || \
+                [[ ! "${recovery_snapshot}" =~ ^[0-9A-Fa-f-]+$ ]]; then
+              cat recovery/production-snapshot.log >&2
+              echo "Could not export a consistent production recovery snapshot." >&2
               return 1
             fi
           }
-          release_recovery_lock() {
+          release_recovery_snapshot() {
             printf 'COMMIT;\n\\q\n' >&9
             exec 9>&-
-            if ! wait "${recovery_lock_pid}"; then
-              cat recovery/production-lock.log >&2
-              echo "Could not commit the production recovery lock transaction." >&2
+            recovery_snapshot_active="false"
+            if ! wait "${recovery_snapshot_pid}"; then
+              cat recovery/production-snapshot.log >&2
+              echo "Could not commit the production recovery snapshot transaction." >&2
               return 1
             fi
-            recovery_lock_active="false"
-            rm -f "${recovery_lock_input}" "${recovery_lock_output}"
+            rm -f "${recovery_snapshot_input}" "${recovery_snapshot_output}"
           }
-          trap cleanup_recovery_lock EXIT
+          snapshot_query() {
+            local query="$1"
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              -v recovery_snapshot="${recovery_snapshot}" "${db_url}" <<SQL
+          BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+          SET TRANSACTION SNAPSHOT :'recovery_snapshot';
+          SET LOCAL ROLE postgres;
+          ${query}
+          COMMIT;
+          SQL
+          }
+          dump_snapshot_data() {
+            local schemas="$1"
+            local output="$2"
+            {
+              printf 'SET session_replication_role = replica;\n\n'
+              docker run --rm supabase/postgres:17.6.1.143 pg_dump \
+                --dbname "${db_url}" \
+                --data-only \
+                --quote-all-identifier \
+                --role "postgres" \
+                --exclude-schema "" \
+                --exclude-table "auth.schema_migrations" \
+                --exclude-table "storage.migrations" \
+                --exclude-table "supabase_functions.migrations" \
+                --schema "${schemas}" \
+                --snapshot "${recovery_snapshot}" | \
+                sed -E 's/^\\(un)?restrict .*$/-- &/'
+              printf '\nRESET ALL;\n'
+            } > "${output}"
+          }
+          trap cleanup_recovery_snapshot EXIT
           pnpm exec supabase db dump --db-url "${db_url}" --role-only -f recovery/roles.sql
           pnpm exec supabase db dump --db-url "${db_url}" -f recovery/schema.sql
-          acquire_recovery_lock "${db_url}"
-          pnpm exec supabase db dump --db-url "${db_url}" --data-only --use-copy \
-            --schema public,private,security -f recovery/data.sql
+          export_recovery_snapshot "${db_url}"
+          dump_snapshot_data "public|private|security" recovery/data.sql
           # Skip auth handling only when both the canonical Member projection
           # and the pre-activation Auth identities are provably empty. This
           # preserves pending identities that do not have a Member row yet.
           member_count="unknown"
           auth_user_count="unknown"
           auth_identity_count="unknown"
-          if recovery_identity_counts="$(psql -At -F ' ' "${db_url}" -c "
+          if recovery_identity_counts="$(snapshot_query "
               select
                 (select count(*) from private.member_accounts),
                 (select count(*) from auth.users),
@@ -186,15 +196,16 @@ jobs:
             echo "Production has no Member or Auth identities; auth backup and restore are not required."
           else
             echo "required" > recovery/auth-recovery-mode.txt
-            pnpm exec supabase db dump --db-url "${db_url}" --data-only --use-copy \
-              --schema auth -f recovery/auth-data.sql
-            psql -At "${db_url}" -c "
+            dump_snapshot_data "auth" recovery/auth-data.sql
+            snapshot_query "
               select n.nspname || '.' || c.relname
               from pg_class c
               join pg_namespace n on n.oid = c.relnamespace
-              where c.relkind = 'r' and n.nspname = 'auth'" |
+              where c.relkind = 'r'
+                and n.nspname = 'auth'
+                and c.relname <> 'schema_migrations'" |
               while read -r table; do
-                echo "${table} $(psql -At "${db_url}" -c "select count(*) from ${table}")"
+                echo "${table} $(snapshot_query "select count(*) from ${table}")"
               done | sort > recovery/auth-production-counts.txt
             if [[ ! -s recovery/auth-production-counts.txt ]] || \
                 ! grep -Eq '^auth\.users [0-9]+$' recovery/auth-production-counts.txt || \
@@ -214,17 +225,17 @@ jobs:
           fi
           # Exact per-table production counts for the dumped schemas; the
           # verify step fails if the dump does not cover every one of them.
-          psql -At "${db_url}" -c "
+          snapshot_query "
             select n.nspname || '.' || c.relname
             from pg_class c
             join pg_namespace n on n.oid = c.relnamespace
             where c.relkind = 'r' and n.nspname in ('public', 'private', 'security')" |
             while read -r table; do
-              echo "${table} $(psql -At "${db_url}" -c "select count(*) from ${table}")"
+              echo "${table} $(snapshot_query "select count(*) from ${table}")"
             done | sort > recovery/production-counts.txt
           node --experimental-strip-types scripts/verify-recovery-copy-dump.ts \
             recovery/data.sql recovery/production-counts.txt recovery/dump-counts.txt
-          release_recovery_lock
+          release_recovery_snapshot
           cat recovery/production-counts.txt
           ls -l recovery
 
