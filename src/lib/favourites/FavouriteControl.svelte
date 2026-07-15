@@ -11,7 +11,6 @@
     favourite: boolean;
     copy: Catalogue;
     signInHref: string;
-    pendingConfirmation?: boolean;
     onChange?: (placeId: string, favourite: boolean, trigger: HTMLButtonElement) => void;
   }
 
@@ -22,19 +21,12 @@
     favourite,
     copy,
     signInHref,
-    pendingConfirmation = false,
     onChange = () => undefined
   }: Props = $props();
   let submitting = $state(false);
   let failed = $state(false);
 
-  const actionLabel = $derived(
-    pendingConfirmation && !favourite
-      ? copy['favourite.confirmSave']
-      : favourite
-        ? copy['favourite.remove']
-        : copy['favourite.save']
-  );
+  const actionLabel = $derived(favourite ? copy['favourite.remove'] : copy['favourite.save']);
   const accessibleLabel = $derived(actionLabel.replace('{name}', placeName));
 
   async function applyDesiredState(trigger: HTMLButtonElement): Promise<void> {
@@ -81,11 +73,6 @@
   data-favourite-place={placeId}
   data-state={failed ? 'error' : submitting ? 'busy' : favourite ? 'selected' : 'idle'}
 >
-  {#if pendingConfirmation && signedIn && !favourite}
-    <p class="confirmation hv-status" data-status="info" role="status">
-      {copy['favourite.confirmationIntro']}
-    </p>
-  {/if}
   {#if signedIn}
     <button
       type="button"
@@ -98,8 +85,9 @@
       disabled={submitting}
       onclick={(event) => applyDesiredState(event.currentTarget)}
     >
-      <span aria-hidden="true">{favourite ? '♥' : '♡'}</span>
-      <span>{submitting ? copy['favourite.saving'] : actionLabel.replace(' {name}', '')}</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 20.4 4.3 13A5.2 5.2 0 0 1 11.7 5.7L12 6l.3-.3A5.2 5.2 0 0 1 19.7 13Z" />
+      </svg>
     </button>
   {:else}
     <!-- Exact local return context is assembled by the discovery owner. -->
@@ -112,8 +100,9 @@
       onclick={openSignIn}
       aria-label={copy['favourite.signInToSave'].replace('{name}', placeName)}
     >
-      <span aria-hidden="true">♡</span>
-      <span>{copy['favourite.signIn']}</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 20.4 4.3 13A5.2 5.2 0 0 1 11.7 5.7L12 6l.3-.3A5.2 5.2 0 0 1 19.7 13Z" />
+      </svg>
     </a>
     <!-- eslint-enable svelte/no-navigation-without-resolve -->
   {/if}
@@ -131,9 +120,26 @@
   }
 
   .hv-control {
-    gap: 0.35rem;
-    font-size: 0.82rem;
+    display: inline-grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0;
+    border-radius: 999px;
     cursor: pointer;
+    place-items: center;
+  }
+
+  .hv-control svg {
+    width: 1.2rem;
+    fill: transparent;
+    stroke: currentColor;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+  }
+
+  .hv-control[aria-pressed='true'] svg {
+    fill: currentColor;
   }
 
   .hv-control:disabled {
@@ -143,10 +149,5 @@
 
   .error {
     max-width: 18rem;
-  }
-
-  .confirmation {
-    max-width: 24rem;
-    margin: 0;
   }
 </style>

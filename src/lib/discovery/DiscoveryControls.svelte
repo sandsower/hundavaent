@@ -19,6 +19,7 @@
     locationState: 'idle' | 'locating' | 'ready' | 'denied' | 'unavailable';
     suggestHref: string;
     showSuggest: boolean;
+    signedIn?: boolean;
     onQueryChange: (query: string) => void;
     onFiltersChange: (filters: DiscoveryFilters) => void;
     onClear: () => void;
@@ -39,6 +40,7 @@
     locationState,
     suggestHref,
     showSuggest,
+    signedIn = false,
     onQueryChange,
     onFiltersChange,
     onClear,
@@ -117,6 +119,16 @@
   {#if filtersOpen}
     <div id="discovery-filter-sheet" class="filter-sheet">
       <div class="filter-grid">
+        {#if signedIn}
+          <label class="favorites-only">
+            <input
+              type="checkbox"
+              checked={filters.favoritesOnly}
+              onchange={(event) => patchFilters({ favoritesOnly: event.currentTarget.checked })}
+            />
+            <span>{copy['directory.favoritesOnly']}</span>
+          </label>
+        {/if}
         <label>
           <span>{copy['directory.categoryFilter']}</span>
           <select
@@ -389,6 +401,19 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.55rem;
+  }
+
+  .favorites-only {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: 0.5rem;
+    align-items: center;
+    color: var(--hv-color-basalt);
+  }
+
+  .favorites-only input {
+    width: 1.1rem;
+    min-height: 1.1rem;
   }
 
   .advanced-filters {

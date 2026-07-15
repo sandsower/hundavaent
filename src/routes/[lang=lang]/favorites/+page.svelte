@@ -91,7 +91,7 @@
   }
 
   function nextPageHref(beforeSavedAt: string, beforePlaceId: string): string {
-    const path = resolve('/[lang=lang]/saved', { lang: data.lang });
+    const path = resolve('/[lang=lang]/favorites', { lang: data.lang });
     const query = new URLSearchParams({
       before: beforeSavedAt,
       beforePlace: beforePlaceId
@@ -137,7 +137,7 @@
       <a
         class="hv-control"
         data-intent="primary"
-        href={resolve('/[lang=lang]/saved', { lang: data.lang })}
+        href={resolve('/[lang=lang]/favorites', { lang: data.lang })}
       >
         {data.copy['favourite.pageEmptyAction']}
       </a>

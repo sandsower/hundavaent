@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/public';
 
@@ -30,6 +30,11 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
   }
 
   const layout = await parent();
+  if (!layout.signedIn && url.searchParams.has('favorites')) {
+    const normalized = new URL(url);
+    normalized.searchParams.delete('favorites');
+    redirect(303, `${normalized.pathname}${normalized.search}`);
+  }
   const favouriteResult = layout.signedIn
     ? await listFavouriteIds(locals.supabase)
     : { status: 'success' as const, value: [] };
@@ -39,17 +44,21 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
   if (layout.signedIn) {
     setHeaders({ 'cache-control': 'private, no-store', vary: 'cookie' });
   }
-  const pendingFavourite = url.searchParams.get('favourite');
+  if (
+    layout.signedIn &&
+    url.searchParams.get('favorites') === '1' &&
+    favouriteResult.status !== 'success'
+  ) {
+    error(503, {
+      message: catalogues[lang]['error.unexpectedBody'],
+      requestId: locals.requestId
+    });
+  }
 
   return {
     places: result.value,
     ...(favouriteResult.status === 'success' && favouriteResult.value.length > 0
       ? { favouritePlaceIds: favouriteResult.value }
-      : {}),
-    ...(pendingFavourite &&
-    result.value.some((place) => place.placeId === pendingFavourite) &&
-    (favouriteResult.status !== 'success' || !favouriteResult.value.includes(pendingFavourite))
-      ? { pendingFavourite }
       : {}),
     proximityAssistEnabled:
       checkInPolicyResult.status === 'success' && checkInPolicyResult.value.proximityAssistEnabled,

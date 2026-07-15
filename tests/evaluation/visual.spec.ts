@@ -797,9 +797,9 @@ for (const locale of ['is', 'en'] as const) {
       typeof favouriteMutation.payload.changedAt === 'string' &&
         Number.isFinite(Date.parse(favouriteMutation.payload.changedAt))
     ).toBe(true);
-    await page.goto(`/${locale}/saved`);
+    await page.goto(`/${locale}/favorites`);
     await expect(
-      page.getByRole('heading', { name: locale === 'is' ? 'Vistaðir staðir' : 'Saved places' })
+      page.getByRole('heading', { name: locale === 'is' ? 'Uppáhaldsstaðir' : 'Favorites' })
     ).toBeVisible();
     await capture(page, evidence, `saved-places-${locale}-desktop.png`);
 
@@ -921,11 +921,11 @@ for (const locale of ['is', 'en'] as const) {
     await retireLocalMemberAchievements(evaluationModerator.email);
     await disableLocalAchievementPolicy();
 
-    // The personal-history captures navigated away from /saved; return to it before the existing
+    // The personal-history captures navigated away from /favorites; return to it before the existing
     // removal step below, which depends on being on that page.
-    await page.goto(`/${locale}/saved`);
+    await page.goto(`/${locale}/favorites`);
     await expect(
-      page.getByRole('heading', { name: locale === 'is' ? 'Vistaðir staðir' : 'Saved places' })
+      page.getByRole('heading', { name: locale === 'is' ? 'Uppáhaldsstaðir' : 'Favorites' })
     ).toBeVisible();
 
     const removalResponse = page.waitForResponse(
@@ -938,7 +938,7 @@ for (const locale of ['is', 'en'] as const) {
         name:
           locale === 'is'
             ? 'Fjarlægja Birtur staður úr vistuðum stöðum'
-            : 'Remove Published Place from saved places'
+            : 'Remove Published Place from favorites'
       })
       .click();
     const completedRemoval = await removalResponse;
@@ -946,7 +946,7 @@ for (const locale of ['is', 'en'] as const) {
     expect(await completedRemoval.finished()).toBeNull();
     await expect(
       page.getByRole('heading', {
-        name: locale === 'is' ? 'Engir vistaðir staðir enn' : 'No saved places yet'
+        name: locale === 'is' ? 'Engir uppáhaldsstaðir enn' : 'No favorites yet'
       })
     ).toBeVisible();
 

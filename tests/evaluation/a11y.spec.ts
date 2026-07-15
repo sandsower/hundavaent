@@ -558,12 +558,12 @@ test('private Favourite actions and the saved view are keyboard-operable and Axe
   evidence
 }) => {
   const email = `favourite-a11y-${Date.now()}@example.invalid`;
-  await page.goto('/en/account?returnTo=%2Fen%2Fsaved');
+  await page.goto('/en/account?returnTo=%2Fen%2Ffavorites');
   await waitForHydration(page);
   await page.getByRole('dialog').getByLabel('Email address').fill(email);
   await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(email));
-  await expect(page.getByRole('heading', { name: 'Saved places', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Favorites', exact: true })).toBeVisible();
   await page.evaluate(async (placeId) => {
     const response = await fetch(`/api/favourites/${placeId}`, {
       method: 'PUT',
@@ -576,10 +576,10 @@ test('private Favourite actions and the saved view are keyboard-operable and Axe
   await page.reload();
   // A fresh load must finish hydrating before a keyboard interaction fires -- otherwise the
   // Enter keypress can land before Svelte attaches its click handler and silently no-op,
-  // leaving the "No saved places yet" heading focus assertion below to time out.
+  // leaving the "No favorites yet" heading focus assertion below to time out.
   await waitForHydration(page);
   const remove = page.getByRole('button', {
-    name: 'Remove Published Place from saved places'
+    name: 'Remove Published Place from favorites'
   });
   const favouriteAction = page.locator(
     `[data-favourite-place="${evaluationFixtureIds.places.published}"]`
@@ -590,9 +590,9 @@ test('private Favourite actions and the saved view are keyboard-operable and Axe
   await expect(remove).toHaveAttribute('data-intent', 'selected');
   await remove.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('heading', { name: 'No saved places yet' })).toBeFocused();
+  await expect(page.getByRole('heading', { name: 'No favorites yet' })).toBeFocused();
   await expect(page.getByRole('status')).toContainText(
-    'Published Place was removed from your saved places.'
+    'Published Place was removed from your favorites.'
   );
   await expectNoSeriousAxeViolations(page, evidence);
 });

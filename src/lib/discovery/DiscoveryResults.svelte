@@ -14,7 +14,6 @@
     closable?: boolean;
     signedIn?: boolean;
     favouritePlaceIds?: string[];
-    pendingFavouritePlaceId?: string | null;
     signInHref?: (placeId: string) => string;
     onFavouriteChange?: (placeId: string, favourite: boolean) => void;
   }
@@ -29,7 +28,6 @@
     closable = true,
     signedIn = false,
     favouritePlaceIds = [],
-    pendingFavouritePlaceId = null,
     signInHref = () => '',
     onFavouriteChange = () => undefined
   }: Props = $props();
@@ -68,7 +66,6 @@
       {onSelect}
       {signedIn}
       {favouritePlaceIds}
-      {pendingFavouritePlaceId}
       {signInHref}
       {onFavouriteChange}
     />

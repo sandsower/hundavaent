@@ -234,6 +234,18 @@ describe('discovery filtering', () => {
     ).toEqual(places);
   });
 
+  it('shows only the current Member Favorites when that private filter is active', () => {
+    expect(
+      filterPublishedPlaces(
+        places,
+        { ...defaultDiscoveryFilters, favoritesOnly: true },
+        catalogues.en,
+        null,
+        [places[1].placeId]
+      )
+    ).toEqual([places[1]]);
+  });
+
   it('clears a stale or filtered selected Place', () => {
     expect(reconcileSelectedPlace(places[0].placeId, [places[1]])).toBeNull();
     expect(reconcileSelectedPlace(places[1].placeId, [places[1]])).toBe(places[1].placeId);

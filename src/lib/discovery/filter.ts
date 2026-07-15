@@ -13,11 +13,13 @@ export function filterPublishedPlaces(
   places: readonly PublishedPlaceSummary[],
   filters: DiscoveryFilters,
   copy: Catalogue,
-  origin: GeographicPoint | null = null
+  origin: GeographicPoint | null = null,
+  favouritePlaceIds: readonly string[] = []
 ): PublishedPlaceSummary[] {
   const queryTokens = normalizeSearchText(filters.query).split(' ').filter(Boolean);
 
   return places.filter((place) => {
+    if (filters.favoritesOnly && !favouritePlaceIds.includes(place.placeId)) return false;
     if (filters.category && launchCategoryFor(place.category) !== filters.category) return false;
     if (filters.area && place.locality !== filters.area) return false;
     if (

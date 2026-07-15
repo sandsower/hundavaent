@@ -19,7 +19,6 @@
     onSelect?: (placeId: string, trigger: HTMLButtonElement) => void;
     signedIn?: boolean;
     favourite?: boolean;
-    pendingConfirmation?: boolean;
     signInHref?: string;
     onFavouriteChange?: (placeId: string, favourite: boolean) => void;
   }
@@ -34,7 +33,6 @@
     onSelect = () => undefined,
     signedIn = false,
     favourite = false,
-    pendingConfirmation = false,
     signInHref = '',
     onFavouriteChange = () => undefined
   }: Props = $props();
@@ -118,7 +116,6 @@
       placeName={place.name}
       {signedIn}
       {favourite}
-      {pendingConfirmation}
       {copy}
       {signInHref}
       onChange={onFavouriteChange}

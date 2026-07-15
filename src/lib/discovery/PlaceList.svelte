@@ -14,7 +14,6 @@
     onSelect?: (placeId: string, trigger: HTMLButtonElement) => void;
     signedIn?: boolean;
     favouritePlaceIds?: string[];
-    pendingFavouritePlaceId?: string | null;
     signInHref?: (placeId: string) => string;
     onFavouriteChange?: (placeId: string, favourite: boolean) => void;
   }
@@ -29,7 +28,6 @@
     onSelect = () => undefined,
     signedIn = false,
     favouritePlaceIds = [],
-    pendingFavouritePlaceId = null,
     signInHref = () => '',
     onFavouriteChange = () => undefined
   }: Props = $props();
@@ -48,7 +46,6 @@
         {onSelect}
         {signedIn}
         favourite={favouritePlaceIds.includes(place.placeId)}
-        pendingConfirmation={pendingFavouritePlaceId === place.placeId}
         signInHref={signInHref(place.placeId)}
         {onFavouriteChange}
       />

@@ -12,6 +12,7 @@
   import AccessSymbols from '$lib/discovery/AccessSymbols.svelte';
   import PhotoCredit from '$lib/discovery/PhotoCredit.svelte';
   import RefreshablePlaceImage from '$lib/discovery/RefreshablePlaceImage.svelte';
+  import SharePlaceControl from '$lib/discovery/SharePlaceControl.svelte';
 
   interface Props {
     place: PublishedPlaceSummary;
@@ -25,7 +26,6 @@
     signedIn?: boolean;
     favourite?: boolean;
     signInHref?: string;
-    pendingConfirmation?: boolean;
     onFavouriteChange?: (placeId: string, favourite: boolean) => void;
     correctionHref?: (
       placeId: string,
@@ -49,7 +49,6 @@
     signedIn = false,
     favourite = false,
     signInHref = '',
-    pendingConfirmation = false,
     onFavouriteChange = () => undefined,
     correctionHref,
     checkInSignInHref = '',
@@ -86,15 +85,27 @@
       <h2>{place.name}</h2>
       <span>{copy[categoryKeys[place.category]]} · {place.locality}</span>
     </div>
-    <button
-      data-selected-place-close
-      class="hv-control close"
-      type="button"
-      aria-label={copy['directory.closeSelectedPlace']}
-      onclick={onClose}
-    >
-      <span aria-hidden="true">×</span>
-    </button>
+    <div class="heading-actions">
+      <FavouriteControl
+        placeId={place.placeId}
+        placeName={place.name}
+        {signedIn}
+        {favourite}
+        {copy}
+        {signInHref}
+        onChange={onFavouriteChange}
+      />
+      <SharePlaceControl placeId={place.placeId} placeName={place.name} {lang} {copy} />
+      <button
+        data-selected-place-close
+        class="hv-control close"
+        type="button"
+        aria-label={copy['directory.closeSelectedPlace']}
+        onclick={onClose}
+      >
+        <span aria-hidden="true">×</span>
+      </button>
+    </div>
   </div>
 
   <div class="card-body" data-card-scroll-body>
@@ -141,16 +152,6 @@
     </section>
 
     <div class="member-actions">
-      <FavouriteControl
-        placeId={place.placeId}
-        placeName={place.name}
-        {signedIn}
-        {favourite}
-        {copy}
-        {signInHref}
-        {pendingConfirmation}
-        onChange={onFavouriteChange}
-      />
       {#if signedIn}
         <CheckInControl
           placeId={place.placeId}
@@ -446,6 +447,12 @@
     padding: var(--hv-space-panel);
     border-bottom: 1px solid var(--hv-border-subtle);
     background: var(--hv-color-snow-raised);
+  }
+
+  .heading-actions {
+    display: flex;
+    gap: 0.4rem;
+    align-items: start;
   }
 
   .summary {
