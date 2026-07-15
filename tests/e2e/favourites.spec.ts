@@ -87,17 +87,20 @@ test('Favourites require explicit confirmation and stay private across views, ta
   // before this tab finishes hydrating, and the one-shot message is gone for good. Waiting for
   // hydration first guarantees the listener exists before anything is published.
   await waitForHydration(otherTab);
+  const otherTabSelectedPlace = otherTab.getByRole('complementary', { name: 'Selected place' });
 
   await page.getByRole('button', { name: 'Remove Published Place from saved places' }).click();
   // Cross-tab convergence is a multi-hop round trip (the acting tab's PUT, a broadcast, this
   // tab's own GET and re-render), so it gets headroom beyond the suite's 5s assertion default.
-  await expect(otherTab.getByRole('button', { name: 'Save Published Place' })).toBeVisible({
-    timeout: 15_000
-  });
+  await expect(
+    otherTabSelectedPlace.getByRole('button', { name: 'Save Published Place' })
+  ).toBeVisible({ timeout: 15_000 });
 
   await page.getByRole('button', { name: 'Save Published Place' }).click();
   await expect(
-    otherTab.getByRole('button', { name: 'Remove Published Place from saved places' })
+    otherTabSelectedPlace.getByRole('button', {
+      name: 'Remove Published Place from saved places'
+    })
   ).toBeVisible({ timeout: 15_000 });
 
   const savedResponse = await otherTab.goto('/en/saved');
@@ -157,9 +160,10 @@ test('an Inactive saved Place stays recognizable and removable without exposing 
   const email = `inactive-favourite-${Date.now()}@example.invalid`;
   await page.goto(`/en/account?returnTo=${encodeURIComponent(`/en?place=${placeId}&view=map`)}`);
   await completeEmailSignIn(page, email);
-  await page.getByRole('button', { name: 'Save Published Place' }).click();
+  const selectedPlace = page.getByRole('complementary', { name: 'Selected place' });
+  await selectedPlace.getByRole('button', { name: 'Save Published Place' }).click();
   await expect(
-    page.getByRole('button', { name: 'Remove Published Place from saved places' })
+    selectedPlace.getByRole('button', { name: 'Remove Published Place from saved places' })
   ).toBeVisible();
 
   setLocalPlaceLifecycle(placeId, 'inactive');

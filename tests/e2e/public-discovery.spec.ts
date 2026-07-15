@@ -16,7 +16,7 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL(/\/is$/);
     await expect(page.locator('html')).toHaveAttribute('lang', 'is');
     await expect(page.getByRole('heading', { name: 'Hundavænt' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /niðurstöð/ })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Staðir sem fundust' })).toBeVisible();
     await expect(page.getByText('Finndu hundvæna staði á höfuðborgarsvæðinu.')).toHaveCount(0);
   });
 
@@ -125,7 +125,7 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL(/area=Reykjav%C3%ADk/);
     await expect(page).toHaveURL(/access=outdoors/);
     await expect(page).toHaveURL(/q=Reykjav%C3%ADk/);
-    await page.getByRole('button', { name: 'Show 1 result' }).click();
+    await page.getByRole('button', { name: 'Hide filters' }).click();
     await page.getByRole('button', { name: 'Select Published Place' }).click();
     await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
 
@@ -208,10 +208,12 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL(/lng=-21.8/);
     await expect(page).not.toHaveURL(/lat=64(?:\.0+)?(?:&|$)/);
     await expect(page).not.toHaveURL(/lng=-21.9426/);
-    await expect(page.getByRole('button', { name: 'Show 0 results' })).toBeVisible();
+    await page.getByRole('button', { name: 'Hide filters' }).click();
+    await expect(page.getByText('No places match')).toBeVisible();
 
+    await page.getByRole('button', { name: 'Show filters' }).click();
     await page.getByRole('combobox', { name: 'Distance' }).selectOption('25');
-    await expect(page.getByRole('button', { name: 'Show 1 result' })).toBeVisible();
+    await page.getByRole('button', { name: 'Hide filters' }).click();
     await expect(page.getByRole('button', { name: 'Published Place', exact: true })).toBeVisible();
   });
 

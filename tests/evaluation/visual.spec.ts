@@ -644,11 +644,6 @@ for (const locale of ['is', 'en'] as const) {
     await page.goto(`/${locale}?view=map`);
     await expect(page.getByRole('heading', { name: copy[locale].directory })).toBeVisible();
     await expect(page.getByRole('button', { name: copy[locale].place, exact: true })).toBeVisible();
-    await page
-      .getByRole('button', {
-        name: locale === 'is' ? /Sýna \d+ niðurstöð/ : /Show \d+ results?/
-      })
-      .click();
     await expect(
       page.getByRole('region', { name: locale === 'is' ? 'Staðir sem fundust' : 'Places found' })
     ).toBeVisible();

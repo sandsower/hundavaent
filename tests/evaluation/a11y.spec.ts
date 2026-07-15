@@ -129,9 +129,8 @@ test('public discovery and floating access details are keyboard-operable and Axe
 }) => {
   await page.goto('/en?view=map');
   await waitForHydration(page);
-  const resultCount = page.getByRole('button', { name: /Show \d+ results?/ });
-  await resultCount.focus();
-  await page.keyboard.press('Enter');
+  // The desktop result rail is persistent. The Show results control only exists on the
+  // compact map-first layout, so exercise the rail directly at this wide viewport.
   const listSelection = page.getByRole('button', { name: 'Select Published Place' });
   await expect(listSelection).toBeVisible();
   await listSelection.focus();
@@ -197,7 +196,9 @@ test('place-mode directory results remain bilingual and reflow without page over
       await page.setViewportSize(viewport);
       await page.goto(`/${scenario.locale}?view=map`);
       await waitForHydration(page);
-      await page.getByRole('button', { name: scenario.resultsButton }).click();
+      if (viewport.width < 928) {
+        await page.getByRole('button', { name: scenario.resultsButton }).click();
+      }
       await expect(page.getByRole('region', { name: scenario.resultsRegion })).toBeVisible();
       await expectNoHorizontalPageScroll(page);
       await expectNoSeriousAxeViolations(page, evidence);

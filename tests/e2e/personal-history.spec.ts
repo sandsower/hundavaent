@@ -61,19 +61,23 @@ test('saved places and private visits stay distinct and synchronized on the map'
   await completeEmailSignIn(page, email);
 
   // Favourite favouriteOnly (saved but never visited).
-  await page.getByRole('button', { name: `Save ${favouriteOnly.nameEn}` }).click();
+  let selectedPlace = page.getByRole('complementary', { name: 'Selected place' });
+  await selectedPlace.getByRole('button', { name: `Save ${favouriteOnly.nameEn}` }).click();
   await expect(
-    page.getByRole('button', { name: `Remove ${favouriteOnly.nameEn} from saved places` })
+    selectedPlace.getByRole('button', {
+      name: `Remove ${favouriteOnly.nameEn} from saved places`
+    })
   ).toBeVisible();
 
   // Favourite and check in to mixed (both saved and visited).
   await page.goto(`/en?place=${mixed.placeId}&view=map`);
   await waitForHydration(page);
-  await page.getByRole('button', { name: `Save ${mixed.nameEn}` }).click();
+  selectedPlace = page.getByRole('complementary', { name: 'Selected place' });
+  await selectedPlace.getByRole('button', { name: `Save ${mixed.nameEn}` }).click();
   await expect(
-    page.getByRole('button', { name: `Remove ${mixed.nameEn} from saved places` })
+    selectedPlace.getByRole('button', { name: `Remove ${mixed.nameEn} from saved places` })
   ).toBeVisible();
-  await page.getByRole('button', { name: `Check in at ${mixed.nameEn}` }).click();
+  await selectedPlace.getByRole('button', { name: `Check in at ${mixed.nameEn}` }).click();
   await expect(page.getByRole('status').filter({ hasText: "You're checked in" })).toBeVisible();
 
   const savedResponse = await page.goto('/en/saved');
@@ -116,9 +120,12 @@ test('an Inactive Place with a resolved successor is shown honestly without a si
     `/en/account?returnTo=${encodeURIComponent(`/en?place=${predecessor.placeId}&view=map`)}`
   );
   await completeEmailSignIn(page, email);
-  await page.getByRole('button', { name: `Save ${predecessor.nameEn}` }).click();
+  const selectedPlace = page.getByRole('complementary', { name: 'Selected place' });
+  await selectedPlace.getByRole('button', { name: `Save ${predecessor.nameEn}` }).click();
   await expect(
-    page.getByRole('button', { name: `Remove ${predecessor.nameEn} from saved places` })
+    selectedPlace.getByRole('button', {
+      name: `Remove ${predecessor.nameEn} from saved places`
+    })
   ).toBeVisible();
 
   await transitionLocalPersonalHistorySuccessor(evaluationModerator.email);
@@ -179,8 +186,9 @@ test('quarantined geometry preserves private history without exposing map coordi
     `/en/account?returnTo=${encodeURIComponent(`/en?place=${mixed.placeId}&view=map`)}`
   );
   await completeEmailSignIn(page, email);
-  await page.getByRole('button', { name: `Save ${mixed.nameEn}` }).click();
-  await page.getByRole('button', { name: `Check in at ${mixed.nameEn}` }).click();
+  const selectedPlace = page.getByRole('complementary', { name: 'Selected place' });
+  await selectedPlace.getByRole('button', { name: `Save ${mixed.nameEn}` }).click();
+  await selectedPlace.getByRole('button', { name: `Check in at ${mixed.nameEn}` }).click();
   await expect(page.getByRole('status').filter({ hasText: "You're checked in" })).toBeVisible();
 
   setLocalPersonalHistoryGeometryQuarantined(mixed.placeId, true);
