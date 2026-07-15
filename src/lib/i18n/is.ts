@@ -857,6 +857,8 @@ export const isCatalogue = {
   'rating.inline.saved': 'Vistað',
   'rating.inline.reset': 'Nota heildareinkunn',
   'rating.inline.note': 'Hvað mætti bæta? (valfrjálst)',
+  'rating.star.one': '{score} stjarna',
+  'rating.star.many': '{score} stjörnur',
   'rating.summary.notYetRated': 'Ekki enn metið',
   'rating.summary.notYetRatedDetail':
     'Of fá meðlimamöt liggja fyrir til að sýna niðurstöðu opinberlega.',

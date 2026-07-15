@@ -5,6 +5,8 @@ import type { Database, Json } from '$server/db/generated.types';
 type PublicFunctions = Database['public']['Functions'];
 type ListPublishedPlace = PublicFunctions['list_published_places_v2']['Returns'][number];
 type PublishedPlaceProfile = PublicFunctions['get_published_place_profile_v2']['Returns'][number];
+type CurrentDogFriendlinessRating =
+  PublicFunctions['get_my_dog_friendliness_rating']['Returns'][number];
 
 describe('generated public database types', () => {
   it('types the reviewed list projection', () => {
@@ -45,6 +47,24 @@ describe('generated public database types', () => {
 
   it('contains no caller-visible table types', () => {
     expectTypeOf<keyof Database['public']['Tables']>().toEqualTypeOf<never>();
+  });
+
+  it('keeps nullable rating and pending-intent projections accurate', () => {
+    expectTypeOf<PublicFunctions['apply_pending_member_rating']['Returns'][number]>()
+      .toHaveProperty('overall_score')
+      .toEqualTypeOf<number | null>();
+    expectTypeOf<PublicFunctions['create_auth_pending_intent']['Args']>()
+      .toHaveProperty('requested_overall_rating')
+      .toEqualTypeOf<number | null>();
+    expectTypeOf<CurrentDogFriendlinessRating>()
+      .toHaveProperty('clarity_score')
+      .toEqualTypeOf<number | null>();
+    expectTypeOf<CurrentDogFriendlinessRating>()
+      .toHaveProperty('private_note')
+      .toEqualTypeOf<string | null>();
+    expectTypeOf<PublicFunctions['save_inline_dog_friendliness_rating']['Args']>()
+      .toHaveProperty('requested_clarity_score')
+      .toEqualTypeOf<number | null>();
   });
 
   it('types the Candidate creation command without exposing private tables', () => {

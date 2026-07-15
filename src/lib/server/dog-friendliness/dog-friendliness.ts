@@ -32,11 +32,8 @@ export interface CurrentRating {
   scores: RatingScores;
   overallScore?: number | null;
   ratedAt: string;
-  excluded: boolean;
   privateNote: string | null;
-  privateNoteClassification: PrivateRatingNoteClassification | null;
   privateNoteUpdatedAt: string | null;
-  linkedReportId: string | null;
 }
 
 export interface ModerationRating {
@@ -462,11 +459,8 @@ interface SubmitRow {
   comfort_score: number | null;
   thoughtfulness_score: number | null;
   rated_at: string;
-  excluded: boolean;
   private_note: string | null;
-  private_note_classification: PrivateRatingNoteClassification | null;
   private_note_updated_at: string | null;
-  linked_report_id: string | null;
 }
 
 function isSubmitRow(value: unknown): value is SubmitRow {
@@ -480,11 +474,8 @@ function isSubmitRow(value: unknown): value is SubmitRow {
     isScoreOrNull(value.comfort_score) &&
     isScoreOrNull(value.thoughtfulness_score) &&
     typeof value.rated_at === 'string' &&
-    typeof value.excluded === 'boolean' &&
     (value.private_note === null || typeof value.private_note === 'string') &&
-    isClassificationOrNull(value.private_note_classification) &&
-    (value.private_note_updated_at === null || typeof value.private_note_updated_at === 'string') &&
-    (value.linked_report_id === null || typeof value.linked_report_id === 'string')
+    (value.private_note_updated_at === null || typeof value.private_note_updated_at === 'string')
   );
 }
 
@@ -500,11 +491,8 @@ function toCurrentRating(row: SubmitRow): CurrentRating {
       thoughtfulness: row.thoughtfulness_score
     },
     ratedAt: row.rated_at,
-    excluded: row.excluded,
     privateNote: row.private_note,
-    privateNoteClassification: row.private_note_classification,
-    privateNoteUpdatedAt: row.private_note_updated_at,
-    linkedReportId: row.linked_report_id
+    privateNoteUpdatedAt: row.private_note_updated_at
   };
 }
 

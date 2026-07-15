@@ -911,9 +911,9 @@ select throws_ok(
   'A Member cannot rate or edit a Rating on an Inactive Place'
 );
 select is(
-  (select excluded from public.get_my_dog_friendliness_rating('30000000-0000-4000-8000-000000000003')),
-  false,
-  'A Member retains their own prior Rating even after the Place becomes Inactive'
+  (select count(*)::bigint from public.get_my_dog_friendliness_rating('30000000-0000-4000-8000-000000000003')),
+  1::bigint,
+  'A Member retains their own prior Rating after the Place becomes Inactive without seeing Moderator state'
 );
 reset role;
 

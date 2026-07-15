@@ -94,19 +94,22 @@ insert into auth.users (id, email) values
   ('79000000-0000-4000-8000-000000000002', 'note-member-two@example.invalid'),
   ('79000000-0000-4000-8000-000000000003', 'note-member-three@example.invalid'),
   ('79000000-0000-4000-8000-000000000004', 'note-moderator@example.invalid'),
-  ('79000000-0000-4000-8000-000000000005', 'note-venue-rep@example.invalid');
+  ('79000000-0000-4000-8000-000000000005', 'note-venue-rep@example.invalid'),
+  ('79000000-0000-4000-8000-000000000006', 'inline-note-member@example.invalid');
 
 insert into private.member_accounts (user_id) values
   ('79000000-0000-4000-8000-000000000001'),
   ('79000000-0000-4000-8000-000000000002'),
-  ('79000000-0000-4000-8000-000000000003');
+  ('79000000-0000-4000-8000-000000000003'),
+  ('79000000-0000-4000-8000-000000000006');
 
 insert into security.role_grants (user_id, role) values
   ('79000000-0000-4000-8000-000000000001', 'member'),
   ('79000000-0000-4000-8000-000000000002', 'member'),
   ('79000000-0000-4000-8000-000000000003', 'member'),
   ('79000000-0000-4000-8000-000000000004', 'moderator'),
-  ('79000000-0000-4000-8000-000000000005', 'venue_representative');
+  ('79000000-0000-4000-8000-000000000005', 'venue_representative'),
+  ('79000000-0000-4000-8000-000000000006', 'member');
 
 insert into private.operators (id, name) values
   ('79100000-0000-4000-8000-000000000001', 'Private Rating Note fixture operator');
@@ -175,6 +178,19 @@ select throws_ok(
 
 reset role;
 
+select set_config('request.jwt.claim.sub', '79000000-0000-4000-8000-000000000006', true);
+set local role authenticated;
+select throws_ok(
+  $$select * from public.save_inline_dog_friendliness_rating(
+    '79300000-0000-4000-8000-000000000001', 2, null, null, null, null, gen_random_uuid(),
+    true, 'The inline flow must respect the disabled note policy.', null
+  )$$,
+  '22023',
+  'Private Rating Notes are not available',
+  'The inline RPC rejects note content while the policy is unconfigured'
+);
+reset role;
+
 -- Policy configuration ----------------------------------------------------------------------------
 
 set local role service_role;
@@ -200,6 +216,31 @@ select lives_ok(
   'The service role also configures the correction-and-report abuse policy so the Report wrapper composes cleanly'
 );
 
+reset role;
+
+set local role service_role;
+select lives_ok(
+  $$select public.configure_private_rating_note_policy('private-rating-note-inline-threshold-v1', 3, true)$$,
+  'The inline policy fixture temporarily uses a threshold of 3'
+);
+reset role;
+
+select set_config('request.jwt.claim.sub', '79000000-0000-4000-8000-000000000006', true);
+set local role authenticated;
+select lives_ok(
+  $$select * from public.save_inline_dog_friendliness_rating(
+    '79300000-0000-4000-8000-000000000001', 3, null, null, null, null, gen_random_uuid(),
+    true, 'The configured threshold, rather than a hardcoded threshold, allows this note.', null
+  )$$,
+  'The inline RPC uses the configured note threshold'
+);
+reset role;
+
+set local role service_role;
+select lives_ok(
+  $$select public.configure_private_rating_note_policy('private-rating-note-test-v1', 2, true)$$,
+  'The remainder of the note suite uses its canonical threshold of 2'
+);
 reset role;
 
 select set_config('request.jwt.claim.sub', '79000000-0000-4000-8000-000000000001', true);
@@ -267,13 +308,6 @@ select is(
   'A subjective note attaches to the low Rating'
 );
 select is(
-  (
-    select linked_report_id from public.get_my_dog_friendliness_rating('79300000-0000-4000-8000-000000000001')
-  ),
-  null,
-  'A subjective note produces no linked Report'
-);
-select is(
   (select private_note from public.get_my_dog_friendliness_rating('79300000-0000-4000-8000-000000000001')),
   'The welcome felt lukewarm, purely a matter of taste.',
   'The Member can read their own note back'
@@ -301,18 +335,13 @@ set local role authenticated;
 
 select is(
   (
-    select private_note_classification from public.submit_dog_friendliness_rating(
+    select private_note from public.submit_dog_friendliness_rating(
       '79300000-0000-4000-8000-000000000001', 1, null, null, null, '89000000-0000-4000-8000-000000000002',
       true, 'The posted opening hours do not match what staff told me.', 'inaccurate_info'
     )
   ),
-  'inaccurate_info',
+  'The posted opening hours do not match what staff told me.',
   'An inaccurate_info note attaches'
-);
-select is(
-  (select linked_report_id from public.get_my_dog_friendliness_rating('79300000-0000-4000-8000-000000000001')),
-  null,
-  'The note does not yet have a linked Report until one is explicitly created'
 );
 
 select flag_id as m2_flag_id, status as m2_status from public.create_report_from_rating_note(
@@ -322,13 +351,17 @@ select flag_id as m2_flag_id, status as m2_status from public.create_report_from
 select ok(:'m2_flag_id' is not null, 'Creating a Report from a qualifying note returns a Flag id');
 select is(:'m2_status'::text, 'submitted'::text, 'The linked Report starts in submitted status');
 
-select is(
-  (select linked_report_id::text from public.get_my_dog_friendliness_rating('79300000-0000-4000-8000-000000000001')),
-  :'m2_flag_id',
-  'The Rating records the link to the Report it produced'
-);
-
 reset role;
+
+select is(
+  (
+    select linked_report_id::text from private.dog_friendliness_ratings
+    where member_id = '79000000-0000-4000-8000-000000000002'
+      and place_id = '79300000-0000-4000-8000-000000000001'
+  ),
+  :'m2_flag_id',
+  'The private Rating records the link to the Report it produced'
+);
 
 select is(
   (
@@ -372,13 +405,17 @@ select is(
   null,
   'The Member can clear their note independently'
 );
-select is(
-  (select linked_report_id::text from public.get_my_dog_friendliness_rating('79300000-0000-4000-8000-000000000001')),
-  :'m2_flag_id',
-  'Clearing the note never clears the link to the Report it already produced'
-);
-
 reset role;
+
+select is(
+  (
+    select linked_report_id::text from private.dog_friendliness_ratings
+    where member_id = '79000000-0000-4000-8000-000000000002'
+      and place_id = '79300000-0000-4000-8000-000000000001'
+  ),
+  :'m2_flag_id',
+  'Clearing the note never clears the private link to the Report it already produced'
+);
 
 select is(
   (select status::text from private.place_flags where id = :'m2_flag_id'::uuid),
@@ -491,9 +528,9 @@ select is(
       '79300000-0000-4000-8000-000000000001'
     ) where private_note is not null
   ),
-  -- M1 (subjective, edited but never cleared) and M3 (safety_concern) still carry a note; M2's
-  -- note was explicitly cleared above, proving clearing removes it from this listing too.
-  2::bigint,
+  -- M1 (subjective, edited but never cleared), M3 (safety_concern), and the inline threshold
+  -- fixture still carry a note; M2's note was explicitly cleared above.
+  3::bigint,
   'The extended Moderator listing surfaces every current note for the Place'
 );
 select is(

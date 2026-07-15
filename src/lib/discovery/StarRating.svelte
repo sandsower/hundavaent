@@ -5,15 +5,27 @@
     inherited?: boolean;
     disabled?: boolean;
     onSelect: (value: number) => void;
+    scoreLabel: (value: number) => string;
   }
 
-  let { label, value, inherited = false, disabled = false, onSelect }: Props = $props();
+  let { label, value, inherited = false, disabled = false, onSelect, scoreLabel }: Props = $props();
 
   function move(event: KeyboardEvent, score: number): void {
-    if (!['ArrowLeft', 'ArrowDown', 'ArrowRight', 'ArrowUp'].includes(event.key)) return;
+    if (!['ArrowLeft', 'ArrowDown', 'ArrowRight', 'ArrowUp', 'Home', 'End'].includes(event.key))
+      return;
     event.preventDefault();
-    const delta = event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? -1 : 1;
-    onSelect(Math.min(5, Math.max(1, score + delta)));
+    const next =
+      event.key === 'Home'
+        ? 1
+        : event.key === 'End'
+          ? 5
+          : ((score - 1 + (event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? -1 : 1) + 5) %
+              5) +
+            1;
+    onSelect(next);
+    const group = (event.currentTarget as HTMLElement).closest('[role="radiogroup"]');
+    const buttons = group?.querySelectorAll<HTMLButtonElement>('[role="radio"]');
+    buttons?.[next - 1]?.focus();
   }
 </script>
 
@@ -22,7 +34,7 @@
     <button
       type="button"
       role="radio"
-      aria-label={`${score} ${score === 1 ? 'star' : 'stars'}`}
+      aria-label={scoreLabel(score)}
       aria-checked={value === score}
       tabindex={value === score || (value === null && score === 1) ? 0 : -1}
       {disabled}

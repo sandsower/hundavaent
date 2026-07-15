@@ -1,14 +1,19 @@
 begin;
 
--- VIB-35 intentionally changes the Rating contract before launch. Refuse to reinterpret
--- production data if the stated no-user premise is no longer true.
+-- This migration intentionally changes the Rating contract before launch. Refuse to reinterpret
+-- production identity or Rating data if the stated no-user premise is no longer true.
 do $$
 begin
   if exists (select 1 from private.dog_friendliness_ratings)
-    or exists (select 1 from private.dog_friendliness_rating_events) then
+    or exists (select 1 from private.dog_friendliness_rating_events)
+    or exists (select 1 from private.member_accounts)
+    or exists (select 1 from private.auth_pending_intents)
+    or exists (select 1 from private.pending_member_rating_completions)
+    or exists (select 1 from auth.users)
+    or exists (select 1 from auth.identities) then
     raise exception using
       errcode = '55000',
-      message = 'Inline Rating migration requires an empty Rating store and event ledger';
+      message = 'Inline Rating migration requires an empty identity, pending-intent, and Rating store';
   end if;
 end
 $$;
@@ -94,11 +99,8 @@ returns table (
   comfort_score integer,
   thoughtfulness_score integer,
   rated_at timestamptz,
-  excluded boolean,
   private_note text,
-  private_note_classification text,
-  private_note_updated_at timestamptz,
-  linked_report_id uuid
+  private_note_updated_at timestamptz
 )
 language plpgsql
 volatile
@@ -114,6 +116,7 @@ declare
   resolved_note text;
   resolved_note_classification text;
   resolved_note_updated_at timestamptz;
+  note_policy private.private_rating_note_policy%rowtype;
   event_kind text;
 begin
   if requested_place_id is null or command_request_id is null then
@@ -148,14 +151,21 @@ begin
 
   if requested_update_private_note then
     resolved_note := nullif(btrim(coalesce(requested_private_note, '')), '');
-    if resolved_note is not null
-      and requested_overall_score > 2
-      and coalesce(requested_welcome_score <= 2, false) is false
-      and coalesce(requested_clarity_score <= 2, false) is false
-      and coalesce(requested_comfort_score <= 2, false) is false
-      and coalesce(requested_thoughtfulness_score <= 2, false) is false
-    then
-      raise exception using errcode = '22023', message = 'A private note requires a low score';
+    if resolved_note is not null then
+      select policy.* into note_policy
+      from private.private_rating_note_policy as policy
+      where policy.singleton and policy.enabled;
+      if not found then
+        raise exception using errcode = '22023', message = 'Private Rating Notes are not available';
+      end if;
+      if requested_overall_score > note_policy.low_score_threshold
+        and coalesce(requested_welcome_score <= note_policy.low_score_threshold, false) is false
+        and coalesce(requested_clarity_score <= note_policy.low_score_threshold, false) is false
+        and coalesce(requested_comfort_score <= note_policy.low_score_threshold, false) is false
+        and coalesce(requested_thoughtfulness_score <= note_policy.low_score_threshold, false) is false
+      then
+        raise exception using errcode = '22023', message = 'A private note requires a low score';
+      end if;
     end if;
     resolved_note_updated_at := case when resolved_note is null then null else statement_timestamp() end;
     if requested_private_note_classification is not null
@@ -175,9 +185,8 @@ begin
   then
     return query select existing.id, existing.place_id, existing.overall_score,
       existing.welcome_score, existing.clarity_score, existing.comfort_score,
-      existing.thoughtfulness_score, existing.rated_at, existing.excluded_at is not null,
-      existing.private_note, existing.private_note_classification,
-      existing.private_note_updated_at, existing.linked_report_id;
+      existing.thoughtfulness_score, existing.rated_at, existing.private_note,
+      existing.private_note_updated_at;
     return;
   end if;
 
@@ -234,9 +243,8 @@ begin
 
   return query select result.id, result.place_id, result.overall_score,
     result.welcome_score, result.clarity_score, result.comfort_score,
-    result.thoughtfulness_score, result.rated_at, result.excluded_at is not null,
-    result.private_note, result.private_note_classification,
-    result.private_note_updated_at, result.linked_report_id;
+    result.thoughtfulness_score, result.rated_at, result.private_note,
+    result.private_note_updated_at;
 end;
 $$;
 
@@ -260,8 +268,7 @@ create function public.submit_dog_friendliness_rating(
 returns table (
   id uuid, place_id uuid, welcome_score integer, clarity_score integer,
   comfort_score integer, thoughtfulness_score integer, rated_at timestamptz,
-  excluded boolean, private_note text, private_note_classification text,
-  private_note_updated_at timestamptz, linked_report_id uuid
+  private_note text, private_note_updated_at timestamptz
 )
 language plpgsql volatile security definer set search_path = '' as $$
 declare
@@ -313,9 +320,8 @@ begin
   end if;
   return query
   select saved.id, saved.place_id, saved.welcome_score, saved.clarity_score,
-    saved.comfort_score, saved.thoughtfulness_score, saved.rated_at, saved.excluded,
-    saved.private_note, requested_private_note_classification,
-    saved.private_note_updated_at, saved.linked_report_id
+    saved.comfort_score, saved.thoughtfulness_score, saved.rated_at,
+    saved.private_note, saved.private_note_updated_at
   from public.save_inline_dog_friendliness_rating(
     requested_place_id, resolved_overall, requested_welcome_score, requested_clarity_score,
     requested_comfort_score, requested_thoughtfulness_score, command_request_id,
@@ -330,16 +336,14 @@ create function public.get_my_dog_friendliness_rating(requested_place_id uuid)
 returns table (
   id uuid, place_id uuid, overall_score integer, welcome_score integer,
   clarity_score integer, comfort_score integer, thoughtfulness_score integer,
-  rated_at timestamptz, excluded boolean, private_note text,
-  private_note_classification text, private_note_updated_at timestamptz, linked_report_id uuid
+  rated_at timestamptz, private_note text, private_note_updated_at timestamptz
 )
 language plpgsql stable security definer set search_path = '' as $$
 declare actor_id uuid := security.require_member();
 begin
   return query select rating.id, rating.place_id, rating.overall_score, rating.welcome_score,
-    rating.clarity_score, rating.comfort_score, rating.thoughtfulness_score, rating.rated_at,
-    rating.excluded_at is not null, rating.private_note, rating.private_note_classification,
-    rating.private_note_updated_at, rating.linked_report_id
+    rating.clarity_score, rating.comfort_score, rating.thoughtfulness_score,
+    rating.rated_at, rating.private_note, rating.private_note_updated_at
   from private.dog_friendliness_ratings as rating
   where rating.member_id = actor_id and rating.place_id = requested_place_id;
 end;
@@ -443,6 +447,24 @@ begin
 end;
 $$;
 
+create function private.lock_pending_member_rating_completion()
+returns trigger
+language plpgsql volatile set search_path = '' as $$
+begin
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(new.member_id::text || ':' || new.place_id::text, 0)
+  );
+  return new;
+end;
+$$;
+
+create trigger pending_member_rating_completions_serialize_insert
+before insert on private.pending_member_rating_completions
+for each row execute function private.lock_pending_member_rating_completion();
+
+revoke execute on function private.lock_pending_member_rating_completion()
+from public, anon, authenticated, service_role;
+
 create function public.apply_pending_member_rating(requested_place_id uuid)
 returns table (applied boolean, overall_score integer)
 language plpgsql volatile security definer set search_path = '' as $$
@@ -452,6 +474,12 @@ declare
   current_rating private.dog_friendliness_ratings%rowtype;
   generated_request_id uuid := extensions.gen_random_uuid();
 begin
+  if requested_place_id is null then
+    raise exception using errcode = '22023', message = 'A Place is required';
+  end if;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(actor_id::text || ':' || requested_place_id::text, 0)
+  );
   select completion.* into pending
   from private.pending_member_rating_completions as completion
   where completion.member_id = actor_id
@@ -475,7 +503,10 @@ begin
   );
   update private.pending_member_rating_completions
   set applied_at = statement_timestamp()
-  where member_id = actor_id and place_id = requested_place_id and applied_at is null;
+  where member_id = actor_id
+    and place_id = requested_place_id
+    and applied_at is null
+    and (created_at, request_id) <= (pending.created_at, pending.request_id);
   return query select true, pending.overall_rating;
 end;
 $$;
@@ -504,6 +535,15 @@ grant execute on function public.submit_dog_friendliness_rating(
 revoke execute on function public.apply_pending_member_rating(uuid)
 from public, anon, service_role;
 grant execute on function public.apply_pending_member_rating(uuid) to authenticated;
+revoke execute on function public.get_my_dog_friendliness_rating(uuid)
+from public, anon, service_role;
+grant execute on function public.get_my_dog_friendliness_rating(uuid) to authenticated;
+revoke execute on function public.get_dog_friendliness_summary(uuid)
+from public, service_role;
+grant execute on function public.get_dog_friendliness_summary(uuid) to anon, authenticated;
+revoke execute on function public.list_moderation_dog_friendliness_ratings(uuid)
+from public, anon, service_role;
+grant execute on function public.list_moderation_dog_friendliness_ratings(uuid) to authenticated;
 
 comment on function public.save_inline_dog_friendliness_rating(
   uuid, integer, integer, integer, integer, integer, uuid, boolean, text, text

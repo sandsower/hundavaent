@@ -851,6 +851,8 @@ export const enCatalogue = {
   'rating.inline.saved': 'Saved',
   'rating.inline.reset': 'Use overall',
   'rating.inline.note': 'What could be better? (optional)',
+  'rating.star.one': '{score} star',
+  'rating.star.many': '{score} stars',
   'rating.summary.notYetRated': 'Not yet rated',
   'rating.summary.notYetRatedDetail': 'Too few Member Ratings exist yet to show a public result.',
   'rating.summary.eligibleCount': 'Based on {count} eligible Ratings',
