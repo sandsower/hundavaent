@@ -34,6 +34,7 @@
     initialState={data.discoveryState}
     adapter={mapAdapter}
     signedIn={data.signedIn === true}
+    favouritesAvailable={data.favouritesAvailable === true}
     initialFavouritePlaceIds={data.favouritePlaceIds ?? []}
     proximityAssistEnabled={data.proximityAssistEnabled === true}
     fitPlacesOnMount={data.fitPlacesOnMount === true}

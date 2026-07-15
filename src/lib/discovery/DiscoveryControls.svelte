@@ -20,6 +20,7 @@
     suggestHref: string;
     showSuggest: boolean;
     signedIn?: boolean;
+    favouritesAvailable?: boolean;
     onQueryChange: (query: string) => void;
     onFiltersChange: (filters: DiscoveryFilters) => void;
     onClear: () => void;
@@ -41,6 +42,7 @@
     suggestHref,
     showSuggest,
     signedIn = false,
+    favouritesAvailable = true,
     onQueryChange,
     onFiltersChange,
     onClear,
@@ -119,7 +121,7 @@
   {#if filtersOpen}
     <div id="discovery-filter-sheet" class="filter-sheet">
       <div class="filter-grid">
-        {#if signedIn}
+        {#if signedIn && favouritesAvailable}
           <label class="favorites-only">
             <input
               type="checkbox"

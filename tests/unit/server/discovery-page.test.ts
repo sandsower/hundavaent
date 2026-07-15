@@ -3,6 +3,30 @@ import { describe, expect, it, vi } from 'vitest';
 import { load } from '../../../src/routes/[lang=lang]/+page.server';
 
 describe('Discovery Member boundary', () => {
+  it('marks Favorites unavailable instead of presenting a false empty projection', async () => {
+    const rpc = vi.fn(async (name: string) => {
+      if (name === 'list_published_places') return { data: [], error: null };
+      if (name === 'list_current_favourite_ids') {
+        return { data: null, error: { code: 'infrastructure' } };
+      }
+      if (name === 'get_check_in_policy') {
+        return { data: [{ proximity_assist_enabled: false }], error: null };
+      }
+      throw new Error(`Unexpected RPC: ${name}`);
+    });
+
+    const result = await load({
+      locals: { supabase: { rpc }, requestId: 'request-favorites-unavailable-default' },
+      params: { lang: 'en' },
+      parent: vi.fn(async () => ({ signedIn: true })),
+      setHeaders: vi.fn(),
+      url: new URL('http://localhost/en')
+    } as never);
+
+    expect(result).toMatchObject({ favouritesAvailable: false });
+    expect(result).not.toHaveProperty('favouritePlaceIds');
+  });
+
   it('fails closed when the requested private Favorites projection is unavailable', async () => {
     const rpc = vi.fn(async (name: string) => {
       if (name === 'list_published_places') return { data: [], error: null };

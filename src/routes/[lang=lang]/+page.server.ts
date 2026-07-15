@@ -57,6 +57,7 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
 
   return {
     places: result.value,
+    favouritesAvailable: favouriteResult.status === 'success',
     ...(favouriteResult.status === 'success' && favouriteResult.value.length > 0
       ? { favouritePlaceIds: favouriteResult.value }
       : {}),

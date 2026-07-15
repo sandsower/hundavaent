@@ -26,7 +26,7 @@
   let resendTimer: ReturnType<typeof setInterval> | undefined;
 
   const title = $derived(
-    request.intent?.action === 'favourite'
+    request.intent?.action === 'favourite' && request.intent.placeName
       ? copy['auth.favouriteTitle'].replace('{name}', request.intent.placeName)
       : request.intent?.action === 'rating'
         ? copy['auth.ratingTitle'].replace('{name}', request.intent.placeName)
@@ -57,7 +57,7 @@
     const url = new URL(window.location.href);
     if (url.searchParams.get('auth') !== 'open') return;
 
-    open(initialRequest ?? { origin: 'header' });
+    open(initialRequest ?? fallbackRequest(url) ?? { origin: 'header' });
     const status = url.searchParams.get('authStatus');
     if (status === 'denied' || status === 'provider_failed') error = copy['auth.facebookFailed'];
     else if (status) error = copy['auth.failed'];
@@ -91,7 +91,9 @@
       'authMethod',
       'pendingAction',
       'pendingResult',
-      'pendingIntent'
+      'pendingIntent',
+      'authIntent',
+      'authPlace'
     ]) {
       url.searchParams.delete(name);
     }
@@ -103,7 +105,14 @@
     const data = new FormData();
     const returnUrl = new URL(window.location.href);
     const requestedReturnTo = returnUrl.searchParams.get('authReturnTo');
-    for (const name of ['auth', 'authStatus', 'authReturnTo', 'pendingIntent']) {
+    for (const name of [
+      'auth',
+      'authStatus',
+      'authReturnTo',
+      'pendingIntent',
+      'authIntent',
+      'authPlace'
+    ]) {
       returnUrl.searchParams.delete(name);
     }
     data.set('method', method);
@@ -181,6 +190,13 @@
     error = null;
     stopResendTimer();
     queueMicrotask(() => dialog.querySelector<HTMLInputElement>('input[type="email"]')?.focus());
+  }
+
+  function fallbackRequest(url: URL): AuthRequest | null {
+    if (url.searchParams.get('authIntent') !== 'favourite') return null;
+    const placeId = url.searchParams.get('authPlace');
+    if (!placeId) return null;
+    return { origin: 'favourite', intent: { action: 'favourite', placeId } };
   }
 </script>
 

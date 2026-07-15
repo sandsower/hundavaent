@@ -20,6 +20,8 @@ import { AuthenticationExpiredError, getMemberSession } from '$server/auth/sessi
 import type { Actions, PageServerLoad } from './$types';
 import type { MemberAuthConfigResolution } from '$server/auth/member';
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function authConfig(): MemberAuthConfigResolution {
   return getMemberAuthConfig({ ...publicEnv, ...privateEnv });
 }
@@ -127,6 +129,13 @@ export const load: PageServerLoad = async (event) => {
     destination.searchParams.set('auth', 'open');
     destination.searchParams.set('authReturnTo', result.returnTo);
     if (result.authStatus) destination.searchParams.set('authStatus', result.authStatus);
+    if (
+      event.url.searchParams.get('intentAction') === 'favourite' &&
+      uuidPattern.test(event.url.searchParams.get('placeId') ?? '')
+    ) {
+      destination.searchParams.set('authIntent', 'favourite');
+      destination.searchParams.set('authPlace', event.url.searchParams.get('placeId')!);
+    }
     redirect(303, `${destination.pathname}${destination.search}${destination.hash}`);
   }
   return result;
