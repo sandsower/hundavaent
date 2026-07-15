@@ -17,6 +17,7 @@
 
   let { placeName, conditions, copy, onOpenDetails = () => undefined }: Props = $props();
   const componentId = $props.id();
+  const isIcelandic = $derived(copy['hours.monday'] === 'Mánudagur');
   let activeDimension = $state<AccessSymbolDimension | 'complex' | null>(null);
   const presentation = $derived(buildAccessSymbolPresentation(conditions));
   const labels: Record<AccessSymbolState, MessageKey> = {
@@ -62,38 +63,103 @@
     return copy[details[symbol.state]];
   }
 
-  function actualRule(symbol: AccessSymbol): string {
+  const weekdays: Readonly<Record<number, MessageKey>> = {
+    1: 'hours.monday',
+    2: 'hours.tuesday',
+    3: 'hours.wednesday',
+    4: 'hours.thursday',
+    5: 'hours.friday',
+    6: 'hours.saturday',
+    7: 'hours.sunday'
+  };
+
+  function fullExplanation(symbol: AccessSymbol): string {
+    return [dimensionExplanation(symbol), ...localizedConstraints(symbol)].join(' ');
+  }
+
+  function dimensionExplanation(symbol: AccessSymbol): string {
     const condition = symbol.condition;
     if (symbol.dimension === 'area') {
-      return [condition.accessArea.replaceAll('_', ' '), condition.accessAreaNote]
-        .filter(Boolean)
-        .join(': ');
+      if (condition.accessArea === 'indoors') return copy['accessSymbols.indoorsDetail'];
+      if (condition.accessArea === 'outdoors') return copy['accessSymbols.outdoorsDetail'];
+      if (condition.accessArea === 'designated_area') {
+        return copy['accessSymbols.designatedAreaDetail'];
+      }
+      return copy['accessSymbols.otherAreaDetail'];
     }
     if (symbol.dimension === 'restraint') {
-      return [condition.restraintCondition.replaceAll('_', ' '), condition.restraintNote]
-        .filter(Boolean)
-        .join(': ');
+      if (condition.restraintCondition === 'leash_required') {
+        return copy['accessSymbols.leashDetail'];
+      }
+      if (condition.restraintCondition === 'off_leash_permitted') {
+        return copy['accessSymbols.offLeashDetail'];
+      }
+      if (condition.restraintCondition === 'carrier_required') {
+        return copy['accessSymbols.carrierDetail'];
+      }
+      return copy['accessSymbols.otherRestraintDetail'];
     }
     if (symbol.dimension === 'permission') {
-      return condition.permissionRequirement.replaceAll('_', ' ');
+      if (condition.permissionRequirement === 'standing_permission') {
+        return copy['accessSymbols.permissionOpenDetail'];
+      }
+      if (condition.permissionRequirement === 'ask_on_arrival') {
+        return copy['accessSymbols.askOnArrivalDetail'];
+      }
+      return copy['accessSymbols.advanceApprovalDetail'];
     }
     if (symbol.dimension === 'dogs') {
-      const eligibility = condition.dogEligibility;
-      if (!eligibility)
-        return condition.dogEligibilityState?.replaceAll('_', ' ') ?? detail(symbol);
-      const parts = [eligibility.scope.replaceAll('_', ' ')];
-      if (eligibility.maximumWeightKg !== undefined) {
-        parts.push(`${eligibility.maximumWeightKg} kg maximum`);
-      }
-      return parts.join(', ');
+      if (symbol.state === 'unrestricted') return copy['accessSymbols.allDogsDetail'];
+      if (symbol.state === 'small_dogs_only') return copy['accessSymbols.smallDogsDetail'];
+      if (symbol.state === 'not_stated') return copy['accessSymbols.notStatedDetail'];
+      return copy['accessSymbols.dogConditionsDetail'];
     }
-    const window = condition.availabilityWindow ?? {};
-    const values = [
-      Array.isArray(window.days) ? `days ${window.days.join(', ')}` : '',
-      typeof window.startsAt === 'string' ? window.startsAt : '',
-      typeof window.endsAt === 'string' ? window.endsAt : ''
+    return detail(symbol);
+  }
+
+  function localizedConstraints(symbol: AccessSymbol): string[] {
+    if (symbol.dimension === 'dogs') {
+      const eligibility = symbol.condition.dogEligibility;
+      if (!eligibility) return [];
+      return [
+        eligibility.maximumWeightKg === undefined
+          ? ''
+          : copy['accessSymbols.weightConstraint'].replace(
+              '{weight}',
+              formatWeight(eligibility.maximumWeightKg)
+            ),
+        eligibility.maximumDogs === undefined
+          ? ''
+          : copy['accessSymbols.dogCountConstraint'].replace(
+              '{count}',
+              String(eligibility.maximumDogs)
+            )
+      ].filter(Boolean);
+    }
+    if (symbol.dimension !== 'timing') return [];
+    const window = symbol.condition.availabilityWindow ?? {};
+    const dayNames = (window.days ?? [])
+      .map((day) => weekdays[day])
+      .filter((key): key is MessageKey => Boolean(key))
+      .map((key) => copy[key]);
+    return [
+      dayNames.length === 0
+        ? ''
+        : copy['accessSymbols.daysConstraint'].replace('{days}', dayNames.join(', ')),
+      typeof window.startsAt === 'string'
+        ? copy['accessSymbols.startsAtConstraint'].replace('{time}', window.startsAt)
+        : '',
+      typeof window.endsAt === 'string'
+        ? copy['accessSymbols.endsAtConstraint'].replace('{time}', window.endsAt)
+        : ''
     ].filter(Boolean);
-    return values.length > 0 ? values.join(' - ') : detail(symbol);
+  }
+
+  function formatWeight(value: number): string {
+    const formatted = new Intl.NumberFormat(isIcelandic ? 'is-IS' : 'en-GB', {
+      maximumFractionDigits: 2
+    }).format(value);
+    return isIcelandic ? formatted.replace('.', ',') : formatted;
   }
 
   function activate(symbol: AccessSymbol): void {
@@ -115,7 +181,7 @@
       type="button"
       class="symbol complex special"
       aria-expanded={activeDimension === 'complex'}
-      aria-controls={detailId}
+      aria-controls={activeDimension === 'complex' ? detailId : undefined}
       onclick={() => {
         activeDimension = activeDimension === 'complex' ? null : 'complex';
         onOpenDetails();
@@ -123,6 +189,12 @@
     >
       <span class="icon question" aria-hidden="true">?</span>
       <span>{copy['accessSymbols.differentConditions']}</span>
+      <span class="tooltip" role="tooltip" aria-hidden="true">
+        {copy['accessSymbols.differentConditionsDetail'].replace(
+          '{count}',
+          String(presentation.conditionCount)
+        )}
+      </span>
     </button>
     {#if activeDimension === 'complex'}
       <p id={detailId} class="persistent-detail" role="status">
@@ -148,7 +220,7 @@
           class:not-stated={symbol.state === 'not_stated'}
           aria-label={label(symbol)}
           aria-expanded={activeDimension === symbol.dimension}
-          aria-controls={detailId}
+          aria-controls={activeDimension === symbol.dimension ? detailId : undefined}
           onclick={() => activate(symbol)}
         >
           <span class="icon" aria-hidden="true">
@@ -192,12 +264,12 @@
               >
             {/if}
           </span>
-          <span class="tooltip" role="tooltip" aria-hidden="true">{label(symbol)}</span>
+          <span class="tooltip" role="tooltip" aria-hidden="true">{fullExplanation(symbol)}</span>
         </button>
         {#if activeDimension === symbol.dimension}
           <p id={detailId} class="persistent-detail symbol-detail" role="status">
             <strong>{label(symbol)}</strong>
-            {actualRule(symbol)}
+            {fullExplanation(symbol)}
           </p>
         {/if}
       {/each}
