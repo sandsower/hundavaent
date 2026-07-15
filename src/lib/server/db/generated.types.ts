@@ -736,9 +736,15 @@ export type Database = {
         Returns: {
           alt_text_en: string
           alt_text_is: string
+          attribution_text: string
+          attribution_url: string
           height_px: number
+          license_reference: string
+          license_url: string
           media_id: string
           place_id: string
+          rights_basis: string
+          source_url: string
           storage_bucket: string
           storage_object_path: string
           width_px: number

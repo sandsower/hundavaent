@@ -14,6 +14,7 @@
     resultCount: number;
     filtersOpen: boolean;
     resultsOpen: boolean;
+    showResultsToggle?: boolean;
     copy: Catalogue;
     locationState: 'idle' | 'locating' | 'ready' | 'denied' | 'unavailable';
     suggestHref: string;
@@ -33,6 +34,7 @@
     resultCount,
     filtersOpen,
     resultsOpen,
+    showResultsToggle = true,
     copy,
     locationState,
     suggestHref,
@@ -86,17 +88,19 @@
       {filtersOpen ? copy['directory.hideFilters'] : copy['directory.showFilters']}
       {#if count > 0}<span aria-hidden="true">{count}</span>{/if}
     </button>
-    <button
-      type="button"
-      class="results-button"
-      aria-expanded={resultsOpen}
-      aria-controls="discovery-results"
-      onclick={onShowResults}
-    >
-      {resultCount === 1
-        ? copy['directory.showResultOne']
-        : copy['directory.showResults'].replace('{count}', String(resultCount))}
-    </button>
+    {#if showResultsToggle}
+      <button
+        type="button"
+        class="results-button"
+        aria-expanded={resultsOpen}
+        aria-controls="discovery-results"
+        onclick={onShowResults}
+      >
+        {resultCount === 1
+          ? copy['directory.showResultOne']
+          : copy['directory.showResults'].replace('{count}', String(resultCount))}
+      </button>
+    {/if}
   </div>
 
   {#if showSuggest}
@@ -470,6 +474,12 @@
 
     .advanced-grid {
       grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (min-width: 58rem) {
+    .results-button {
+      display: none;
     }
   }
 

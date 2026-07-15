@@ -103,6 +103,7 @@
   let directorySidebar = $state<HTMLElement>();
   let directoryRailWidth = $state(0);
   let wideDetailLayout = $state(false);
+  let persistentRailLayout = $state(false);
   let reducedMotion = $state(false);
   let locationOrigin = $state<GeographicPoint | null>(null);
   let locationState = $state<'idle' | 'locating' | 'ready' | 'denied' | 'unavailable'>('idle');
@@ -136,12 +137,13 @@
   let loadedProfiles = $state<Record<string, PublishedPlaceProfile>>({});
   let profileStates = $state<Record<string, { loading: boolean; error: boolean }>>({});
   const profileRequests = new SvelteMap<string, Promise<void>>();
+  let selectedProfileKey = $derived(selectedPlace ? profileKey(lang, selectedPlace.placeId) : null);
   let selectedProfile = $derived(
-    selectedPlace ? (loadedProfiles[selectedPlace.placeId] ?? null) : null
+    selectedProfileKey ? (loadedProfiles[selectedProfileKey] ?? null) : null
   );
   let selectedProfileState = $derived(
-    selectedPlace
-      ? (profileStates[selectedPlace.placeId] ?? { loading: false, error: false })
+    selectedProfileKey
+      ? (profileStates[selectedProfileKey] ?? { loading: false, error: false })
       : { loading: false, error: false }
   );
   let profileLoading = $derived(selectedProfileState.loading);
@@ -166,7 +168,8 @@
     const profile = selectedProfile;
     const { loading, error } = selectedProfileState;
     if (!placeId || profile || loading || error) return;
-    void untrack(() => loadSelectedProfile(placeId));
+    const requestedLang = lang;
+    void untrack(() => loadSelectedProfile(placeId, requestedLang));
   });
 
   $effect(() => {
@@ -178,13 +181,16 @@
 
   onMount(() => {
     const wideDetailQuery = window.matchMedia('(min-width: 76rem)');
+    const persistentRailQuery = window.matchMedia('(min-width: 58rem)');
     const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const syncResponsiveState = () => {
       wideDetailLayout = wideDetailQuery.matches;
+      persistentRailLayout = persistentRailQuery.matches;
       reducedMotion = reducedMotionQuery.matches;
     };
     syncResponsiveState();
     wideDetailQuery.addEventListener('change', syncResponsiveState);
+    persistentRailQuery.addEventListener('change', syncResponsiveState);
     reducedMotionQuery.addEventListener('change', syncResponsiveState);
     const railObserver = directorySidebar
       ? new ResizeObserver(([entry]) => {
@@ -312,6 +318,7 @@
       window.removeEventListener('popstate', syncHistory);
       window.removeEventListener('keydown', closeSelectedOnEscape);
       wideDetailQuery.removeEventListener('change', syncResponsiveState);
+      persistentRailQuery.removeEventListener('change', syncResponsiveState);
       reducedMotionQuery.removeEventListener('change', syncResponsiveState);
       railObserver?.disconnect();
       unsubscribeFavourites();
@@ -443,25 +450,30 @@
     }
   }
 
-  function loadSelectedProfile(placeId: string): Promise<void> {
-    if (loadedProfiles[placeId]) return Promise.resolve();
-    const inFlight = profileRequests.get(placeId);
+  function loadSelectedProfile(placeId: string, requestedLang: Locale = lang): Promise<void> {
+    const key = profileKey(requestedLang, placeId);
+    if (loadedProfiles[key]) return Promise.resolve();
+    const inFlight = profileRequests.get(key);
     if (inFlight) return inFlight;
 
-    profileStates = { ...profileStates, [placeId]: { loading: true, error: false } };
-    const request = loadPlace(placeId, lang)
+    profileStates = { ...profileStates, [key]: { loading: true, error: false } };
+    const request = loadPlace(placeId, requestedLang)
       .then((profile) => {
-        loadedProfiles = { ...loadedProfiles, [placeId]: profile };
-        profileStates = { ...profileStates, [placeId]: { loading: false, error: false } };
+        loadedProfiles = { ...loadedProfiles, [key]: profile };
+        profileStates = { ...profileStates, [key]: { loading: false, error: false } };
       })
       .catch(() => {
-        profileStates = { ...profileStates, [placeId]: { loading: false, error: true } };
+        profileStates = { ...profileStates, [key]: { loading: false, error: true } };
       })
       .finally(() => {
-        if (profileRequests.get(placeId) === request) profileRequests.delete(placeId);
+        if (profileRequests.get(key) === request) profileRequests.delete(key);
       });
-    profileRequests.set(placeId, request);
+    profileRequests.set(key, request);
     return request;
+  }
+
+  function profileKey(locale: Locale, placeId: string): string {
+    return `${locale}:${placeId}`;
   }
 
   function loadCheckInStatus(placeId: string): Promise<void> {
@@ -736,6 +748,7 @@
       resultCount={filteredPlaces.length}
       {filtersOpen}
       resultsOpen={discoveryState.view === 'list' && !mapFailed}
+      showResultsToggle={!persistentRailLayout}
       {copy}
       {locationState}
       {suggestHref}
@@ -759,7 +772,7 @@
           >
             <!-- Keyed so selecting a different Place recreates the card: its internal
                interaction state (for example a completed Check-in) must never carry over. -->
-            {#key selectedPlace.placeId}
+            {#key `${lang}:${selectedPlace.placeId}`}
               <SelectedPlaceCard
                 place={selectedPlace}
                 profile={selectedProfile}
@@ -768,7 +781,7 @@
                 {lang}
                 {copy}
                 onClose={clearSelectedPlace}
-                onRetry={() => loadSelectedProfile(selectedPlace.placeId)}
+                onRetry={() => loadSelectedProfile(selectedPlace.placeId, lang)}
                 {signedIn}
                 favourite={favouritePlaceIds.includes(selectedPlace.placeId)}
                 signInHref={favouriteSignInHref(selectedPlace.placeId)}
@@ -800,7 +813,7 @@
               onSelect={(placeId, trigger) =>
                 selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list')}
               onClose={closeResults}
-              closable={discoveryState.view === 'list' && !mapFailed}
+              closable={discoveryState.view === 'list' && !mapFailed && !persistentRailLayout}
               {signedIn}
               {favouritePlaceIds}
               pendingFavouritePlaceId={pendingFavourite}

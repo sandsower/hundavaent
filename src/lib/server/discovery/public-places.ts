@@ -16,12 +16,17 @@ import {
   type DogFriendlinessRpcClient,
   type DogFriendlinessSummary
 } from '$server/dog-friendliness/dog-friendliness';
-import { listPublishedPlacePhotos, signPlaceMediaUrl } from '$server/place-media/place-media';
+import {
+  listPublishedPlacePhotos,
+  signPlaceMediaUrl,
+  signPlaceMediaUrls
+} from '$server/place-media/place-media';
 import type { PlacePhotoRightsBasis } from '$server/place-media/place-media-input';
 
 type ListRow = Database['public']['Functions']['list_published_places']['Returns'][number];
 type ProfileRow = Database['public']['Functions']['get_published_place_profile']['Returns'][number];
 type StatusRow = Database['public']['Functions']['get_public_place_status']['Returns'][number];
+const publishedPhotoUrlTtlSeconds = 300;
 
 export interface PublishedPlaceSummary {
   placeId: string;
@@ -47,6 +52,13 @@ export interface PublishedPlacePrimaryPhoto {
   heightPx: number;
   altTextIs: string;
   altTextEn: string;
+  rightsBasis: PlacePhotoRightsBasis;
+  sourceUrl: string | null;
+  licenseReference: string;
+  licenseUrl: string | null;
+  attributionText: string;
+  attributionUrl: string | null;
+  urlExpiresAt: string;
 }
 
 export interface PublishedAccessConditionSummary {
@@ -91,6 +103,7 @@ export interface PublishedPlacePhoto {
   attributionText: string;
   attributionUrl: string | null;
   isPrimary: boolean;
+  urlExpiresAt: string;
 }
 
 export interface PublishedPlaceProfile {
@@ -123,6 +136,11 @@ export type PublicProfileResult =
   | { status: 'success'; value: PublishedPlaceProfile }
   | { status: 'not_found' }
   | { status: 'invalid_response' }
+  | { status: 'infrastructure_error' };
+
+export type PublicPhotoDeliveryResult =
+  | { status: 'success'; value: { url: string; urlExpiresAt: string } }
+  | { status: 'not_found' }
   | { status: 'infrastructure_error' };
 
 export interface PublicPlaceStatus {
@@ -185,31 +203,33 @@ async function resolvePublishedPlacePrimaryPhotos(
     if (error || !Array.isArray(data) || !data.every(isPrimaryPhotoRow)) return photos;
 
     const requestedIds = new Set(placeIds);
-    const resolved = await Promise.all(
-      data.map(async (row) => {
-        if (!requestedIds.has(row.place_id)) return null;
-        try {
-          const url = await signPlaceMediaUrl(client, 'place-photos', row.storage_object_path);
-          if (!url) return null;
-          return {
-            placeId: row.place_id,
-            photo: {
-              mediaId: row.media_id,
-              url,
-              widthPx: row.width_px,
-              heightPx: row.height_px,
-              altTextIs: row.alt_text_is,
-              altTextEn: row.alt_text_en
-            }
-          };
-        } catch {
-          return null;
-        }
-      })
+    const requestedRows = data.filter((row) => requestedIds.has(row.place_id));
+    const urlExpiresAt = new Date(Date.now() + publishedPhotoUrlTtlSeconds * 1_000).toISOString();
+    const signedUrls = await signPlaceMediaUrls(
+      client,
+      'place-photos',
+      requestedRows.map((row) => row.storage_object_path),
+      publishedPhotoUrlTtlSeconds
     );
 
-    for (const entry of resolved) {
-      if (entry && !photos.has(entry.placeId)) photos.set(entry.placeId, entry.photo);
+    for (const row of requestedRows) {
+      const url = signedUrls.get(row.storage_object_path);
+      if (!url || photos.has(row.place_id)) continue;
+      photos.set(row.place_id, {
+        mediaId: row.media_id,
+        url,
+        widthPx: row.width_px,
+        heightPx: row.height_px,
+        altTextIs: row.alt_text_is,
+        altTextEn: row.alt_text_en,
+        rightsBasis: row.rights_basis as PlacePhotoRightsBasis,
+        sourceUrl: row.source_url,
+        licenseReference: row.license_reference,
+        licenseUrl: row.license_url,
+        attributionText: row.attribution_text,
+        attributionUrl: row.attribution_url,
+        urlExpiresAt
+      });
     }
   } catch {
     // Photography is supplementary. Keep the compact directory usable when media lookup fails.
@@ -286,6 +306,37 @@ export async function getPublishedProfile(
   }
 }
 
+export async function refreshPublishedPhotoUrl(
+  client: RequestSupabaseClient,
+  placeId: string,
+  mediaId: string
+): Promise<PublicPhotoDeliveryResult> {
+  const photosResult = await listPublishedPlacePhotos(client, placeId);
+  if (photosResult.status !== 'success') return { status: 'infrastructure_error' };
+
+  const photo = photosResult.value.find((candidate) => candidate.mediaId === mediaId);
+  if (!photo) return { status: 'not_found' };
+
+  const bucket = photo.storageBucket as 'place-evidence' | 'place-photos';
+  try {
+    const urlExpiresAt = new Date(Date.now() + publishedPhotoUrlTtlSeconds * 1_000).toISOString();
+    const url = await signPlaceMediaUrl(
+      client,
+      bucket,
+      photo.storageObjectPath,
+      publishedPhotoUrlTtlSeconds
+    );
+    return url
+      ? {
+          status: 'success',
+          value: { url, urlExpiresAt }
+        }
+      : { status: 'not_found' };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
 // A signing failure or infrastructure hiccup degrades to an empty gallery rather than failing the
 // whole profile - Photos are supplementary to the Access Conditions a Visitor actually needs.
 async function resolvePublishedPlacePhotos(
@@ -297,33 +348,44 @@ async function resolvePublishedPlacePhotos(
     return [];
   }
 
-  const resolved = await Promise.all(
-    photosResult.value.map(async (photo) => {
-      const url = await signPlaceMediaUrl(
-        client,
-        photo.storageBucket as 'place-evidence' | 'place-photos',
-        photo.storageObjectPath
+  const urlExpiresAt = new Date(Date.now() + publishedPhotoUrlTtlSeconds * 1_000).toISOString();
+  const signedByBucket = new Map<'place-evidence' | 'place-photos', Map<string, string>>();
+  for (const bucket of ['place-evidence', 'place-photos'] as const) {
+    const paths = photosResult.value
+      .filter((photo) => photo.storageBucket === bucket)
+      .map((photo) => photo.storageObjectPath);
+    if (paths.length > 0) {
+      signedByBucket.set(
+        bucket,
+        await signPlaceMediaUrls(client, bucket, paths, publishedPhotoUrlTtlSeconds)
       );
-      if (!url) return null;
-      return {
-        mediaId: photo.mediaId,
-        url,
-        widthPx: photo.widthPx,
-        heightPx: photo.heightPx,
-        altTextIs: photo.altTextIs,
-        altTextEn: photo.altTextEn,
-        rightsBasis: photo.rightsBasis,
-        sourceUrl: photo.sourceUrl,
-        licenseReference: photo.licenseReference,
-        licenseUrl: photo.licenseUrl,
-        attributionText: photo.attributionText,
-        attributionUrl: photo.attributionUrl,
-        isPrimary: photo.isPrimary
-      };
-    })
-  );
+    }
+  }
 
-  return resolved.filter((photo): photo is PublishedPlacePhoto => photo !== null);
+  return photosResult.value.flatMap((photo) => {
+    const bucket = photo.storageBucket as 'place-evidence' | 'place-photos';
+    const url = signedByBucket.get(bucket)?.get(photo.storageObjectPath);
+    return url
+      ? [
+          {
+            mediaId: photo.mediaId,
+            url,
+            widthPx: photo.widthPx,
+            heightPx: photo.heightPx,
+            altTextIs: photo.altTextIs,
+            altTextEn: photo.altTextEn,
+            rightsBasis: photo.rightsBasis,
+            sourceUrl: photo.sourceUrl,
+            licenseReference: photo.licenseReference,
+            licenseUrl: photo.licenseUrl,
+            attributionText: photo.attributionText,
+            attributionUrl: photo.attributionUrl,
+            isPrimary: photo.isPrimary,
+            urlExpiresAt
+          }
+        ]
+      : [];
+  });
 }
 
 function hiddenDogFriendlinessSummary(placeId: string): DogFriendlinessSummary {
@@ -401,7 +463,13 @@ function isPrimaryPhotoRow(
     Number.isInteger(row.height_px) &&
     row.height_px > 0 &&
     hasText(row.alt_text_is) &&
-    hasText(row.alt_text_en)
+    hasText(row.alt_text_en) &&
+    photoRightsBases.has(row.rights_basis) &&
+    hasText(row.license_reference) &&
+    hasText(row.attribution_text) &&
+    isOptionalHttpUrl(row.source_url) &&
+    isOptionalHttpUrl(row.license_url) &&
+    isOptionalHttpUrl(row.attribution_url)
   );
 }
 
@@ -552,6 +620,17 @@ function isOptionalText(value: unknown): value is string | null {
   return value === null || hasText(value);
 }
 
+function isOptionalHttpUrl(value: unknown): value is string | null {
+  if (value === null) return true;
+  if (!hasText(value)) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function isLatitude(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= -90 && value <= 90;
 }
@@ -641,6 +720,14 @@ const evidenceKinds = new Set<string>([
   'direct_observation',
   'public_record',
   'other'
+]);
+const photoRightsBases = new Set<string>([
+  'explicit_permission',
+  'cc0',
+  'public_domain',
+  'cc_by',
+  'cc_by_sa',
+  'official_reuse'
 ]);
 const evidenceSourceKeys = new Set([
   'kind',

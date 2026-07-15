@@ -432,7 +432,7 @@ select results_eq(
 
 select results_eq(
   $$
-    select place_id, storage_object_path
+    select place_id, storage_object_path, rights_basis, license_reference, attribution_text
     from public.list_published_place_primary_photos(
       array[
         '79300000-0000-4000-8000-000000000001',
@@ -442,9 +442,12 @@ select results_eq(
   $$,
   $$ values (
     '79300000-0000-4000-8000-000000000001'::uuid,
-    '79300000-0000-4000-8000-000000000001/photo-one.jpg'::text
+    '79300000-0000-4000-8000-000000000001/photo-one.jpg'::text,
+    'explicit_permission'::text,
+    'Owner-supplied, permission on file'::text,
+    'A. Photographer'::text
   ) $$,
-  'The batched projection returns only a published Place primary photo'
+  'The batched projection returns only a published primary photo with public credit metadata'
 );
 
 -- The check above passes even vacuously (the Candidate Place has no photo rows at all yet), which

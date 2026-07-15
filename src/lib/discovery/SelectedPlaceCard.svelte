@@ -23,6 +23,8 @@
   import CheckInControl from '$lib/check-ins/CheckInControl.svelte';
   import RatingSummary from '$lib/discovery/RatingSummary.svelte';
   import PlacePhotos from '$lib/discovery/PlacePhotos.svelte';
+  import PhotoCredit from '$lib/discovery/PhotoCredit.svelte';
+  import RefreshablePlaceImage from '$lib/discovery/RefreshablePlaceImage.svelte';
 
   interface Props {
     place: PublishedPlaceSummary;
@@ -121,15 +123,34 @@
 
   <div class="card-body" data-card-scroll-body>
     {#if profile?.photos.length}
-      <PlacePhotos photos={profile.photos} placeName={place.name} {lang} {copy} featured />
+      <PlacePhotos
+        photos={profile.photos}
+        placeId={profile.placeId}
+        placeName={place.name}
+        {lang}
+        {copy}
+        featured
+      />
     {:else if place.primaryPhoto}
       <figure class="summary-photo" data-summary-photo>
-        <img
-          src={place.primaryPhoto.url}
+        <RefreshablePlaceImage
+          placeId={place.placeId}
+          mediaId={place.primaryPhoto.mediaId}
+          url={place.primaryPhoto.url}
+          urlExpiresAt={place.primaryPhoto.urlExpiresAt}
           alt={lang === 'is' ? place.primaryPhoto.altTextIs : place.primaryPhoto.altTextEn}
           width={place.primaryPhoto.widthPx}
           height={place.primaryPhoto.heightPx}
         />
+        <figcaption>
+          <PhotoCredit
+            attributionText={place.primaryPhoto.attributionText}
+            attributionUrl={place.primaryPhoto.attributionUrl}
+            sourceUrl={place.primaryPhoto.sourceUrl}
+            licenseReference={place.primaryPhoto.licenseReference}
+            licenseUrl={place.primaryPhoto.licenseUrl}
+          />
+        </figcaption>
       </figure>
     {/if}
 
@@ -398,12 +419,16 @@
     background: var(--hv-color-fjord-soft);
   }
 
-  .summary-photo img {
+  .summary-photo :global(img) {
     display: block;
     width: 100%;
     max-height: 14rem;
     object-fit: cover;
     aspect-ratio: 16 / 9;
+  }
+
+  .summary-photo figcaption {
+    padding: 0.35rem 0.5rem;
   }
 
   .member-actions :global(.check-in) {

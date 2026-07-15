@@ -42,7 +42,14 @@ const places = [
       widthPx: 800,
       heightPx: 600,
       altTextIs: 'Hundur í almenningsgarði',
-      altTextEn: 'A dog in a public park'
+      altTextEn: 'A dog in a public park',
+      rightsBasis: 'cc_by' as const,
+      sourceUrl: 'https://photos.example.invalid/park',
+      licenseReference: 'CC BY 4.0',
+      licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+      attributionText: 'A. Photographer',
+      attributionUrl: null,
+      urlExpiresAt: '2099-01-01T00:00:00.000Z'
     },
     verifiedAt: '2026-07-09T11:00:00.000Z'
   }
@@ -346,6 +353,8 @@ describe('MapListShell synchronization', () => {
       const sidebar = container.querySelector<HTMLElement>('[data-directory-sidebar]');
       const results = screen.getByRole('region', { name: 'Places found' });
       expect(sidebar?.contains(results)).toBe(true);
+      expect(screen.queryByRole('button', { name: 'Show 1 result' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Close results' })).toBeNull();
 
       await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
       const cardOverlay = container.querySelector<HTMLElement>('[data-selected-place-overlay]');
@@ -427,12 +436,88 @@ describe('MapListShell synchronization', () => {
     const selectedPlace = screen.getByLabelText('Selected place');
     expect(within(selectedPlace).getByRole('heading', { name: 'Published Place' })).toBeTruthy();
     expect(within(selectedPlace).getByAltText('A dog in a public park')).toBeTruthy();
+    expect(within(selectedPlace).getByRole('link', { name: 'A. Photographer' })).toBeTruthy();
+    expect(within(selectedPlace).getByRole('link', { name: 'CC BY 4.0' })).toBeTruthy();
     expect(within(selectedPlace).getByText('Loading every access condition…')).toBeTruthy();
 
     profileRequest.resolve(complexProfile);
     await waitFor(() =>
       expect(within(selectedPlace).queryByText('Loading every access condition…')).toBeNull()
     );
+  });
+
+  it('isolates cached and late profile responses by locale and Place', async () => {
+    history.replaceState(null, '', `/en?place=${places[0].placeId}`);
+    const englishRequest = deferred<typeof complexProfile>();
+    const icelandicRequest = deferred<typeof complexProfile>();
+    const loadPlace = vi.fn((_placeId: string, locale: 'en' | 'is') =>
+      locale === 'en' ? englishRequest.promise : icelandicRequest.promise
+    );
+    const { rerender } = render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace
+    });
+    await waitFor(() => expect(loadPlace).toHaveBeenCalledWith(places[0].placeId, 'en'));
+
+    history.replaceState(null, '', `/is?place=${places[0].placeId}`);
+    await rerender({
+      places,
+      lang: 'is',
+      copy: catalogues.is,
+      initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace
+    } as never);
+    await waitFor(() => expect(loadPlace).toHaveBeenCalledWith(places[0].placeId, 'is'));
+
+    englishRequest.resolve({ ...complexProfile, dogAmenities: ['english only amenity'] });
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 0));
+    expect(screen.getByText('Hleð öllum aðgangsskilyrðum…')).toBeTruthy();
+    expect(screen.queryByText('english only amenity')).toBeNull();
+
+    icelandicRequest.resolve({ ...complexProfile, dogAmenities: ['icelandic only amenity'] });
+    await waitFor(() => expect(screen.queryByText('Hleð öllum aðgangsskilyrðum…')).toBeNull());
+    expect(screen.getByText('icelandic only amenity')).toBeTruthy();
+  });
+
+  it('uses zero-duration map motion when reduced motion is requested', async () => {
+    history.replaceState(null, '', '/en');
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query) =>
+        ({
+          matches: query.includes('prefers-reduced-motion'),
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn()
+        }) satisfies MediaQueryList
+    );
+    const adapter = createDomTestMapAdapter();
+    const setCamera = vi.spyOn(adapter, 'setCamera');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter,
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+    await waitFor(() => expect(setCamera.mock.calls.at(-1)?.[1]?.duration).toBe(0));
   });
 
   it('closes details with Escape and restores focus to the exact selection trigger', async () => {

@@ -103,4 +103,58 @@ describe('PlaceList', () => {
     const selected = screen.getByRole('button', { name: 'Select Second Place' });
     await waitFor(() => expect(document.activeElement).toBe(selected));
   });
+
+  it('refreshes an expired lazy photo URL through the revalidating delivery endpoint', async () => {
+    const photoPlace = {
+      ...places[0],
+      primaryPhoto: {
+        mediaId: '79400000-0000-4000-8000-000000000001',
+        url: 'https://example.invalid/signed/expired.jpg',
+        widthPx: 800,
+        heightPx: 600,
+        altTextIs: 'Hundur í garði',
+        altTextEn: 'A dog in a park',
+        rightsBasis: 'cc_by' as const,
+        sourceUrl: 'https://photos.example.invalid/park',
+        licenseReference: 'CC BY 4.0',
+        licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+        attributionText: 'A. Photographer',
+        attributionUrl: null,
+        urlExpiresAt: '2020-01-01T00:00:00.000Z'
+      }
+    };
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            url: 'https://example.invalid/signed/refreshed.jpg',
+            urlExpiresAt: '2099-01-01T00:00:00.000Z'
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      render(PlaceList, {
+        places: [photoPlace],
+        selectedPlaceId: null,
+        lang: 'en',
+        copy: catalogues.en,
+        onSelect: vi.fn()
+      });
+
+      const image = screen.getByAltText('A dog in a park');
+      await waitFor(() =>
+        expect(image.getAttribute('src')).toBe('https://example.invalid/signed/refreshed.jpg')
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/places/${photoPlace.placeId}/photos/${photoPlace.primaryPhoto.mediaId}`,
+        { headers: { accept: 'application/json' } }
+      );
+      expect(screen.getByRole('link', { name: 'A. Photographer' })).toBeTruthy();
+      expect(screen.getByRole('link', { name: 'CC BY 4.0' })).toBeTruthy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

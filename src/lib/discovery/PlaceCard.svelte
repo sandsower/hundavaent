@@ -6,6 +6,8 @@
   import { accessAreaMessageKeys } from '$i18n/structured-place';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
+  import PhotoCredit from './PhotoCredit.svelte';
+  import RefreshablePlaceImage from './RefreshablePlaceImage.svelte';
 
   interface Props {
     place: PublishedPlaceSummary;
@@ -61,14 +63,26 @@
 
 <article class:selected class:has-photo={place.primaryPhoto !== null} aria-label={place.name}>
   {#if place.primaryPhoto}
-    <img
-      class="primary-photo"
-      src={place.primaryPhoto.url}
-      alt={lang === 'is' ? place.primaryPhoto.altTextIs : place.primaryPhoto.altTextEn}
-      width={place.primaryPhoto.widthPx}
-      height={place.primaryPhoto.heightPx}
-      loading="lazy"
-    />
+    <figure class="primary-photo">
+      <RefreshablePlaceImage
+        placeId={place.placeId}
+        mediaId={place.primaryPhoto.mediaId}
+        url={place.primaryPhoto.url}
+        urlExpiresAt={place.primaryPhoto.urlExpiresAt}
+        alt={lang === 'is' ? place.primaryPhoto.altTextIs : place.primaryPhoto.altTextEn}
+        width={place.primaryPhoto.widthPx}
+        height={place.primaryPhoto.heightPx}
+      />
+      <figcaption>
+        <PhotoCredit
+          attributionText={place.primaryPhoto.attributionText}
+          attributionUrl={place.primaryPhoto.attributionUrl}
+          sourceUrl={place.primaryPhoto.sourceUrl}
+          licenseReference={place.primaryPhoto.licenseReference}
+          licenseUrl={place.primaryPhoto.licenseUrl}
+        />
+      </figcaption>
+    </figure>
   {/if}
   {#if interactive}
     <button
@@ -134,9 +148,20 @@
 
   .primary-photo {
     width: 4.75rem;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  .primary-photo :global(img) {
+    display: block;
+    width: 4.75rem;
     height: 4.75rem;
     border-radius: var(--hv-radius-control);
     object-fit: cover;
+  }
+
+  .primary-photo figcaption {
+    margin-top: 0.25rem;
   }
 
   article.selected {

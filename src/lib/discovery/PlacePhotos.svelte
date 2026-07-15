@@ -1,16 +1,18 @@
 <script lang="ts">
   import type { Catalogue, Locale } from '$i18n';
   import type { PublishedPlacePhoto } from '$server/discovery/public-places';
+  import RefreshablePlaceImage from './RefreshablePlaceImage.svelte';
 
   interface Props {
     photos: PublishedPlacePhoto[];
+    placeId: string;
     placeName: string;
     lang: Locale;
     copy: Catalogue;
     featured?: boolean;
   }
 
-  let { photos, placeName, lang, copy, featured = false }: Props = $props();
+  let { photos, placeId, placeName, lang, copy, featured = false }: Props = $props();
   let visiblePhotos = $derived(selectVisiblePhotos(photos, featured));
 
   function selectVisiblePhotos(
@@ -53,12 +55,14 @@
           <li>
             <figure data-primary-photo={photo.isPrimary || undefined}>
               <div class="photo-frame" data-photo-frame="image-led">
-                <img
-                  src={photo.url}
+                <RefreshablePlaceImage
+                  {placeId}
+                  mediaId={photo.mediaId}
+                  url={photo.url}
+                  urlExpiresAt={photo.urlExpiresAt}
                   alt={altText(photo)}
                   width={photo.widthPx}
                   height={photo.heightPx}
-                  loading="lazy"
                 />
               </div>
               <figcaption data-photo-provenance>
@@ -156,7 +160,7 @@
     background: var(--hv-color-snow);
   }
 
-  .photo-frame img {
+  .photo-frame :global(img) {
     display: block;
     width: 100%;
     height: 100%;

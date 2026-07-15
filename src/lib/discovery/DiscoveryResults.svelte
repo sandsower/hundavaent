@@ -136,4 +136,10 @@
     gap: 0.25rem;
     padding: 0.75rem 0;
   }
+
+  @media (min-width: 58rem) {
+    .tray-heading button {
+      display: none;
+    }
+  }
 </style>
