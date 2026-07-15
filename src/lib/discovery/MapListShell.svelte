@@ -384,12 +384,21 @@
     if (previouslySelectedPlaceId) {
       const focusOrigin = selectionFocusOrigin;
       selectionFocusOrigin = null;
-      queueMicrotask(() => {
+      void tick().then(() => {
         if (focusOrigin?.isConnected) {
           focusOrigin.focus();
-        } else {
-          adapter.focusPlace(previouslySelectedPlaceId);
+          return;
         }
+        if (mapFailed) {
+          const restoredResult = [
+            ...document.querySelectorAll<HTMLButtonElement>('.results-overlay [data-place-id]')
+          ].find((element) => element.dataset.placeId === previouslySelectedPlaceId);
+          if (restoredResult) {
+            restoredResult.focus();
+            return;
+          }
+        }
+        adapter.focusPlace(previouslySelectedPlaceId);
       });
     }
   }
@@ -660,111 +669,38 @@
 </script>
 
 <div class="map-list-shell" data-responsive-shell data-map-failed={mapFailed}>
-  <section class="map-panel" data-active="true" aria-labelledby="map-heading">
-    <h2 id="map-heading" class="visually-hidden">{copy['directory.mapLabel']}</h2>
-    <div class="map-stage">
-      {#snippet failureResults()}
-        <section class="fallback-results" aria-labelledby="fallback-list-heading">
-          <h3 id="fallback-list-heading" class="visually-hidden">{copy['directory.listLabel']}</h3>
-          <DiscoveryResults
-            places={filteredPlaces}
-            selectedPlaceId={discoveryState.selectedPlaceId}
-            {copy}
-            onSelect={(placeId, trigger) => selectPlace(placeId, true, trigger, 'fallback')}
-            closable={false}
-            {signedIn}
-            {favouritePlaceIds}
-            pendingFavouritePlaceId={pendingFavourite}
-            signInHref={favouriteSignInHref}
-            onFavouriteChange={applyFavouriteState}
-          />
-          {#if selectedPlace}
-            <div class="fallback-selection">
-              <!-- Keyed so selecting a different Place recreates the card: its internal
-                   interaction state (for example a completed Check-in) must never carry over. -->
-              {#key selectedPlace.placeId}
-                <SelectedPlaceCard
-                  place={selectedPlace}
-                  profile={selectedProfile}
-                  loading={profileLoading}
-                  loadFailed={profileError}
-                  {lang}
-                  {copy}
-                  onClose={clearSelectedPlace}
-                  onRetry={() => loadSelectedProfile(selectedPlace.placeId)}
-                  {signedIn}
-                  favourite={favouritePlaceIds.includes(selectedPlace.placeId)}
-                  signInHref={favouriteSignInHref(selectedPlace.placeId)}
-                  pendingConfirmation={pendingFavourite === selectedPlace.placeId}
-                  onFavouriteChange={applyFavouriteState}
-                  {correctionHref}
-                  checkInSignInHref={checkInSignInHref(selectedPlace.placeId)}
-                  {proximityAssistEnabled}
-                  initialCheckedInAt={selectedCheckInStatus}
-                />
-              {/key}
-            </div>
-          {/if}
-        </section>
-      {/snippet}
-      <MapSurface
-        {adapter}
-        places={mapPlaces}
-        selectedPlaceId={discoveryState.selectedPlaceId}
-        camera={discoveryState.camera}
-        {copy}
-        onMarkerSelect={selectPlace}
-        onClusterSelect={showClusterResults}
-        onCameraChange={updateCamera}
-        failureContent={failureResults}
-        onFailureChange={(failed) => (mapFailed = failed)}
-        {fitPlacesOnMount}
-      />
-      <div class="controls-overlay">
-        <DiscoveryControls
-          filters={discoveryState.filters}
-          {areas}
-          resultCount={filteredPlaces.length}
-          {filtersOpen}
-          resultsOpen={discoveryState.view === 'list' && !mapFailed}
-          {copy}
-          {locationState}
-          {suggestHref}
-          showSuggest={filteredPlaces.length === 0}
-          onQueryChange={updateQuery}
-          onFiltersChange={updateFilters}
-          onClear={clearFilters}
-          onShowResults={showResults}
-          onUseLocation={() => requestLocation()}
-          onRetryLocation={retryLocation}
-          onToggleFilters={toggleFilters}
-        />
-      </div>
-      {#if discoveryState.view === 'list' && !mapFailed}
-        <div class="results-overlay">
-          <DiscoveryResults
-            places={resultPlaces}
-            selectedPlaceId={discoveryState.selectedPlaceId}
-            {copy}
-            onSelect={(placeId, trigger) => selectPlace(placeId, true, trigger, 'list')}
-            onClose={closeResults}
-            {signedIn}
-            {favouritePlaceIds}
-            pendingFavouritePlaceId={pendingFavourite}
-            signInHref={favouriteSignInHref}
-            onFavouriteChange={applyFavouriteState}
-          />
-        </div>
-      {/if}
-      {#if filteredPlaces.length === 0 && !mapFailed && discoveryState.view !== 'list'}
-        <div class="empty-overlay" role="status">
-          <strong>{copy['directory.noResultsTitle']}</strong>
-          <span>{copy['directory.noResultsBody']}</span>
-          <button type="button" onclick={clearFilters}>{copy['directory.clearFilters']}</button>
-        </div>
-      {/if}
-      {#if selectedPlace && !mapFailed && !filtersOpen && discoveryState.view !== 'list'}
-        <div class="selected-place-overlay">
+  <aside
+    class="directory-sidebar"
+    data-directory-sidebar
+    data-rail-view={filtersOpen
+      ? 'filters'
+      : selectedPlace && discoveryState.view !== 'list'
+        ? 'selected'
+        : 'results'}
+    aria-label={copy['directory.listLabel']}
+  >
+    <DiscoveryControls
+      filters={discoveryState.filters}
+      {areas}
+      resultCount={filteredPlaces.length}
+      {filtersOpen}
+      resultsOpen={discoveryState.view === 'list' && !mapFailed}
+      {copy}
+      {locationState}
+      {suggestHref}
+      showSuggest={filteredPlaces.length === 0}
+      onQueryChange={updateQuery}
+      onFiltersChange={updateFilters}
+      onClear={clearFilters}
+      onShowResults={showResults}
+      onUseLocation={() => requestLocation()}
+      onRetryLocation={retryLocation}
+      onToggleFilters={toggleFilters}
+    />
+
+    {#if !filtersOpen}
+      {#if selectedPlace && discoveryState.view !== 'list'}
+        <div class="selected-place-overlay rail-content">
           <!-- Keyed so selecting a different Place recreates the card: its internal
                interaction state (for example a completed Check-in) must never carry over. -->
           {#key selectedPlace.placeId}
@@ -789,7 +725,52 @@
             />
           {/key}
         </div>
+      {:else if discoveryState.view === 'list' || mapFailed}
+        <div
+          class="results-overlay rail-content"
+          role={mapFailed ? 'region' : undefined}
+          aria-label={mapFailed ? copy['directory.listLabel'] : undefined}
+        >
+          <DiscoveryResults
+            places={resultPlaces}
+            selectedPlaceId={discoveryState.selectedPlaceId}
+            {copy}
+            onSelect={(placeId, trigger) =>
+              selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list')}
+            onClose={closeResults}
+            closable={discoveryState.view === 'list' && !mapFailed}
+            {signedIn}
+            {favouritePlaceIds}
+            pendingFavouritePlaceId={pendingFavourite}
+            signInHref={favouriteSignInHref}
+            onFavouriteChange={applyFavouriteState}
+          />
+        </div>
+      {:else if filteredPlaces.length === 0}
+        <div class="empty-state rail-content" role="status">
+          <strong>{copy['directory.noResultsTitle']}</strong>
+          <span>{copy['directory.noResultsBody']}</span>
+          <button type="button" onclick={clearFilters}>{copy['directory.clearFilters']}</button>
+        </div>
       {/if}
+    {/if}
+  </aside>
+
+  <section class="map-panel" data-active="true" aria-labelledby="map-heading">
+    <h2 id="map-heading" class="visually-hidden">{copy['directory.mapLabel']}</h2>
+    <div class="map-stage">
+      <MapSurface
+        {adapter}
+        places={mapPlaces}
+        selectedPlaceId={discoveryState.selectedPlaceId}
+        camera={discoveryState.camera}
+        {copy}
+        onMarkerSelect={selectPlace}
+        onClusterSelect={showClusterResults}
+        onCameraChange={updateCamera}
+        onFailureChange={(failed) => (mapFailed = failed)}
+        {fitPlacesOnMount}
+      />
     </div>
   </section>
 </div>
@@ -810,62 +791,74 @@
 
 <style>
   .map-list-shell {
-    display: block;
+    display: grid;
+    grid-template-columns: minmax(19rem, 0.72fr) minmax(28rem, 1.28fr);
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    border-block: 1px solid var(--hv-border-subtle);
+    background: var(--hv-color-snow-raised);
+  }
+
+  .directory-sidebar {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border-inline-end: 1px solid var(--hv-border-subtle);
+    background: var(--hv-color-snow-raised);
+  }
+
+  .rail-content {
+    min-width: 0;
+    min-height: 0;
+    flex: 1;
+    overflow: auto;
+    border-block-start: 1px solid var(--hv-border-subtle);
+    overscroll-behavior: contain;
   }
 
   .map-panel {
-    min-height: 40rem;
+    min-width: 0;
+    min-height: 0;
   }
 
   .map-stage {
     position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
   }
 
   .selected-place-overlay {
-    position: absolute;
-    /* Above .controls-overlay (4), mirroring the mobile results tray (6). The top clears the
-       search-controls panel so a tall height-capped card never covers the primary controls. */
-    z-index: 5;
-    top: 9.25rem;
-    bottom: 1.25rem;
-    left: 1.25rem;
     display: flex;
-    align-items: flex-end;
-    width: min(25rem, calc(100% - 6rem));
+    width: 100%;
+    overflow: hidden;
   }
 
   .selected-place-overlay :global(aside) {
     width: 100%;
-    max-height: 100%;
-  }
-
-  .controls-overlay,
-  .results-overlay,
-  .empty-overlay {
-    position: absolute;
-    z-index: 4;
-    top: 1.25rem;
-    left: 1.25rem;
+    height: 100%;
+    max-height: none;
   }
 
   .results-overlay {
-    top: 9rem;
-    width: min(30rem, calc(100% - 2.5rem));
+    width: 100%;
   }
 
-  .empty-overlay {
+  .empty-state {
     display: grid;
-    width: min(22rem, calc(100% - 2.5rem));
+    align-content: start;
     gap: 0.4rem;
-    top: 8rem;
     padding: 1rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-floating);
+    background: var(--hv-color-snow);
   }
 
-  .empty-overlay button {
+  .empty-state button {
     justify-self: start;
     margin-top: 0.35rem;
     padding: 0.5rem 0.75rem;
@@ -875,20 +868,6 @@
     color: var(--hv-color-basalt);
     font: inherit;
     font-weight: 800;
-  }
-
-  .fallback-results {
-    width: min(100%, 46rem);
-    margin: 1rem auto 0;
-  }
-
-  .fallback-results h3 {
-    margin: 0 0 0.75rem;
-    text-align: left;
-  }
-
-  .fallback-selection {
-    margin-top: 1rem;
   }
 
   .noscript-results {
@@ -908,55 +887,71 @@
   }
 
   .map-list-shell[data-map-failed='true'] :global(.map-failure) {
-    padding-top: 8rem;
+    align-content: center;
   }
 
-  @media (max-width: 48rem) {
+  .map-stage :global(.map-surface),
+  .map-stage :global(.map-container),
+  .map-stage :global(.map-failure) {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .map-stage :global(.map-container) {
+    padding: 0;
+  }
+
+  @media (max-width: 58rem) {
+    .map-list-shell {
+      display: block;
+      height: auto;
+      min-height: 100%;
+      overflow: visible;
+      border-block-end: 0;
+    }
+
+    .directory-sidebar {
+      overflow: visible;
+      border-inline-end: 0;
+      border-block-end: 1px solid var(--hv-border-subtle);
+    }
+
+    .rail-content {
+      max-height: min(34rem, 46dvh);
+    }
+
     .map-panel {
-      min-height: 37rem;
+      min-height: max(26rem, calc(100dvh - var(--hv-app-header-height, 7.5rem)));
+    }
+
+    .map-stage {
+      min-height: inherit;
     }
 
     .selected-place-overlay {
       position: fixed;
-      top: 18.5rem;
+      z-index: 9;
+      top: min(18.5rem, 40dvh);
       right: 0.75rem;
       bottom: max(0.75rem, env(safe-area-inset-bottom));
       left: 0.75rem;
       width: auto;
+      max-height: none;
+      border: 1px solid var(--hv-border-strong);
+      box-shadow: var(--hv-shadow-floating);
     }
 
-    .controls-overlay {
-      top: 0.75rem;
-      left: 0.75rem;
-    }
-
-    .results-overlay {
-      position: fixed;
-      z-index: 6;
-      top: 18.5rem;
-      right: 0.75rem;
-      bottom: 0.75rem;
-      left: 0.75rem;
-      width: auto;
-    }
-
-    .results-overlay :global(.results-tray) {
-      max-height: 100%;
-    }
-
-    .empty-overlay {
-      top: 9rem;
-      right: 1rem;
-      left: 1rem;
-      width: auto;
-    }
-
-    .map-list-shell[data-map-failed='true'] :global(.map-failure) {
-      padding-top: 10rem;
+    .map-stage :global(.map-surface),
+    .map-stage :global(.map-container),
+    .map-stage :global(.map-failure) {
+      min-height: inherit;
     }
   }
 
-  @media (max-width: 48rem) and (max-height: 42rem) {
+  @media (max-width: 58rem) and (max-height: 42rem) {
     .selected-place-overlay {
       top: 5.5rem;
       right: 0.75rem;

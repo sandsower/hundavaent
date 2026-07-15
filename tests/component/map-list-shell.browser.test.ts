@@ -990,7 +990,7 @@ describe('MapListShell synchronization', () => {
     ).toBe(true);
   });
 
-  it('filters markers and opens an on-demand result tray without a permanent sidebar', async () => {
+  it('keeps search, result, and selected states in a persistent sidebar before the map', async () => {
     history.replaceState(null, '', '/en');
     const secondPlace = {
       ...places[0],
@@ -1001,7 +1001,7 @@ describe('MapListShell synchronization', () => {
       accessArea: 'indoors' as const,
       permissionRequirement: 'ask_on_arrival' as const
     };
-    render(MapListShell, {
+    const { container } = render(MapListShell, {
       places: [...places, secondPlace],
       lang: 'en',
       copy: catalogues.en,
@@ -1012,6 +1012,16 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     });
 
+    const sidebar = container.querySelector<HTMLElement>('[data-directory-sidebar]');
+    const mapPanel = container.querySelector<HTMLElement>('.map-panel');
+    expect(sidebar).toBeTruthy();
+    expect(mapPanel).toBeTruthy();
+    if (!sidebar || !mapPanel) throw new Error('Expected the discovery sidebar and map panel');
+    expect(
+      Boolean(sidebar.compareDocumentPosition(mapPanel) & Node.DOCUMENT_POSITION_FOLLOWING)
+    ).toBe(true);
+    expect(sidebar.querySelector('.discovery-controls')).toBeTruthy();
+    expect(mapPanel.querySelector('.discovery-controls')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Places found' })).toBeNull();
     await fireEvent.input(screen.getByRole('searchbox', { name: 'Search for a place' }), {
       target: { value: 'cafe kopavogur' }
@@ -1023,9 +1033,14 @@ describe('MapListShell synchronization', () => {
     expect(window.location.search).toContain('q=cafe+kopavogur');
 
     await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
-    expect(screen.getByRole('heading', { name: 'Places found' })).toBeTruthy();
+    const resultsHeading = screen.getByRole('heading', { name: 'Places found' });
+    expect(resultsHeading).toBeTruthy();
+    expect(sidebar.contains(resultsHeading)).toBe(true);
     await fireEvent.click(screen.getByRole('button', { name: 'Select Second Café' }));
-    expect(screen.getByLabelText('Selected place')).toBeTruthy();
+    const selectedPlace = screen.getByLabelText('Selected place');
+    expect(selectedPlace).toBeTruthy();
+    expect(sidebar.contains(selectedPlace)).toBe(true);
+    expect(selectedPlace.querySelector('.trust-summary')?.textContent).toContain('Last verified');
     expect(screen.queryByRole('heading', { name: 'Places found' })).toBeNull();
     await waitFor(() =>
       expect(document.activeElement).toBe(

@@ -71,6 +71,27 @@ describe('PlacePhotos', () => {
     expect(container.querySelector('[data-photo-frame="image-led"]')).toBeTruthy();
   });
 
+  it('reduces the selected-place treatment to one primary featured image', () => {
+    const secondaryPhoto = {
+      ...photo,
+      mediaId: 'media-photo-secondary',
+      url: 'https://example.invalid/signed/photo-secondary.jpg',
+      isPrimary: false
+    };
+    const { container } = render(PlacePhotos, {
+      photos: [secondaryPhoto, photo],
+      placeName: 'Published Place',
+      lang: 'en',
+      copy: catalogues.en,
+      featured: true
+    });
+
+    const images = container.querySelectorAll('img');
+    expect(images).toHaveLength(1);
+    expect(images[0]?.src).toBe(photo.url);
+    expect(container.querySelector('[data-surface="featured-media"]')).toBeTruthy();
+  });
+
   it('uses the Icelandic alt text when rendered in Icelandic', () => {
     render(PlacePhotos, {
       photos: [photo],
