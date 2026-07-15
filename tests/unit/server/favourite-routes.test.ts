@@ -73,6 +73,42 @@ describe('Favourite API privacy headers', () => {
     expect(orphaned.rpc).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    ['GET', (event: never) => GET(event)],
+    ['PUT', (event: never) => PUT(event)]
+  ] as const)('clears an expired Favorite session and returns 401 for %s', async (method, run) => {
+    const signOut = vi.fn(async () => ({ error: null }));
+    const deleteCookie = vi.fn();
+    const expired = {
+      auth: {
+        getUser: vi.fn(async () => ({
+          data: { user: null },
+          error: { name: 'AuthApiError', message: 'JWT expired', code: 'bad_jwt' }
+        })),
+        signOut
+      },
+      rpc: vi.fn()
+    };
+    const common = {
+      cookies: {
+        getAll: () => [{ name: 'sb-test-auth-token', value: 'expired' }],
+        delete: deleteCookie
+      },
+      locals: { supabase: expired },
+      params: { placeId }
+    };
+    const response = await run(
+      (method === 'PUT'
+        ? { ...common, request: jsonRequest({ desiredState: true }) }
+        : common) as never
+    );
+
+    expectPrivate(response, 401);
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(deleteCookie).toHaveBeenCalledWith('sb-test-auth-token', { path: '/' });
+    expect(expired.rpc).not.toHaveBeenCalled();
+  });
+
   it('applies private cache headers to every mutation success and error path', async () => {
     expectPrivate(
       await PUT({

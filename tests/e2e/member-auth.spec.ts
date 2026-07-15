@@ -30,9 +30,10 @@ test('a Visitor signs in by email, returns to the same Place state, signs out, a
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Continue with Hundavænt' })).toBeVisible();
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send me a sign-in link' }).click();
-  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
+  const authDialog = page.getByRole('dialog');
+  await authDialog.getByLabel('Email address').fill(email);
+  await authDialog.getByRole('button', { name: 'Send me a sign-in link' }).click();
+  await expect(authDialog.getByRole('heading', { name: 'Check your email' })).toBeVisible();
 
   const magicLink = await waitForLocalMagicLink(email);
   await page.goto(magicLink);
@@ -92,9 +93,10 @@ test('a passwordless link opened on another device signs in without an originati
   await page.goto('/en');
   await waitForHydration(page);
   await page.getByRole('link', { name: 'Sign in' }).click();
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send me a sign-in link' }).click();
-  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
+  const authDialog = page.getByRole('dialog');
+  await authDialog.getByLabel('Email address').fill(email);
+  await authDialog.getByRole('button', { name: 'Send me a sign-in link' }).click();
+  await expect(authDialog.getByRole('heading', { name: 'Check your email' })).toBeVisible();
   const magicLink = await waitForLocalMagicLink(email);
 
   const otherDevice = await browser.newContext();
@@ -114,9 +116,10 @@ test('an actually expired local magic link is denied by the provider and recover
   await page.goto('/en');
   await waitForHydration(page);
   await page.getByRole('link', { name: 'Sign in' }).click();
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send me a sign-in link' }).click();
-  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
+  const authDialog = page.getByRole('dialog');
+  await authDialog.getByLabel('Email address').fill(email);
+  await authDialog.getByRole('button', { name: 'Send me a sign-in link' }).click();
+  await expect(authDialog.getByRole('heading', { name: 'Check your email' })).toBeVisible();
 
   const magicLink = await waitForLocalMagicLink(email);
   await expireLocalMagicLink(email);

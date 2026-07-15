@@ -638,7 +638,7 @@ describe('Member auth routes', () => {
   });
 
   it('preserves only the opaque pending intent when Facebook returns to recovery', async () => {
-    const pendingIntent = 'opaque-continuation-token-that-is-long-enough';
+    const pendingIntent = 'O'.repeat(43);
     await expect(
       facebookCallback({
         locals: { requestId: 'request-denied-intent', supabase: null },
@@ -652,6 +652,24 @@ describe('Member auth routes', () => {
       location: `/en?place=place-1&auth=open&authStatus=denied&pendingIntent=${pendingIntent}`
     });
   });
+
+  it.each(['short-token', `${'A'.repeat(43)}extra`, 'contains space'])(
+    'does not reattach a non-canonical pending intent to recovery: %s',
+    async (pendingIntent) => {
+      await expect(
+        facebookCallback({
+          locals: { requestId: 'request-denied-malformed-intent', supabase: null },
+          params: { lang: 'en' },
+          url: new URL(
+            `http://localhost/en/auth/callback?flow=member&method=facebook&returnTo=%2Fen&pendingIntent=${encodeURIComponent(pendingIntent)}&error=access_denied`
+          )
+        } as never)
+      ).rejects.toMatchObject({
+        status: 303,
+        location: '/en?auth=open&authStatus=denied'
+      });
+    }
+  );
 
   it('classifies an email-provider denial as an invalid or replayed link', async () => {
     await expect(
@@ -1034,6 +1052,43 @@ describe('Member auth routes', () => {
     });
     expect(calls).toEqual(['activate_current_member', 'complete_auth_pending_intent']);
   });
+
+  it.each(['error', 'throw'] as const)(
+    'preserves a canonical pending action for retry when completion returns an RPC %s',
+    async (failureMode) => {
+      const pendingIntent = 'R'.repeat(43);
+      const calls: string[] = [];
+      const supabase = {
+        auth: {
+          exchangeCodeForSession: async () => ({ error: null }),
+          getUser: async () => emailIdentityUser()
+        },
+        rpc: async (name: string) => {
+          calls.push(name);
+          if (name === 'activate_current_member') return { data: 'member-1', error: null };
+          if (name === 'complete_auth_pending_intent') {
+            if (failureMode === 'throw') throw new Error('network interruption');
+            return { data: null, error: { code: 'network' } };
+          }
+          throw new Error(`Unexpected RPC ${name}`);
+        }
+      };
+
+      await expect(
+        callback({
+          locals: { requestId: `request-retry-${failureMode}`, supabase },
+          params: { lang: 'en' },
+          url: new URL(
+            `http://localhost/en/auth/callback?flow=member&method=email&returnTo=%2Fen&pendingIntent=${pendingIntent}&code=one-time-code`
+          )
+        } as never)
+      ).rejects.toMatchObject({
+        status: 303,
+        location: `/en?authResult=success&authMethod=email&pendingResult=retryable&pendingIntent=${pendingIntent}`
+      });
+      expect(calls).toEqual(['activate_current_member', 'complete_auth_pending_intent']);
+    }
+  );
 
   it('activates without hashing or completing a malformed pending token', async () => {
     const rpc = vi.fn(async (name: string) => {

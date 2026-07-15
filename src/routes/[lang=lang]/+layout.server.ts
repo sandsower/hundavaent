@@ -1,10 +1,15 @@
 import { env } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
+import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
 import { catalogues, parseLocale } from '$i18n';
 import { clearRequestAuthSession } from '$server/auth/callback';
 import { getMemberAuthConfig } from '$server/auth/member';
+import {
+  authPendingIntentTokenPattern,
+  completePendingAuthIntent
+} from '$server/auth/pending-intent';
 import { resolveConfiguredMemberProviders } from '$server/auth/provider-policy';
 import { AuthenticationExpiredError, getMemberSession } from '$server/auth/session';
 
@@ -43,13 +48,29 @@ export const load: LayoutServerLoad = async ({ cookies, locals, params, url }) =
     }
   }
 
+  if (locals.supabase && signedIn && url.searchParams.get('pendingResult') === 'retryable') {
+    const continuationToken = url.searchParams.get('pendingIntent');
+    if (continuationToken && authPendingIntentTokenPattern.test(continuationToken)) {
+      const completion = await completePendingAuthIntent(
+        locals.supabase,
+        continuationToken,
+        locals.requestId
+      );
+      if (completion.status !== 'retryable') {
+        redirect(303, resolvedPendingIntentUrl(url, completion));
+      }
+    } else {
+      redirect(303, resolvedPendingIntentUrl(url, { status: 'unavailable' }));
+    }
+  }
+
   if (locals.supabase && !signedIn) {
     const resolution = getMemberAuthConfig({ ...env, ...privateEnv });
     const configured = await resolveConfiguredMemberProviders(locals.supabase, resolution);
     if (configured) providers = configured;
 
     const continuationToken = url.searchParams.get('pendingIntent');
-    if (continuationToken) {
+    if (continuationToken && authPendingIntentTokenPattern.test(continuationToken)) {
       try {
         const { data } = await locals.supabase.rpc('get_auth_pending_intent', {
           pending_token: continuationToken,
@@ -97,3 +118,23 @@ export const load: LayoutServerLoad = async ({ cookies, locals, params, url }) =
     ...(signedIn ? { signedIn: true as const } : {})
   };
 };
+
+function resolvedPendingIntentUrl(
+  source: URL,
+  completion:
+    | { status: 'completed'; action: 'favourite' | 'rating'; completionStatus: string }
+    | { status: 'unavailable' }
+): string {
+  const target = new URL(source);
+  target.searchParams.delete('pendingIntent');
+  target.searchParams.delete('pendingAction');
+  target.searchParams.set(
+    'pendingResult',
+    completion.status === 'completed' ? completion.completionStatus : 'unavailable'
+  );
+  if (completion.status === 'completed') {
+    target.searchParams.set('pendingAction', completion.action);
+  }
+  target.searchParams.set('pendingRetryResolved', '1');
+  return `${target.pathname}${target.search}${target.hash}`;
+}

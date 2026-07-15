@@ -1,6 +1,6 @@
 import { setFavourite } from '$server/favourites/favourites';
 import { clearRequestAuthSession } from '$server/auth/callback';
-import { getMemberSession } from '$server/auth/session';
+import { AuthenticationExpiredError, getMemberSession } from '$server/auth/session';
 import { privateJson } from '$server/http/private-json';
 
 import type { RequestHandler } from './$types';
@@ -31,7 +31,11 @@ export const PUT: RequestHandler = async ({ cookies, locals, params, request }) 
     if (session.status !== 'member') {
       return privateJson({ error: 'authentication_required' }, 401);
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthenticationExpiredError) {
+      await clearRequestAuthSession(locals.supabase, cookies);
+      return privateJson({ error: 'authentication_required' }, 401);
+    }
     return privateJson({ error: 'unavailable' }, 503);
   }
 

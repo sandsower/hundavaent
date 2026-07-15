@@ -53,7 +53,8 @@ const copy = {
     moderatorEmail: 'Netfang',
     sendLink: 'Senda innskráningartengil',
     linkSent: 'Tengillinn hefur verið sendur.',
-    accountLinkSent: 'Tengillinn er á leiðinni. Athugaðu tölvupóstinn þinn.',
+    memberSendLink: 'Senda mér innskráningartengil',
+    checkEmail: 'Athugaðu tölvupóstinn',
     moderationHub: 'Umsjón',
     candidateQueue: 'Tillögur að stöðum',
     moderationWorkspace: 'Umsjónarborð',
@@ -121,7 +122,8 @@ const copy = {
     moderatorEmail: 'Email address',
     sendLink: 'Send sign-in link',
     linkSent: 'The link has been sent.',
-    accountLinkSent: 'Your link is on its way. Check your email.',
+    memberSendLink: 'Send me a sign-in link',
+    checkEmail: 'Check your email',
     moderationHub: 'Moderation',
     candidateQueue: 'Candidate Places',
     moderationWorkspace: 'Moderation board',
@@ -379,7 +381,10 @@ async function signIn(
     `/${locale}/moderation/sign-in?returnTo=%2F${locale}%2Fmoderation%2Fplaces%2Fnew`
   );
   await waitForHydration(page);
-  await page.getByLabel(copy[locale].moderatorEmail).fill(evaluationModerator.email);
+  await page
+    .locator('main')
+    .getByLabel(copy[locale].moderatorEmail)
+    .fill(evaluationModerator.email);
   const invalidation = page.waitForResponse((response) => {
     const responseUrl = new URL(response.url());
     return (
@@ -389,7 +394,7 @@ async function signIn(
       response.ok()
     );
   });
-  await page.getByRole('button', { name: copy[locale].sendLink }).click();
+  await page.locator('main').getByRole('button', { name: copy[locale].sendLink }).click();
   await expect(page.getByText(copy[locale].linkSent)).toBeVisible();
   await invalidation;
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
@@ -1028,13 +1033,14 @@ for (const locale of ['is', 'en'] as const) {
           `/${locale}/account?returnTo=${encodeURIComponent(ratingPath)}`
         );
         await waitForHydration(ratingMemberPage);
-        await ratingMemberPage
+        const authDialog = ratingMemberPage.getByRole('dialog');
+        await authDialog
           .getByLabel(copy[locale].moderatorEmail)
           .fill(`rating-visual-${locale}@example.invalid`);
-        await ratingMemberPage.getByRole('button', { name: copy[locale].sendLink }).click();
-        await expect(ratingMemberPage.getByRole('status')).toContainText(
-          copy[locale].accountLinkSent
-        );
+        await authDialog.getByRole('button', { name: copy[locale].memberSendLink }).click();
+        await expect(
+          authDialog.getByRole('heading', { name: copy[locale].checkEmail })
+        ).toBeVisible();
         await ratingMemberPage.goto(
           await waitForLocalMagicLink(`rating-visual-${locale}@example.invalid`)
         );

@@ -79,7 +79,7 @@ test('unauthenticated requests cannot reach or discover any Contributor status',
     `/en?auth=open&authReturnTo=${encodeURIComponent(contributorStatusPath)}`
   );
   await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByLabel('Email address')).toBeVisible();
+  await expect(page.getByRole('dialog').getByLabel('Email address')).toBeVisible();
   await expect(page.getByText('Not yet a Contributor')).toHaveCount(0);
   await expect(page.getByText('Trusted Contributor')).toHaveCount(0);
 
@@ -123,8 +123,8 @@ test('unauthenticated requests cannot reach or discover any Contributor status',
 async function signInMember(page: Page, email: string): Promise<void> {
   await page.goto('/en/account');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: /Send (me a )?sign-in link/ }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(email);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(email);
   await page.goto(magicLink);
 }

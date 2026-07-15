@@ -125,7 +125,7 @@ async function expectAnonymousAccount(
   expect(response.ok()).toBe(true);
   const html = await response.text();
   expect(html).not.toContain(email);
-  expect(html).toContain('Welcome to Hundavænt');
+  expect(html).toContain('Continue with Hundavænt');
 }
 
 test.describe('Member callback identity boundary', () => {

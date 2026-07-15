@@ -93,8 +93,8 @@ async function signInModeratorForWorkspace(page: Page): Promise<void> {
   await clearLocalEvaluationMailbox();
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await expect(page.getByRole('status')).toContainText('The link has been sent.');
   await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
   await expect(page).toHaveURL(/\/en\/moderation/);
@@ -274,7 +274,7 @@ test('Moderator forms have keyboard focus order and Axe-clean semantics', async 
   await provisionLocalModerator(evaluationModerator.email);
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fplaces%2Fnew');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
   const signInInvalidation = page.waitForResponse((response) => {
     const responseUrl = new URL(response.url());
     return (
@@ -284,7 +284,7 @@ test('Moderator forms have keyboard focus order and Axe-clean semantics', async 
       response.ok()
     );
   });
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await expect(page.getByRole('status')).toBeVisible();
   await signInInvalidation;
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
@@ -526,28 +526,29 @@ test('Member sign-in is keyboard-operable and Axe-clean in both product language
     {
       locale: 'en',
       viewport: { width: 1280, height: 900 },
-      heading: 'Welcome to Hundavænt',
+      heading: 'Continue with Hundavænt',
       email: 'Email address',
-      send: 'Send sign-in link'
+      send: 'Send me a sign-in link'
     },
     {
       locale: 'is',
       viewport: { width: 390, height: 844 },
-      heading: 'Velkomin á Hundavænt',
+      heading: 'Halda áfram með Hundavænt',
       email: 'Netfang',
-      send: 'Senda innskráningartengil'
+      send: 'Senda mér innskráningartengil'
     }
   ] as const;
 
   for (const scenario of cases) {
     await page.setViewportSize(scenario.viewport);
     await page.goto(`/${scenario.locale}/account?returnTo=%2F${scenario.locale}`);
-    await expect(page.getByRole('heading', { name: scenario.heading })).toBeVisible();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: scenario.heading })).toBeVisible();
 
-    const email = page.getByLabel(scenario.email);
+    const email = dialog.getByLabel(scenario.email);
     await email.focus();
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: scenario.send })).toBeFocused();
+    await expect(dialog.getByRole('button', { name: scenario.send })).toBeFocused();
     await expectNoSeriousAxeViolations(page, evidence);
   }
 });
@@ -559,8 +560,8 @@ test('private Favourite actions and the saved view are keyboard-operable and Axe
   const email = `favourite-a11y-${Date.now()}@example.invalid`;
   await page.goto('/en/account?returnTo=%2Fen%2Fsaved');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(email);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(email));
   await expect(page.getByRole('heading', { name: 'Saved places', exact: true })).toBeVisible();
   await page.evaluate(async (placeId) => {
@@ -607,8 +608,8 @@ test('the private Check-in action and its result are keyboard-operable and Axe-c
     )}`
   );
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(email);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(email));
   await waitForHydration(page);
 
@@ -642,8 +643,8 @@ test('Correction, Report, and Moderator review forms are keyboard-operable and A
 
   await page.goto(`/en/account?returnTo=%2Fen%2Fplaces%2F${correctable.placeId}%2Fcorrect`);
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(memberEmail);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(memberEmail);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(memberEmail));
 
   await page.goto(`/en/places/${correctable.placeId}/correct?field=phone`);
@@ -665,8 +666,8 @@ test('Correction, Report, and Moderator review forms are keyboard-operable and A
   const reviewFlagId = await provisionLocalPlaceFlagReviewFixture(evaluationModerator.email);
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fcorrections-and-reports');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
 
   await page.goto(`/en/moderation/corrections-and-reports/${reviewFlagId}`);
@@ -701,8 +702,8 @@ test('Dog-Friendliness Rating form, public Summary, and Moderator exclusion view
     const memberEmail = `dog-friendliness-a11y-${Date.now()}@example.invalid`;
     await page.goto(`/en/account?returnTo=${encodeURIComponent(`/en/places/${placeId}/rate`)}`);
     await waitForHydration(page);
-    await page.getByLabel('Email address').fill(memberEmail);
-    await page.getByRole('button', { name: 'Send sign-in link' }).click();
+    await page.getByRole('dialog').getByLabel('Email address').fill(memberEmail);
+    await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
     await page.goto(await waitForLocalMagicLink(memberEmail));
 
     await expect(page.getByRole('heading', { name: 'Rate Dog-Friendliness' })).toBeVisible();
@@ -726,8 +727,11 @@ test('Dog-Friendliness Rating form, public Summary, and Moderator exclusion view
       await clearLocalEvaluationMailbox();
       await secondPage.goto(`/en/account?returnTo=${encodeURIComponent(ratingPath)}`);
       await waitForHydration(secondPage);
-      await secondPage.getByLabel('Email address').fill(secondEmail);
-      await secondPage.getByRole('button', { name: 'Send sign-in link' }).click();
+      await secondPage.getByRole('dialog').getByLabel('Email address').fill(secondEmail);
+      await secondPage
+        .getByRole('dialog')
+        .getByRole('button', { name: 'Send me a sign-in link' })
+        .click();
       await secondPage.goto(await waitForLocalMagicLink(secondEmail));
       await secondPage.getByLabel('Welcome').selectOption('5');
       await secondPage.getByLabel('Clarity').selectOption('4');
@@ -751,8 +755,8 @@ test('Dog-Friendliness Rating form, public Summary, and Moderator exclusion view
       `/en/moderation/sign-in?returnTo=${encodeURIComponent(`/en/moderation/dog-friendliness/${placeId}`)}`
     );
     await waitForHydration(page);
-    await page.getByLabel('Email address').fill(evaluationModerator.email);
-    await page.getByRole('button', { name: 'Send sign-in link' }).click();
+    await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+    await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
     await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
 
     await page.goto(`/en/moderation/dog-friendliness/${placeId}`);
@@ -782,7 +786,7 @@ test('the private personal history route is keyboard-operable and Axe-clean in b
     {
       locale: 'en',
       emailLabel: 'Email address',
-      sendLabel: 'Send sign-in link',
+      sendLabel: 'Send me a sign-in link',
       title: 'Visits',
       visits: 'Visits',
       map: 'Map'
@@ -790,7 +794,7 @@ test('the private personal history route is keyboard-operable and Axe-clean in b
     {
       locale: 'is',
       emailLabel: 'Netfang',
-      sendLabel: 'Senda innskráningartengil',
+      sendLabel: 'Senda mér innskráningartengil',
       title: 'Heimsóknir',
       visits: 'Heimsóknir',
       map: 'Kort'
@@ -807,8 +811,9 @@ test('the private personal history route is keyboard-operable and Axe-clean in b
       `/${scenario.locale}/account?returnTo=${encodeURIComponent(`/${scenario.locale}/history`)}`
     );
     await waitForHydration(page);
-    await page.getByLabel(scenario.emailLabel).fill(email);
-    await page.getByRole('button', { name: scenario.sendLabel }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel(scenario.emailLabel).fill(email);
+    await dialog.getByRole('button', { name: scenario.sendLabel }).click();
     await page.goto(await waitForLocalMagicLink(email));
     await waitForHydration(page);
 
@@ -840,8 +845,8 @@ test('Private Rating Note fieldset, Report prompt, and Moderator note workspace 
   const memberEmail = `rating-note-a11y-${Date.now()}@example.invalid`;
   await page.goto(`/en/account?returnTo=${encodeURIComponent(`/en/places/${placeId}/rate`)}`);
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(memberEmail);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(memberEmail);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(memberEmail));
   await waitForHydration(page);
 
@@ -872,8 +877,8 @@ test('Private Rating Note fieldset, Report prompt, and Moderator note workspace 
     `/en/moderation/sign-in?returnTo=${encodeURIComponent(`/en/moderation/dog-friendliness/${placeId}`)}`
   );
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
 
   await page.goto(`/en/moderation/dog-friendliness/${placeId}`);
@@ -899,8 +904,8 @@ test('the Place media Moderator workspace and public Photos gallery are keyboard
     `/en/moderation/sign-in?returnTo=${encodeURIComponent(`/en/moderation/places/${candidate}`)}`
   );
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
   await expect(page.getByRole('heading', { name: 'Media' })).toBeVisible();
 
@@ -973,14 +978,14 @@ test('the private achievements route is keyboard-operable and Axe-clean in both 
     {
       locale: 'en',
       emailLabel: 'Email address',
-      sendLabel: 'Send sign-in link',
+      sendLabel: 'Send me a sign-in link',
       title: 'Your Achievements',
       backLink: 'My account'
     },
     {
       locale: 'is',
       emailLabel: 'Netfang',
-      sendLabel: 'Senda innskráningartengil',
+      sendLabel: 'Senda mér innskráningartengil',
       title: 'Afrekin þín',
       backLink: 'Reikningurinn minn'
     }
@@ -1002,8 +1007,9 @@ test('the private achievements route is keyboard-operable and Axe-clean in both 
         )}`
       );
       await waitForHydration(page);
-      await page.getByLabel(scenario.emailLabel).fill(email);
-      await page.getByRole('button', { name: scenario.sendLabel }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByLabel(scenario.emailLabel).fill(email);
+      await dialog.getByRole('button', { name: scenario.sendLabel }).click();
       await page.goto(await waitForLocalMagicLink(email));
       await waitForHydration(page);
 
