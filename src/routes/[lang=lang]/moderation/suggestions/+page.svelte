@@ -15,7 +15,7 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="queue-shell">
+<main class="queue-shell" data-ui-mode="operations">
   <h1>{data.copy['suggestion.moderationTitle']}</h1>
   {#if data.suggestions.length === 0}
     <p class="empty">{data.copy['suggestion.moderationEmpty']}</p>
@@ -64,12 +64,17 @@
 
 <style>
   .queue-shell {
-    width: min(100% - 2rem, 64rem);
-    margin: 3rem auto;
+    width: min(100% - 2rem, var(--hv-content-wide));
+    margin: var(--hv-space-section) auto 4rem;
   }
   h1 {
-    font-size: clamp(2.5rem, 7vw, 5rem);
-    line-height: 0.95;
+    margin: 0 0 1.5rem;
+    color: var(--hv-color-basalt);
+    font-family: var(--hv-font-display);
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 650;
+    line-height: 1;
+    letter-spacing: -0.03em;
   }
   ul {
     display: grid;
@@ -82,18 +87,18 @@
     gap: 1rem;
     align-items: center;
     justify-content: space-between;
-    border: 2px solid var(--ink);
-    border-radius: 1rem;
-    background: var(--paper-raised);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
     padding: 1rem;
-    box-shadow: 0.25rem 0.3rem 0 var(--teal);
+    box-shadow: var(--hv-shadow-raised);
   }
   h2,
   p {
     margin: 0.2rem 0;
   }
   .eyebrow {
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     font-size: 0.8rem;
     font-weight: 950;
     text-transform: uppercase;
@@ -101,22 +106,25 @@
   .trust-badge {
     display: inline-block;
     margin-top: 0.3rem;
-    border-radius: 999px;
-    background: var(--mint);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-fjord-soft);
     padding: 0.2rem 0.6rem;
     font-size: 0.78rem;
     font-weight: 850;
   }
   .trust-badge.trusted_contributor {
-    background: var(--sun);
+    border-color: var(--hv-color-success);
+    background: var(--hv-color-success-soft);
+    color: var(--hv-color-success);
   }
   a {
     flex: none;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-basalt);
     padding: 0.65rem 0.85rem;
-    color: var(--ink);
+    color: var(--hv-color-snow-raised);
     font-weight: 900;
   }
   .next,
@@ -128,12 +136,14 @@
     margin-left: 0.75rem;
   }
   a:focus-visible {
-    outline: 4px solid var(--focus);
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
   .empty {
-    border: 2px solid var(--ink);
-    border-radius: 1rem;
-    background: var(--mint);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-fjord-soft);
     padding: 1rem;
   }
   @media (max-width: 38rem) {

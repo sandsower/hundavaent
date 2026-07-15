@@ -10,6 +10,6 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main>
+<main data-ui-mode="operations">
   <SuggestionReviewPanel {data} {form} standalone />
 </main>

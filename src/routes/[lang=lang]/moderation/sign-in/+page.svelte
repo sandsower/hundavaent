@@ -30,7 +30,7 @@
   <title>{data.copy['moderation.signInTitle']} | {data.copy['site.name']}</title>
 </svelte:head>
 
-<main class="sign-in-shell">
+<main class="sign-in-shell" data-ui-mode="operations">
   <section class="sign-in-card" aria-labelledby="sign-in-title">
     <div class="identity-mark" aria-hidden="true">H</div>
     <p class="eyebrow">{data.copy['nav.moderation']}</p>
@@ -74,33 +74,23 @@
 </main>
 
 <style>
-  :global(body) {
-    margin: 0;
-    background: #f7f0df;
-    color: #193b45;
-    font-family: var(--font-sans);
-  }
-
   .sign-in-shell {
-    min-height: 100vh;
+    min-height: calc(100dvh - 5rem);
     display: grid;
     place-items: center;
     padding: 2rem 1rem;
     box-sizing: border-box;
-    background:
-      radial-gradient(circle at 18% 18%, rgb(235 112 72 / 20%) 0 8rem, transparent 8.2rem),
-      radial-gradient(circle at 85% 82%, rgb(52 132 144 / 18%) 0 10rem, transparent 10.2rem),
-      #f7f0df;
+    background: var(--hv-color-snow);
   }
 
   .sign-in-card {
     width: min(100%, 30rem);
     box-sizing: border-box;
-    padding: clamp(1.5rem, 5vw, 3rem);
-    border: 2px solid #193b45;
-    border-radius: 2rem 0.8rem 2rem 0.8rem;
-    background: #fffaf0;
-    box-shadow: 0.8rem 0.8rem 0 #f1a33b;
+    padding: clamp(1.5rem, 5vw, 2.5rem);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-shell);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
   }
 
   .identity-mark {
@@ -108,17 +98,16 @@
     height: 3.25rem;
     display: grid;
     place-items: center;
-    border-radius: 50% 45% 52% 42%;
-    background: #e86743;
-    color: white;
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-basalt);
+    color: var(--hv-color-snow-raised);
     font-size: 1.45rem;
     font-weight: 900;
-    transform: rotate(-5deg);
   }
 
   .eyebrow {
     margin: 1.25rem 0 0.35rem;
-    color: #b5402b;
+    color: var(--hv-color-fjord);
     font-size: 0.8rem;
     font-weight: 800;
     letter-spacing: 0.12em;
@@ -127,9 +116,12 @@
 
   h1 {
     margin: 0;
-    font-size: clamp(2rem, 8vw, 3.4rem);
-    line-height: 0.98;
-    letter-spacing: -0.045em;
+    color: var(--hv-color-basalt);
+    font-family: var(--hv-font-display);
+    font-size: clamp(2rem, 8vw, 3rem);
+    font-weight: 650;
+    line-height: 1;
+    letter-spacing: -0.035em;
   }
 
   .intro {
@@ -151,9 +143,9 @@
     min-height: 3.25rem;
     box-sizing: border-box;
     padding: 0.75rem 1rem;
-    border: 2px solid #193b45;
-    border-radius: 0.7rem;
-    background: white;
+    border: 1px solid var(--hv-border-strong);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
     color: inherit;
     font: inherit;
   }
@@ -161,26 +153,26 @@
   input[type='email']:focus-visible,
   button:focus-visible,
   .message:focus-visible {
-    outline: 4px solid #f1a33b;
+    outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   button {
     min-height: 3.25rem;
     margin-top: 0.4rem;
-    border: 2px solid #193b45;
-    border-radius: 999px;
-    background: #2f818d;
-    color: white;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-basalt);
+    color: var(--hv-color-snow-raised);
     font: inherit;
     font-weight: 850;
     cursor: pointer;
-    box-shadow: 0 0.3rem 0 #193b45;
+    box-shadow: none;
   }
 
   button:active:not(:disabled) {
-    transform: translateY(0.2rem);
-    box-shadow: 0 0.1rem 0 #193b45;
+    background: var(--hv-color-fjord);
   }
 
   button:disabled {
@@ -190,34 +182,27 @@
 
   .message {
     padding: 0.8rem 1rem;
-    border-radius: 0.75rem;
+    border: 1px solid;
+    border-radius: var(--hv-radius-panel);
     font-weight: 700;
   }
 
   .error {
-    border: 2px solid #9e3025;
-    background: #ffe1d7;
-    color: #78231c;
+    border-color: var(--hv-color-danger);
+    background: var(--hv-color-danger-soft);
+    color: var(--hv-color-danger);
   }
 
   .success {
-    border: 2px solid #28715e;
-    background: #dff3e4;
-    color: #195546;
+    border-color: var(--hv-color-success);
+    background: var(--hv-color-success-soft);
+    color: var(--hv-color-success);
   }
 
   .privacy {
     margin: 1rem 0 0;
-    color: #536b70;
+    color: var(--hv-color-basalt-muted);
     font-size: 0.88rem;
     line-height: 1.45;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    button {
-      transition:
-        transform 120ms ease,
-        box-shadow 120ms ease;
-    }
   }
 </style>

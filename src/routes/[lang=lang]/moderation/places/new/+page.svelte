@@ -107,7 +107,7 @@
   <title>{data.copy['moderation.candidateTitle']} | {data.copy['site.name']}</title>
 </svelte:head>
 
-<main class="candidate-shell">
+<main class="candidate-shell" data-ui-mode="operations">
   <header>
     <p class="eyebrow">{data.copy['nav.moderation']}</p>
     <h1>{data.copy['moderation.candidateTitle']}</h1>
@@ -491,17 +491,10 @@
 </main>
 
 <style>
-  :global(body) {
-    margin: 0;
-    background: #f7f0df;
-    color: #193b45;
-    font-family: var(--font-sans);
-  }
-
   .candidate-shell {
-    width: min(100% - 2rem, 64rem);
+    width: min(100% - 2rem, var(--hv-content-wide));
     margin: 0 auto;
-    padding: 3rem 0 5rem;
+    padding: var(--hv-space-section) 0 5rem;
   }
 
   header {
@@ -510,7 +503,7 @@
   }
 
   .eyebrow {
-    color: #b5402b;
+    color: var(--hv-color-fjord);
     font-weight: 850;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -518,9 +511,12 @@
 
   h1 {
     margin: 0.25rem 0;
-    font-size: clamp(2.4rem, 7vw, 4.8rem);
-    line-height: 0.95;
-    letter-spacing: -0.045em;
+    color: var(--hv-color-basalt);
+    font-family: var(--hv-font-display);
+    font-size: clamp(2.2rem, 6vw, 3.8rem);
+    font-weight: 650;
+    line-height: 1;
+    letter-spacing: -0.035em;
   }
 
   form {
@@ -531,15 +527,15 @@
   fieldset {
     margin: 0;
     padding: clamp(1rem, 3vw, 2rem);
-    border: 2px solid #193b45;
-    border-radius: 1.4rem 0.7rem 1.4rem 0.7rem;
-    background: #fffaf0;
-    box-shadow: 0.35rem 0.35rem 0 #f1a33b;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
   }
 
   legend {
     padding: 0 0.5rem;
-    color: #b5402b;
+    color: var(--hv-color-fjord);
     font-size: 1.1rem;
     font-weight: 900;
   }
@@ -558,9 +554,9 @@
 
   .condition-card {
     padding: 1rem;
-    border: 1px solid rgb(25 59 69 / 35%);
-    border-radius: 0.9rem;
-    background: rgb(255 255 255 / 45%);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow);
   }
 
   .condition-heading {
@@ -577,8 +573,8 @@
   }
 
   .secondary {
-    background: var(--paper);
-    color: var(--ink);
+    background: var(--hv-color-snow-raised);
+    color: var(--hv-color-basalt);
   }
 
   .add-condition {
@@ -602,9 +598,9 @@
     min-height: 3rem;
     box-sizing: border-box;
     padding: 0.65rem 0.8rem;
-    border: 2px solid #193b45;
-    border-radius: 0.65rem;
-    background: white;
+    border: 1px solid var(--hv-border-strong);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
     color: inherit;
     font: inherit;
   }
@@ -619,27 +615,28 @@
   textarea:focus-visible,
   button:focus-visible,
   .message:focus-visible {
-    outline: 4px solid #f1a33b;
+    outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   button {
     justify-self: start;
     min-height: 3.2rem;
     padding: 0.7rem 1.5rem;
-    border: 2px solid #193b45;
-    border-radius: 999px;
-    background: #2f818d;
-    color: white;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-basalt);
+    color: var(--hv-color-snow-raised);
     font: inherit;
     font-weight: 850;
-    box-shadow: 0 0.3rem 0 #193b45;
+    box-shadow: none;
   }
 
   .message {
     padding: 1rem 1.2rem;
-    border: 2px solid;
-    border-radius: 0.8rem;
+    border: 1px solid;
+    border-radius: var(--hv-radius-panel);
   }
 
   .message p {
@@ -647,15 +644,27 @@
   }
 
   .error {
-    border-color: #9e3025;
-    background: #ffe1d7;
-    color: #78231c;
+    border-color: var(--hv-color-danger);
+    background: var(--hv-color-danger-soft);
+    color: var(--hv-color-danger);
   }
 
   .success {
-    border-color: #28715e;
-    background: #dff3e4;
-    color: #195546;
+    border-color: var(--hv-color-success);
+    background: var(--hv-color-success-soft);
+    color: var(--hv-color-success);
+  }
+
+  a {
+    color: var(--hv-color-fjord);
+    font-weight: 850;
+  }
+
+  a:focus-visible {
+    border-radius: var(--hv-radius-control);
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   @media (max-width: 42rem) {
