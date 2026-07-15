@@ -1559,6 +1559,67 @@ export async function provisionLocalSuggestionFixture(email: string): Promise<st
   return suggestionId;
 }
 
+export async function resolveLocalSuggestionFixtureAsModerator(
+  moderatorEmail: string,
+  suggestionId: string
+): Promise<void> {
+  assertUuid(suggestionId, 'Suggestion fixture');
+  const status = getLocalSupabaseStatus();
+  const admin = createClient(status.apiUrl, status.secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const moderator = data?.users.find((candidate) => candidate.email === moderatorEmail);
+
+  if (error || !moderator) {
+    throw new Error('Could not identify the local Suggestion fixture Moderator');
+  }
+  assertUuid(moderator.id, 'Suggestion fixture Moderator');
+
+  const commandRequestId = randomUUID();
+  const sql = `
+    begin;
+    select set_config('request.jwt.claim.sub', '${moderator.id}', true);
+    select suggestion_id
+    from public.resolve_place_suggestion(
+      '${suggestionId}'::uuid,
+      'rejected',
+      'Tillagan var yfirfarin samhliða.',
+      'The Suggestion was reviewed concurrently.',
+      'The winning Moderator note.',
+      null,
+      null,
+      null,
+      null,
+      false,
+      '${commandRequestId}'::uuid
+    );
+    commit;
+  `;
+  const output = execFileSync(
+    'docker',
+    [
+      'exec',
+      localDatabaseContainer,
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-At',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      sql
+    ],
+    { encoding: 'utf8' }
+  );
+
+  if (!output.split('\n').includes(suggestionId)) {
+    throw new Error('Could not resolve the local Suggestion fixture');
+  }
+}
+
 export interface LocalSuggestionState {
   nameEn: string;
   status: string;

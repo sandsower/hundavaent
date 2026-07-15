@@ -24,6 +24,7 @@ import {
   provisionLocalPlaceFlagReviewFixture,
   provisionLocalPrivateRatingNoteFixture,
   provisionLocalSuggestionFixture,
+  resolveLocalSuggestionFixtureAsModerator,
   retireLocalDogFriendlinessFixture,
   retireLocalPlaceFlagFixtures,
   retireLocalPrivateRatingNoteFixture,
@@ -331,7 +332,6 @@ test('Moderator forms have keyboard focus order and Axe-clean semantics', async 
 });
 
 test('the compact moderation workspace reflows, preserves keyboard context, and announces outcomes', async ({
-  context,
   page,
   evidence
 }) => {
@@ -451,30 +451,14 @@ test('the compact moderation workspace reflows, preserves keyboard context, and 
   ).toBeVisible();
   await expectNoSeriousAxeViolations(page, evidence);
 
-  // A second signed-in tab wins the race so the original tab exercises a genuine stale-write
-  // conflict. The conflict must be announced and retain everything the Moderator typed.
+  // Resolve through the production RPC after the original form is loaded. This gives the browser
+  // a deterministic stale precondition without coupling the proof to a second page's hydration,
+  // enhanced-form POST, and redirect timing.
   await provisionLocalSuggestionFixture(evaluationModerator.email);
   await page.goto(`/en/moderation?queue=suggestions&item=${suggestionId}&filter=actionable`);
-  const winningPage = await context.newPage();
-  await winningPage.goto(`/en/moderation?queue=suggestions&item=${suggestionId}&filter=actionable`);
+  await waitForHydration(page);
   await fillWorkspaceSuggestionResolution(page, 'en', 'rejected');
-  await fillWorkspaceSuggestionResolution(winningPage, 'en', 'rejected');
-  const winningResolution = winningPage.waitForResponse((response) => {
-    const responseUrl = new URL(response.url());
-    return (
-      response.request().method() === 'POST' &&
-      responseUrl.pathname === '/en/moderation' &&
-      responseUrl.searchParams.has('/resolve')
-    );
-  });
-  await Promise.all([
-    winningResolution,
-    winningPage.waitForURL((url) => url.searchParams.get('item')?.endsWith('0094') ?? false, {
-      waitUntil: 'networkidle'
-    }),
-    winningPage.getByRole('button', { name: moderationWorkspaceCopy.en.saveOutcome }).click()
-  ]);
-  await expect(winningPage.locator('.live-status')).toContainText(moderationWorkspaceCopy.en.saved);
+  await resolveLocalSuggestionFixtureAsModerator(evaluationModerator.email, suggestionId);
   evidence.allowHttpStatus(409, '/en/moderation?/resolve');
   await page.getByRole('button', { name: moderationWorkspaceCopy.en.saveOutcome }).click();
   await expect(
@@ -484,10 +468,10 @@ test('the compact moderation workspace reflows, preserves keyboard context, and 
     'Please confirm that the source is still current.'
   );
   await expectNoSeriousAxeViolations(page, evidence);
-  await winningPage.close();
 
   await provisionLocalSuggestionFixture(evaluationModerator.email);
   await page.goto(`/en/moderation?queue=suggestions&item=${suggestionId}&filter=actionable`);
+  await waitForHydration(page);
   await fillWorkspaceSuggestionResolution(page, 'en');
   await page.getByRole('button', { name: moderationWorkspaceCopy.en.saveOutcome }).click();
   await expect(page.locator('.live-status')).toContainText(moderationWorkspaceCopy.en.saved);
