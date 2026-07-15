@@ -87,9 +87,26 @@ jobs:
           pnpm exec supabase db dump --db-url "${db_url}" -f recovery/schema.sql
           pnpm exec supabase db dump --db-url "${db_url}" --data-only --use-copy \
             --schema public,private,security -f recovery/data.sql
-          if ! pnpm exec supabase db dump --db-url "${db_url}" --data-only --use-copy \
-              --schema auth -f recovery/auth-data.sql; then
-            echo "::warning::Auth schema data dump unsupported; member accounts are not in this recovery point."
+          # A canonical Member exists only after private.member_accounts is
+          # created. Skip auth-user handling solely when production proves
+          # that canonical count is exactly zero; an unknown or positive
+          # count fails closed into the full auth recovery path.
+          member_count="unknown"
+          if candidate_member_count="$(psql -At "${db_url}" -c \
+              "select count(*) from private.member_accounts")" && \
+              [[ "${candidate_member_count}" =~ ^[0-9]+$ ]]; then
+            member_count="${candidate_member_count}"
+          else
+            echo "::warning::Could not prove that production has zero canonical Members; retaining full auth recovery handling."
+          fi
+          echo "${member_count}" > recovery/member-count.txt
+          if [[ "${member_count}" == "0" ]]; then
+            echo "skipped-no-members" > recovery/auth-recovery-mode.txt
+            echo "Production has no canonical Members; auth-user backup and restore are not required."
+          else
+            echo "required" > recovery/auth-recovery-mode.txt
+            pnpm exec supabase db dump --db-url "${db_url}" --data-only --use-copy \
+              --schema auth -f recovery/auth-data.sql
           fi
           # Exact per-table production counts for the dumped schemas; the
           # verify step fails if the dump does not cover every one of them.
@@ -150,6 +167,8 @@ jobs:
           fi
           tables="$(wc -l < recovery/dump-counts.txt)"
           rows="$(awk '{ sum += $2 } END { print sum + 0 }' recovery/dump-counts.txt)"
+          member_count="$(cat recovery/member-count.txt)"
+          auth_recovery_mode="$(cat recovery/auth-recovery-mode.txt)"
           echo "Restore verified: ${tables} tables, ${rows} rows."
           if [[ "${rows}" == "0" ]]; then
             echo "::warning::Production data dump contains zero rows."
@@ -160,6 +179,8 @@ jobs:
             echo "- Commit: ${{ inputs.sha }}"
             echo "- Tables: ${tables}"
             echo "- Rows: ${rows}"
+            echo "- Canonical Members: ${member_count}"
+            echo "- Auth recovery: ${auth_recovery_mode}"
             echo "- Restore test: passed against supabase/postgres:17.6.1.141"
           } >> "${GITHUB_STEP_SUMMARY}"
 
