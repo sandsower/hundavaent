@@ -123,8 +123,16 @@ describe('PlaceList', () => {
         urlExpiresAt: '2020-01-01T00:00:00.000Z'
       }
     };
-    const fetchMock = vi.fn(
-      async () =>
+    const fetchMock = vi
+      .fn<() => Promise<Response>>()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ url: 'https://example.invalid/signed/incomplete.jpg' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      )
+      .mockResolvedValue(
         new Response(
           JSON.stringify({
             url: 'https://example.invalid/signed/refreshed.jpg',
@@ -132,7 +140,7 @@ describe('PlaceList', () => {
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-    );
+      );
     vi.stubGlobal('fetch', fetchMock);
     try {
       render(PlaceList, {
@@ -144,10 +152,13 @@ describe('PlaceList', () => {
       });
 
       const image = screen.getByAltText('A dog in a park');
-      await waitFor(() =>
-        expect(image.getAttribute('src')).toBe('https://example.invalid/signed/refreshed.jpg')
+      await waitFor(
+        () =>
+          expect(image.getAttribute('src')).toBe('https://example.invalid/signed/refreshed.jpg'),
+        { timeout: 2_500 }
       );
-      expect(fetchMock).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenLastCalledWith(
         `/api/places/${photoPlace.placeId}/photos/${photoPlace.primaryPhoto.mediaId}`,
         { headers: { accept: 'application/json' } }
       );

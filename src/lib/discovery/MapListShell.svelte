@@ -724,6 +724,7 @@
   class="map-list-shell"
   data-responsive-shell
   data-map-failed={mapFailed}
+  data-reduced-motion={reducedMotion}
   data-detail-layout={selectedPlace && wideDetailLayout
     ? 'floating'
     : selectedPlace
@@ -1042,7 +1043,7 @@
     }
   }
 
-  @media (max-width: 58rem) {
+  @media (max-width: 57.999rem) {
     .map-list-shell {
       display: block;
       height: auto;
@@ -1111,7 +1112,20 @@
     }
   }
 
-  @media (max-width: 58rem) and (max-height: 42rem) {
+  .map-list-shell[data-reduced-motion='true'] .selected-place-overlay {
+    animation: none;
+  }
+
+  .map-list-shell[data-reduced-motion='true'][data-detail-layout='floating']
+    .map-stage
+    :global(.maplibregl-ctrl-top-right),
+  .map-list-shell[data-reduced-motion='true'][data-detail-layout='floating']
+    .map-stage
+    :global(.maplibregl-ctrl-bottom-right) {
+    transition: none;
+  }
+
+  @media (max-width: 57.999rem) and (max-height: 42rem) {
     .selected-place-overlay {
       top: 5.5rem;
       right: 0.75rem;

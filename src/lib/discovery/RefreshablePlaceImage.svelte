@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
 
   interface Props {
     placeId: string;
@@ -28,31 +28,69 @@
   const stableMediaId = untrack(() => mediaId);
   let currentUrl = $state(untrack(() => url));
   let currentExpiry = $state(untrack(() => urlExpiresAt));
-  let refreshRequest: Promise<void> | null = null;
+  const retryDelaysMs = [250, 1_000] as const;
+  let refreshRequest: Promise<boolean> | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let retryIndex = 0;
+  let destroyed = false;
   let lastFailedUrl: string | null = null;
 
   onMount(() => {
     if (Date.parse(currentExpiry) <= Date.now()) void refreshUrl();
   });
 
-  function refreshUrl(): Promise<void> {
+  onDestroy(() => {
+    destroyed = true;
+    if (retryTimer) clearTimeout(retryTimer);
+  });
+
+  function refreshUrl(): Promise<boolean> {
     if (refreshRequest) return refreshRequest;
-    refreshRequest = fetch(
+    const request = fetch(
       `/api/places/${encodeURIComponent(stablePlaceId)}/photos/${encodeURIComponent(stableMediaId)}`,
       { headers: { accept: 'application/json' } }
     )
-      .then(async (response) => {
-        if (!response.ok) return;
+      .then(async (response): Promise<boolean> => {
+        if (!response.ok) return false;
         const payload = (await response.json()) as { url?: unknown; urlExpiresAt?: unknown };
-        if (typeof payload.url !== 'string' || typeof payload.urlExpiresAt !== 'string') return;
+        if (typeof payload.url !== 'string' || typeof payload.urlExpiresAt !== 'string')
+          return false;
+        if (!isHttpUrl(payload.url) || Date.parse(payload.urlExpiresAt) <= Date.now()) return false;
         currentUrl = payload.url;
         currentExpiry = payload.urlExpiresAt;
+        return true;
       })
-      .catch(() => undefined)
-      .finally(() => {
-        refreshRequest = null;
-      });
-    return refreshRequest;
+      .catch(() => false);
+    refreshRequest = request;
+    void request.then((refreshed) => {
+      if (refreshRequest === request) refreshRequest = null;
+      if (destroyed) return;
+      if (refreshed) {
+        retryIndex = 0;
+        lastFailedUrl = null;
+      } else {
+        scheduleRetry();
+      }
+    });
+    return request;
+  }
+
+  function scheduleRetry(): void {
+    if (retryTimer || retryIndex >= retryDelaysMs.length) return;
+    const delay = retryDelaysMs[retryIndex++];
+    retryTimer = setTimeout(() => {
+      retryTimer = undefined;
+      if (!destroyed) void refreshUrl();
+    }, delay);
+  }
+
+  function isHttpUrl(value: string): boolean {
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
   }
 
   function recoverExpiredUrl(): void {

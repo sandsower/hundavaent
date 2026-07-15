@@ -518,6 +518,57 @@ describe('MapListShell synchronization', () => {
 
     await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
     await waitFor(() => expect(setCamera.mock.calls.at(-1)?.[1]?.duration).toBe(0));
+    const shell = document.querySelector<HTMLElement>('[data-responsive-shell]');
+    const overlay = document.querySelector<HTMLElement>('[data-selected-place-overlay]');
+    expect(shell?.dataset.reducedMotion).toBe('true');
+    expect(overlay).toBeTruthy();
+    if (!overlay) throw new Error('Expected a selected Place overlay');
+    expect(getComputedStyle(overlay).animationName).toBe('none');
+    expect(getComputedStyle(overlay).animationDuration).toBe('0s');
+  });
+
+  it('uses one non-overlapping 58rem boundary for mobile and persistent rail controls', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    const breakpointPx = Math.round(
+      Number.parseFloat(getComputedStyle(document.documentElement).fontSize) * 58
+    );
+    await browserPage.viewport(breakpointPx - 1, 800);
+    history.replaceState(null, '', '/en?view=list');
+
+    try {
+      const { container } = render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: { ...defaultDiscoveryState, view: 'list' },
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+      const shell = container.querySelector<HTMLElement>('[data-responsive-shell]');
+      expect(shell).toBeTruthy();
+      if (!shell) throw new Error('Expected the responsive discovery shell');
+
+      expect(window.innerWidth).toBe(breakpointPx - 1);
+      expect(getComputedStyle(shell).display).toBe('block');
+      expect(screen.getByRole('button', { name: 'Show 1 result' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Close results' })).toBeTruthy();
+
+      await browserPage.viewport(breakpointPx, 800);
+      await waitFor(() => expect(getComputedStyle(shell).display).toBe('grid'));
+      expect(window.innerWidth).toBe(breakpointPx);
+      expect(screen.queryByRole('button', { name: 'Show 1 result' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Close results' })).toBeNull();
+
+      await browserPage.viewport(breakpointPx + 1, 800);
+      expect(window.innerWidth).toBe(breakpointPx + 1);
+      expect(getComputedStyle(shell).display).toBe('grid');
+      expect(screen.queryByRole('button', { name: 'Show 1 result' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Close results' })).toBeNull();
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
   });
 
   it('closes details with Escape and restores focus to the exact selection trigger', async () => {
