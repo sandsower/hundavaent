@@ -51,6 +51,8 @@ export function verifyRecoveryCopyDump(sql: string, expectedInput: string): stri
   const expected = parseExpectedCounts(expectedInput);
   const failures: string[] = [];
 
+  if (expected.size === 0) throw new Error('expected table set is empty');
+
   for (const [table, expectedCount] of expected) {
     const actualCount = actual.get(table);
     if (actualCount === undefined) failures.push(`dump is missing table ${table}`);
