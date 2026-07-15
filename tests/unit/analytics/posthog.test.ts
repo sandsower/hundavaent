@@ -124,6 +124,33 @@ describe('PostHog analytics configuration', () => {
     });
   });
 
+  it('captures acquisition steps without personal or provider-profile fields', () => {
+    const analytics = createPostHogAnalytics();
+    const client = createClient();
+    analytics.initialize(environment, client);
+
+    analytics.capture('auth method selected', {
+      method: 'facebook',
+      origin: 'favourite'
+    });
+    analytics.capture('auth pending action completed', {
+      action: 'favourite',
+      outcome: 'completed'
+    });
+
+    expect(client.capture).toHaveBeenNthCalledWith(1, 'auth method selected', {
+      method: 'facebook',
+      origin: 'favourite'
+    });
+    expect(client.capture).toHaveBeenNthCalledWith(2, 'auth pending action completed', {
+      action: 'favourite',
+      outcome: 'completed'
+    });
+    expect(JSON.stringify(client.capture.mock.calls)).not.toContain('@');
+    expect(JSON.stringify(client.capture.mock.calls)).not.toContain('profile');
+    expect(JSON.stringify(client.capture.mock.calls)).not.toContain('note');
+  });
+
   it('queues, sanitizes, and deduplicates browser exceptions until initialization', () => {
     const analytics = createPostHogAnalytics();
     const client = createClient();

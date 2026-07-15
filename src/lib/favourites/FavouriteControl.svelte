@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Catalogue } from '$i18n';
   import { postHogAnalytics } from '$lib/analytics/posthog';
+  import { requestAuthentication } from '$lib/auth/controller';
   import { publishFavouriteInvalidation } from './sync';
 
   interface Props {
@@ -64,6 +65,14 @@
       submitting = false;
     }
   }
+
+  function openSignIn(event: MouseEvent): void {
+    event.preventDefault();
+    requestAuthentication({
+      origin: 'favourite',
+      intent: { action: 'favourite', placeId, placeName }
+    });
+  }
 </script>
 
 <div
@@ -100,6 +109,7 @@
       data-intent="secondary"
       data-state="signed-out"
       href={signInHref}
+      onclick={openSignIn}
       aria-label={copy['favourite.signInToSave'].replace('{name}', placeName)}
     >
       <span aria-hidden="true">♡</span>

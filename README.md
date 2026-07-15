@@ -69,8 +69,8 @@ The manual clean evaluation is the source of truth for performance budgets, comp
 | `POSTHOG_HOST`                    | Build configuration                | PostHog API origin used by the source-map uploader        | No           |
 | `APP_ENVIRONMENT`                 | Server configuration               | Redacted telemetry environment label                      | No           |
 | `APP_RELEASE`                     | Server configuration               | Deployed commit used to correlate telemetry               | No           |
-| `AUTH_FACEBOOK_ENABLED`           | Server configuration               | Enables Facebook only after provider provisioning         | No           |
-| `AUTH_EMAIL_ENABLED`              | Server configuration               | Enables passwordless email after delivery configuration   | No           |
+| `AUTH_FACEBOOK_ENABLED`           | Server configuration               | Enables Facebook after provider and linking validation    | No           |
+| `AUTH_EMAIL_ENABLED`              | Server configuration               | Enables passwordless token-hash email authentication      | No           |
 | `MEMBER_ACTIVATION_SECRET`        | Secret, server-only                | Signs callback-bound Member activation proofs             | No           |
 | `SITE_GATE_PASSWORD`              | Secret, server-only                | Shared password wall for provisional deployments          | No           |
 | `EVALUATION_ENABLED`              | Server/test harness                | Enables deterministic test-only routes outside production | No           |
@@ -104,9 +104,11 @@ The following inputs are intentionally deferred until the task that first uses t
 - Product-owner approval of the final bilingual mobile and desktop visual shell.
 
 Missing external credentials must not block unit, component, or database work that can use deterministic local resources.
-Member identity providers default off, and the application rejects concurrent Facebook and email enablement until a reviewed cross-provider identity-linking policy is implemented.
-The persistent `member-single-provider-v1` tenant policy permits email only, and the callback fails closed unless the one enabled deployment provider matches that policy before and after exchange.
-Changing the deployment switch alone cannot change the tenant provider boundary.
+Member identity providers default off.
+Migration `202607150032_auth_funnel.sql` establishes the reviewed `member-linked-providers-v2` policy for passwordless email and Facebook together, with Supabase automatic identity linking limited to the same verified email.
+The callback checks the persistent policy before and after authentication, accepts one or more supported identities on the canonical Auth user, and creates the private Hundavænt Member only after authentication succeeds.
+Passwordless email uses Supabase token-hash verification so a one-time link can be consumed safely on another browser or device without the originating PKCE verifier.
+Changing deployment switches alone cannot change the tenant provider boundary.
 Application Member activation happens atomically with the required signed-in audit only after the validated Member callback supplies a server-signed proof.
 The database independently requires the exact supported policy and exactly one email identity, so an unconsumed link, raw Auth user, or direct client RPC cannot create a Member account or Member role.
 SvelteKit loads `PUBLIC_SUPABASE_URL`, `PUBLIC_MAP_STYLE_URL`, and `PUBLIC_POSTHOG_HOST` from the active environment file while compiling Content Security Policy, and explicit shell or CI values take precedence.

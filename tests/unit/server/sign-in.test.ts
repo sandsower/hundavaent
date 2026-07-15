@@ -85,7 +85,7 @@ describe('Member sign-in boundaries', () => {
     });
   });
 
-  it('defaults every provider off and rejects concurrent providers before policy approval', () => {
+  it('defaults every provider off and allows the approved linked providers together', () => {
     expect(getMemberAuthConfig({ PUBLIC_APP_URL: 'https://hundavaent.example' })).toEqual({
       status: 'ready',
       config: {
@@ -101,8 +101,12 @@ describe('Member sign-in boundaries', () => {
         AUTH_FACEBOOK_ENABLED: 'true'
       })
     ).toEqual({
-      status: 'unavailable',
-      reason: 'identity_linking_policy_required'
+      status: 'ready',
+      config: {
+        appOrigin: 'https://hundavaent.example',
+        emailEnabled: true,
+        facebookEnabled: true
+      }
     });
   });
 
@@ -119,6 +123,27 @@ describe('Member sign-in boundaries', () => {
       ).toBe(
         'https://hundavaent.example/en/auth/callback?returnTo=%2Fen%2Fplaces%2Fplace-1%3Fcategory%3Dpark&flow=member&method=email'
       );
+    }
+  });
+
+  it('carries only an opaque pending-intent token into the callback', () => {
+    const resolution = getMemberAuthConfig({
+      PUBLIC_APP_URL: 'https://hundavaent.example',
+      AUTH_EMAIL_ENABLED: 'true'
+    });
+    expect(resolution.status).toBe('ready');
+
+    if (resolution.status === 'ready') {
+      const callback = buildMemberCallbackUrl(
+        resolution.config,
+        'en',
+        '/en?place=place-1',
+        'email',
+        'opaque-token'
+      );
+      expect(callback).toContain('pendingIntent=opaque-token');
+      expect(callback).not.toContain('favourite');
+      expect(callback).not.toContain('rating');
     }
   });
 

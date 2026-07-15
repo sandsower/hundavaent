@@ -1,4 +1,4 @@
-export const memberActivationPolicyVersion = 'member-single-provider-v1';
+export const memberActivationPolicyVersion = 'member-linked-providers-v2';
 
 const minimumCapabilityLength = 32;
 const encoder = new TextEncoder();

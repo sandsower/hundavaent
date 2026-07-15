@@ -36,6 +36,24 @@ export interface ProductAnalyticsEvents {
     outcome: 'created' | 'duplicate';
     proximity: 'confirmed' | 'not_confirmed' | 'unknown';
   };
+  'auth modal opened': {
+    origin: 'header' | 'favourite' | 'rating';
+  };
+  'auth method selected': {
+    method: 'email' | 'facebook';
+    origin: 'header' | 'favourite' | 'rating';
+  };
+  'auth link requested': {
+    origin: 'header' | 'favourite' | 'rating';
+  };
+  'auth completed': {
+    method: 'email' | 'facebook';
+    outcome: 'success' | 'failed';
+  };
+  'auth pending action completed': {
+    action: 'favourite' | 'rating';
+    outcome: 'completed' | 'queued';
+  };
 }
 
 export interface BrowserExceptionContext {

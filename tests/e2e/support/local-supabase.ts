@@ -2420,7 +2420,9 @@ function findVerificationLink(value: unknown): string | null {
     .replaceAll('\\/', '/')
     .replaceAll('\\u0026', '&')
     .replaceAll('&amp;', '&');
-  const match = serialized.match(/https?:\/\/[^"\s<>]+\/auth\/v1\/verify[^"\s<>]+/);
+  const match = serialized.match(
+    /https?:\/\/[^"\s<>]+\/(?:auth\/v1\/verify|(?:en|is)\/auth\/callback)[^"\s<>]+/
+  );
 
   return match?.[0] ?? null;
 }
