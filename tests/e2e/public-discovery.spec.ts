@@ -60,7 +60,7 @@ test.describe('public discovery locale routes', () => {
     await selected.getByText('Details', { exact: true }).click();
     await expect(selected.getByRole('heading', { name: 'Dog access' })).toBeVisible();
     await expect(selected.getByRole('link', { name: 'Website' })).toBeVisible();
-    await expect(selected.getByRole('link', { name: 'Access information' })).toBeVisible();
+    await expect(selected.getByRole('link', { name: 'Access information' })).toHaveCount(0);
     await expect(selected.getByText('Official Place website')).toHaveCount(0);
   });
 
@@ -118,11 +118,10 @@ test.describe('public discovery locale routes', () => {
   test('shares combined discovery filters and selection across languages', async ({ page }) => {
     await page.goto('/en');
     await waitForHydration(page);
-    await page.getByRole('button', { name: 'Show filters' }).click();
+    await page.getByRole('button', { name: 'More filters' }).click();
     await page.getByLabel('Place type').selectOption('outdoors');
     await page.getByRole('combobox', { name: 'Area', exact: true }).selectOption('Reykjavík');
     await page.getByLabel('Dog access area').selectOption('outdoors');
-    await page.getByRole('button', { name: 'More filters' }).click();
     await page.getByLabel('Leash and restraint').selectOption('leash_required');
     await page.getByLabel('Permission').selectOption('standing_permission');
     await page.getByRole('searchbox', { name: 'Search for a place' }).fill('Reykjavík');
@@ -181,7 +180,7 @@ test.describe('public discovery locale routes', () => {
     });
     await page.goto('/en');
     await waitForHydration(page);
-    await page.getByRole('button', { name: 'Show filters' }).click();
+    await page.getByRole('button', { name: 'More filters' }).click();
     await expect(page.getByRole('button', { name: 'Hide filters' })).toBeVisible();
     await page.getByRole('button', { name: 'Use my location' }).click();
 
@@ -190,7 +189,7 @@ test.describe('public discovery locale routes', () => {
     await expect(page.getByRole('button', { name: 'Published Place', exact: true })).toBeVisible();
     await page.reload();
     await waitForHydration(page);
-    await page.getByRole('button', { name: 'Show filters' }).click();
+    await page.getByRole('button', { name: 'More filters' }).click();
     await expect(page.getByRole('button', { name: 'Try location again' })).toBeVisible();
   });
 
@@ -204,7 +203,6 @@ test.describe('public discovery locale routes', () => {
     await page.goto('/en?lat=64.2&lng=-21.8&z=11&view=map');
     await waitForHydration(page);
     await page.getByRole('searchbox', { name: 'Search for a place' }).fill('Published Place');
-    await page.getByRole('button', { name: 'Show filters' }).click();
     await page.getByRole('button', { name: 'More filters' }).click();
     await page.getByRole('button', { name: 'Use my location' }).click();
 
@@ -217,7 +215,7 @@ test.describe('public discovery locale routes', () => {
     await page.getByRole('button', { name: 'Hide filters' }).click();
     await expect(page.getByText('No places match')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Show filters' }).click();
+    await page.getByRole('button', { name: 'More filters' }).click();
     await page.getByRole('combobox', { name: 'Distance' }).selectOption('25');
     await page.getByRole('button', { name: 'Hide filters' }).click();
     await expect(page.getByRole('button', { name: 'Published Place', exact: true })).toBeVisible();
@@ -228,17 +226,17 @@ test.describe('public discovery locale routes', () => {
     await page.goto('/en');
     await waitForHydration(page);
 
-    await page.getByRole('button', { name: 'Show filters' }).click();
+    await page.getByRole('button', { name: 'More filters' }).click();
     await expect(page.getByRole('combobox', { name: 'Place type' })).toBeFocused();
     await page.getByRole('button', { name: /Show \d+ results?/ }).click();
     await expect(page.getByRole('combobox', { name: 'Place type' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Close results' })).toBeFocused();
 
-    await page.getByRole('button', { name: 'Show filters' }).click();
+    await page.getByRole('button', { name: 'More filters' }).click();
     await expect(page.getByRole('heading', { name: 'Places found' })).toHaveCount(0);
     await expect(page.getByRole('combobox', { name: 'Place type' })).toBeFocused();
     await page.getByRole('button', { name: 'Hide filters' }).click();
-    await expect(page.getByRole('button', { name: 'Show filters' })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'More filters' })).toBeFocused();
 
     const showResults = page.getByRole('button', { name: /Show \d+ results?/ });
     await showResults.click();

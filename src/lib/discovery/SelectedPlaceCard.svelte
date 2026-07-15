@@ -113,7 +113,9 @@
         aria-label={copy['directory.closeSelectedPlace']}
         onclick={onClose}
       >
-        <span aria-hidden="true">×</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
       </button>
     </div>
   </div>
@@ -245,20 +247,10 @@
                 : copy['place.amenitiesUnknown']}
             </p>
           </section>
-          {#if profile.websiteUrl || (profile.accessInformationUrls?.length ?? 0) > 0}
+          {#if profile.websiteUrl}
             <nav class="place-links" aria-label={copy['place.usefulLinks']}>
-              {#if profile.websiteUrl}
-                <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external place URL -->
-                <a href={profile.websiteUrl} rel="noreferrer">{copy['place.website']}</a>
-              {/if}
-              {#each profile.accessInformationUrls ?? [] as url, index (url)}
-                <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external access-information URL -->
-                <a href={url} rel="noreferrer">
-                  {profile.accessInformationUrls?.length === 1
-                    ? copy['place.accessInformation']
-                    : `${copy['place.accessInformation']} ${index + 1}`}
-                </a>
-              {/each}
+              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external place URL -->
+              <a href={profile.websiteUrl} rel="noreferrer">{copy['place.website']}</a>
             </nav>
           {/if}
           {#if correctionHref}
@@ -342,9 +334,8 @@
   .summary-photo :global(img) {
     display: block;
     width: 100%;
-    max-height: 14rem;
+    height: 5.2rem;
     object-fit: cover;
-    aspect-ratio: 16 / 9;
   }
 
   .summary-photo figcaption {
@@ -485,14 +476,20 @@
 
   .close {
     display: grid;
-    width: 2.25rem;
-    height: 2.25rem;
-    min-height: 2.25rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    min-height: 2.5rem;
     padding: 0;
-    font-size: 1.5rem;
-    font-weight: 750;
-    line-height: 1;
+    border-radius: 999px;
     place-items: center;
+  }
+
+  .close svg {
+    width: 1.15rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 1.9;
   }
 
   .details-status p {

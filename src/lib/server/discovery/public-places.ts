@@ -278,9 +278,9 @@ export async function getPublishedProfile(
         openingHours: first.opening_hours as Readonly<Record<string, Json>>,
         dogAmenities: first.dog_amenities as string[],
         accessConditions: data.map(mapAccessFacts),
-        accessInformationUrls: [
-          ...new Set(data.flatMap((row) => parseUrlList(row.access_information_urls) ?? []))
-        ],
+        // Evidence URLs are moderator provenance, not visitor-facing place links. The public card
+        // exposes only the Place's clearly labelled website when one exists.
+        accessInformationUrls: [],
         dogFriendlinessSummary,
         photos
       }
@@ -437,15 +437,30 @@ function mapAccessFacts(row: ProfileRow): PublishedAccessFacts {
   return {
     id: row.access_condition_id,
     accessArea: row.access_area as AccessArea,
-    accessAreaNote: row.access_area_note,
+    accessAreaNote: publicVisitorNote(row.access_area_note),
     restraintCondition: row.restraint_condition as RestraintCondition,
-    restraintNote: row.restraint_note,
+    restraintNote: publicVisitorNote(row.restraint_note),
     dogEligibility,
     availabilityWindow,
     availabilityState: row.availability_state as AvailabilityState,
     permissionRequirement: row.permission_requirement as PermissionRequirement,
-    accessInformationUrls
+    accessInformationUrls: []
   };
+}
+
+function publicVisitorNote(value: string | null): string | null {
+  if (value === null) return null;
+  const note = value.trim();
+  if (note.length === 0) return null;
+  if (
+    /https?:\/\//i.test(note) ||
+    /\b(?:arcgis|moderator|reconfirm(?:ation)?|evidence source|postal code|verification (?:due|state|status))\b/i.test(
+      note
+    )
+  ) {
+    return null;
+  }
+  return note;
 }
 
 function isListRowWithoutCoordinates(row: ListRow): boolean {

@@ -67,7 +67,7 @@
     }
   }
 
-  @media (max-width: 58rem) {
+  @media (max-width: 57.999rem) {
     .directory-shell {
       height: auto;
       min-height: calc(100dvh - var(--hv-app-header-height, 7.5rem));

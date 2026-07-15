@@ -204,6 +204,7 @@
 <dialog
   bind:this={dialog}
   class="auth-dialog"
+  data-ui-mode="place"
   aria-labelledby="auth-dialog-title"
   onclose={handleClosed}
 >
@@ -319,7 +320,7 @@
   .dialog-content {
     display: grid;
     gap: 1rem;
-    padding: 2rem;
+    padding: 1rem;
   }
 
   h2,
@@ -399,9 +400,16 @@
   .facebook {
     display: grid;
     width: 100%;
+    min-height: var(--hv-control-height);
+    padding: 0.625rem 0.85rem;
+    border: 0;
+    border-radius: var(--hv-radius-control);
     grid-template-columns: 1.2rem 1fr 1.2rem;
     background: #1877f2;
     color: white;
+    font-weight: 800;
+    line-height: 1.2;
+    cursor: pointer;
   }
 
   .facebook span {
@@ -465,16 +473,18 @@
 
   @media (max-width: 42rem) {
     .auth-dialog {
-      width: 100%;
+      right: 1rem;
+      left: 1rem;
+      width: auto;
       max-width: none;
       max-height: min(88dvh, 44rem);
-      margin: auto 0 0;
-      border-width: 1px 0 0;
-      border-radius: 1.25rem 1.25rem 0 0;
+      margin: auto 0 max(1rem, env(safe-area-inset-bottom));
+      border-width: 1px;
+      border-radius: 1.25rem;
     }
 
     .dialog-content {
-      padding: 1.65rem 1.25rem max(1.5rem, env(safe-area-inset-bottom));
+      padding: 1rem 1rem max(1rem, env(safe-area-inset-bottom));
     }
   }
 

@@ -14,6 +14,7 @@ export type AccessSymbolState =
   | 'off_leash_permitted'
   | 'carrier_required'
   | 'small_dogs_only'
+  | 'ask_on_arrival'
   | 'limited'
   | 'unrestricted'
   | 'special'
@@ -89,7 +90,9 @@ function restraintState(restraint: RestraintCondition): AccessSymbolState {
 }
 
 function permissionState(permission: PermissionRequirement): AccessSymbolState {
-  return permission === 'standing_permission' ? 'unrestricted' : 'special';
+  if (permission === 'standing_permission') return 'unrestricted';
+  if (permission === 'ask_on_arrival') return 'ask_on_arrival';
+  return 'special';
 }
 
 function dogState(

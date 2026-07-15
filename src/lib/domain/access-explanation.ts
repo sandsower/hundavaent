@@ -95,7 +95,7 @@ function restraintEnglish(condition: AccessCondition): string {
         ? ' off leash'
         : condition.restraintCondition === 'carrier_required'
           ? ' when carried'
-          : ' under the sourced control rule';
+          : ' under the stated control rule';
   return condition.restraintNote ? `${restraint} (${condition.restraintNote})` : restraint;
 }
 

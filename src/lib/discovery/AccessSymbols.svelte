@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { tick } from 'svelte';
+
   import type { Catalogue, MessageKey } from '$i18n';
   import { formatLocalizedDateOnly } from '$i18n/date';
   import {
@@ -18,8 +20,18 @@
 
   let { placeName, conditions, copy, onOpenDetails = () => undefined }: Props = $props();
   const componentId = $props.id();
+  const tooltipId = `${componentId}-tooltip`;
   const isIcelandic = $derived(copy['hours.monday'] === 'Mánudagur');
   let activeDimension = $state<AccessSymbolDimension | 'complex' | null>(null);
+  let tooltipAnchor = $state<HTMLButtonElement>();
+  let tooltipDimension = $state<AccessSymbolDimension | 'complex' | null>(null);
+  let tooltipElement = $state<HTMLSpanElement>();
+  let tooltipOpen = $state(false);
+  let tooltipText = $state('');
+  let tooltipLeft = $state(0);
+  let tooltipTop = $state(0);
+  let tooltipRevealY = $state('0.25rem');
+  let tooltipHideTimer: ReturnType<typeof setTimeout> | undefined;
   const presentation = $derived(buildAccessSymbolPresentation(conditions));
   const labels: Record<AccessSymbolState, MessageKey> = {
     indoors: 'accessSymbols.indoors',
@@ -27,6 +39,7 @@
     off_leash_permitted: 'accessSymbols.offLeash',
     carrier_required: 'accessSymbols.carrier',
     small_dogs_only: 'accessSymbols.smallDogs',
+    ask_on_arrival: 'accessSymbols.askOnArrival',
     limited: 'accessSymbols.limited',
     unrestricted: 'accessSymbols.permissionOpen',
     special: 'accessSymbols.special',
@@ -38,6 +51,7 @@
     off_leash_permitted: 'accessSymbols.offLeashDetail',
     carrier_required: 'accessSymbols.carrierDetail',
     small_dogs_only: 'accessSymbols.smallDogsDetail',
+    ask_on_arrival: 'accessSymbols.askOnArrivalDetail',
     limited: 'accessSymbols.limitedDetail',
     unrestricted: 'accessSymbols.permissionOpenDetail',
     special: 'accessSymbols.specialDetail',
@@ -62,6 +76,16 @@
       return copy['accessSymbols.wheneverOpenDetail'];
     }
     return copy[details[symbol.state]];
+  }
+
+  function iconName(symbol: AccessSymbol): string {
+    if (symbol.state === 'unrestricted') return 'check';
+    if (symbol.state === 'special') return 'question';
+    if (symbol.state === 'not_stated') return 'minus';
+    if (symbol.state === 'limited') return 'clock';
+    if (symbol.state === 'small_dogs_only') return 'small-dog';
+    if (symbol.state === 'ask_on_arrival') return 'ask-on-arrival';
+    return symbol.state.replaceAll('_', '-');
   }
 
   const weekdays: Readonly<Record<number, MessageKey>> = {
@@ -218,6 +242,111 @@
       onOpenDetails();
     }
   }
+
+  function portal(node: HTMLElement): { destroy: () => void } {
+    document.body.append(node);
+    return {
+      destroy: () => {
+        if (tooltipHideTimer) clearTimeout(tooltipHideTimer);
+        node.remove();
+      }
+    };
+  }
+
+  async function showTooltip(
+    anchor: HTMLButtonElement,
+    dimension: AccessSymbolDimension | 'complex',
+    text: string
+  ): Promise<void> {
+    if (tooltipHideTimer) clearTimeout(tooltipHideTimer);
+    tooltipAnchor = anchor;
+    tooltipDimension = dimension;
+    tooltipText = text;
+    tooltipOpen = false;
+    await tick();
+    if (tooltipAnchor !== anchor) return;
+    if (!tooltipElement?.matches(':popover-open')) tooltipElement?.showPopover();
+    positionTooltip();
+    tooltipOpen = true;
+  }
+
+  function hideTooltip(anchor: HTMLButtonElement, source: 'pointer' | 'focus'): void {
+    if (tooltipAnchor !== anchor) return;
+    if (source === 'pointer' && document.activeElement === anchor) return;
+    if (source === 'focus' && anchor.matches(':hover')) return;
+    if (source === 'pointer') {
+      tooltipHideTimer = setTimeout(() => closeTooltip(), 120);
+      return;
+    }
+    closeTooltip();
+  }
+
+  function keepTooltipOpen(): void {
+    if (tooltipHideTimer) clearTimeout(tooltipHideTimer);
+  }
+
+  function dismissTooltip(event: KeyboardEvent): void {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeTooltip();
+  }
+
+  function closeTooltip(): void {
+    tooltipOpen = false;
+    tooltipAnchor = undefined;
+    tooltipHideTimer = setTimeout(() => {
+      if (!tooltipOpen && tooltipElement?.matches(':popover-open')) {
+        tooltipElement.hidePopover();
+        tooltipDimension = null;
+      }
+    }, 160);
+  }
+
+  function positionTooltip(): void {
+    if (!tooltipAnchor || !tooltipElement) return;
+    const anchorRect = tooltipAnchor.getBoundingClientRect();
+    const tooltipRect = tooltipElement.getBoundingClientRect();
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = document.documentElement.clientHeight;
+    const inset = 8;
+    const gap = 7;
+    const viewportMinLeft = inset;
+    const viewportMaxLeft = Math.max(inset, viewportWidth - inset - tooltipRect.width);
+    tooltipLeft = clamp(
+      anchorRect.left + (anchorRect.width - tooltipRect.width) / 2,
+      viewportMinLeft,
+      viewportMaxLeft
+    );
+
+    const aboveTop = anchorRect.top - gap - tooltipRect.height;
+    const belowTop = anchorRect.bottom + gap;
+    const fitsAbove = aboveTop >= inset;
+    const fitsBelow = belowTop + tooltipRect.height <= viewportHeight - inset;
+    const placeBelow = !fitsAbove && (fitsBelow || anchorRect.top < viewportHeight / 2);
+    const preferredTop = placeBelow ? belowTop : aboveTop;
+    tooltipTop = clamp(
+      preferredTop,
+      inset,
+      Math.max(inset, viewportHeight - inset - tooltipRect.height)
+    );
+    tooltipRevealY = placeBelow ? '-0.25rem' : '0.25rem';
+  }
+
+  function clamp(value: number, minimum: number, maximum: number): number {
+    return Math.min(Math.max(value, minimum), maximum);
+  }
+
+  $effect(() => {
+    if (!tooltipOpen) return;
+    const reposition = () => positionTooltip();
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    return () => {
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+    };
+  });
 </script>
 
 <div
@@ -227,31 +356,41 @@
 >
   {#if presentation.kind === 'complex'}
     {@const detailId = `${componentId}-complex-detail`}
+    {@const explanation = copy['accessSymbols.differentConditionsDetail'].replace(
+      '{count}',
+      String(presentation.conditionCount)
+    )}
     <button
       type="button"
       class="symbol complex special"
+      data-access-icon="question"
+      aria-label={copy['accessSymbols.differentConditions']}
       aria-expanded={activeDimension === 'complex'}
       aria-controls={activeDimension === 'complex' ? detailId : undefined}
+      aria-describedby={tooltipOpen && tooltipDimension === 'complex' ? tooltipId : undefined}
+      onpointerenter={(event) => showTooltip(event.currentTarget, 'complex', explanation)}
+      onpointerleave={(event) => hideTooltip(event.currentTarget, 'pointer')}
+      onfocus={(event) => showTooltip(event.currentTarget, 'complex', explanation)}
+      onblur={(event) => hideTooltip(event.currentTarget, 'focus')}
+      onkeydown={dismissTooltip}
       onclick={() => {
+        closeTooltip();
         activeDimension = activeDimension === 'complex' ? null : 'complex';
         onOpenDetails();
       }}
     >
-      <span class="icon question" aria-hidden="true">?</span>
-      <span>{copy['accessSymbols.differentConditions']}</span>
-      <span class="tooltip" role="tooltip" aria-hidden="true">
-        {copy['accessSymbols.differentConditionsDetail'].replace(
-          '{count}',
-          String(presentation.conditionCount)
-        )}
+      <span class="icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"
+          ><circle cx="12" cy="12" r="9" /><path
+            d="M9.8 9a2.4 2.4 0 1 1 3.7 2c-1 .7-1.5 1.1-1.5 2.2"
+          /><path d="M12 16.5h.01" /></svg
+        >
       </span>
+      <span>{copy['accessSymbols.differentConditions']}</span>
     </button>
     {#if activeDimension === 'complex'}
       <p id={detailId} class="persistent-detail" role="status">
-        {copy['accessSymbols.differentConditionsDetail'].replace(
-          '{count}',
-          String(presentation.conditionCount)
-        )}
+        {explanation}
       </p>
     {/if}
   {:else}
@@ -261,6 +400,7 @@
         <button
           type="button"
           class="symbol"
+          data-access-icon={iconName(symbol)}
           class:area={symbol.dimension === 'area'}
           class:restraint={symbol.dimension === 'restraint'}
           class:permission={symbol.dimension === 'permission'}
@@ -271,7 +411,20 @@
           aria-label={label(symbol)}
           aria-expanded={activeDimension === symbol.dimension}
           aria-controls={activeDimension === symbol.dimension ? detailId : undefined}
-          onclick={() => activate(symbol)}
+          aria-describedby={tooltipOpen && tooltipDimension === symbol.dimension
+            ? tooltipId
+            : undefined}
+          onpointerenter={(event) =>
+            showTooltip(event.currentTarget, symbol.dimension, fullExplanation(symbol))}
+          onpointerleave={(event) => hideTooltip(event.currentTarget, 'pointer')}
+          onfocus={(event) =>
+            showTooltip(event.currentTarget, symbol.dimension, fullExplanation(symbol))}
+          onblur={(event) => hideTooltip(event.currentTarget, 'focus')}
+          onkeydown={dismissTooltip}
+          onclick={() => {
+            closeTooltip();
+            activate(symbol);
+          }}
         >
           <span class="icon" aria-hidden="true">
             {#if symbol.state === 'unrestricted'}
@@ -279,42 +432,57 @@
                 ><circle cx="12" cy="12" r="9" /><path d="m8 12 2.6 2.6L16.5 9" /></svg
               >
             {:else if symbol.state === 'special'}
-              <span class="question">?</span>
-            {:else if symbol.state === 'not_stated'}
-              <span class="minus">−</span>
-            {:else if symbol.state === 'indoors'}
               <svg viewBox="0 0 24 24"
-                ><path d="m3 10 9-7 9 7v10H3z" /><path d="M9 20v-7h6v7" /></svg
+                ><circle cx="12" cy="12" r="9" /><path
+                  d="M9.8 9a2.4 2.4 0 1 1 3.7 2c-1 .7-1.5 1.1-1.5 2.2"
+                /><path d="M12 16.5h.01" /></svg
+              >
+            {:else if symbol.state === 'not_stated'}
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M8 12h8" /></svg>
+            {:else if symbol.state === 'indoors'}
+              <svg class="symbol-fill" viewBox="0 0 15 15"
+                ><path
+                  d="M3 7v8H1V7.78l-1 .38V6l15-5v2.14zm2.5-.14v1.27c0 .47.26.89.67 1.1.44-.22.92-.34 1.41-.34h1.55l2.7 2.76v1.85c0 .09.04.18.1.24l.47.48c.06.07.1.15.1.24v.2c0 .19-.15.34-.33.34h-.87c-.08 0-.17-.04-.23-.1l-.47-.48a.35.35 0 0 1-.1-.24v-1.55c0-.19-.15-.34-.33-.34H8.04c-.13 0-.24.07-.3.18l-.47.95c-.06.13-.03.29.07.4l.4.4q.09.105.09.24v.2c0 .19-.15.34-.33.34h-.86a.35.35 0 0 1-.24-.1l-.47-.48a.35.35 0 0 1-.1-.24v-3.11a.34.34 0 0 0-.09-.24l-.65-.66c-.38-.38-.59-.9-.59-1.44v-.18c0-.63.31-1.23.83-1.58zm6-1.36c.18 0 .33.15.33.34v.81c0 .13.07.24.19.3l2.18 1.11c.18.1.3.29.3.49v.06c0 .18-.07.35-.2.48l-.47.48H12.5l-.43.88-2.22-2.26 1.22-2.5a.34.34 0 0 1 .3-.19z"
+                /></svg
               >
             {:else if symbol.state === 'leash_required'}
-              <svg viewBox="0 0 24 24"
-                ><path d="M4 8c5-5 8 2 4 5-3 2-1 7 4 7h4" /><circle cx="18" cy="20" r="2" /><path
-                  d="M7 7 4 4"
+              <svg class="symbol-fill" viewBox="0 0 15 15"
+                ><path
+                  d="M1.5 3v1.88c0 .69.39 1.31 1 1.62.66-.33 1.38-.5 2.12-.5h2.32L11 10.06v2.73q0 .21.15.36l.7.7q.15.15.15.36v.29c0 .28-.22.5-.5.5h-1.29q-.21 0-.36-.15l-.7-.7Q9 14 9 13.79V11.5c0-.28-.22-.5-.5-.5H5.31c-.19 0-.36.11-.45.28l-.7 1.4c-.1.19-.06.42.09.57l.6.6q.15.15.15.36v.29c0 .28-.22.5-.5.5H3.21q-.21 0-.36-.15l-.7-.7Q2 14 2 13.79V9.21q0-.21-.15-.36l-.97-.97C.32 7.32 0 6.55 0 5.76V5.5c0-.94.47-1.81 1.25-2.33zm9-2c.28 0 .5.22.5.5v1.19c0 .19.11.36.28.45l3.27 1.64c.28.13.45.41.45.72v.09c0 .26-.11.52-.29.7L14 7h-2l-.65 1.29-3.33-3.33 1.84-3.68c.09-.17.26-.28.45-.28zM3.06 0l4.97 4.97-1.06 1.06L.94 0z"
                 /></svg
               >
             {:else if symbol.state === 'off_leash_permitted'}
-              <svg viewBox="0 0 24 24"
-                ><path d="M4 8c5-5 8 2 4 5-3 2-1 7 4 7h4" /><path d="m14 17 6-6M16 11h4v4" /></svg
+              <svg class="symbol-fill" viewBox="0 0 15 15"
+                ><path
+                  d="M1.5 3v1.88c0 .69.39 1.31 1 1.62.66-.33 1.38-.5 2.12-.5h2.32L11 10.06v2.73q0 .21.15.36l.7.7q.15.15.15.36v.29c0 .28-.22.5-.5.5h-1.29q-.21 0-.36-.15l-.7-.7Q9 14 9 13.79V11.5c0-.28-.22-.5-.5-.5H5.31c-.19 0-.36.11-.45.28l-.7 1.4c-.1.19-.06.42.09.57l.6.6q.15.15.15.36v.29c0 .28-.22.5-.5.5H3.21q-.21 0-.36-.15l-.7-.7Q2 14 2 13.79V9.21q0-.21-.15-.36l-.97-.97C.32 7.32 0 6.55 0 5.76V5.5c0-.94.47-1.81 1.25-2.33zm9-2c.28 0 .5.22.5.5v1.19c0 .19.11.36.28.45l3.27 1.64c.28.13.45.41.45.72v.09c0 .26-.11.52-.29.7L14 7h-2l-.65 1.29-3.33-3.33 1.84-3.68c.09-.17.26-.28.45-.28z"
+                /></svg
               >
             {:else if symbol.state === 'carrier_required'}
               <!-- Pet-carrier silhouette adapted from SVG Repo 395169, CC0. -->
-              <svg viewBox="0 0 18 18"
+              <svg class="symbol-fill" viewBox="0 -0.5 17 17"
                 ><path
-                  d="M6.2 4V2.8A1.8 1.8 0 0 1 8 1h2a1.8 1.8 0 0 1 1.8 1.8V4M3 4h12l2 12H1z"
-                /><path d="M5 8h8v6H5zM9 8v6M5 11h8" /></svg
+                  d="M12.504 3.037h-.535V2.022C11.969 1.458 11.523 1 10.974 1H7.032c-.549 0-.994.458-.994 1.022v1.015h-.543C1.813 3.037 1.001 14.826 1.001 14.826c0 .58.514 1.054 1.147 1.054h13.704c.634 0 1.148-.474 1.148-1.054 0 0-.883-11.789-4.496-11.789ZM6.958 11.017V8.934H11v2.083Zm4.082.983v2H6.988v-2Zm-.009-6.083v2.104H6.958V5.917Zm3.661 2.104h-2.755V5.917h2.125c.251.639.459 1.366.63 2.104Zm-8.661 0H3.285c.165-.729.367-1.473.615-2.104h2.131Zm-.01.913v2.083H2.75c.086-.616.196-1.36.346-2.083Zm5.958-.031H14.9c.153.731.271 1.489.359 2.113h-3.28ZM6.977 2.185c0-.17.148-.309.33-.309H10.7c.182 0 .33.139.33.309v.853H6.977ZM2.517 13.226S2.553 12.776 2.65 12h3.371v2H3.365c-.469 0-.848-.349-.848-.774ZM14.629 14H11.98v-2h3.362c.1.768.141 1.233.141 1.233-.001.422-.385.767-.854.767Z"
+                /></svg
               >
             {:else if symbol.state === 'small_dogs_only'}
+              <svg viewBox="0 0 18 18"
+                ><g fill="currentColor" stroke="none" transform="translate(1.2 5.2) scale(.58)"
+                  ><path
+                    d="M1.5 3v1.88c0 .69.39 1.31 1 1.62.66-.33 1.38-.5 2.12-.5h2.32L11 10.06v2.73q0 .21.15.36l.7.7q.15.15.15.36v.29c0 .28-.22.5-.5.5h-1.29q-.21 0-.36-.15l-.7-.7Q9 14 9 13.79V11.5c0-.28-.22-.5-.5-.5H5.31c-.19 0-.36.11-.45.28l-.7 1.4c-.1.19-.06.42.09.57l.6.6q.15.15.15.36v.29c0 .28-.22.5-.5.5H3.21q-.21 0-.36-.15l-.7-.7Q2 14 2 13.79V9.21q0-.21-.15-.36l-.97-.97C.32 7.32 0 6.55 0 5.76V5.5c0-.94.47-1.81 1.25-2.33zm9-2c.28 0 .5.22.5.5v1.19c0 .19.11.36.28.45l3.27 1.64c.28.13.45.41.45.72v.09c0 .26-.11.52-.29.7L14 7h-2l-.65 1.29-3.33-3.33 1.84-3.68c.09-.17.26-.28.45-.28z"
+                  /></g
+                ><path d="M15 4v10M13.5 5.5 15 4l1.5 1.5M13.5 12.5 15 14l1.5-1.5" /></svg
+              >
+            {:else if symbol.state === 'ask_on_arrival'}
               <svg viewBox="0 0 24 24"
-                ><path d="M5 11v7M5 13h8l2 5M13 13l2-4 4 2v4h-3M8 11 6 7 3 9" /><path
-                  d="M4 21h16"
-                /></svg
+                ><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path
+                  d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .7-1.5 1.1-1.5 2"
+                /><path d="M12 16h.01" /></svg
               >
             {:else if symbol.state === 'limited'}
               <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg
               >
             {/if}
           </span>
-          <span class="tooltip" role="tooltip" aria-hidden="true">{fullExplanation(symbol)}</span>
         </button>
         {#if activeDimension === symbol.dimension}
           <p id={detailId} class="persistent-detail symbol-detail" role="status">
@@ -327,6 +495,25 @@
   {/if}
 </div>
 
+<span
+  use:portal
+  bind:this={tooltipElement}
+  id={tooltipId}
+  data-access-tooltip
+  data-open={tooltipOpen}
+  class="tooltip"
+  role="tooltip"
+  aria-hidden="true"
+  popover="manual"
+  style:left={`${tooltipLeft}px`}
+  style:top={`${tooltipTop}px`}
+  style:--tooltip-reveal-y={tooltipRevealY}
+  onpointerenter={keepTooltipOpen}
+  onpointerleave={closeTooltip}
+>
+  {tooltipText}
+</span>
+
 <style>
   .access-presentation {
     display: grid;
@@ -335,8 +522,9 @@
 
   .symbols {
     display: grid;
-    grid-template-columns: repeat(5, minmax(2.65rem, 1fr));
-    gap: 0.4rem;
+    grid-template-columns: repeat(5, 2.75rem);
+    gap: 0.45rem;
+    justify-content: start;
   }
 
   .symbol-detail {
@@ -346,11 +534,14 @@
   .symbol {
     position: relative;
     display: grid;
-    min-width: 0;
-    min-height: 2.8rem;
-    border: 1px solid color-mix(in srgb, var(--hv-color-basalt) 16%, transparent);
-    border-radius: 0.75rem;
-    background: #e6eee8;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+    border: 1px solid var(--hv-access-symbol-border, var(--hv-color-basalt, #1e2d31));
+    border-radius: 999px;
+    background: var(--hv-access-area, #dce7e1);
     color: var(--hv-color-basalt);
     font: inherit;
     place-items: center;
@@ -361,31 +552,32 @@
   }
 
   .symbol.restraint {
-    background: #f7dd9a;
+    background: var(--hv-access-restraint, #f7dd9a);
   }
   .symbol.permission {
-    background: #cfe5ed;
+    background: var(--hv-access-permission, #cfe5ed);
   }
   .symbol.dogs {
-    background: #f3d4be;
+    background: var(--hv-access-eligibility, #f3d4be);
   }
   .symbol.timing {
-    background: #d9d5e9;
+    background: var(--hv-access-timing, #d9d5e9);
   }
   .symbol.special {
-    background: #f1d7bd;
+    background: var(--hv-access-special, #f1d7bd);
   }
   .symbol.not-stated {
-    background: #e4e7e5;
-    color: #66716f;
+    background: var(--hv-access-unknown, #e4e7e5);
+    color: var(--hv-access-unknown-foreground, #66716f);
   }
 
   .symbol:hover,
   .symbol:focus-visible,
   .symbol[aria-expanded='true'] {
+    z-index: 4;
     border-color: var(--hv-color-fjord);
     box-shadow: 0 0.35rem 0.9rem rgb(20 41 39 / 14%);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
   }
 
   .symbol:focus-visible {
@@ -395,9 +587,9 @@
 
   .icon,
   .icon svg {
-    display: grid;
-    width: 1.45rem;
-    height: 1.45rem;
+    display: block;
+    width: 1.55rem;
+    height: 1.55rem;
     place-items: center;
   }
 
@@ -410,70 +602,50 @@
     stroke-width: 1.8;
   }
 
-  .question,
-  .minus {
-    font-size: 1.3rem;
-    font-weight: 850;
-    line-height: 1;
+  .icon svg.symbol-fill {
+    fill: currentColor;
+    stroke: none;
   }
 
   .tooltip {
-    --tooltip-translate-x: -50%;
-
-    position: absolute;
-    z-index: 3;
-    bottom: calc(100% + 0.45rem);
-    left: 50%;
+    position: fixed;
+    z-index: 100;
+    inset: unset;
+    box-sizing: border-box;
     width: max-content;
-    max-width: 11rem;
-    padding: 0.35rem 0.5rem;
-    border-radius: 0.45rem;
-    background: var(--hv-color-basalt);
-    color: white;
-    font-size: 0.72rem;
-    font-weight: 750;
+    max-width: min(18rem, calc(100vw - 1rem));
+    max-height: calc(100dvh - 1rem);
+    margin: 0;
+    overflow: auto;
+    padding: 0.5rem 0.65rem;
+    border: 0;
+    border-radius: var(--hv-radius-control, 0.35rem);
+    background: var(--hv-color-basalt, #1e2d31);
+    box-shadow: 0 0.55rem 1.5rem rgb(30 45 49 / 22%);
+    color: var(--hv-color-snow-raised, #fbfcf9);
+    font-family: var(--hv-font-ui, var(--font-sans, sans-serif));
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.35;
     opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    text-align: center;
-    transform: translate(var(--tooltip-translate-x), 0.25rem);
+    pointer-events: auto;
+    text-align: left;
+    transform: translateY(var(--tooltip-reveal-y, 0.25rem));
     transition:
       opacity 160ms ease,
-      transform 160ms ease,
-      visibility 0s linear 160ms;
+      transform 160ms ease;
   }
 
-  .symbol:hover .tooltip,
-  .symbol:focus-visible .tooltip {
+  .tooltip[data-open='true'] {
     opacity: 1;
-    visibility: visible;
-    transform: translate(var(--tooltip-translate-x), 0);
-    transition-delay: 0s;
-  }
-
-  .symbol:first-of-type .tooltip {
-    --tooltip-translate-x: 0;
-
-    left: 0;
-  }
-
-  .symbol:last-of-type .tooltip {
-    --tooltip-translate-x: 0;
-
-    right: 0;
-    left: auto;
-  }
-
-  .symbol.complex .tooltip {
-    --tooltip-translate-x: 0;
-
-    right: 0;
-    left: 0;
-    width: auto;
-    max-width: none;
+    transform: translateY(0);
   }
 
   .complex {
+    width: 100%;
+    height: auto;
+    min-height: 2.75rem;
+    border-radius: var(--hv-radius-control);
     grid-template-columns: auto 1fr;
     gap: 0.55rem;
     justify-items: start;
@@ -484,9 +656,10 @@
   .persistent-detail {
     margin: 0;
     padding: 0.6rem 0.7rem;
-    border-inline-start: 0.25rem solid var(--hv-color-fjord);
+    border-inline-start: 0.3rem solid
+      var(--hv-access-detail-accent, var(--hv-color-signal, #f2c94c));
     border-radius: 0.4rem;
-    background: var(--hv-color-fjord-soft);
+    background: var(--hv-color-snow-raised, #fbfcf9);
     font-size: 0.78rem;
     line-height: 1.4;
     animation: reveal 180ms ease both;

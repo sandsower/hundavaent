@@ -100,6 +100,7 @@
   const clusterHistoryKey = 'hundavaentClusterPlaceIds';
   let selectionFocusOrigin = $state<HTMLButtonElement | null>(null);
   let openDetailsIntentPlaceId = $state<string | null>(null);
+  let responsiveBoundary = $state<HTMLElement>();
   let directorySidebar = $state<HTMLElement>();
   let directoryRailWidth = $state(0);
   let wideDetailLayout = $state(false);
@@ -180,18 +181,25 @@
   });
 
   onMount(() => {
-    const wideDetailQuery = window.matchMedia('(min-width: 76rem)');
-    const persistentRailQuery = window.matchMedia('(min-width: 58rem)');
     const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const syncResponsiveState = () => {
-      wideDetailLayout = wideDetailQuery.matches;
-      persistentRailLayout = persistentRailQuery.matches;
+    const syncResponsiveState = (
+      width = responsiveBoundary?.getBoundingClientRect().width ?? 0
+    ) => {
+      const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const rem = Number.isFinite(rootFontSize) ? rootFontSize : 16;
+      wideDetailLayout = width >= 76 * rem;
+      persistentRailLayout = width >= 58 * rem;
       reducedMotion = reducedMotionQuery.matches;
     };
+    const syncReducedMotion = () => syncResponsiveState();
     syncResponsiveState();
-    wideDetailQuery.addEventListener('change', syncResponsiveState);
-    persistentRailQuery.addEventListener('change', syncResponsiveState);
-    reducedMotionQuery.addEventListener('change', syncResponsiveState);
+    reducedMotionQuery.addEventListener('change', syncReducedMotion);
+    const boundaryObserver = responsiveBoundary
+      ? new ResizeObserver(([entry]) => {
+          if (entry) syncResponsiveState(entry.contentRect.width);
+        })
+      : null;
+    if (responsiveBoundary) boundaryObserver?.observe(responsiveBoundary);
     const railObserver = directorySidebar
       ? new ResizeObserver(([entry]) => {
           if (entry) directoryRailWidth = entry.contentRect.width;
@@ -323,9 +331,8 @@
       if (filterAnalyticsTimer) clearTimeout(filterAnalyticsTimer);
       window.removeEventListener('popstate', syncHistory);
       window.removeEventListener('keydown', closeSelectedOnEscape);
-      wideDetailQuery.removeEventListener('change', syncResponsiveState);
-      persistentRailQuery.removeEventListener('change', syncResponsiveState);
-      reducedMotionQuery.removeEventListener('change', syncResponsiveState);
+      reducedMotionQuery.removeEventListener('change', syncReducedMotion);
+      boundaryObserver?.disconnect();
       railObserver?.disconnect();
       unsubscribeFavourites();
     };
@@ -815,144 +822,147 @@
   }
 </script>
 
-<div
-  class="map-list-shell"
-  data-responsive-shell
-  data-map-failed={mapFailed}
-  data-reduced-motion={reducedMotion}
-  data-detail-layout={selectedPlace && wideDetailLayout
-    ? 'floating'
-    : selectedPlace
-      ? 'rail'
-      : 'none'}
-  style:--detail-safe-right={`${mapViewportPadding.right}px`}
->
-  <aside
-    class="directory-sidebar"
-    bind:this={directorySidebar}
-    data-directory-sidebar
-    data-rail-view={filtersOpen
-      ? 'filters'
-      : selectedPlace && discoveryState.view !== 'list'
-        ? 'selected'
-        : 'results'}
-    aria-label={copy['directory.listLabel']}
+<div class="map-list-boundary" bind:this={responsiveBoundary}>
+  <div
+    class="map-list-shell"
+    data-responsive-shell
+    data-map-failed={mapFailed}
+    data-reduced-motion={reducedMotion}
+    data-shell-layout={wideDetailLayout ? 'wide' : persistentRailLayout ? 'rail' : 'compact'}
+    data-detail-layout={selectedPlace && wideDetailLayout
+      ? 'floating'
+      : selectedPlace
+        ? 'rail'
+        : 'none'}
+    style:--detail-safe-right={`${mapViewportPadding.right}px`}
   >
-    <DiscoveryControls
-      filters={discoveryState.filters}
-      {areas}
-      resultCount={filteredPlaces.length}
-      {filtersOpen}
-      resultsOpen={discoveryState.view === 'list' && !mapFailed}
-      showResultsToggle={!persistentRailLayout}
-      {copy}
-      {locationState}
-      {suggestHref}
-      showSuggest={filteredPlaces.length === 0}
-      {signedIn}
-      {favouritesAvailable}
-      onQueryChange={updateQuery}
-      onFiltersChange={updateFilters}
-      onClear={clearFilters}
-      onShowResults={showResults}
-      onUseLocation={() => requestLocation()}
-      onRetryLocation={retryLocation}
-      onToggleFilters={toggleFilters}
-    />
+    <aside
+      class="directory-sidebar"
+      bind:this={directorySidebar}
+      data-directory-sidebar
+      data-rail-view={filtersOpen
+        ? 'filters'
+        : selectedPlace && discoveryState.view !== 'list'
+          ? 'selected'
+          : 'results'}
+      aria-label={copy['directory.listLabel']}
+    >
+      <DiscoveryControls
+        filters={discoveryState.filters}
+        {areas}
+        resultCount={filteredPlaces.length}
+        {filtersOpen}
+        resultsOpen={discoveryState.view === 'list' && !mapFailed}
+        showResultsToggle={!persistentRailLayout}
+        {copy}
+        {locationState}
+        {suggestHref}
+        showSuggest={filteredPlaces.length === 0}
+        {signedIn}
+        {favouritesAvailable}
+        onQueryChange={updateQuery}
+        onFiltersChange={updateFilters}
+        onClear={clearFilters}
+        onShowResults={showResults}
+        onUseLocation={() => requestLocation()}
+        onRetryLocation={retryLocation}
+        onToggleFilters={toggleFilters}
+      />
 
-    {#if !filtersOpen}
-      <div class="rail-stack">
-        {#if selectedPlace && discoveryState.view !== 'list'}
-          <div
-            class="selected-place-overlay rail-content"
-            data-selected-place-overlay
-            data-floating={wideDetailLayout}
-          >
-            <!-- Keyed so selecting a different Place recreates the card: its internal
+      {#if !filtersOpen}
+        <div class="rail-stack">
+          {#if selectedPlace && discoveryState.view !== 'list'}
+            <div
+              class="selected-place-overlay rail-content"
+              data-selected-place-overlay
+              data-floating={wideDetailLayout}
+            >
+              <!-- Keyed so selecting a different Place recreates the card: its internal
                interaction state (for example a completed Check-in) must never carry over. -->
-            {#key `${lang}:${selectedPlace.placeId}`}
-              <SelectedPlaceCard
-                place={selectedPlace}
-                profile={selectedProfile}
-                loading={profileLoading}
-                loadFailed={profileError}
+              {#key `${lang}:${selectedPlace.placeId}`}
+                <SelectedPlaceCard
+                  place={selectedPlace}
+                  profile={selectedProfile}
+                  loading={profileLoading}
+                  loadFailed={profileError}
+                  {lang}
+                  {copy}
+                  onClose={clearSelectedPlace}
+                  onRetry={() => loadSelectedProfile(selectedPlace.placeId, lang)}
+                  {signedIn}
+                  favourite={favouritePlaceIds.includes(selectedPlace.placeId)}
+                  signInHref={favouriteSignInHref(selectedPlace.placeId)}
+                  onFavouriteChange={applyFavouriteState}
+                  {correctionHref}
+                  checkInSignInHref={checkInSignInHref(selectedPlace.placeId)}
+                  {proximityAssistEnabled}
+                  initialCheckedInAt={selectedCheckInStatus}
+                  openDetails={openDetailsIntentPlaceId === selectedPlace.placeId}
+                  onDetailsOpened={() => {
+                    if (openDetailsIntentPlaceId === selectedPlace.placeId) {
+                      openDetailsIntentPlaceId = null;
+                    }
+                  }}
+                />
+              {/key}
+            </div>
+          {/if}
+
+          {#if filteredPlaces.length > 0}
+            <div
+              class="results-overlay rail-content"
+              data-results-visible={discoveryState.view === 'list' || mapFailed}
+              role={mapFailed ? 'region' : undefined}
+              aria-label={mapFailed ? copy['directory.listLabel'] : undefined}
+              aria-hidden={selectedPlace && !wideDetailLayout ? 'true' : undefined}
+              inert={selectedPlace && !wideDetailLayout ? true : undefined}
+            >
+              <DiscoveryResults
+                places={resultPlaces}
+                selectedPlaceId={discoveryState.selectedPlaceId}
                 {lang}
                 {copy}
-                onClose={clearSelectedPlace}
-                onRetry={() => loadSelectedProfile(selectedPlace.placeId, lang)}
+                onSelect={(placeId, trigger, openDetails) =>
+                  selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list', openDetails)}
+                onClose={closeResults}
+                closable={discoveryState.view === 'list' && !mapFailed && !persistentRailLayout}
                 {signedIn}
-                favourite={favouritePlaceIds.includes(selectedPlace.placeId)}
-                signInHref={favouriteSignInHref(selectedPlace.placeId)}
+                {favouritePlaceIds}
+                signInHref={favouriteSignInHref}
                 onFavouriteChange={applyFavouriteState}
-                {correctionHref}
-                checkInSignInHref={checkInSignInHref(selectedPlace.placeId)}
-                {proximityAssistEnabled}
-                initialCheckedInAt={selectedCheckInStatus}
-                openDetails={openDetailsIntentPlaceId === selectedPlace.placeId}
-                onDetailsOpened={() => {
-                  if (openDetailsIntentPlaceId === selectedPlace.placeId) {
-                    openDetailsIntentPlaceId = null;
-                  }
-                }}
               />
-            {/key}
-          </div>
-        {/if}
+            </div>
+          {:else}
+            <div class="empty-state rail-content" role="status">
+              <strong>{copy['directory.noResultsTitle']}</strong>
+              <span>{copy['directory.noResultsBody']}</span>
+              <button type="button" onclick={clearFilters}>{copy['directory.clearFilters']}</button>
+            </div>
+          {/if}
+        </div>
+      {/if}
+    </aside>
 
-        {#if filteredPlaces.length > 0}
-          <div
-            class="results-overlay rail-content"
-            data-results-visible={discoveryState.view === 'list' || mapFailed}
-            role={mapFailed ? 'region' : undefined}
-            aria-label={mapFailed ? copy['directory.listLabel'] : undefined}
-            aria-hidden={selectedPlace && !wideDetailLayout ? 'true' : undefined}
-            inert={selectedPlace && !wideDetailLayout ? true : undefined}
-          >
-            <DiscoveryResults
-              places={resultPlaces}
-              selectedPlaceId={discoveryState.selectedPlaceId}
-              {lang}
-              {copy}
-              onSelect={(placeId, trigger, openDetails) =>
-                selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list', openDetails)}
-              onClose={closeResults}
-              closable={discoveryState.view === 'list' && !mapFailed && !persistentRailLayout}
-              {signedIn}
-              {favouritePlaceIds}
-              signInHref={favouriteSignInHref}
-              onFavouriteChange={applyFavouriteState}
-            />
-          </div>
-        {:else}
-          <div class="empty-state rail-content" role="status">
-            <strong>{copy['directory.noResultsTitle']}</strong>
-            <span>{copy['directory.noResultsBody']}</span>
-            <button type="button" onclick={clearFilters}>{copy['directory.clearFilters']}</button>
-          </div>
-        {/if}
+    <section class="map-panel" data-active="true" aria-labelledby="map-heading">
+      <h2 id="map-heading" class="visually-hidden">{copy['directory.mapLabel']}</h2>
+      <div class="map-stage">
+        <MapSurface
+          {adapter}
+          places={mapPlaces}
+          selectedPlaceId={discoveryState.selectedPlaceId}
+          camera={discoveryState.camera}
+          {copy}
+          onMarkerSelect={selectPlace}
+          onClusterSelect={showClusterResults}
+          onCameraChange={updateCamera}
+          onFailureChange={(failed) => (mapFailed = failed)}
+          viewportPadding={mapViewportPadding}
+          motionDurationMs={mapMotionDuration}
+          {fitPlacesOnMount}
+        />
       </div>
-    {/if}
-  </aside>
-
-  <section class="map-panel" data-active="true" aria-labelledby="map-heading">
-    <h2 id="map-heading" class="visually-hidden">{copy['directory.mapLabel']}</h2>
-    <div class="map-stage">
-      <MapSurface
-        {adapter}
-        places={mapPlaces}
-        selectedPlaceId={discoveryState.selectedPlaceId}
-        camera={discoveryState.camera}
-        {copy}
-        onMarkerSelect={selectPlace}
-        onClusterSelect={showClusterResults}
-        onCameraChange={updateCamera}
-        onFailureChange={(failed) => (mapFailed = failed)}
-        viewportPadding={mapViewportPadding}
-        motionDurationMs={mapMotionDuration}
-        {fitPlacesOnMount}
-      />
-    </div>
-  </section>
+    </section>
+  </div>
 </div>
 
 <noscript>
@@ -971,8 +981,16 @@
 <p class="visually-hidden" role="status" aria-live="polite">{announcement}</p>
 
 <style>
+  .map-list-boundary {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    isolation: isolate;
+    container: directory-shell / inline-size;
+  }
+
   .map-list-shell {
-    --directory-rail-width: clamp(20rem, 27vw, 24rem);
+    --directory-rail-width: clamp(20rem, 29cqw, 26rem);
     --floating-card-inset: 0.75rem;
     position: relative;
     display: grid;
@@ -1015,8 +1033,11 @@
   }
 
   .map-panel {
+    position: relative;
+    z-index: 0;
     min-width: 0;
     min-height: 0;
+    isolation: isolate;
   }
 
   .map-stage {
@@ -1050,12 +1071,10 @@
 
   @keyframes detail-card-enter {
     from {
-      opacity: 0;
       transform: translateX(0.75rem);
     }
 
     to {
-      opacity: 1;
       transform: translateX(0);
     }
   }
@@ -1114,7 +1133,7 @@
     padding: 0;
   }
 
-  @media (min-width: 76rem) {
+  @container directory-shell (min-width: 76rem) {
     .directory-sidebar,
     .rail-stack {
       position: static;
@@ -1144,7 +1163,7 @@
     }
   }
 
-  @media (max-width: 57.999rem) {
+  @container directory-shell (max-width: 57.999rem) {
     .map-list-shell {
       display: block;
       height: auto;
@@ -1226,8 +1245,8 @@
     transition: none;
   }
 
-  @media (max-width: 57.999rem) and (max-height: 42rem) {
-    .selected-place-overlay {
+  @media (max-height: 42rem) {
+    .map-list-shell[data-shell-layout='compact'] .selected-place-overlay {
       top: 5.5rem;
       right: 0.75rem;
       bottom: 0.75rem;

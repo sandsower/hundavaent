@@ -233,6 +233,26 @@ describe('Access Condition', () => {
       'Allir hundar mega vera á afmörkuðu svæði í taumi. Aðgangstímar eru óþekktir.'
     );
   });
+
+  it('describes open-ended control conditions without exposing source terminology', () => {
+    const condition = {
+      ...createStandingAccessCondition({
+        id: 'condition-stated-control',
+        placeId: 'place-1',
+        accessArea: 'outdoors',
+        restraintCondition: 'other_sourced'
+      }),
+      restraintNote: 'Keep the dog beside you'
+    };
+
+    expect(explainAccessCondition(condition, 'en')).toContain(
+      'under the stated control rule (Keep the dog beside you)'
+    );
+    expect(explainAccessCondition(condition, 'en')).not.toContain('source');
+    expect(explainAccessCondition(condition, 'is')).toContain(
+      'samkvæmt tilgreindri aðhaldsreglu (Keep the dog beside you)'
+    );
+  });
 });
 
 describe('Verification', () => {

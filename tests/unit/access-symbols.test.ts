@@ -82,6 +82,20 @@ describe('access symbol presentation', () => {
     });
   });
 
+  it('keeps ask-on-arrival distinct from the special-condition fallback', () => {
+    const presentation = buildAccessSymbolPresentation([
+      {
+        ...base,
+        permissionRequirement: 'ask_on_arrival'
+      }
+    ]);
+
+    expect(presentation).toMatchObject({
+      kind: 'simple',
+      symbols: [{}, {}, { dimension: 'permission', state: 'ask_on_arrival' }, {}, {}]
+    });
+  });
+
   it('collapses multiple conditions into one complete-details control', () => {
     expect(
       buildAccessSymbolPresentation([

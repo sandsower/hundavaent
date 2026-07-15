@@ -456,10 +456,10 @@ describe('getPublishedProfile', () => {
           {
             id: 'condition-1',
             availabilityState: 'not_stated',
-            accessInformationUrls: ['https://example.invalid/source']
+            accessInformationUrls: []
           }
         ],
-        accessInformationUrls: ['https://example.invalid/source']
+        accessInformationUrls: []
       }
     });
     expect(rpc).toHaveBeenCalledWith('get_published_place_profile_v2', {
@@ -534,6 +534,37 @@ describe('getPublishedProfile', () => {
 
     await expect(getPublishedProfile(client, 'place-1', 'en')).resolves.toEqual({
       status: 'invalid_response'
+    });
+  });
+
+  it('drops provenance URLs and moderator-state notes at the public mapping boundary', async () => {
+    const { client } = createClient({
+      get_published_place_profile_v2: {
+        data: [
+          {
+            ...profileRow,
+            access_area_note:
+              'Moderator reconfirmation due. Source: https://example.invalid/internal',
+            restraint_note: 'Fenced area. Dogs remain under handler supervision.',
+            access_information_urls: ['https://example.invalid/raw-evidence']
+          }
+        ],
+        error: null
+      }
+    });
+
+    await expect(getPublishedProfile(client, 'place-1', 'en')).resolves.toMatchObject({
+      status: 'success',
+      value: {
+        accessInformationUrls: [],
+        accessConditions: [
+          {
+            accessAreaNote: null,
+            restraintNote: 'Fenced area. Dogs remain under handler supervision.',
+            accessInformationUrls: []
+          }
+        ]
+      }
     });
   });
 });

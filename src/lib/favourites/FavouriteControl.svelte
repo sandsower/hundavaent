@@ -86,7 +86,9 @@
       onclick={(event) => applyDesiredState(event.currentTarget)}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 20.4 4.3 13A5.2 5.2 0 0 1 11.7 5.7L12 6l.3-.3A5.2 5.2 0 0 1 19.7 13Z" />
+        <path
+          d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"
+        />
       </svg>
     </button>
   {:else}
@@ -101,7 +103,9 @@
       aria-label={copy['favourite.signInToSave'].replace('{name}', placeName)}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 20.4 4.3 13A5.2 5.2 0 0 1 11.7 5.7L12 6l.3-.3A5.2 5.2 0 0 1 19.7 13Z" />
+        <path
+          d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"
+        />
       </svg>
     </a>
     <!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -140,6 +144,12 @@
 
   .hv-control[aria-pressed='true'] svg {
     fill: currentColor;
+  }
+
+  .hv-control[data-state='selected'] {
+    border-color: var(--hv-color-danger);
+    background: var(--hv-color-danger-soft);
+    color: var(--hv-color-danger);
   }
 
   .hv-control:disabled {

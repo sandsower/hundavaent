@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(21);
+select plan(22);
 
 select has_column(
   'private',
@@ -48,7 +48,17 @@ select ok(
     'access_information_urls jsonb'
     in pg_get_function_result('public.get_published_place_profile_v2(uuid,text)'::regprocedure)
   ) > 0,
-  'The profile exposes deduplicated access-information links'
+  'The versioned profile keeps the bounded access-information field during rollout'
+);
+
+select ok(
+  position('''[]''::jsonb' in pg_get_functiondef(
+    'public.get_published_place_profile_v2(uuid,text)'::regprocedure
+  )) > 0
+  and position('jsonb_agg(source_url' in pg_get_functiondef(
+    'public.get_published_place_profile_v2(uuid,text)'::regprocedure
+  )) = 0,
+  'The public profile keeps Evidence source URLs out of visitor-facing links'
 );
 
 select ok(

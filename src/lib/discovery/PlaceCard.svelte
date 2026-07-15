@@ -57,117 +57,185 @@
     service: 'category.service',
     other: 'category.other'
   };
+  const accessContext = $derived.by(() => {
+    if (place.accessConditions.length !== 1) return null;
+    const area = place.accessConditions[0]?.accessArea;
+    if (area === 'indoors') return copy['category.indoorPlace'];
+    if (area === 'outdoors' || area === 'designated_area') {
+      return copy['category.outdoorPlace'];
+    }
+    return null;
+  });
+  const categoryLabel = $derived(
+    place.category === 'park' ? copy['category.parkShort'] : copy[categoryKeys[place.category]]
+  );
+  const categoryBadge = $derived(
+    accessContext ? `${accessContext} · ${categoryLabel}` : categoryLabel
+  );
 </script>
 
-<article class:selected class:has-photo={place.primaryPhoto !== null} aria-label={place.name}>
-  {#if place.primaryPhoto}
-    <figure class="primary-photo">
-      <RefreshablePlaceImage
-        placeId={place.placeId}
-        mediaId={place.primaryPhoto.mediaId}
-        url={place.primaryPhoto.url}
-        urlExpiresAt={place.primaryPhoto.urlExpiresAt}
-        alt={lang === 'is' ? place.primaryPhoto.altTextIs : place.primaryPhoto.altTextEn}
-        width={place.primaryPhoto.widthPx}
-        height={place.primaryPhoto.heightPx}
-      />
-      <figcaption>
-        <PhotoCredit
-          attributionText={place.primaryPhoto.attributionText}
-          attributionUrl={place.primaryPhoto.attributionUrl}
-          sourceUrl={place.primaryPhoto.sourceUrl}
-          licenseReference={place.primaryPhoto.licenseReference}
-          licenseUrl={place.primaryPhoto.licenseUrl}
+<article data-place-card class:selected aria-label={place.name}>
+  <div
+    class:photo={place.primaryPhoto !== null}
+    class:category-band={place.primaryPhoto === null}
+    class="card-media"
+    data-place-card-media={place.primaryPhoto ? 'photo' : 'category-band'}
+  >
+    {#if place.primaryPhoto}
+      <figure class="primary-photo">
+        <RefreshablePlaceImage
+          placeId={place.placeId}
+          mediaId={place.primaryPhoto.mediaId}
+          url={place.primaryPhoto.url}
+          urlExpiresAt={place.primaryPhoto.urlExpiresAt}
+          alt={lang === 'is' ? place.primaryPhoto.altTextIs : place.primaryPhoto.altTextEn}
+          width={place.primaryPhoto.widthPx}
+          height={place.primaryPhoto.heightPx}
         />
-      </figcaption>
-    </figure>
-  {/if}
-  {#if interactive}
-    <div class="place-summary">
-      <button
-        type="button"
-        class="place-target"
-        data-place-id={place.placeId}
-        aria-label={copy['directory.selectPlace'].replace('{name}', place.name)}
-        aria-pressed={selected}
-        bind:this={selectButton}
-        onclick={(event) => onSelect(place.placeId, event.currentTarget)}
-      >
-        <strong>{place.name}</strong>
-        <span>{copy[categoryKeys[place.category]]} · {place.locality}</span>
-      </button>
-      <AccessSymbols
-        placeName={place.name}
-        conditions={place.accessConditions}
-        {copy}
-        onOpenDetails={() => selectButton && onSelect(place.placeId, selectButton, true)}
-      />
+        <figcaption>
+          <PhotoCredit
+            attributionText={place.primaryPhoto.attributionText}
+            attributionUrl={place.primaryPhoto.attributionUrl}
+            sourceUrl={place.primaryPhoto.sourceUrl}
+            licenseReference={place.primaryPhoto.licenseReference}
+            licenseUrl={place.primaryPhoto.licenseUrl}
+          />
+        </figcaption>
+      </figure>
+    {/if}
+    <span class="category-badge">{categoryBadge}</span>
+  </div>
+
+  <div class="card-body">
+    <div class="headline-row">
+      {#if interactive}
+        <button
+          type="button"
+          class="place-target"
+          data-place-id={place.placeId}
+          aria-label={copy['directory.selectPlace'].replace('{name}', place.name)}
+          aria-pressed={selected}
+          bind:this={selectButton}
+          onclick={(event) => onSelect(place.placeId, event.currentTarget)}
+        >
+          <strong>{place.name}</strong>
+          <span>{place.locality}</span>
+        </button>
+        <FavouriteControl
+          placeId={place.placeId}
+          placeName={place.name}
+          {signedIn}
+          {favourite}
+          {copy}
+          {signInHref}
+          onChange={onFavouriteChange}
+        />
+      {:else}
+        <div class="place-target static-summary">
+          <strong>{place.name}</strong>
+          <span>{place.locality}</span>
+        </div>
+      {/if}
     </div>
-  {:else}
-    <div class="place-summary">
-      <strong>{place.name}</strong>
-      <span>{copy[categoryKeys[place.category]]} · {place.locality}</span>
-      <AccessSymbols placeName={place.name} conditions={place.accessConditions} {copy} />
-    </div>
-  {/if}
-  {#if interactive}
-    <FavouriteControl
-      placeId={place.placeId}
+    <AccessSymbols
       placeName={place.name}
-      {signedIn}
-      {favourite}
+      conditions={place.accessConditions}
       {copy}
-      {signInHref}
-      onChange={onFavouriteChange}
+      onOpenDetails={() => selectButton && onSelect(place.placeId, selectButton, true)}
     />
-  {/if}
+  </div>
 </article>
 
 <style>
   article {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.75rem;
-    align-items: center;
-    padding: 0.75rem;
+    position: relative;
+    overflow: hidden;
     border: 1px solid var(--hv-border-subtle);
     border-radius: var(--hv-radius-panel);
     background: var(--hv-color-snow-raised);
     box-shadow: none;
   }
 
-  article.has-photo {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+  .card-media {
+    position: relative;
+    width: 100%;
+    background: var(--hv-color-moss-soft);
   }
 
   .primary-photo {
-    width: 4.75rem;
+    position: relative;
     margin: 0;
-    overflow: hidden;
   }
 
   .primary-photo :global(img) {
     display: block;
-    width: 4.75rem;
-    height: 4.75rem;
-    border-radius: var(--hv-radius-control);
+    width: 100%;
+    height: 4.3rem;
     object-fit: cover;
   }
 
   .primary-photo figcaption {
-    margin-top: 0.25rem;
+    position: absolute;
+    right: 0.35rem;
+    bottom: 0.35rem;
+    max-width: 58%;
+    overflow: hidden;
+    padding: 0.18rem 0.35rem;
+    border-radius: 0.25rem;
+    background: color-mix(in srgb, var(--hv-color-snow-raised) 92%, transparent);
+    font-size: 0.58rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .category-band {
+    min-height: 2.1rem;
+    background: var(--hv-color-moss-soft);
+  }
+
+  .category-badge {
+    position: absolute;
+    bottom: 0.55rem;
+    left: 0.55rem;
+    padding: 0.25rem 0.45rem;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
+    color: var(--hv-color-basalt);
+    font-size: 0.65rem;
+    font-weight: 900;
+    letter-spacing: 0.035em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .photo .category-badge {
+    bottom: 0.35rem;
   }
 
   article.selected {
-    border-color: var(--hv-color-basalt);
-    box-shadow: inset 0.3rem 0 0 var(--hv-color-signal);
+    border-color: var(--hv-color-basalt, #1e2d31);
+    box-shadow: inset 0.3rem 0 0 var(--hv-color-signal, #f2c94c);
   }
 
-  .place-summary,
+  .card-body {
+    display: grid;
+    gap: 0.65rem;
+    padding: 0.75rem;
+  }
+
+  .headline-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.65rem;
+    align-items: start;
+  }
+
   .place-target {
     display: grid;
-    gap: 0.25rem;
-    padding: 0.35rem;
+    gap: 0.2rem;
+    min-width: 0;
+    padding: 0;
     border: 0;
     background: transparent;
     color: inherit;
@@ -175,37 +243,22 @@
     text-align: left;
   }
 
-  .place-target {
-    padding: 0;
-  }
-
-  .place-summary strong {
+  .place-target strong {
     font-family: var(--hv-font-display);
     font-size: 1.25rem;
     font-weight: 650;
+    line-height: 1.05;
   }
 
-  .place-summary :global(.access-presentation) {
-    margin-top: 0.3rem;
+  .place-target span {
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
   }
 
   button:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
     box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
-  @media (max-width: 32rem) {
-    article {
-      grid-template-columns: 1fr;
-    }
-
-    article.has-photo {
-      grid-template-columns: auto minmax(0, 1fr);
-    }
-
-    article > :global(.favourite-control) {
-      grid-column: 1 / -1;
-    }
   }
 </style>

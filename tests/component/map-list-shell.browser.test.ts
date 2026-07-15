@@ -316,7 +316,7 @@ describe('MapListShell synchronization', () => {
       initialFavouritePlaceIds: []
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     await fireEvent.click(screen.getByRole('checkbox', { name: 'Favorites only' }));
 
     expect(window.location.search).toContain('favorites=1');
@@ -338,7 +338,7 @@ describe('MapListShell synchronization', () => {
       favouritesAvailable: false
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
 
     expect(screen.queryByRole('checkbox', { name: 'Favorites only' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Show 1 result' })).toBeTruthy();
@@ -485,7 +485,7 @@ describe('MapListShell synchronization', () => {
 
       await waitFor(() => expect(screen.queryByLabelText('Selected place')).toBeNull());
       expect(window.location.search).not.toContain('place=');
-      expect(screen.getByRole('button', { name: 'Show filters' })).toHaveFocus();
+      expect(screen.getByRole('button', { name: 'More filters' })).toHaveFocus();
     } finally {
       vi.unstubAllGlobals();
     }
@@ -581,16 +581,54 @@ describe('MapListShell synchronization', () => {
       const sidebar = container.querySelector<HTMLElement>('[data-directory-sidebar]');
       const results = screen.getByRole('region', { name: 'Places found' });
       expect(sidebar?.contains(results)).toBe(true);
+      expect(within(sidebar!).getByText('Capital region · 1 place')).toBeTruthy();
+      expect(
+        within(sidebar!).getByRole('heading', { name: 'Find somewhere to go together' })
+      ).toBeTruthy();
+      expect(within(sidebar!).getByRole('button', { name: 'All' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      expect(within(sidebar!).getByRole('button', { name: 'Food' })).toBeTruthy();
+      expect(within(sidebar!).getByRole('button', { name: 'Shops' })).toBeTruthy();
+      expect(within(sidebar!).getByRole('button', { name: 'Outdoors' })).toBeTruthy();
+      expect(within(sidebar!).getByRole('button', { name: 'More filters' })).toBeTruthy();
+      const accessibleResultsHeading = screen.getByRole('heading', { name: 'Places found' });
+      const visuallyHiddenHeading = accessibleResultsHeading.closest<HTMLElement>('.tray-heading');
+      expect(visuallyHiddenHeading).toBeTruthy();
+      expect(visuallyHiddenHeading!.getBoundingClientRect().width).toBe(1);
+      expect(visuallyHiddenHeading!.getBoundingClientRect().height).toBe(1);
+      expect(getComputedStyle(visuallyHiddenHeading!).overflow).toBe('hidden');
       expect(screen.queryByRole('button', { name: 'Show 1 result' })).toBeNull();
       expect(screen.queryByRole('button', { name: 'Close results' })).toBeNull();
 
+      const resultCard = within(sidebar!).getByLabelText('Published Place');
+      const photo = within(resultCard).getByAltText('A dog in a public park');
+      const photoRect = photo.getBoundingClientRect();
+      const mediaRect = resultCard
+        .querySelector<HTMLElement>('[data-place-card-media="photo"]')!
+        .getBoundingClientRect();
+      expect(photoRect.width).toBeCloseTo(mediaRect.width, 0);
+      expect(photoRect.height).toBeCloseTo(68.8, 0);
+      expect(within(resultCard).getByText('Outdoor place · Park', { exact: true })).toBeTruthy();
+      expect(resultCard.querySelector('[data-place-card-media="photo"]')).toBeTruthy();
+
       await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+      expect(resultCard.classList.contains('selected')).toBe(true);
+      expect(
+        within(resultCard).getByRole('button', { name: 'Select Published Place' })
+      ).toHaveAttribute('aria-pressed', 'true');
+      expect(getComputedStyle(resultCard).boxShadow).toContain('rgb(242, 201, 76)');
       const cardOverlay = container.querySelector<HTMLElement>('[data-selected-place-overlay]');
       expect(cardOverlay).toBeTruthy();
       if (!sidebar || !cardOverlay) throw new Error('Expected desktop rail and detail card');
+      expect(
+        within(cardOverlay).getByAltText('A dog in a public park').getBoundingClientRect().height
+      ).toBeCloseTo(83.2, 0);
       expect(screen.getByRole('region', { name: 'Places found' })).toBeTruthy();
 
       const sidebarWidth = sidebar.getBoundingClientRect().width;
+      expect(sidebarWidth).toBeLessThanOrEqual(416.5);
       await waitFor(() =>
         expect(window.innerWidth - cardOverlay.getBoundingClientRect().right).toBeGreaterThan(0)
       );
@@ -603,6 +641,122 @@ describe('MapListShell synchronization', () => {
       await waitFor(() =>
         expect(Number(mapRoot?.dataset.paddingRight ?? 0)).toBeGreaterThan(sidebarWidth)
       );
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+
+  it('uses an intentionally non-photographic category band when a result has no photo', async () => {
+    const noPhoto = {
+      ...places[0],
+      placeId: '30000000-0000-4000-8000-000000000099',
+      name: 'No Photo Café',
+      category: 'cafe' as const,
+      primaryPhoto: null
+    };
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places: [noPhoto],
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    const card = screen.getByLabelText('No Photo Café');
+    const band = card.querySelector<HTMLElement>('[data-place-card-media="category-band"]');
+    expect(band).toBeTruthy();
+    expect(band?.querySelector('img')).toBeNull();
+    expect(Number.parseFloat(getComputedStyle(band!).minHeight)).toBeCloseTo(33.6, 0);
+    expect(within(card).getByText('Outdoor place · Café', { exact: true })).toBeTruthy();
+  });
+
+  it('does not turn mixed access conditions into a categorical area promise', () => {
+    const mixedPlace = {
+      ...multiConditionPlaces[0],
+      placeId: '30000000-0000-4000-8000-000000000098',
+      name: 'Mixed Access Café',
+      category: 'cafe' as const,
+      primaryPhoto: null
+    };
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places: [mixedPlace],
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    const card = screen.getByLabelText('Mixed Access Café');
+    expect(within(card).getByText('Café', { exact: true })).toBeTruthy();
+    expect(within(card).queryByText(/Indoor place|Outdoor place/)).toBeNull();
+    expect(card.querySelector('[data-access-icon="question"]')).toBeTruthy();
+  });
+
+  it('keeps category shortcuts URL-driven and preserves unrelated filters', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1280, 800);
+    history.replaceState(null, '', '/en?area=K%C3%B3pavogur');
+    const kopavogurPlace = { ...places[0], locality: 'Kópavogur' };
+
+    try {
+      render(MapListShell, {
+        places: [kopavogurPlace],
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: {
+          ...defaultDiscoveryState,
+          filters: { ...defaultDiscoveryState.filters, area: 'Kópavogur' }
+        },
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+
+      const shortcuts = screen.getByRole('group', { name: 'Place type' });
+      const all = within(shortcuts).getByRole('button', { name: 'All' });
+      const food = within(shortcuts).getByRole('button', { name: 'Food' });
+      const moreFilters = screen.getByRole('button', { name: 'More filters' });
+      expect(screen.getByText('Kópavogur · 1 place')).toBeTruthy();
+      expect(all).toHaveAttribute('aria-pressed', 'true');
+      expect(moreFilters.closest('.shortcut-row')).toContainElement(shortcuts);
+      expect(moreFilters.getBoundingClientRect().top).toBeCloseTo(
+        food.getBoundingClientRect().top,
+        0
+      );
+      expect(moreFilters.getBoundingClientRect().height).toBeCloseTo(
+        food.getBoundingClientRect().height,
+        0
+      );
+
+      await fireEvent.click(food);
+      expect(food).toHaveAttribute('aria-pressed', 'true');
+      expect(window.location.search).toContain('category=food_drink');
+      expect(window.location.search).toContain('area=K%C3%B3pavogur');
+
+      await fireEvent.click(all);
+      expect(all).toHaveAttribute('aria-pressed', 'true');
+      expect(window.location.search).not.toContain('category=');
+      expect(window.location.search).toContain('area=K%C3%B3pavogur');
+
+      await fireEvent.click(moreFilters);
+      await fireEvent.change(screen.getByRole('combobox', { name: 'Place type' }), {
+        target: { value: 'accommodation' }
+      });
+      expect(window.location.search).toContain('category=accommodation');
+      expect(
+        within(shortcuts)
+          .getAllByRole('button')
+          .every((button) => button.getAttribute('aria-pressed') === 'false')
+      ).toBe(true);
     } finally {
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }
@@ -755,45 +909,69 @@ describe('MapListShell synchronization', () => {
     expect(getComputedStyle(overlay).animationDuration).toBe('0s');
   });
 
-  it('uses one non-overlapping 58rem boundary for mobile and persistent rail controls', async () => {
+  it('uses its container for one non-overlapping 58rem responsive boundary', async () => {
     const initialViewport = { width: window.innerWidth, height: window.innerHeight };
     const breakpointPx = Math.round(
       Number.parseFloat(getComputedStyle(document.documentElement).fontSize) * 58
     );
-    await browserPage.viewport(breakpointPx - 1, 800);
-    history.replaceState(null, '', '/en?view=list');
+    await browserPage.viewport(1280, 800);
 
     try {
-      const { container } = render(MapListShell, {
-        places,
-        lang: 'en',
-        copy: catalogues.en,
-        initialState: { ...defaultDiscoveryState, view: 'list' },
-        adapter: createDomTestMapAdapter(),
-        replaceUrl,
-        pushUrl,
-        loadPlace: vi.fn(async () => complexProfile)
-      });
-      const shell = container.querySelector<HTMLElement>('[data-responsive-shell]');
-      expect(shell).toBeTruthy();
-      if (!shell) throw new Error('Expected the responsive discovery shell');
+      for (const scenario of [
+        { width: breakpointPx - 1, layout: 'compact', display: 'block', controls: true },
+        { width: breakpointPx, layout: 'rail', display: 'grid', controls: false },
+        { width: breakpointPx + 1, layout: 'rail', display: 'grid', controls: false },
+        // A 640 CSS-pixel container is a 1280px host's effective width at 200% zoom.
+        { width: 640, layout: 'compact', display: 'block', controls: true }
+      ] as const) {
+        history.replaceState(null, '', '/en?view=list');
+        const target = document.createElement('div');
+        target.style.width = `${scenario.width}px`;
+        document.body.append(target);
+        const { container, unmount } = render(MapListShell, {
+          target,
+          props: {
+            places,
+            lang: 'en',
+            copy: catalogues.en,
+            initialState: { ...defaultDiscoveryState, view: 'list' },
+            adapter: createDomTestMapAdapter(),
+            replaceUrl,
+            pushUrl,
+            loadPlace: vi.fn(async () => complexProfile)
+          }
+        });
+        const shell = container.querySelector<HTMLElement>('[data-responsive-shell]');
+        expect(shell).toBeTruthy();
+        if (!shell) throw new Error('Expected the responsive discovery shell');
 
-      expect(window.innerWidth).toBe(breakpointPx - 1);
-      expect(getComputedStyle(shell).display).toBe('block');
-      expect(screen.getByRole('button', { name: 'Show 1 result' })).toBeTruthy();
-      expect(screen.getByRole('button', { name: 'Close results' })).toBeTruthy();
+        await waitFor(() => expect(shell.dataset.shellLayout).toBe(scenario.layout));
+        expect(window.innerWidth).toBe(1280);
+        expect(getComputedStyle(shell).display).toBe(scenario.display);
+        expect(within(container).queryByRole('button', { name: 'Show 1 result' }) !== null).toBe(
+          scenario.controls
+        );
+        expect(within(container).queryByRole('button', { name: 'Close results' }) !== null).toBe(
+          scenario.controls
+        );
+        if (scenario.layout === 'rail') {
+          const shortcutNames = ['All', 'Food', 'Shops', 'Outdoors', 'More filters'];
+          const shortcutButtons = shortcutNames.map((name) =>
+            within(container).getByRole('button', { name })
+          );
+          const shortcutTop = shortcutButtons[0].getBoundingClientRect().top;
+          expect(
+            shortcutButtons.every(
+              (button) => Math.abs(button.getBoundingClientRect().top - shortcutTop) < 0.5
+            )
+          ).toBe(true);
+          const shortcutRow = shortcutButtons[0].closest<HTMLElement>('.shortcut-row')!;
+          expect(shortcutRow.scrollWidth).toBeLessThanOrEqual(shortcutRow.clientWidth);
+        }
 
-      await browserPage.viewport(breakpointPx, 800);
-      await waitFor(() => expect(getComputedStyle(shell).display).toBe('grid'));
-      expect(window.innerWidth).toBe(breakpointPx);
-      expect(screen.queryByRole('button', { name: 'Show 1 result' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Close results' })).toBeNull();
-
-      await browserPage.viewport(breakpointPx + 1, 800);
-      expect(window.innerWidth).toBe(breakpointPx + 1);
-      expect(getComputedStyle(shell).display).toBe('grid');
-      expect(screen.queryByRole('button', { name: 'Show 1 result' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Close results' })).toBeNull();
+        unmount();
+        target.remove();
+      }
     } finally {
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }
@@ -928,6 +1106,15 @@ describe('MapListShell synchronization', () => {
         favorite.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING
       ).toBeTruthy();
       expect(share.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      for (const control of [favorite, share, close]) {
+        const bounds = control.getBoundingClientRect();
+        expect(bounds.width).toBeCloseTo(bounds.height, 0);
+        expect(Number.parseFloat(getComputedStyle(control).borderRadius)).toBeGreaterThan(
+          bounds.width / 3
+        );
+      }
+      expect(close.querySelector('svg')).toBeTruthy();
+      expect(close.textContent?.trim()).toBe('');
       await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     } finally {
       vi.unstubAllGlobals();
@@ -1014,7 +1201,7 @@ describe('MapListShell synchronization', () => {
     expect(within(selectedPlace).queryByText('Verified')).toBeNull();
   });
 
-  it('reveals every restriction and provenance inside the rail card without navigating away', async () => {
+  it('reveals every visitor restriction without exposing moderator provenance', async () => {
     history.replaceState(null, '', `/en?place=${places[0].placeId}`);
     render(MapListShell, {
       places: multiConditionPlaces,
@@ -1040,9 +1227,7 @@ describe('MapListShell synchronization', () => {
     expect(
       within(selectedPlace).getByText(/may be allowed after asking on arrival outdoors on a leash/)
     ).toBeTruthy();
-    expect(
-      within(selectedPlace).getByRole('link', { name: 'Access information' }).getAttribute('href')
-    ).toBe('https://example.invalid/rules');
+    expect(within(selectedPlace).queryByRole('link', { name: 'Access information' })).toBeNull();
     expect(within(selectedPlace).queryByText('Official rules')).toBeNull();
     expect(within(selectedPlace).queryByText('Reconfirmation due')).toBeNull();
     expect(within(selectedPlace).getByText(/Monday: 09:00-17:00/)).toBeTruthy();
@@ -1097,7 +1282,7 @@ describe('MapListShell synchronization', () => {
     }
   );
 
-  it('localizes known structured labels in Icelandic and preserves sourced free text', async () => {
+  it('localizes known structured labels in Icelandic without exposing source links', async () => {
     history.replaceState(null, '', `/is?place=${places[0].placeId}`);
     render(MapListShell, {
       places: [
@@ -1133,7 +1318,7 @@ describe('MapListShell synchronization', () => {
 
     const selectedPlace = screen.getByLabelText('Valinn staður');
     await fireEvent.click(await within(selectedPlace).findByText('Nánari upplýsingar'));
-    expect(within(selectedPlace).getByRole('link', { name: 'Upplýsingar um aðgang' })).toBeTruthy();
+    expect(within(selectedPlace).queryByRole('link', { name: 'Upplýsingar um aðgang' })).toBeNull();
     expect(within(selectedPlace).getByText(/Mánudagur: 09:00-17:00/)).toBeTruthy();
     expect(within(selectedPlace).getByText(/seasonal_note: Call ahead on holidays/)).toBeTruthy();
     expect(within(selectedPlace).getByText('Vatnsskál, covered patio hook')).toBeTruthy();
@@ -1397,7 +1582,7 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     const category = screen.getByRole('combobox', { name: 'Place type' });
     await waitFor(() => expect(document.activeElement).toBe(category));
     expect(
@@ -1405,7 +1590,11 @@ describe('MapListShell synchronization', () => {
         name: 'Other stated bounded area'
       })
     ).toBeTruthy();
-    expect(screen.getByText('More filters')).toBeTruthy();
+    expect(
+      within(screen.getByRole('combobox', { name: 'Leash and restraint' })).getByRole('option', {
+        name: 'Other stated control rule'
+      })
+    ).toBeTruthy();
     await fireEvent.change(category, { target: { value: 'outdoors' } });
     expect(captureAnalytics).toHaveBeenCalledWith('discovery filtered', {
       filter_count: 1,
@@ -1413,20 +1602,14 @@ describe('MapListShell synchronization', () => {
       has_query: false,
       uses_distance: false
     });
-    expect(screen.queryByRole('combobox', { name: 'Leash and restraint' })).toBeNull();
-    await fireEvent.click(screen.getByText('More filters'));
-    expect(
-      within(screen.getByRole('combobox', { name: 'Leash and restraint' })).getByRole('option', {
-        name: 'Other stated control rule'
-      })
-    ).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Leash and restraint' })).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
     expect(screen.queryByRole('combobox', { name: 'Place type' })).toBeNull();
     const closeResults = screen.getByRole('button', { name: 'Close results' });
     await waitFor(() => expect(document.activeElement).toBe(closeResults));
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     expect(screen.queryByRole('heading', { name: 'Places found' })).toBeNull();
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Place type' }))
@@ -1434,7 +1617,7 @@ describe('MapListShell synchronization', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Hide filters' }));
     await waitFor(() =>
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show filters' }))
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'More filters' }))
     );
 
     await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
@@ -1486,12 +1669,12 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Published Place' }));
     expect(screen.queryByRole('combobox', { name: 'Place type' })).toBeNull();
     expect(screen.getByLabelText('Selected place')).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     expect(screen.queryByLabelText('Selected place')).toBeNull();
     expect(screen.getByRole('combobox', { name: 'Place type' })).toBeTruthy();
 
@@ -1579,6 +1762,11 @@ describe('MapListShell synchronization', () => {
     expect(sidebar).toBeTruthy();
     expect(mapPanel).toBeTruthy();
     if (!sidebar || !mapPanel) throw new Error('Expected the discovery sidebar and map panel');
+    expect(getComputedStyle(mapPanel).isolation).toBe('isolate');
+    expect(getComputedStyle(mapPanel).zIndex).toBe('0');
+    expect(Number.parseInt(getComputedStyle(sidebar).zIndex, 10)).toBeGreaterThan(
+      Number.parseInt(getComputedStyle(mapPanel).zIndex, 10)
+    );
     expect(
       Boolean(sidebar.compareDocumentPosition(mapPanel) & Node.DOCUMENT_POSITION_FOLLOWING)
     ).toBe(true);
@@ -1635,7 +1823,7 @@ describe('MapListShell synchronization', () => {
       expect(shellStyle.display).toBe('grid');
       expect(desktopColumns).toHaveLength(2);
       expect(desktopColumns[0]).toBeGreaterThanOrEqual(320);
-      expect(desktopColumns[0]).toBeLessThanOrEqual(384);
+      expect(desktopColumns[0]).toBeLessThanOrEqual(416);
       expect(desktopColumns[1]).toBeGreaterThan(desktopColumns[0]);
     } finally {
       await browserPage.viewport(initialViewport.width, initialViewport.height);
@@ -1757,7 +1945,7 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Use my location' }));
     await waitFor(() =>
       expect(screen.getByText('Location is blocked in this browser.')).toBeTruthy()
@@ -1817,7 +2005,7 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Use my location' }));
     await waitFor(() => expect(screen.getByText('Nearby search is ready.')).toBeTruthy());
     expect(window.location.search).toContain('distance=5');
@@ -1834,7 +2022,6 @@ describe('MapListShell synchronization', () => {
       expect(screen.queryByRole('button', { name: 'Hafnarfjörður Park' })).toBeNull()
     );
 
-    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     await fireEvent.change(screen.getByRole('combobox', { name: 'Distance' }), {
       target: { value: '25' }
     });

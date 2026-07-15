@@ -124,28 +124,37 @@ async function expectNoHorizontalPageScroll(page: Page): Promise<void> {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
 }
 
-async function expectTooltipContained(button: Locator, container: Locator): Promise<void> {
-  const tooltip = button.locator('[role="tooltip"]');
+async function openTooltip(button: Locator): Promise<Locator> {
   await button.hover();
-  await expect(tooltip).toHaveCSS('visibility', 'visible');
-  const [tooltipBox, containerBox] = await Promise.all([
+  await expect(button).toHaveAttribute('aria-describedby', /.+/);
+  const tooltipId = await button.getAttribute('aria-describedby');
+  expect(tooltipId).not.toBeNull();
+  const tooltip = button.page().locator(`[data-access-tooltip][id="${tooltipId}"]`);
+  await expect(tooltip).toHaveAttribute('data-open', 'true');
+  return tooltip;
+}
+
+async function expectTooltipContained(button: Locator): Promise<void> {
+  const tooltip = await openTooltip(button);
+  const [tooltipBox, viewport] = await Promise.all([
     tooltip.boundingBox(),
-    container.boundingBox()
+    Promise.resolve(button.page().viewportSize())
   ]);
 
   expect(tooltipBox).not.toBeNull();
-  expect(containerBox).not.toBeNull();
-  expect(tooltipBox!.x).toBeGreaterThanOrEqual(containerBox!.x - 0.5);
-  expect(tooltipBox!.x + tooltipBox!.width).toBeLessThanOrEqual(
-    containerBox!.x + containerBox!.width + 0.5
-  );
+  expect(viewport).not.toBeNull();
+  expect(tooltipBox!.height).toBeGreaterThan(0);
+  expect(tooltipBox!.x).toBeGreaterThanOrEqual(7.5);
+  expect(tooltipBox!.x + tooltipBox!.width).toBeLessThanOrEqual(viewport!.width - 7.5);
+  expect(tooltipBox!.y).toBeGreaterThanOrEqual(7.5);
+  expect(tooltipBox!.y + tooltipBox!.height).toBeLessThanOrEqual(viewport!.height - 7.5);
 }
 
 test('public discovery and floating access details are keyboard-operable and Axe-clean', async ({
   page,
   evidence
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.setViewportSize({ width: 1024, height: 900 });
   await page.goto('/en?view=map');
   await waitForHydration(page);
   // The desktop result rail is persistent. The Show results control only exists on the
@@ -156,8 +165,8 @@ test('public discovery and floating access details are keyboard-operable and Axe
     .getByRole('region', { name: 'Places found' })
     .getByRole('group', { name: 'Dog access at Published Place' });
   const listSymbolButtons = listAccessSymbols.getByRole('button');
-  await expectTooltipContained(listSymbolButtons.first(), listAccessSymbols);
-  await expectTooltipContained(listSymbolButtons.last(), listAccessSymbols);
+  await expectTooltipContained(listSymbolButtons.first());
+  await expectTooltipContained(listSymbolButtons.last());
   await listSelection.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
@@ -184,6 +193,8 @@ test('public discovery and floating access details are keyboard-operable and Axe
   // navigation" when it fires immediately after a client-side history update).
   await page.waitForURL((url) => !url.searchParams.has('place'));
 
+  // Retain an independent floating-card pass after exercising portal geometry at 1024px.
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`/en?place=${evaluationFixtureIds.places.published}`);
   const selectedCard = page.getByRole('complementary', { name: 'Selected place' });
   await expect(selectedCard).toBeVisible();
@@ -194,9 +205,17 @@ test('public discovery and floating access details are keyboard-operable and Axe
   });
   const symbolButtons = accessSymbols.getByRole('button');
   await expect(symbolButtons).toHaveCount(5);
-  await expectTooltipContained(symbolButtons.first(), accessSymbols);
-  await expectTooltipContained(symbolButtons.last(), accessSymbols);
+  await expectTooltipContained(symbolButtons.first());
+  await expectTooltipContained(symbolButtons.last());
+  for (let index = 0; index < 5; index += 1) {
+    await expectTooltipContained(symbolButtons.nth(index));
+  }
   await symbolButtons.first().focus();
+  const focusedTooltip = await openTooltip(symbolButtons.first());
+  await page.keyboard.press('Escape');
+  await expect(focusedTooltip).toHaveAttribute('data-open', 'false');
+  await expect(symbolButtons.first()).toBeFocused();
+  await expect(selectedCard).toBeVisible();
   await page.keyboard.press('Enter');
   await expect(symbolButtons.first()).toHaveAttribute('aria-expanded', 'true');
   await page.waitForTimeout(250);

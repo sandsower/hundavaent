@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { page as browserPage } from 'vitest/browser';
 
+import '../../src/app.css';
 import AuthDialog from '$lib/auth/AuthDialog.svelte';
 import { requestAuthentication } from '$lib/auth/controller';
 import { catalogues } from '$i18n';
@@ -29,12 +31,27 @@ describe('AuthDialog', () => {
       intent: { action: 'favourite', placeId: 'place-1', placeName: 'Brikk' }
     });
 
-    expect(await screen.findByRole('dialog')).toBeTruthy();
+    const dialog = await screen.findByRole('dialog');
+    const dialogContent = dialog.querySelector<HTMLElement>('.dialog-content');
+    expect(dialogContent).toBeTruthy();
+    if (!dialogContent) throw new Error('Expected AuthDialog content');
     expect(screen.getByRole('heading', { name: 'Add Brikk to your favorites' })).toBeTruthy();
     const buttons = screen.getAllByRole('button');
+    const facebook = screen.getByRole('button', { name: 'Continue with Facebook' });
+    const facebookStyles = getComputedStyle(facebook);
     expect(buttons.findIndex((button) => button.textContent?.includes('Facebook'))).toBeLessThan(
       buttons.findIndex((button) => button.textContent?.includes('Send me'))
     );
+    expect(facebookStyles.minHeight).toBe('44px');
+    expect(facebookStyles.paddingBlockStart).toBe('10px');
+    expect(facebookStyles.paddingBlockEnd).toBe('10px');
+    expect(facebookStyles.paddingInlineStart).toBe('13.6px');
+    expect(facebookStyles.paddingInlineEnd).toBe('13.6px');
+    expect(facebookStyles.borderTopStyle).toBe('none');
+    expect(facebookStyles.borderRadius).toBe('5.6px');
+    expect(facebookStyles.fontWeight).toBe('800');
+    expect(getComputedStyle(dialogContent).paddingInlineStart).toBe('16px');
+    expect(getComputedStyle(dialogContent).paddingInlineEnd).toBe('16px');
     expect(screen.getByText("No password needed. We'll email you a sign-in link.")).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('/en/terms');
     expect(screen.getByRole('link', { name: 'Privacy Policy' }).getAttribute('href')).toBe(
@@ -125,5 +142,43 @@ describe('AuthDialog', () => {
       returnTo: `/en?place=${placeId}`
     });
     expect(await screen.findByRole('button', { name: 'Send again in 60s' })).toBeDisabled();
+  });
+
+  it('keeps the Facebook control and compact dialog inset from every viewport edge', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(390, 844);
+
+    try {
+      render(AuthDialog, {
+        lang: 'en',
+        copy: catalogues.en,
+        providers: { email: true, facebook: true }
+      });
+      requestAuthentication({
+        origin: 'favourite',
+        intent: { action: 'favourite', placeId: 'place-1', placeName: 'Brikk' }
+      });
+
+      const dialog = await screen.findByRole('dialog');
+      const content = dialog.querySelector<HTMLElement>('.dialog-content');
+      const facebook = screen.getByRole('button', { name: 'Continue with Facebook' });
+      expect(content).toBeTruthy();
+      if (!content) throw new Error('Expected AuthDialog content');
+
+      const contentRect = content.getBoundingClientRect();
+      const facebookRect = facebook.getBoundingClientRect();
+      const dialogStyles = getComputedStyle(dialog);
+      expect(dialogStyles.left).toBe('16px');
+      expect(dialogStyles.right).toBe('16px');
+      expect(dialogStyles.marginInlineStart).toBe('0px');
+      expect(dialogStyles.marginInlineEnd).toBe('0px');
+      expect(dialogStyles.marginBottom).toBe('16px');
+      expect(getComputedStyle(content).paddingInlineStart).toBe('16px');
+      expect(getComputedStyle(content).paddingInlineEnd).toBe('16px');
+      expect(facebookRect.left - contentRect.left).toBeCloseTo(16, 0);
+      expect(contentRect.right - facebookRect.right).toBeCloseTo(16, 0);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
   });
 });

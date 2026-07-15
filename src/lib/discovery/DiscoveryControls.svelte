@@ -52,8 +52,8 @@
     onToggleFilters
   }: Props = $props();
   let searchInput = $state<HTMLInputElement>();
-  let advancedOpen = $state(false);
   const count = $derived(activeFilterCount(filters));
+  const eyebrowArea = $derived(filters.area ?? copy['directory.capitalRegion']);
 
   function value(event: Event): string {
     return event.currentTarget instanceof HTMLSelectElement ? event.currentTarget.value : '';
@@ -70,8 +70,19 @@
 </script>
 
 <section class="discovery-controls hv-panel" aria-label={copy['directory.filters']}>
+  <header class="editorial-intro" data-directory-editorial>
+    <p class="eyebrow">
+      {resultCount === 1
+        ? copy['directory.railEyebrowOne'].replace('{area}', eyebrowArea)
+        : copy['directory.railEyebrowMany']
+            .replace('{area}', eyebrowArea)
+            .replace('{count}', String(resultCount))}
+    </p>
+    <h2>{copy['directory.discoveryHeading']}</h2>
+  </header>
+
   <div class="search-row">
-    <label>
+    <label class="search-label">
       <span>{copy['directory.searchLabel']}</span>
       <input
         bind:this={searchInput}
@@ -81,17 +92,49 @@
         oninput={(event) => onQueryChange(event.currentTarget.value)}
       />
     </label>
-    <button
-      type="button"
-      class="filters-button"
-      class:active={count > 0}
-      aria-expanded={filtersOpen}
-      aria-controls="discovery-filter-sheet"
-      onclick={onToggleFilters}
-    >
-      {filtersOpen ? copy['directory.hideFilters'] : copy['directory.showFilters']}
-      {#if count > 0}<span aria-hidden="true">{count}</span>{/if}
-    </button>
+    <div class="shortcut-row">
+      <div class="category-shortcuts" role="group" aria-label={copy['directory.categoryFilter']}>
+        <button
+          type="button"
+          class:active={filters.category === null}
+          aria-pressed={filters.category === null}
+          onclick={() => patchFilters({ category: null })}
+          >{copy['directory.categoryAllShort']}</button
+        >
+        <button
+          type="button"
+          class:active={filters.category === 'food_drink'}
+          aria-pressed={filters.category === 'food_drink'}
+          onclick={() => patchFilters({ category: 'food_drink' })}
+          >{copy['directory.categoryFoodShort']}</button
+        >
+        <button
+          type="button"
+          class:active={filters.category === 'shopping'}
+          aria-pressed={filters.category === 'shopping'}
+          onclick={() => patchFilters({ category: 'shopping' })}
+          >{copy['directory.categoryShoppingShort']}</button
+        >
+        <button
+          type="button"
+          class:active={filters.category === 'outdoors'}
+          aria-pressed={filters.category === 'outdoors'}
+          onclick={() => patchFilters({ category: 'outdoors' })}
+          >{copy['directory.categoryOutdoorsShort']}</button
+        >
+      </div>
+      <button
+        type="button"
+        class="filters-button"
+        class:active={count > 0}
+        aria-expanded={filtersOpen}
+        aria-controls="discovery-filter-sheet"
+        onclick={onToggleFilters}
+      >
+        {filtersOpen ? copy['directory.hideFilters'] : copy['directory.moreFilters']}
+        {#if count > 0}<span aria-hidden="true">{count}</span>{/if}
+      </button>
+    </div>
     {#if showResultsToggle}
       <button
         type="button"
@@ -178,75 +221,58 @@
           </select>
         </label>
 
-        <div class="advanced-filters">
-          <button
-            type="button"
-            class="advanced-toggle"
-            aria-expanded={advancedOpen}
-            onclick={() => (advancedOpen = !advancedOpen)}
+        <label>
+          <span>{copy['directory.restraintFilter']}</span>
+          <select
+            value={filters.restraintCondition ?? ''}
+            onchange={(event) =>
+              patchFilters({
+                restraintCondition: (value(event) || null) as DiscoveryFilters['restraintCondition']
+              })}
           >
-            {copy['directory.moreFilters']}
-          </button>
-          {#if advancedOpen}
-            <div class="advanced-grid">
-              <label>
-                <span>{copy['directory.restraintFilter']}</span>
-                <select
-                  value={filters.restraintCondition ?? ''}
-                  onchange={(event) =>
-                    patchFilters({
-                      restraintCondition: (value(event) ||
-                        null) as DiscoveryFilters['restraintCondition']
-                    })}
-                >
-                  <option value="">{copy['directory.anyRestraint']}</option>
-                  <option value="leash_required">{copy['access.leashRequired']}</option>
-                  <option value="off_leash_permitted">{copy['access.offLeash']}</option>
-                  <option value="carrier_required">{copy['access.carrierRequired']}</option>
-                  <option value="other_sourced">{copy['access.otherSourced']}</option>
-                </select>
-              </label>
+            <option value="">{copy['directory.anyRestraint']}</option>
+            <option value="leash_required">{copy['access.leashRequired']}</option>
+            <option value="off_leash_permitted">{copy['access.offLeash']}</option>
+            <option value="carrier_required">{copy['access.carrierRequired']}</option>
+            <option value="other_sourced">{copy['access.otherSourced']}</option>
+          </select>
+        </label>
 
-              <label>
-                <span>{copy['directory.permissionFilter']}</span>
-                <select
-                  value={filters.permissionRequirement ?? ''}
-                  onchange={(event) =>
-                    patchFilters({
-                      permissionRequirement: (value(event) ||
-                        null) as DiscoveryFilters['permissionRequirement']
-                    })}
-                >
-                  <option value="">{copy['directory.anyPermission']}</option>
-                  <option value="standing_permission">{copy['access.standingPermission']}</option>
-                  <option value="ask_on_arrival">{copy['access.askOnArrival']}</option>
-                  <option value="advance_approval">{copy['access.advanceApproval']}</option>
-                </select>
-              </label>
+        <label>
+          <span>{copy['directory.permissionFilter']}</span>
+          <select
+            value={filters.permissionRequirement ?? ''}
+            onchange={(event) =>
+              patchFilters({
+                permissionRequirement: (value(event) ||
+                  null) as DiscoveryFilters['permissionRequirement']
+              })}
+          >
+            <option value="">{copy['directory.anyPermission']}</option>
+            <option value="standing_permission">{copy['access.standingPermission']}</option>
+            <option value="ask_on_arrival">{copy['access.askOnArrival']}</option>
+            <option value="advance_approval">{copy['access.advanceApproval']}</option>
+          </select>
+        </label>
 
-              <label>
-                <span>{copy['directory.distanceFilter']}</span>
-                <select
-                  value={filters.distanceKm ?? ''}
-                  disabled={locationState !== 'ready'}
-                  onchange={(event) =>
-                    patchFilters({
-                      distanceKm: value(event)
-                        ? (Number(value(event)) as DiscoveryDistanceKm)
-                        : null
-                    })}
-                >
-                  <option value="">{copy['directory.anyDistance']}</option>
-                  {#each [1, 3, 5, 10, 25] as distance (distance)}
-                    <option value={distance}>
-                      {copy['directory.distanceOption'].replace('{distance}', String(distance))}
-                    </option>
-                  {/each}
-                </select>
-              </label>
-            </div>
-          {/if}
-        </div>
+        <label>
+          <span>{copy['directory.distanceFilter']}</span>
+          <select
+            value={filters.distanceKm ?? ''}
+            disabled={locationState !== 'ready'}
+            onchange={(event) =>
+              patchFilters({
+                distanceKm: value(event) ? (Number(value(event)) as DiscoveryDistanceKm) : null
+              })}
+          >
+            <option value="">{copy['directory.anyDistance']}</option>
+            {#each [1, 3, 5, 10, 25] as distance (distance)}
+              <option value={distance}>
+                {copy['directory.distanceOption'].replace('{distance}', String(distance))}
+              </option>
+            {/each}
+          </select>
+        </label>
       </div>
 
       <div class="filter-actions">
@@ -292,11 +318,38 @@
     width: 100%;
     max-height: 100%;
     overflow: auto;
-    padding: 1rem;
+    padding: 1.15rem 1rem 1rem;
     border: 0;
     border-radius: 0;
     background: var(--hv-color-snow-raised);
     box-shadow: none;
+  }
+
+  .editorial-intro {
+    display: grid;
+    gap: 0.35rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .editorial-intro :is(p, h2) {
+    margin: 0;
+  }
+
+  .eyebrow {
+    color: var(--hv-color-fjord);
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+
+  .editorial-intro h2 {
+    max-width: 15ch;
+    font-family: var(--hv-font-display);
+    font-size: clamp(1.45rem, 2.2vw, 1.75rem);
+    font-weight: 650;
+    line-height: 1.03;
+    letter-spacing: -0.025em;
   }
 
   .search-row {
@@ -304,6 +357,18 @@
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.55rem;
     align-items: end;
+  }
+
+  .shortcut-row {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .category-shortcuts {
+    display: contents;
   }
 
   label {
@@ -338,6 +403,18 @@
     grid-column: 1 / -1;
   }
 
+  .search-label > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   .search-row input {
     padding-inline: 0;
     border: 0;
@@ -351,14 +428,47 @@
     cursor: pointer;
   }
 
+  .category-shortcuts button,
+  .shortcut-row > .filters-button {
+    min-width: 0;
+    min-height: 1.9rem;
+    padding: 0.3rem 0.2rem;
+    border-color: transparent;
+    background: var(--hv-color-moss-soft);
+    font-size: clamp(0.56rem, 0.7cqw, 0.7rem);
+    font-weight: 850;
+    letter-spacing: -0.015em;
+    white-space: nowrap;
+  }
+
+  .shortcut-row > .filters-button {
+    position: relative;
+  }
+
+  .shortcut-row > .filters-button span[aria-hidden='true'] {
+    position: absolute;
+    top: -0.3rem;
+    right: -0.2rem;
+    min-width: 0.95rem;
+    min-height: 0.95rem;
+    margin: 0;
+    font-size: 0.6rem;
+  }
+
+  .category-shortcuts button.active {
+    border-color: var(--hv-color-fjord);
+    background: var(--hv-color-fjord);
+    color: var(--hv-color-snow-raised);
+  }
+
   .results-button {
     background: var(--hv-color-basalt);
     color: var(--hv-color-snow-raised);
   }
 
   button.active {
-    background: var(--hv-color-signal);
-    color: var(--hv-color-basalt);
+    background: var(--hv-color-fjord);
+    color: var(--hv-color-snow-raised);
   }
 
   button span[aria-hidden='true'] {
@@ -418,31 +528,6 @@
     min-height: 1.1rem;
   }
 
-  .advanced-filters {
-    grid-column: 1 / -1;
-    border-top: 1px solid var(--hv-border-subtle);
-    padding-top: 0.65rem;
-  }
-
-  .advanced-toggle {
-    width: fit-content;
-    min-height: 0;
-    border: 0;
-    background: transparent;
-    padding: 0;
-    color: var(--hv-color-fjord);
-    font-weight: 900;
-    cursor: pointer;
-    text-decoration: underline;
-  }
-
-  .advanced-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.65rem;
-    margin-top: 0.65rem;
-  }
-
   .filter-actions {
     display: flex;
     flex-wrap: wrap;
@@ -480,7 +565,7 @@
     opacity: 0.62;
   }
 
-  @media (max-width: 48rem) {
+  @container directory-shell (max-width: 48rem) {
     .discovery-controls {
       width: 100%;
       max-height: none;
@@ -498,22 +583,48 @@
     .filter-grid {
       grid-template-columns: 1fr 1fr;
     }
-
-    .advanced-grid {
-      grid-template-columns: 1fr 1fr;
-    }
   }
 
-  @media (min-width: 58rem) {
+  @container directory-shell (min-width: 58rem) {
     .results-button {
       display: none;
     }
   }
 
-  @media (max-width: 28rem) {
-    .filter-grid,
-    .advanced-grid {
+  @container directory-shell (max-width: 28rem) {
+    .filter-grid {
       grid-template-columns: 1fr;
+    }
+  }
+
+  @container directory-shell (max-width: 57.999rem) {
+    .editorial-intro,
+    .category-shortcuts {
+      display: none;
+    }
+
+    .shortcut-row {
+      display: contents;
+    }
+
+    .shortcut-row > .filters-button {
+      position: static;
+      min-height: var(--hv-control-height);
+      padding: 0.45rem 0.75rem;
+      border-color: var(--hv-color-basalt);
+      font-size: inherit;
+    }
+
+    .shortcut-row > .filters-button span[aria-hidden='true'] {
+      position: static;
+      min-width: 1.25rem;
+      min-height: 1.25rem;
+      margin-left: 0.25rem;
+      font-size: inherit;
+    }
+
+    .discovery-controls {
+      padding-top: 1rem;
     }
   }
 </style>
