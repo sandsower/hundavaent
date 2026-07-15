@@ -385,6 +385,13 @@ export function assembleEvidenceManifest({
     .reduce((total, result) => total + result.violations, 0);
 
   if (a11yEvidence.length === 0) failures.push('accessibility evidence is missing');
+  if (
+    a11yEvidence.some(
+      (item) => !item.artifact.required.includes('axe') || item.artifact.axe.length === 0
+    )
+  ) {
+    failures.push('accessibility evidence is missing declared Axe proof');
+  }
   if (axeViolations > 0) failures.push('accessibility evidence contains Axe violations');
   if (screenshots.filter((item) => item.locale === 'is').length < 8) {
     failures.push('Icelandic visual evidence is incomplete');
