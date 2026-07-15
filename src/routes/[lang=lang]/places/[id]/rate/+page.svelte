@@ -225,7 +225,7 @@
               {data.copy['ratingNote.createReportAction']}
             </button>
           </form>
-          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- continueUrl carries a place query string resolve() cannot express -->
+          <!-- eslint-disable svelte/no-navigation-without-resolve -- continueUrl carries a place query string resolve() cannot express -->
           <a
             href={continueUrl}
             data-sveltekit-preload-data="hover"
@@ -233,6 +233,7 @@
           >
             {data.copy['ratingNote.notNowAction']}
           </a>
+          <!-- eslint-enable svelte/no-navigation-without-resolve -->
         </div>
       </section>
     {:else if reportActionMessage}
