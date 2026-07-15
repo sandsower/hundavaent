@@ -114,38 +114,46 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="rating-shell">
-  <div class="title-row">
+<main class="hv-page-shell" data-ui-mode="place" data-width="wide">
+  <header class="hv-page-header">
     <div>
-      <p class="eyebrow">{data.place?.name}</p>
-      <h1>{data.copy['rating.title']}</h1>
-      <p class="intro">{data.copy['rating.intro']}</p>
+      <p class="hv-eyebrow">{data.place?.name}</p>
+      <h1 class="hv-page-title">{data.copy['rating.title']}</h1>
+      <p class="hv-meta">{data.copy['rating.intro']}</p>
     </div>
-  </div>
+  </header>
 
-  <p class="disclaimer" role="note">{data.copy['rating.notAReview']}</p>
+  <p class="hv-notice" data-tone="info" role="note">{data.copy['rating.notAReview']}</p>
 
   {#if data.myRating?.excluded}
-    <p class="message" role="status">{data.copy['rating.summary.myRatingExcluded']}</p>
+    <p class="hv-notice" data-tone="info" role="status">
+      {data.copy['rating.summary.myRatingExcluded']}
+    </p>
   {/if}
 
   {#if data.signInUrl}
-    <p class="message" role="status">{data.copy['common.loading']}</p>
+    <p class="hv-notice" data-tone="info" role="status">{data.copy['common.loading']}</p>
   {:else if data.unavailable}
-    <p class="message error" role="alert">{data.copy['error.unexpectedBody']}</p>
+    <p class="hv-notice" data-tone="error" role="alert">{data.copy['error.unexpectedBody']}</p>
   {:else if data.place}
-    {#if errorMessage}<p class="message error" role="alert">{errorMessage}</p>{/if}
+    {#if errorMessage}<p class="hv-notice" data-tone="error" role="alert">{errorMessage}</p>{/if}
 
-    <form method="POST" action="?/save" use:enhance={enhanceForm} aria-busy={submitting}>
+    <form
+      class="hv-stack"
+      method="POST"
+      action="?/save"
+      use:enhance={enhanceForm}
+      aria-busy={submitting}
+    >
       {#each dimensions as dimension (dimension)}
-        <fieldset>
+        <fieldset class="hv-form-section hv-panel">
           <legend>{data.copy[`rating.dimension.${dimension}.label` as MessageKey]}</legend>
-          <p class="dimension-explanation">
+          <p class="hv-meta dimension-explanation">
             {data.copy[`rating.dimension.${dimension}.explanation` as MessageKey]}
           </p>
-          <label>
+          <label class="hv-stack">
             {data.copy[`rating.dimension.${dimension}.label` as MessageKey]}
-            <select name={`${dimension}Score`} bind:value={scores[dimension]}>
+            <select class="hv-field" name={`${dimension}Score`} bind:value={scores[dimension]}>
               <option value="na">{data.copy['rating.notApplicable']}</option>
               <option value="1">1 · {data.copy['rating.scoreLow']}</option>
               <option value="2">2</option>
@@ -158,12 +166,12 @@
       {/each}
 
       {#if isLowScore}
-        <fieldset class="note-fieldset">
+        <fieldset class="hv-form-section hv-panel note-fieldset">
           <legend>{data.copy['ratingNote.heading']}</legend>
-          <p class="dimension-explanation">{data.copy['ratingNote.intro']}</p>
+          <p class="hv-meta dimension-explanation">{data.copy['ratingNote.intro']}</p>
           <input type="hidden" name="noteFieldsetTouched" value="true" />
 
-          <fieldset class="classification-group">
+          <fieldset class="classification-group hv-stack">
             <legend>{data.copy['ratingNote.classificationLabel']}</legend>
             {#each classifications as classification (classification)}
               <label class="radio-option">
@@ -179,9 +187,10 @@
             {/each}
           </fieldset>
 
-          <label>
+          <label class="hv-stack">
             {data.copy['ratingNote.textLabel']}
-            <textarea name="privateRatingNote" rows="4" bind:value={noteText}></textarea>
+            <textarea class="hv-field" name="privateRatingNote" rows="4" bind:value={noteText}
+            ></textarea>
           </label>
 
           {#if data.myRating?.privateNote}
@@ -189,7 +198,7 @@
               type="submit"
               name="noteAction"
               value="clear"
-              class="secondary"
+              class="hv-control secondary"
               disabled={submitting}
             >
               {data.copy['ratingNote.clearAction']}
@@ -198,103 +207,55 @@
         </fieldset>
       {/if}
 
-      <button type="submit" disabled={submitting}>
+      <button class="hv-control" data-intent="primary" type="submit" disabled={submitting}>
         {submitting ? data.copy['rating.saving'] : data.copy['rating.submit']}
       </button>
     </form>
 
     {#if showReportOffer}
-      <section class="report-offer" aria-labelledby="report-offer-heading">
+      <section class="report-offer hv-panel hv-stack" aria-labelledby="report-offer-heading">
         <h2 id="report-offer-heading">{data.copy['ratingNote.reportPromptHeading']}</h2>
         <p>{data.copy['ratingNote.reportPromptIntro']}</p>
-        {#if reportActionMessage}<p class="message" role="status">{reportActionMessage}</p>{/if}
+        {#if reportActionMessage}
+          <p class="hv-notice" data-tone="info" role="status">{reportActionMessage}</p>
+        {/if}
         <div class="report-offer-actions">
-          <form method="POST" action="?/createReport" use:enhance={enhanceForm}>
-            <button type="submit" disabled={submitting}>
+          <form class="hv-stack" method="POST" action="?/createReport" use:enhance={enhanceForm}>
+            <button class="hv-control" data-intent="primary" type="submit" disabled={submitting}>
               {data.copy['ratingNote.createReportAction']}
             </button>
           </form>
-          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- continueUrl carries a place query string resolve() cannot express -->
-          <a href={continueUrl} data-sveltekit-preload-data="hover" class="secondary-link">
+          <!-- eslint-disable svelte/no-navigation-without-resolve -- continueUrl carries a place query string resolve() cannot express -->
+          <a
+            href={continueUrl}
+            data-sveltekit-preload-data="hover"
+            class="hv-control secondary-link"
+          >
             {data.copy['ratingNote.notNowAction']}
           </a>
+          <!-- eslint-enable svelte/no-navigation-without-resolve -->
         </div>
       </section>
     {:else if reportActionMessage}
-      <p class="message" role="status">{reportActionMessage}</p>
+      <p class="hv-notice" data-tone="info" role="status">{reportActionMessage}</p>
     {/if}
   {/if}
 </main>
 
 <style>
-  .rating-shell {
-    width: min(100% - 2rem, 68rem);
-    margin: 2rem auto 5rem;
-  }
-  .title-row {
-    display: flex;
-    gap: 2rem;
-    align-items: start;
-    justify-content: space-between;
-  }
-  button {
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
-    color: var(--ink);
-    padding: 0.75rem 1rem;
-    font-weight: 900;
-    box-shadow: 0 0.2rem 0 var(--ink);
-  }
   button.secondary {
-    background: var(--paper-raised);
+    background: var(--hv-color-snow-raised);
+    color: var(--hv-color-basalt);
     box-shadow: none;
   }
   .secondary-link {
-    font-weight: 800;
-    color: var(--ink-soft);
-  }
-  .eyebrow {
-    color: var(--coral-dark);
-    font-weight: 950;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  h1 {
-    margin: 0.25rem 0;
-    font-size: clamp(2.25rem, 6vw, 4.5rem);
-    line-height: 0.95;
-  }
-  .disclaimer {
-    margin-top: 1.5rem;
-    border: 2px solid var(--ink);
-    border-radius: 0.9rem;
-    background: var(--mint);
-    padding: 0.9rem;
-    font-weight: 800;
-  }
-  form {
-    display: grid;
-    gap: 1rem;
-    margin-top: 1.5rem;
-  }
-  fieldset {
-    display: grid;
-    gap: 0.6rem;
-    margin: 0;
-    border: 2px solid var(--ink);
-    border-radius: 1.25rem;
-    background: var(--paper-raised);
-    padding: 1.2rem;
-    box-shadow: 0.3rem 0.35rem 0 var(--teal);
-  }
-  fieldset.note-fieldset {
-    box-shadow: 0.3rem 0.35rem 0 var(--coral-dark);
+    color: var(--hv-color-fjord);
   }
   fieldset.classification-group {
-    box-shadow: none;
+    margin: 0;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-control);
     padding: 0.75rem;
-    gap: 0.4rem;
   }
   .radio-option {
     display: flex;
@@ -302,57 +263,15 @@
     gap: 0.5rem;
     font-weight: 700;
   }
-  legend {
-    padding: 0 0.5rem;
-    font-size: 1.2rem;
-    font-weight: 950;
-  }
   .classification-group legend {
     font-size: 1rem;
   }
   .dimension-explanation {
     margin: 0;
-    color: var(--ink-soft);
-    font-weight: 700;
-  }
-  label {
-    display: grid;
-    gap: 0.35rem;
-    font-weight: 800;
-  }
-  select,
-  textarea {
-    width: 100%;
-    border: 2px solid var(--ink);
-    border-radius: 0.7rem;
-    background: white;
-    padding: 0.7rem;
-    color: var(--ink);
-    font: inherit;
-  }
-  select:focus-visible,
-  textarea:focus-visible,
-  button:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
-  }
-  .message {
-    border: 2px solid var(--ink);
-    border-radius: 0.75rem;
-    padding: 0.9rem;
-    font-weight: 850;
-  }
-  .error {
-    background: var(--coral-soft);
   }
   .report-offer {
     margin-top: 1.5rem;
-    display: grid;
-    gap: 0.75rem;
-    border: 2px solid var(--ink);
-    border-radius: 1.25rem;
-    background: var(--coral-soft);
-    padding: 1.2rem;
+    padding: var(--hv-space-panel);
   }
   .report-offer h2 {
     margin: 0;
@@ -363,10 +282,5 @@
     align-items: center;
     gap: 1rem;
     flex-wrap: wrap;
-  }
-  @media (max-width: 48rem) {
-    .title-row {
-      display: grid;
-    }
   }
 </style>

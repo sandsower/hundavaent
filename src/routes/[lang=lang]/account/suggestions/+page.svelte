@@ -8,6 +8,12 @@
   const name = (item: (typeof data.suggestions)[number]) =>
     data.lang === 'is' ? item.nameIs : item.nameEn;
   const statusKey = (status: string): MessageKey => `suggestion.status.${status}` as MessageKey;
+  const statusTone = (status: string): string | undefined => {
+    if (status === 'accepted') return 'success';
+    if (status === 'needs_information') return 'attention';
+    if (status === 'rejected') return 'error';
+    return undefined;
+  };
 </script>
 
 <svelte:head>
@@ -15,31 +21,53 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="outcome-shell">
-  <div class="heading">
-    <div>
-      <h1>{data.copy['suggestion.myTitle']}</h1>
-      <p>{data.copy['suggestion.myIntro']}</p>
+<main
+  class="hv-page-shell"
+  data-width="narrow"
+  data-ui-mode="place"
+  aria-labelledby="suggestions-title"
+>
+  <header class="hv-page-header">
+    <div class="hv-stack">
+      <p class="hv-eyebrow">{data.copy['site.name']}</p>
+      <h1 id="suggestions-title" class="hv-page-title">{data.copy['suggestion.myTitle']}</h1>
+      <p class="hv-meta">{data.copy['suggestion.myIntro']}</p>
     </div>
-    <a href={resolve('/[lang=lang]/suggest', { lang: data.lang })}>
-      {data.copy['suggestion.new']}
-    </a>
-  </div>
+    <div class="hv-page-actions">
+      <a
+        class="hv-control"
+        data-intent="primary"
+        href={resolve('/[lang=lang]/suggest', { lang: data.lang })}
+      >
+        {data.copy['suggestion.new']}
+      </a>
+    </div>
+  </header>
   {#if data.submitted}
-    <p class="ack" role="status">{data.copy['suggestion.acknowledged']}</p>
+    <p class="hv-notice" data-tone="success" role="status">
+      {data.copy['suggestion.acknowledged']}
+    </p>
   {/if}
   {#if data.suggestions.length === 0}
-    <p class="empty">{data.copy['suggestion.empty']}</p>
+    <p class="hv-notice" data-tone="info">{data.copy['suggestion.empty']}</p>
   {:else}
-    <ul>
+    <ul class="hv-list outcome-list">
       {#each data.suggestions as item (item.suggestionId)}
-        <li class:highlighted={data.submitted === item.suggestionId}>
-          <div>
+        <li
+          class="outcome-card hv-list-card hv-panel"
+          class:highlighted={data.submitted === item.suggestionId}
+        >
+          <div class="hv-stack">
             <h2>{name(item)}</h2>
-            <p>{localizePlaceCategory(item.category, data.copy)} · {item.locality}</p>
+            <p class="hv-meta">
+              {localizePlaceCategory(item.category, data.copy)} · {item.locality}
+            </p>
           </div>
-          <strong class={`status ${item.outcome}`} data-outcome={item.outcome}>
-            <span aria-hidden="true"></span>
+          <strong
+            class="hv-status"
+            data-status={statusTone(item.outcome)}
+            data-outcome={item.outcome}
+          >
             {data.copy[statusKey(item.outcome)]}
           </strong>
           {#if data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}
@@ -52,7 +80,8 @@
     </ul>
     {#if data.nextCursor}
       <a
-        class="next"
+        class="next hv-control"
+        data-intent="primary"
         href={resolve(
           `/[lang=lang]/account/suggestions?cursorTime=${encodeURIComponent(data.nextCursor.submittedAt)}&cursorId=${encodeURIComponent(data.nextCursor.suggestionId)}`,
           { lang: data.lang }
@@ -60,7 +89,9 @@
       >
     {/if}
     {#if data.hasPrevious}
-      <a class="previous" href={resolve('/[lang=lang]/account/suggestions', { lang: data.lang })}
+      <a
+        class="previous hv-control"
+        href={resolve('/[lang=lang]/account/suggestions', { lang: data.lang })}
         >{data.copy['suggestion.previousPage']}</a
       >
     {/if}
@@ -68,132 +99,59 @@
 </main>
 
 <style>
-  .outcome-shell {
-    width: min(100% - 2rem, 60rem);
-    margin: 3rem auto;
+  .hv-page-header + .hv-notice,
+  .hv-page-header + .outcome-list {
+    margin-top: calc(var(--hv-space-context) * 1.5);
   }
-  .heading {
-    display: flex;
-    gap: 2rem;
-    align-items: center;
-    justify-content: space-between;
+
+  .outcome-list {
+    margin-block: calc(var(--hv-space-context) * 1.5);
   }
-  h1 {
-    margin: 0;
-    font-size: clamp(2.4rem, 7vw, 5rem);
-    line-height: 0.95;
-  }
-  .heading a,
-  .next,
-  .previous {
-    flex: none;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
-    padding: 0.75rem 1rem;
-    color: var(--ink);
-    font-weight: 900;
-  }
-  .next,
-  .previous {
-    display: inline-block;
-    margin-top: 1rem;
-  }
-  .previous {
-    margin-left: 0.75rem;
-  }
-  .ack,
-  .empty {
-    margin-top: 2rem;
-    border: 2px solid var(--ink);
-    border-radius: 1rem;
-    background: var(--mint);
-    padding: 1rem;
-    font-weight: 850;
-  }
-  ul {
+
+  .outcome-card {
     display: grid;
-    gap: 1rem;
-    padding: 0;
-    list-style: none;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.75rem var(--hv-space-panel);
   }
-  li {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 0.6rem 1rem;
-    border: 2px solid var(--ink);
-    border-radius: 1.1rem;
-    background: var(--paper-raised);
-    padding: 1rem;
-    box-shadow: 0.25rem 0.3rem 0 var(--sun);
+
+  .outcome-card.highlighted {
+    border-color: var(--hv-color-fjord);
+    box-shadow: 0 0 0 2px var(--hv-color-fjord-soft);
   }
-  li.highlighted {
-    box-shadow: 0.25rem 0.3rem 0 var(--teal);
-  }
+
   h2,
   p {
-    margin: 0.15rem 0;
+    margin: 0;
   }
-  .status {
-    display: inline-flex;
-    gap: 0.4rem;
-    align-self: start;
-    align-items: center;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    padding: 0.4rem 0.65rem;
-    line-height: 1.1;
-  }
-  .status span {
-    display: inline-grid;
-    width: 1.25rem;
-    height: 1.25rem;
-    flex: none;
-    place-items: center;
-    border-radius: 50%;
-    background: rgb(255 255 255 / 65%);
-    font-size: 0.9rem;
-  }
-  .status.submitted {
-    background: var(--sun);
-  }
-  .status.submitted span::before {
-    content: '↑';
-  }
-  .status.needs_information {
-    background: #ffe3a1;
-  }
-  .status.needs_information span::before {
-    content: '?';
-  }
-  .status.accepted {
-    background: var(--mint);
-  }
-  .status.accepted span::before {
-    content: '✓';
-  }
-  .status.duplicate {
-    background: #c9e4ee;
-  }
-  .status.duplicate span::before {
-    content: '≡';
-  }
-  .status.rejected {
-    background: var(--coral-soft);
-  }
-  .status.rejected span::before {
-    content: '×';
-  }
+
   .reason {
     grid-column: 1 / -1;
-    border-top: 1px solid var(--ink);
-    padding-top: 0.7rem;
+    border-top: 1px solid var(--hv-border-subtle);
+    padding-top: 0.75rem;
+    color: var(--hv-color-basalt-muted);
   }
+
+  .outcome-card > .hv-status {
+    align-self: start;
+    justify-self: end;
+  }
+
+  .next,
+  .previous {
+    margin-top: 0.75rem;
+  }
+
+  .previous {
+    margin-left: 0.5rem;
+  }
+
   @media (max-width: 38rem) {
-    .heading,
-    li {
-      display: grid;
+    .outcome-card {
       grid-template-columns: 1fr;
+    }
+
+    .outcome-card > .hv-status {
+      justify-self: start;
     }
   }
 </style>

@@ -51,13 +51,15 @@
   }
 </script>
 
-<section class="location-picker">
+<section class="location-picker hv-panel">
   <div class="picker-heading">
     <div>
       <h3>{copy['suggestion.locationPickerTitle']}</h3>
-      <p>{copy['suggestion.locationPickerHelp']}</p>
+      <p class="hv-meta">{copy['suggestion.locationPickerHelp']}</p>
     </div>
-    <button type="button" onclick={useMapCenter}>{copy['suggestion.useMapCenter']}</button>
+    <button class="hv-control" type="button" onclick={useMapCenter}
+      >{copy['suggestion.useMapCenter']}</button
+    >
   </div>
 
   <MapSurface
@@ -72,11 +74,11 @@
     compact
   />
 
-  <div class="coordinate-alternative">
+  <div class="coordinate-alternative hv-meta">
     <span>{copy['suggestion.manualLocationHelp']}</span>
     <button
       type="button"
-      class="text-toggle"
+      class="hv-control text-toggle"
       aria-expanded={coordinatesOpen}
       onclick={() => (coordinatesOpen = !coordinatesOpen)}
     >
@@ -85,9 +87,10 @@
   </div>
   {#if coordinatesOpen}
     <div class="coordinates">
-      <label>
+      <label class="hv-stack">
         {copy['suggestion.latitude']}
         <input
+          class="hv-field"
           id="suggestion-latitude"
           name="latitude"
           type="number"
@@ -98,9 +101,10 @@
           bind:value={latitude}
         />
       </label>
-      <label>
+      <label class="hv-stack">
         {copy['suggestion.longitude']}
         <input
+          class="hv-field"
           name="longitude"
           type="number"
           min="-180"
@@ -122,6 +126,7 @@
   .location-picker {
     display: grid;
     gap: 0.85rem;
+    padding: var(--hv-space-panel);
   }
 
   .picker-heading {
@@ -137,23 +142,16 @@
   }
 
   h3 {
+    color: var(--hv-color-basalt);
     font-size: 1.25rem;
   }
 
   .picker-heading p {
     margin-top: 0.25rem;
-    opacity: 0.82;
   }
 
-  button {
+  .picker-heading button {
     flex: none;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
-    padding: 0.6rem 0.8rem;
-    color: var(--ink);
-    font: inherit;
-    font-weight: 850;
   }
 
   .coordinate-alternative {
@@ -161,23 +159,15 @@
     flex-wrap: wrap;
     gap: 0.35rem 0.75rem;
     align-items: baseline;
-    color: var(--ink-soft);
-    font-size: 0.88rem;
   }
 
   .text-toggle {
     border: 0;
     background: transparent;
     padding: 0;
-    color: var(--coral-dark);
+    color: var(--hv-color-fjord);
     box-shadow: none;
     text-decoration: underline;
-  }
-
-  button:focus-visible,
-  input:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 2px;
   }
 
   .coordinates {
@@ -187,20 +177,8 @@
   }
 
   label {
-    display: grid;
-    gap: 0.35rem;
+    color: var(--hv-color-basalt);
     font-weight: 800;
-  }
-
-  input {
-    width: 100%;
-    box-sizing: border-box;
-    border: 2px solid var(--ink);
-    border-radius: 0.7rem;
-    background: white;
-    padding: 0.7rem;
-    color: var(--ink);
-    font: inherit;
   }
 
   .visually-hidden {

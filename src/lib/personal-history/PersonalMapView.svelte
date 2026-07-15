@@ -53,23 +53,23 @@
 </script>
 
 {#if places.length === 0}
-  <section class="empty" aria-labelledby="history-map-empty-title">
-    <span aria-hidden="true">🗺️</span>
+  <section class="empty-state hv-panel hv-stack" aria-labelledby="history-map-empty-title">
     <h2 id="history-map-empty-title" tabindex="-1">{copy['history.emptyMapTitle']}</h2>
     <p>{copy['history.emptyMapBody']}</p>
-    <a href={resolve('/[lang=lang]', { lang })}>{copy['favourite.backToDiscovery']}</a>
+    <a class="hv-control" data-intent="primary" href={resolve('/[lang=lang]', { lang })}
+      >{copy['favourite.backToDiscovery']}</a
+    >
   </section>
 {:else}
   {#if truncated}
-    <p class="truncation-note" role="status">
+    <p class="truncation-note hv-notice" data-tone="info" role="status">
       {copy['history.mapTruncated'].replace('{count}', String(limit))}
     </p>
   {/if}
   <div class="map-view">
-    <div class="map-surface">
+    <div class="map-surface hv-panel">
       {#if mappablePlaces.length === 0}
-        <section class="map-empty" aria-labelledby="history-map-withheld-title">
-          <span aria-hidden="true">🗺️</span>
+        <section class="map-empty hv-stack" aria-labelledby="history-map-withheld-title">
           <h2 id="history-map-withheld-title" tabindex="-1">{copy['history.emptyMapTitle']}</h2>
           <p>{copy['history.emptyMapBody']}</p>
         </section>
@@ -97,11 +97,16 @@
         </MapSurface>
       {/if}
     </div>
-    <ul class="map-list" aria-label={copy['history.tabMap']}>
+    <ul class="map-list hv-list" aria-label={copy['history.tabMap']}>
       {#each places as place (place.placeId)}
-        <li class:selected={place.placeId === selectedPlaceId}>
+        <li
+          class="map-card hv-list-card hv-panel"
+          class:selected={place.placeId === selectedPlaceId}
+        >
           {#if hasCoordinates(place)}
             <button
+              class="hv-control"
+              data-intent={place.placeId === selectedPlaceId ? 'selected' : undefined}
               type="button"
               aria-pressed={place.placeId === selectedPlaceId}
               onclick={() => selectPlace(place.placeId)}
@@ -113,7 +118,7 @@
           {/if}
           {#if place.availability === 'available'}
             <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-            <a href={discoveryPlaceHref(place.placeId)}
+            <a class="hv-control" href={discoveryPlaceHref(place.placeId)}
               >{copy['directory.viewPlace'].replace('{name}', place.name)}</a
             >
           {/if}
@@ -126,26 +131,21 @@
 <style>
   .truncation-note {
     max-width: 42ch;
-    margin: 1.5rem 0 0;
-    padding: 0.6rem 0.9rem;
-    border: 2px solid var(--ink);
-    border-radius: var(--radius-organic);
-    background: var(--paper-light);
-    color: var(--ink-soft);
-    font-weight: 700;
+    margin: calc(var(--hv-space-context) * 1.5) 0 0;
   }
+
   .map-view {
     display: grid;
-    margin-top: 1.5rem;
-    gap: 1rem;
+    margin-top: calc(var(--hv-space-context) * 1.5);
+    gap: var(--hv-space-context);
     grid-template-columns: minmax(0, 1fr) 20rem;
   }
+
   .map-surface {
     min-height: 24rem;
     overflow: hidden;
-    border: 2px solid var(--ink);
-    border-radius: var(--radius-organic);
   }
+
   .map-failure {
     display: grid;
     height: 100%;
@@ -154,6 +154,7 @@
     gap: 0.5rem;
     text-align: center;
   }
+
   .map-empty {
     display: grid;
     min-height: 24rem;
@@ -162,73 +163,48 @@
     gap: 0.5rem;
     text-align: center;
   }
-  .map-empty span {
-    font-size: 3rem;
-  }
+
   .map-empty h2,
   .map-empty p {
     margin: 0;
   }
+
   .map-list {
-    display: grid;
     align-content: start;
     margin: 0;
-    padding: 0;
-    gap: 0.5rem;
-    list-style: none;
   }
-  .map-list li {
+
+  .map-card {
     display: grid;
-    padding: 0.6rem;
-    border: 2px solid var(--ink);
-    border-radius: var(--radius-organic);
-    gap: 0.35rem;
-    background: var(--paper-light);
+    gap: 0.5rem;
   }
-  .map-list li.selected {
-    background: var(--sun);
+
+  .map-card.selected {
+    border-color: var(--hv-color-basalt);
+    background: var(--hv-color-signal-soft);
   }
-  .map-list button {
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--ink);
-    font-weight: 900;
+
+  .map-card button {
+    justify-content: start;
     text-align: left;
     cursor: pointer;
   }
-  .map-list strong {
-    color: var(--ink-soft);
+
+  .map-card strong {
+    color: var(--hv-color-basalt-muted);
   }
-  .empty {
-    display: grid;
+
+  .empty-state {
     max-width: 34rem;
-    margin-top: 2rem;
-    padding: 2rem;
-    border: 2px solid var(--ink);
-    border-radius: var(--radius-organic);
-    gap: 0.6rem;
-    background: var(--paper-light);
-    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--amber);
+    margin-top: calc(var(--hv-space-context) * 1.5);
+    padding: var(--hv-space-panel);
   }
-  .empty span {
-    font-size: 3rem;
-  }
-  .empty h2,
-  .empty p {
+
+  .empty-state h2,
+  .empty-state p {
     margin: 0;
   }
-  .empty a {
-    display: inline-block;
-    min-height: 2.75rem;
-    padding: 0.6rem 0.9rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--sun);
-    color: var(--ink);
-    font-weight: 900;
-    text-align: center;
-  }
+
   @media (max-width: 45rem) {
     .map-view {
       grid-template-columns: 1fr;

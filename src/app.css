@@ -61,6 +61,15 @@ body::before {
   transform: rotate(-18deg);
 }
 
+body.north-star-place {
+  background: var(--hv-color-snow, #f2f5f1);
+  color: var(--hv-color-basalt, #1e2d31);
+}
+
+body.north-star-place::before {
+  content: none;
+}
+
 button,
 input,
 select,

@@ -5,7 +5,7 @@
 - Design status: approved.
 - Approved direction: `Hundavænt place companion`.
 - Implementation approach: one semantic system adopted through complete vertical slices.
-- Current implementation slice: Phase 2 public Place journey.
+- Current implementation slice: Phase 3 Member and Contribution journeys.
 
 ## Purpose
 
@@ -84,6 +84,14 @@ Check-in controls expose idle, busy, committed, and error states through text, l
 Under-review and inactive public Place status routes use the same Place mode and status-panel primitives while preserving their distinct bilingual explanations.
 Signal Yellow remains reserved for verified access, selection, and committed actions.
 
+## Phase 3 Member and Contribution Journeys - In Progress
+
+Phase 3 extends Place mode through the private Member home, Saved Places, visit history, achievements, contributor status, contribution forms, and contribution outcomes without changing authentication, server contracts, pagination, focus management, or bilingual behavior.
+Saved Places and personal history provide practical private wayfinding through clear availability, visit evidence, synchronized map selection, and direct routes back to discoverable Places.
+Contribution forms retain their complete validation and submission journeys while using the shared Place-mode page, field, control, notice, and panel semantics.
+Suggestion, Correction, and Report outcomes make review status, Member-facing explanations, and available next actions easy to scan without assigning Signal Yellow to routine workflow states.
+This slice is in progress and is not recorded as delivered until the integrated journey is merged, deployed, and visually verified in production.
+
 ## Evidence Contract
 
 `pnpm test:visual` writes named bilingual desktop and mobile captures under `test-results/visual/screenshots/`.
@@ -106,6 +114,14 @@ Required Phase 2 evidence includes:
 - Selected Favourite and committed Check-in states on the selected Place Profile after server-confirmed mutations.
 - English and Icelandic under-review and inactive public Place status panels in Place mode.
 - Keyboard operation, live-region semantics, non-color state cues, Axe-clean output, and no horizontal page overflow across these states.
+
+Required Phase 3 evidence includes:
+
+- English and Icelandic Member home, Saved Places, visit history, personal map, achievements, and contributor status states at desktop and mobile viewports.
+- Empty, populated, unavailable, successor, pagination, selected-map-place, and map-fallback states across Saved Places and personal history.
+- English and Icelandic Suggest Place, Correction, Report, Rating, and private Rating-note journeys, including validation, retained failure state, and server-confirmed success.
+- Submitted, needs-information, accepted or applied, duplicate, dispute, inactivated, and rejected contribution outcomes with Member-facing reasons where available.
+- Keyboard operation, focus restoration, live-region semantics, non-color status cues, Axe-clean output, reduced-motion compatibility, and no horizontal page overflow across these states.
 
 ## Anti-Patterns
 

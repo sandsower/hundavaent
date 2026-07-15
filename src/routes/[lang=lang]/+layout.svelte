@@ -20,9 +20,22 @@
   let hydrated = $state(false);
   let isDiscovery = $derived(page.route.id === '/[lang=lang]');
   let isPlaceStatus = $derived(page.route.id === '/[lang=lang]/places/[id]');
+  let isMemberOrContribution = $derived(
+    page.route.id?.startsWith('/[lang=lang]/account') === true ||
+      page.route.id === '/[lang=lang]/saved' ||
+      page.route.id === '/[lang=lang]/history' ||
+      page.route.id === '/[lang=lang]/suggest' ||
+      page.route.id === '/[lang=lang]/places/[id]/correct' ||
+      page.route.id === '/[lang=lang]/places/[id]/report' ||
+      page.route.id === '/[lang=lang]/places/[id]/rate'
+  );
   let isModeration = $derived(page.route.id?.startsWith('/[lang=lang]/moderation') === true);
   let northStarMode = $derived(
-    isDiscovery || isPlaceStatus ? 'place' : isModeration ? 'operations' : undefined
+    isDiscovery || isPlaceStatus || isMemberOrContribution
+      ? 'place'
+      : isModeration
+        ? 'operations'
+        : undefined
   );
   const currentBrowserUrl = $derived.by(() => {
     const currentUrl = new URL(page.url.href);
@@ -82,6 +95,8 @@
   <title>{data.copy['site.name']}</title>
   <meta name="description" content={data.copy['meta.description']} />
 </svelte:head>
+
+<svelte:body class:north-star-place={northStarMode === 'place'} />
 
 <header
   class="site-header"
