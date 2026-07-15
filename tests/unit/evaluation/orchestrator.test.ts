@@ -89,6 +89,9 @@ describe('release evaluation orchestration', () => {
         'auth.users 1\nauth.identities 1\n'
       )
     ).toThrow('dump is missing table auth.identities');
+    expect(() => verifyRecoveryCopyDump('SET statement_timeout = 0;\n', '')).toThrow(
+      'expected table set is empty'
+    );
   });
 
   it('requires non-empty Auth recovery to restore and match every table', () => {
@@ -104,6 +107,10 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('recovery/auth-production-counts.txt');
     expect(workflow).toContain('recovery/auth-dump-counts.txt');
     expect(workflow).toContain('recovery/auth-restored-counts.txt');
+    expect(workflow.match(/\[\[ ! -s recovery\/auth-production-counts\.txt \]\]/g)).toHaveLength(3);
+    expect(workflow.match(/\[\[ ! -s recovery\/auth-dump-counts\.txt \]\]/g)).toHaveLength(3);
+    expect(workflow.match(/'\^auth\\\.users \[0-9\]\+\$'/g)).toHaveLength(6);
+    expect(workflow.match(/'\^auth\\\.identities \[0-9\]\+\$'/g)).toHaveLength(6);
     expect(workflow).toContain(
       'diff -u recovery/auth-dump-counts.txt recovery/auth-restored-counts.txt'
     );

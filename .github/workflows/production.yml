@@ -196,9 +196,21 @@ jobs:
               while read -r table; do
                 echo "${table} $(psql -At "${db_url}" -c "select count(*) from ${table}")"
               done | sort > recovery/auth-production-counts.txt
+            if [[ ! -s recovery/auth-production-counts.txt ]] || \
+                ! grep -Eq '^auth\.users [0-9]+$' recovery/auth-production-counts.txt || \
+                ! grep -Eq '^auth\.identities [0-9]+$' recovery/auth-production-counts.txt; then
+              echo "Required Auth production counts are missing identity tables." >&2
+              exit 1
+            fi
             node --experimental-strip-types scripts/verify-recovery-copy-dump.ts \
               recovery/auth-data.sql recovery/auth-production-counts.txt \
               recovery/auth-dump-counts.txt
+            if [[ ! -s recovery/auth-dump-counts.txt ]] || \
+                ! grep -Eq '^auth\.users [0-9]+$' recovery/auth-dump-counts.txt || \
+                ! grep -Eq '^auth\.identities [0-9]+$' recovery/auth-dump-counts.txt; then
+              echo "Required Auth dump counts are missing identity tables." >&2
+              exit 1
+            fi
           fi
           # Exact per-table production counts for the dumped schemas; the
           # verify step fails if the dump does not cover every one of them.
@@ -225,8 +237,14 @@ jobs:
           psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/schema.sql
           psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/data.sql
           if [[ "$(cat recovery/auth-recovery-mode.txt)" == "required" ]]; then
-            if [[ ! -s recovery/auth-data.sql ]]; then
-              echo "Required Auth recovery dump is missing or empty." >&2
+            if [[ ! -s recovery/auth-data.sql ]] || \
+                [[ ! -s recovery/auth-production-counts.txt ]] || \
+                [[ ! -s recovery/auth-dump-counts.txt ]] || \
+                ! grep -Eq '^auth\.users [0-9]+$' recovery/auth-production-counts.txt || \
+                ! grep -Eq '^auth\.identities [0-9]+$' recovery/auth-production-counts.txt || \
+                ! grep -Eq '^auth\.users [0-9]+$' recovery/auth-dump-counts.txt || \
+                ! grep -Eq '^auth\.identities [0-9]+$' recovery/auth-dump-counts.txt; then
+              echo "Required Auth recovery proof is missing or incomplete." >&2
               exit 1
             fi
             psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/auth-data.sql
@@ -255,6 +273,15 @@ jobs:
           fi
           auth_recovery_mode="$(cat recovery/auth-recovery-mode.txt)"
           if [[ "${auth_recovery_mode}" == "required" ]]; then
+            if [[ ! -s recovery/auth-production-counts.txt ]] || \
+                [[ ! -s recovery/auth-dump-counts.txt ]] || \
+                ! grep -Eq '^auth\.users [0-9]+$' recovery/auth-production-counts.txt || \
+                ! grep -Eq '^auth\.identities [0-9]+$' recovery/auth-production-counts.txt || \
+                ! grep -Eq '^auth\.users [0-9]+$' recovery/auth-dump-counts.txt || \
+                ! grep -Eq '^auth\.identities [0-9]+$' recovery/auth-dump-counts.txt; then
+              echo "Required Auth recovery counts are missing or incomplete." >&2
+              exit 1
+            fi
             : > recovery/auth-restored-counts.txt
             while read -r table _; do
               actual="$(psql -At "${RESTORE_DB_URL}" -c "select count(*) from ${table}")"
