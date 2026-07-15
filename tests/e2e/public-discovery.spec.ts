@@ -59,11 +59,59 @@ test.describe('public discovery locale routes', () => {
     await expect(selected.getByText('Official Place website')).toBeVisible();
   });
 
-  test('provides localized About and Member account entry points', async ({ page }) => {
+  test('tells the localized About story and links into discovery and contribution', async ({
+    page
+  }) => {
     await page.goto('/en/about');
-    await expect(page.getByRole('heading', { name: 'About Hundavænt' })).toBeVisible();
-    await expect(page.getByText('More information is coming soon.')).toBeVisible();
 
+    await expect(
+      page.getByRole('heading', { name: 'We wanted to bring Miles with us.' })
+    ).toBeVisible();
+    await expect(page.getByAltText('Vic holding Miles, a long-haired dachshund')).toBeVisible();
+    await expect(
+      page.getByRole('heading', {
+        name: 'Most of the useful information travelled by word of mouth.'
+      })
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dog Access' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dog-Friendliness' })).toBeVisible();
+    const englishBrowseLinks = page.getByRole('link', { name: 'Browse the map' });
+    await expect(englishBrowseLinks).toHaveCount(2);
+    await expect(englishBrowseLinks.first()).toHaveAttribute('href', '/en');
+    await expect(englishBrowseLinks.last()).toHaveAttribute('href', '/en');
+    await expect(page.getByRole('link', { name: 'Suggest a place' })).toHaveAttribute(
+      'href',
+      '/en/suggest'
+    );
+    await expect(page.getByRole('link', { name: 'Reykjavík dog rules history' })).toHaveAttribute(
+      'href',
+      'https://www.hundasamur.is/greinar1/hundahald-i-ettbyli'
+    );
+    await expect(page.getByRole('link', { name: 'Strætó pet rules' })).toHaveAttribute(
+      'href',
+      'https://www.straeto.is/notendaupplysingar/gaeludyr-i-straeto'
+    );
+    await expect(page.getByRole('link', { name: 'Kringlan dog policy' })).toHaveAttribute(
+      'href',
+      'https://www.kringlan.is/frettir/smahundar-a-sunnudogum'
+    );
+
+    await page.goto('/is/about');
+    await expect(
+      page.getByRole('heading', { name: 'Okkur langaði að taka Miles með.' })
+    ).toBeVisible();
+    await expect(page.getByAltText('Vic heldur á Miles, síðhærðum dachshundi')).toBeVisible();
+    const icelandicBrowseLinks = page.getByRole('link', { name: 'Skoða kortið' });
+    await expect(icelandicBrowseLinks).toHaveCount(2);
+    await expect(icelandicBrowseLinks.first()).toHaveAttribute('href', '/is');
+    await expect(icelandicBrowseLinks.last()).toHaveAttribute('href', '/is');
+    await expect(page.getByRole('link', { name: 'Leggja til stað' })).toHaveAttribute(
+      'href',
+      '/is/suggest'
+    );
+  });
+
+  test('provides a localized Member account entry point', async ({ page }) => {
     await page.goto('/is/account');
     await expect(page.getByRole('heading', { name: 'Velkomin á Hundavænt' })).toBeVisible();
     await expect(page.getByLabel('Netfang')).toBeVisible();

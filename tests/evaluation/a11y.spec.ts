@@ -123,6 +123,31 @@ async function expectNoHorizontalPageScroll(page: Page): Promise<void> {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
 }
 
+test('About story remains bilingual, responsive, and Axe-clean', async ({ page, evidence }) => {
+  const scenarios = [
+    {
+      path: '/en/about',
+      heading: 'We wanted to bring Miles with us.',
+      photoAlt: 'Vic holding Miles, a long-haired dachshund'
+    },
+    {
+      path: '/is/about',
+      heading: 'Okkur langaði að taka Miles með.',
+      photoAlt: 'Vic heldur á Miles, síðhærðum dachshundi'
+    }
+  ] as const;
+
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  for (const scenario of scenarios) {
+    await page.goto(scenario.path);
+    await expect(page.getByRole('heading', { name: scenario.heading })).toBeVisible();
+    await expect(page.getByAltText(scenario.photoAlt)).toBeVisible();
+    await expectNoHorizontalPageScroll(page);
+    await expectNoSeriousAxeViolations(page, evidence);
+  }
+});
+
 test('public discovery and floating access details are keyboard-operable and Axe-clean', async ({
   page,
   evidence
