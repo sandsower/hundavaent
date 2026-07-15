@@ -856,6 +856,7 @@ export const isCatalogue = {
   'rating.inline.overall': 'Heildareinkunn',
   'rating.inline.saved': 'Vistað',
   'rating.inline.saveFailed': 'Ekki vistað. Reyndu aftur.',
+  'rating.inline.loadFailed': 'Ekki tókst að sækja matið þitt. Reyndu aftur.',
   'rating.inline.reset': 'Nota heildareinkunn',
   'rating.inline.note': 'Hvað mætti bæta? (valfrjálst)',
   'rating.star.one': '{score} stjarna',

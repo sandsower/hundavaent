@@ -215,6 +215,27 @@ describe('InlineRating', () => {
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
   });
 
+  it('describes an initial load failure without implying unsaved changes', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 503 }))
+    );
+    render(InlineRating, {
+      placeId,
+      placeName: 'Brikk',
+      copy: catalogues.en,
+      signedIn: true,
+      summary: null
+    });
+
+    expect(await screen.findByText("Couldn't load your rating. Try again.")).toHaveAttribute(
+      'aria-live',
+      'polite'
+    );
+    expect(screen.queryByText('Not saved. Try again.')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+  });
+
   it('flushes the latest dirty snapshot with keepalive when unmounted', async () => {
     const pendingSave = deferred<Response>();
     const calls: RequestInit[] = [];
