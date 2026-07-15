@@ -24,12 +24,20 @@ export interface MapPoint {
   longitude: number;
 }
 
+export interface MapPadding {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
 export interface MapAdapter {
   mount(container: HTMLElement, callbacks: MapCallbacks): void | Promise<void>;
   setPlaces(places: readonly MapPlace[]): void;
   setSelectedPlace(placeId: string | null): void;
   focusPlace(placeId: string): void;
-  setCamera(camera: MapCamera): void;
+  setCamera(camera: MapCamera, options?: { duration?: number; padding?: MapPadding }): void;
+  setPadding?(padding: MapPadding, options?: { duration?: number }): void;
   fitToPlaces?(places: readonly MapPlace[]): void;
   destroy(): void;
 }

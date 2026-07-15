@@ -57,7 +57,7 @@ a {
 }
 
 /* Place pin: an anchored teardrop whose tail sits on the coordinate. The name
-   lives in a chip that appears on hover/focus/selection, never permanently,
+   lives in a chip that appears on hover/focus, never permanently,
    so long Icelandic names cannot occlude the map. */
 .hundavaent-marker {
   padding: 0;
@@ -70,7 +70,7 @@ a {
 
 .hundavaent-marker .pin {
   display: block;
-  width: 2.6rem;
+  width: 2.25rem;
   height: auto;
   filter: drop-shadow(0 0.25rem 0.5rem rgb(30 45 49 / 22%));
 }
@@ -93,14 +93,10 @@ a {
   fill: var(--hv-color-snow-raised, #fbfcf9);
 }
 
-.hundavaent-marker.selected .pin,
-.hundavaent-marker[aria-pressed='true'] .pin {
-  width: 3rem;
-}
-
 .hundavaent-marker.selected .pin-body,
 .hundavaent-marker[aria-pressed='true'] .pin-body {
   fill: var(--hv-color-signal, #f2c94c);
+  stroke-width: 5;
 }
 
 .hundavaent-marker.selected .pin-icon-stroke,
@@ -141,9 +137,7 @@ a {
 }
 
 .hundavaent-marker:hover .marker-label,
-.hundavaent-marker:focus-visible .marker-label,
-.hundavaent-marker.selected .marker-label,
-.hundavaent-marker[aria-pressed='true'] .marker-label {
+.hundavaent-marker:focus-visible .marker-label {
   display: block;
 }
 

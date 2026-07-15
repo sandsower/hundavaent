@@ -38,6 +38,7 @@ const proposal = {
     restraint_condition: 'leash_required',
     restraint_note: null,
     dog_eligibility: { scope: 'all_dogs' },
+    availability_state: 'not_stated',
     availability_window: {},
     permission_requirement: 'standing_permission'
   },

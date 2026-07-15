@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import { evaluationFixtureIds, evaluationModerator } from './fixtures';
 import { expect, test, type EvaluationEvidenceRecorder } from './evidence-fixture';
@@ -24,6 +24,7 @@ import {
   provisionLocalPlaceFlagReviewFixture,
   provisionLocalPrivateRatingNoteFixture,
   provisionLocalSuggestionFixture,
+  resolveLocalSuggestionFixtureAsModerator,
   retireLocalDogFriendlinessFixture,
   retireLocalPlaceFlagFixtures,
   retireLocalPrivateRatingNoteFixture,
@@ -92,8 +93,8 @@ async function signInModeratorForWorkspace(page: Page): Promise<void> {
   await clearLocalEvaluationMailbox();
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await expect(page.getByRole('status')).toContainText('The link has been sent.');
   await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
   await expect(page).toHaveURL(/\/en\/moderation/);
@@ -123,17 +124,45 @@ async function expectNoHorizontalPageScroll(page: Page): Promise<void> {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
 }
 
+async function openTooltip(button: Locator): Promise<Locator> {
+  await button.hover();
+  await expect(button).toHaveAttribute('aria-describedby', /.+/);
+  const tooltipId = await button.getAttribute('aria-describedby');
+  expect(tooltipId).not.toBeNull();
+  const tooltip = button.page().locator(`[data-access-tooltip][id="${tooltipId}"]`);
+  await expect(tooltip).toHaveAttribute('data-open', 'true');
+  return tooltip;
+}
+
+async function expectTooltipContained(button: Locator): Promise<void> {
+  const tooltip = await openTooltip(button);
+  const [tooltipBox, viewport] = await Promise.all([
+    tooltip.boundingBox(),
+    Promise.resolve(button.page().viewportSize())
+  ]);
+
+  expect(tooltipBox).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(tooltipBox!.height).toBeGreaterThan(0);
+  expect(tooltipBox!.x).toBeGreaterThanOrEqual(7.5);
+  expect(tooltipBox!.x + tooltipBox!.width).toBeLessThanOrEqual(viewport!.width - 7.5);
+  expect(tooltipBox!.y).toBeGreaterThanOrEqual(7.5);
+  expect(tooltipBox!.y + tooltipBox!.height).toBeLessThanOrEqual(viewport!.height - 7.5);
+}
+
 test('About story remains bilingual, responsive, and Axe-clean', async ({ page, evidence }) => {
   const scenarios = [
     {
       path: '/en/about',
       heading: 'We wanted to bring Miles with us.',
-      photoAlt: 'Vic holding Miles, a long-haired dachshund'
+      photoAlt: 'Vic holding Miles, a long-haired dachshund',
+      visitorHiddenTrustTerms: /verified|verification|moderator|sources?|evidence|last checked/i
     },
     {
       path: '/is/about',
       heading: 'Okkur langaði að taka Miles með.',
-      photoAlt: 'Vic heldur á Miles, síðhærðum dachshundi'
+      photoAlt: 'Vic heldur á Miles, síðhærðum dachshundi',
+      visitorHiddenTrustTerms: /staðfest|umsjónarfólk|heimildir?|sönnunargögn|síðast yfirfar/i
     }
   ] as const;
 
@@ -143,6 +172,9 @@ test('About story remains bilingual, responsive, and Axe-clean', async ({ page, 
     await page.goto(scenario.path);
     await expect(page.getByRole('heading', { name: scenario.heading })).toBeVisible();
     await expect(page.getByAltText(scenario.photoAlt)).toBeVisible();
+    await expect(page.locator('.trust-section')).not.toContainText(
+      scenario.visitorHiddenTrustTerms
+    );
     await expectNoHorizontalPageScroll(page);
     await expectNoSeriousAxeViolations(page, evidence);
   }
@@ -152,13 +184,19 @@ test('public discovery and floating access details are keyboard-operable and Axe
   page,
   evidence
 }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
   await page.goto('/en?view=map');
   await waitForHydration(page);
-  const resultCount = page.getByRole('button', { name: /Show \d+ results?/ });
-  await resultCount.focus();
-  await page.keyboard.press('Enter');
+  // The desktop result rail is persistent. The Show results control only exists on the
+  // compact map-first layout, so exercise the rail directly at this wide viewport.
   const listSelection = page.getByRole('button', { name: 'Select Published Place' });
   await expect(listSelection).toBeVisible();
+  const listAccessSymbols = page
+    .getByRole('region', { name: 'Places found' })
+    .getByRole('group', { name: 'Dog access at Published Place' });
+  const listSymbolButtons = listAccessSymbols.getByRole('button');
+  await expectTooltipContained(listSymbolButtons.first());
+  await expectTooltipContained(listSymbolButtons.last());
   await listSelection.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
@@ -185,14 +223,42 @@ test('public discovery and floating access details are keyboard-operable and Axe
   // navigation" when it fires immediately after a client-side history update).
   await page.waitForURL((url) => !url.searchParams.has('place'));
 
+  // Retain an independent floating-card pass after exercising portal geometry at 1024px.
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`/en?place=${evaluationFixtureIds.places.published}`);
   const selectedCard = page.getByRole('complementary', { name: 'Selected place' });
   await expect(selectedCard).toBeVisible();
   await expect(selectedCard).toHaveAttribute('data-overlay', 'place');
-  await expect(selectedCard.locator('[data-access-state="verified"]')).toBeVisible();
-  const disclosure = selectedCard.locator('summary');
-  await disclosure.focus();
+  await expect(selectedCard.locator('[data-access-state="verified"]')).toHaveCount(0);
+  const accessSymbols = selectedCard.getByRole('group', {
+    name: 'Dog access at Published Place'
+  });
+  const symbolButtons = accessSymbols.getByRole('button');
+  await expect(symbolButtons).toHaveCount(5);
+  await expectTooltipContained(symbolButtons.first());
+  await expectTooltipContained(symbolButtons.last());
+  for (let index = 0; index < 5; index += 1) {
+    await expectTooltipContained(symbolButtons.nth(index));
+  }
+  await symbolButtons.first().focus();
+  const focusedTooltip = await openTooltip(symbolButtons.first());
+  await page.keyboard.press('Escape');
+  await expect(focusedTooltip).toHaveAttribute('data-open', 'false');
+  await expect(symbolButtons.first()).toBeFocused();
+  await expect(selectedCard).toBeVisible();
   await page.keyboard.press('Enter');
+  await expect(symbolButtons.first()).toHaveAttribute('aria-expanded', 'true');
+  await page.waitForTimeout(250);
+  const completeDetails = selectedCard.locator('details.hv-disclosure');
+  await expect(completeDetails).toHaveAttribute('open', '');
+  await expect(selectedCard.getByRole('heading', { name: 'Dog access' })).toBeVisible();
+  const disclosure = completeDetails.locator(':scope > summary');
+  await disclosure.focus();
+  await expect(disclosure).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(completeDetails).not.toHaveAttribute('open', '');
+  await page.keyboard.press('Enter');
+  await expect(completeDetails).toHaveAttribute('open', '');
   await expect(selectedCard.getByRole('heading', { name: 'Dog access' })).toBeVisible();
   await expectNoSeriousAxeViolations(page, evidence);
 });
@@ -222,7 +288,9 @@ test('place-mode directory results remain bilingual and reflow without page over
       await page.setViewportSize(viewport);
       await page.goto(`/${scenario.locale}?view=map`);
       await waitForHydration(page);
-      await page.getByRole('button', { name: scenario.resultsButton }).click();
+      if (viewport.width < 928) {
+        await page.getByRole('button', { name: scenario.resultsButton }).click();
+      }
       await expect(page.getByRole('region', { name: scenario.resultsRegion })).toBeVisible();
       await expectNoHorizontalPageScroll(page);
       await expectNoSeriousAxeViolations(page, evidence);
@@ -230,24 +298,14 @@ test('place-mode directory results remain bilingual and reflow without page over
   }
 });
 
-test('public Place status routes remain bilingual, place-mode, reflowing, and Axe-clean', async ({
+test('unpublished Place routes remain neutral, bilingual, reflowing, and Axe-clean', async ({
   page,
   evidence
 }) => {
-  // Candidate identities are private. The published-but-unverified fixture is the public
-  // access-under-review state exercised by this route.
   const placeId = evaluationFixtureIds.places.unverified;
   const scenarios = [
-    {
-      locale: 'en',
-      underReview: 'Dog access information is under review',
-      inactive: 'This place is no longer active'
-    },
-    {
-      locale: 'is',
-      underReview: 'Upplýsingar um hundaaðgengi eru í yfirferð',
-      inactive: 'Þessi staður er ekki lengur virkur'
-    }
+    { locale: 'en', heading: 'Page not found' },
+    { locale: 'is', heading: 'Síðan fannst ekki' }
   ] as const;
 
   setLocalPlaceLifecycle(placeId, 'published');
@@ -258,19 +316,19 @@ test('public Place status routes remain bilingual, place-mode, reflowing, and Ax
         { width: 390, height: 844 }
       ]) {
         await page.setViewportSize(viewport);
-        for (const state of [
-          { lifecycle: 'published', heading: scenario.underReview },
-          { lifecycle: 'inactive', heading: scenario.inactive }
-        ] as const) {
-          setLocalPlaceLifecycle(placeId, state.lifecycle);
-          await page.goto(`/${scenario.locale}/places/${placeId}`);
+        for (const lifecycle of ['published', 'inactive'] as const) {
+          setLocalPlaceLifecycle(placeId, lifecycle);
+          evidence.allowHttpStatus(404, `/places/${placeId}`);
+          evidence.allowConsoleError(
+            'Failed to load resource: the server responded with a status of 404'
+          );
+          const response = await page.goto(`/${scenario.locale}/places/${placeId}`);
+          expect(response?.status()).toBe(404);
           await waitForHydration(page);
           await expect(page.locator('header[data-ui-mode="place"]')).toBeVisible();
           await expect(page.locator('main[data-ui-mode="place"]')).toBeVisible();
-          const statusPanel = page.locator('article.hv-panel.status-panel');
-          await expect(statusPanel).toBeVisible();
-          await expect(statusPanel.locator('.hv-notice[data-tone="info"]')).toBeVisible();
-          await expect(statusPanel.getByRole('heading', { name: state.heading })).toBeVisible();
+          await expect(page.getByRole('heading', { name: scenario.heading })).toBeVisible();
+          await expect(page.getByText(/review|verified|reconfirm|source/i)).toHaveCount(0);
           await expectNoHorizontalPageScroll(page);
           await expectNoSeriousAxeViolations(page, evidence);
         }
@@ -288,7 +346,7 @@ test('Moderator forms have keyboard focus order and Axe-clean semantics', async 
   await provisionLocalModerator(evaluationModerator.email);
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fplaces%2Fnew');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
   const signInInvalidation = page.waitForResponse((response) => {
     const responseUrl = new URL(response.url());
     return (
@@ -298,7 +356,7 @@ test('Moderator forms have keyboard focus order and Axe-clean semantics', async 
       response.ok()
     );
   });
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await expect(page.getByRole('status')).toBeVisible();
   await signInInvalidation;
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
@@ -355,7 +413,6 @@ test('Moderator forms have keyboard focus order and Axe-clean semantics', async 
 });
 
 test('the compact moderation workspace reflows, preserves keyboard context, and announces outcomes', async ({
-  context,
   page,
   evidence
 }) => {
@@ -475,30 +532,14 @@ test('the compact moderation workspace reflows, preserves keyboard context, and 
   ).toBeVisible();
   await expectNoSeriousAxeViolations(page, evidence);
 
-  // A second signed-in tab wins the race so the original tab exercises a genuine stale-write
-  // conflict. The conflict must be announced and retain everything the Moderator typed.
+  // Resolve through the production RPC after the original form is loaded. This gives the browser
+  // a deterministic stale precondition without coupling the proof to a second page's hydration,
+  // enhanced-form POST, and redirect timing.
   await provisionLocalSuggestionFixture(evaluationModerator.email);
   await page.goto(`/en/moderation?queue=suggestions&item=${suggestionId}&filter=actionable`);
-  const winningPage = await context.newPage();
-  await winningPage.goto(`/en/moderation?queue=suggestions&item=${suggestionId}&filter=actionable`);
+  await waitForHydration(page);
   await fillWorkspaceSuggestionResolution(page, 'en', 'rejected');
-  await fillWorkspaceSuggestionResolution(winningPage, 'en', 'rejected');
-  const winningResolution = winningPage.waitForResponse((response) => {
-    const responseUrl = new URL(response.url());
-    return (
-      response.request().method() === 'POST' &&
-      responseUrl.pathname === '/en/moderation' &&
-      responseUrl.searchParams.has('/resolve')
-    );
-  });
-  await Promise.all([
-    winningResolution,
-    winningPage.waitForURL((url) => url.searchParams.get('item')?.endsWith('0094') ?? false, {
-      waitUntil: 'networkidle'
-    }),
-    winningPage.getByRole('button', { name: moderationWorkspaceCopy.en.saveOutcome }).click()
-  ]);
-  await expect(winningPage.locator('.live-status')).toContainText(moderationWorkspaceCopy.en.saved);
+  await resolveLocalSuggestionFixtureAsModerator(evaluationModerator.email, suggestionId);
   evidence.allowHttpStatus(409, '/en/moderation?/resolve');
   await page.getByRole('button', { name: moderationWorkspaceCopy.en.saveOutcome }).click();
   await expect(
@@ -508,10 +549,10 @@ test('the compact moderation workspace reflows, preserves keyboard context, and 
     'Please confirm that the source is still current.'
   );
   await expectNoSeriousAxeViolations(page, evidence);
-  await winningPage.close();
 
   await provisionLocalSuggestionFixture(evaluationModerator.email);
   await page.goto(`/en/moderation?queue=suggestions&item=${suggestionId}&filter=actionable`);
+  await waitForHydration(page);
   await fillWorkspaceSuggestionResolution(page, 'en');
   await page.getByRole('button', { name: moderationWorkspaceCopy.en.saveOutcome }).click();
   await expect(page.locator('.live-status')).toContainText(moderationWorkspaceCopy.en.saved);
@@ -557,28 +598,29 @@ test('Member sign-in is keyboard-operable and Axe-clean in both product language
     {
       locale: 'en',
       viewport: { width: 1280, height: 900 },
-      heading: 'Welcome to Hundavænt',
+      heading: 'Continue with Hundavænt',
       email: 'Email address',
-      send: 'Send sign-in link'
+      send: 'Send me a sign-in link'
     },
     {
       locale: 'is',
       viewport: { width: 390, height: 844 },
-      heading: 'Velkomin á Hundavænt',
+      heading: 'Halda áfram með Hundavænt',
       email: 'Netfang',
-      send: 'Senda innskráningartengil'
+      send: 'Senda mér innskráningartengil'
     }
   ] as const;
 
   for (const scenario of cases) {
     await page.setViewportSize(scenario.viewport);
     await page.goto(`/${scenario.locale}/account?returnTo=%2F${scenario.locale}`);
-    await expect(page.getByRole('heading', { name: scenario.heading })).toBeVisible();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: scenario.heading })).toBeVisible();
 
-    const email = page.getByLabel(scenario.email);
+    const email = dialog.getByLabel(scenario.email);
     await email.focus();
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: scenario.send })).toBeFocused();
+    await expect(dialog.getByRole('button', { name: scenario.send })).toBeFocused();
     await expectNoSeriousAxeViolations(page, evidence);
   }
 });
@@ -588,12 +630,12 @@ test('private Favourite actions and the saved view are keyboard-operable and Axe
   evidence
 }) => {
   const email = `favourite-a11y-${Date.now()}@example.invalid`;
-  await page.goto('/en/account?returnTo=%2Fen%2Fsaved');
+  await page.goto('/en/account?returnTo=%2Fen%2Ffavorites');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(email);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(email));
-  await expect(page.getByRole('heading', { name: 'Saved places', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Favorites', exact: true })).toBeVisible();
   await page.evaluate(async (placeId) => {
     const response = await fetch(`/api/favourites/${placeId}`, {
       method: 'PUT',
@@ -606,10 +648,10 @@ test('private Favourite actions and the saved view are keyboard-operable and Axe
   await page.reload();
   // A fresh load must finish hydrating before a keyboard interaction fires -- otherwise the
   // Enter keypress can land before Svelte attaches its click handler and silently no-op,
-  // leaving the "No saved places yet" heading focus assertion below to time out.
+  // leaving the "No favorites yet" heading focus assertion below to time out.
   await waitForHydration(page);
   const remove = page.getByRole('button', {
-    name: 'Remove Published Place from saved places'
+    name: 'Remove Published Place from favorites'
   });
   const favouriteAction = page.locator(
     `[data-favourite-place="${evaluationFixtureIds.places.published}"]`
@@ -620,9 +662,9 @@ test('private Favourite actions and the saved view are keyboard-operable and Axe
   await expect(remove).toHaveAttribute('data-intent', 'selected');
   await remove.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('heading', { name: 'No saved places yet' })).toBeFocused();
+  await expect(page.getByRole('heading', { name: 'No favorites yet' })).toBeFocused();
   await expect(page.getByRole('status')).toContainText(
-    'Published Place was removed from your saved places.'
+    'Published Place was removed from your favorites.'
   );
   await expectNoSeriousAxeViolations(page, evidence);
 });
@@ -638,8 +680,8 @@ test('the private Check-in action and its result are keyboard-operable and Axe-c
     )}`
   );
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(email);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(email));
   await waitForHydration(page);
 
@@ -673,8 +715,8 @@ test('Correction, Report, and Moderator review forms are keyboard-operable and A
 
   await page.goto(`/en/account?returnTo=%2Fen%2Fplaces%2F${correctable.placeId}%2Fcorrect`);
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(memberEmail);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(memberEmail);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(memberEmail));
 
   await page.goto(`/en/places/${correctable.placeId}/correct?field=phone`);
@@ -696,8 +738,8 @@ test('Correction, Report, and Moderator review forms are keyboard-operable and A
   const reviewFlagId = await provisionLocalPlaceFlagReviewFixture(evaluationModerator.email);
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fcorrections-and-reports');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
 
   await page.goto(`/en/moderation/corrections-and-reports/${reviewFlagId}`);
@@ -713,7 +755,7 @@ test('Correction, Report, and Moderator review forms are keyboard-operable and A
   retireLocalPlaceFlagFixtures();
 });
 
-test('Dog-Friendliness Rating form, public Summary, and Moderator exclusion view are keyboard-operable and Axe-clean', async ({
+test('inline Dog-Friendliness Rating, public average, and Moderator exclusion view are keyboard-operable and Axe-clean', async ({
   browser,
   page,
   evidence
@@ -730,51 +772,69 @@ test('Dog-Friendliness Rating form, public Summary, and Moderator exclusion view
     await expectNoSeriousAxeViolations(page, evidence);
 
     const memberEmail = `dog-friendliness-a11y-${Date.now()}@example.invalid`;
-    await page.goto(`/en/account?returnTo=${encodeURIComponent(`/en/places/${placeId}/rate`)}`);
+    await page.goto('/en/account');
     await waitForHydration(page);
-    await page.getByLabel('Email address').fill(memberEmail);
-    await page.getByRole('button', { name: 'Send sign-in link' }).click();
+    await page.getByRole('dialog').getByLabel('Email address').fill(memberEmail);
+    await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
     await page.goto(await waitForLocalMagicLink(memberEmail));
 
-    await expect(page.getByRole('heading', { name: 'Rate Dog-Friendliness' })).toBeVisible();
-    await page.getByLabel('Welcome').focus();
+    await page.goto(`/en?place=${placeId}&view=map`);
+    await waitForHydration(page);
+    const rating = selected.locator('[data-inline-rating]');
+    const overallRating = rating.getByRole('radiogroup', { name: 'Overall rating' });
+    const oneStar = overallRating.getByRole('radio', { name: '1 star' });
+    await expect(oneStar).toBeEnabled();
+    await oneStar.focus();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await expect(overallRating.getByRole('radio', { name: '4 stars' })).toBeFocused();
+    await expect(overallRating.getByRole('radio', { name: '4 stars' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    await rating
+      .getByRole('radiogroup', { name: 'Welcome' })
+      .getByRole('radio', { name: '4 stars' })
+      .focus();
     await page.keyboard.press('Tab');
-    await expect(page.getByLabel('Clarity')).toBeFocused();
+    await expect(
+      rating.getByRole('radiogroup', { name: 'Clarity' }).getByRole('radio', { name: '4 stars' })
+    ).toBeFocused();
+    await expect(rating.getByText('Saved')).toBeVisible();
     await expectNoSeriousAxeViolations(page, evidence);
-
-    await page.getByLabel('Welcome').selectOption('4');
-    await page.getByLabel('Clarity').selectOption('na');
-    await page.getByLabel('Comfort').selectOption('5');
-    await page.getByLabel('Thoughtfulness').selectOption('3');
-    await page.getByRole('button', { name: 'Save Rating' }).click();
-    await expect(page).toHaveURL(`/en?place=${placeId}`);
 
     const secondMember = await browser.newContext();
     try {
       const secondPage = await secondMember.newPage();
       const secondEmail = `dog-friendliness-a11y-second-${Date.now()}@example.invalid`;
-      const ratingPath = `/en/places/${placeId}/rate`;
       await clearLocalEvaluationMailbox();
-      await secondPage.goto(`/en/account?returnTo=${encodeURIComponent(ratingPath)}`);
+      await secondPage.goto('/en/account');
       await waitForHydration(secondPage);
-      await secondPage.getByLabel('Email address').fill(secondEmail);
-      await secondPage.getByRole('button', { name: 'Send sign-in link' }).click();
+      await secondPage.getByRole('dialog').getByLabel('Email address').fill(secondEmail);
+      await secondPage
+        .getByRole('dialog')
+        .getByRole('button', { name: 'Send me a sign-in link' })
+        .click();
       await secondPage.goto(await waitForLocalMagicLink(secondEmail));
-      await secondPage.getByLabel('Welcome').selectOption('5');
-      await secondPage.getByLabel('Clarity').selectOption('4');
-      await secondPage.getByLabel('Comfort').selectOption('4');
-      await secondPage.getByLabel('Thoughtfulness').selectOption('4');
-      await secondPage.getByRole('button', { name: 'Save Rating' }).click();
+      await secondPage.goto(`/en?place=${placeId}&view=map`);
+      await waitForHydration(secondPage);
+      const secondRating = secondPage.locator('[data-inline-rating]');
+      const fiveStars = secondRating
+        .getByRole('radiogroup', { name: 'Overall rating' })
+        .getByRole('radio', { name: '5 stars' });
+      await expect(fiveStars).toBeEnabled();
+      await fiveStars.click();
+      await expect(secondRating.getByText('Saved')).toBeVisible();
     } finally {
       await secondMember.close();
     }
 
     await page.goto(`/en?place=${placeId}&view=map`);
-    await selected.locator('summary').click();
-    const ratingEvidence = page.locator('[data-rating-summary][data-rating-visible="true"]');
-    await expect(ratingEvidence).toBeVisible();
-    await expect(ratingEvidence.locator('[data-status="info"]')).toHaveCount(2);
-    await expect(ratingEvidence.locator('dl')).toBeVisible();
+    await waitForHydration(page);
+    const publicAverage = selected.getByLabel('Dog-Friendliness by Members');
+    await expect(publicAverage).toBeVisible();
+    await expect(publicAverage).toContainText('★');
     await expectNoHorizontalPageScroll(page);
     await expectNoSeriousAxeViolations(page, evidence);
 
@@ -782,8 +842,8 @@ test('Dog-Friendliness Rating form, public Summary, and Moderator exclusion view
       `/en/moderation/sign-in?returnTo=${encodeURIComponent(`/en/moderation/dog-friendliness/${placeId}`)}`
     );
     await waitForHydration(page);
-    await page.getByLabel('Email address').fill(evaluationModerator.email);
-    await page.getByRole('button', { name: 'Send sign-in link' }).click();
+    await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+    await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
     await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
 
     await page.goto(`/en/moderation/dog-friendliness/${placeId}`);
@@ -813,7 +873,7 @@ test('the private personal history route is keyboard-operable and Axe-clean in b
     {
       locale: 'en',
       emailLabel: 'Email address',
-      sendLabel: 'Send sign-in link',
+      sendLabel: 'Send me a sign-in link',
       title: 'Visits',
       visits: 'Visits',
       map: 'Map'
@@ -821,7 +881,7 @@ test('the private personal history route is keyboard-operable and Axe-clean in b
     {
       locale: 'is',
       emailLabel: 'Netfang',
-      sendLabel: 'Senda innskráningartengil',
+      sendLabel: 'Senda mér innskráningartengil',
       title: 'Heimsóknir',
       visits: 'Heimsóknir',
       map: 'Kort'
@@ -838,8 +898,9 @@ test('the private personal history route is keyboard-operable and Axe-clean in b
       `/${scenario.locale}/account?returnTo=${encodeURIComponent(`/${scenario.locale}/history`)}`
     );
     await waitForHydration(page);
-    await page.getByLabel(scenario.emailLabel).fill(email);
-    await page.getByRole('button', { name: scenario.sendLabel }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel(scenario.emailLabel).fill(email);
+    await dialog.getByRole('button', { name: scenario.sendLabel }).click();
     await page.goto(await waitForLocalMagicLink(email));
     await waitForHydration(page);
 
@@ -858,7 +919,7 @@ test('the private personal history route is keyboard-operable and Axe-clean in b
   }
 });
 
-test('Private Rating Note fieldset, Report prompt, and Moderator note workspace are keyboard-operable and Axe-clean', async ({
+test('optional low-score Rating note and Moderator note workspace are keyboard-operable and Axe-clean', async ({
   page,
   evidence
 }) => {
@@ -869,42 +930,47 @@ test('Private Rating Note fieldset, Report prompt, and Moderator note workspace 
   const { placeId } = localPrivateRatingNoteFixture;
 
   const memberEmail = `rating-note-a11y-${Date.now()}@example.invalid`;
-  await page.goto(`/en/account?returnTo=${encodeURIComponent(`/en/places/${placeId}/rate`)}`);
+  await page.goto('/en/account');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(memberEmail);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(memberEmail);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(memberEmail));
   await waitForHydration(page);
 
-  // A qualifying low score reveals the note fieldset with an explicit classification group.
-  await expect(page.getByRole('heading', { name: 'Rate Dog-Friendliness' })).toBeVisible();
-  await page.getByLabel('Welcome').selectOption('1');
-  await page.getByLabel('Clarity').selectOption('na');
-  await page.getByLabel('Comfort').selectOption('na');
-  await page.getByLabel('Thoughtfulness').selectOption('na');
-  await expect(page.getByText('Private context for a low Rating')).toBeVisible();
-  await page.getByLabel('A subjective experience').focus();
-  await page.keyboard.press('ArrowDown');
-  await expect(page.getByLabel('Possibly inaccurate access information')).toBeFocused();
+  // A qualifying low overall score reveals the optional note without a separate Report flow.
+  await page.goto(`/en?place=${placeId}&view=map`);
+  await waitForHydration(page);
+  const rating = page.locator('[data-inline-rating]');
+  const oneStar = rating
+    .getByRole('radiogroup', { name: 'Overall rating' })
+    .getByRole('radio', { name: '1 star' });
+  await expect(oneStar).toBeEnabled();
+  await oneStar.focus();
+  await page.keyboard.press('Space');
+  const note = rating.getByRole('textbox', { name: 'What could be better? (optional)' });
+  await expect(note).toBeVisible();
+  await rating
+    .getByRole('radiogroup', { name: 'Welcome' })
+    .getByRole('radio', { name: '1 star' })
+    .focus();
+  await page.keyboard.press('Tab');
+  await expect(
+    rating.getByRole('radiogroup', { name: 'Clarity' }).getByRole('radio', { name: '1 star' })
+  ).toBeFocused();
   await expectNoSeriousAxeViolations(page, evidence);
 
-  await page
-    .getByLabel('Your private explanation')
-    .fill('The posted opening hours do not match what staff told me.');
-  await page.getByRole('button', { name: 'Save Rating' }).click();
-
-  // The explicit Report prompt is itself a labelled, keyboard-reachable region.
-  await expect(page.getByText('Send a formal Report?')).toBeVisible();
-  await page.getByRole('button', { name: 'Create a Report from this note' }).focus();
-  await expect(page.getByRole('button', { name: 'Create a Report from this note' })).toBeFocused();
+  await note.fill('The posted opening hours do not match what staff told me.');
+  await note.blur();
+  await expect(rating.getByText('Saved')).toBeVisible();
+  await expect(page.getByText('Send a formal Report?')).toHaveCount(0);
   await expectNoSeriousAxeViolations(page, evidence);
 
   await page.goto(
     `/en/moderation/sign-in?returnTo=${encodeURIComponent(`/en/moderation/dog-friendliness/${placeId}`)}`
   );
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
 
   await page.goto(`/en/moderation/dog-friendliness/${placeId}`);
@@ -930,8 +996,8 @@ test('the Place media Moderator workspace and public Photos gallery are keyboard
     `/en/moderation/sign-in?returnTo=${encodeURIComponent(`/en/moderation/places/${candidate}`)}`
   );
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
   await expect(page.getByRole('heading', { name: 'Media' })).toBeVisible();
 
@@ -1004,14 +1070,14 @@ test('the private achievements route is keyboard-operable and Axe-clean in both 
     {
       locale: 'en',
       emailLabel: 'Email address',
-      sendLabel: 'Send sign-in link',
+      sendLabel: 'Send me a sign-in link',
       title: 'Your Achievements',
       backLink: 'My account'
     },
     {
       locale: 'is',
       emailLabel: 'Netfang',
-      sendLabel: 'Senda innskráningartengil',
+      sendLabel: 'Senda mér innskráningartengil',
       title: 'Afrekin þín',
       backLink: 'Reikningurinn minn'
     }
@@ -1033,8 +1099,9 @@ test('the private achievements route is keyboard-operable and Axe-clean in both 
         )}`
       );
       await waitForHydration(page);
-      await page.getByLabel(scenario.emailLabel).fill(email);
-      await page.getByRole('button', { name: scenario.sendLabel }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByLabel(scenario.emailLabel).fill(email);
+      await dialog.getByRole('button', { name: scenario.sendLabel }).click();
       await page.goto(await waitForLocalMagicLink(email));
       await waitForHydration(page);
 

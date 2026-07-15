@@ -29,16 +29,129 @@ describe('Favourite API privacy headers', () => {
 
     const failed = {
       auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'member' } }, error: null })) },
-      rpc: vi.fn(async () => ({ data: null, error: { code: 'network' } }))
+      rpc: vi.fn(async (name: string) =>
+        name === 'get_current_member_account'
+          ? { data: [{ member_id: 'member' }], error: null }
+          : { data: null, error: { code: 'network' } }
+      )
     };
     expectPrivate(await GET({ locals: { supabase: failed } } as never), 503);
 
     const success = {
       auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'member' } }, error: null })) },
-      rpc: vi.fn(async () => ({ data: [{ place_id: placeId }], error: null }))
+      rpc: vi.fn(async (name: string) =>
+        name === 'get_current_member_account'
+          ? { data: [{ member_id: 'member' }], error: null }
+          : { data: [{ place_id: placeId }], error: null }
+      )
     };
     expectPrivate(await GET({ locals: { supabase: success } } as never), 200);
   });
+
+  it('clears an Auth-only session instead of exposing Member Favorites', async () => {
+    const signOut = vi.fn(async () => ({ error: null }));
+    const deleteCookie = vi.fn();
+    const orphaned = {
+      auth: {
+        getUser: vi.fn(async () => ({ data: { user: { id: 'orphan' } }, error: null })),
+        signOut
+      },
+      rpc: vi.fn(async () => ({ data: [], error: null }))
+    };
+
+    const response = await GET({
+      cookies: {
+        getAll: () => [{ name: 'sb-test-auth-token', value: 'orphaned' }],
+        delete: deleteCookie
+      },
+      locals: { supabase: orphaned }
+    } as never);
+
+    expectPrivate(response, 401);
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(deleteCookie).toHaveBeenCalledWith('sb-test-auth-token', { path: '/' });
+    expect(orphaned.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['GET', (event: never) => GET(event)],
+    ['PUT', (event: never) => PUT(event)]
+  ] as const)('clears an expired Favorite session and returns 401 for %s', async (method, run) => {
+    const signOut = vi.fn(async () => ({ error: null }));
+    const deleteCookie = vi.fn();
+    const expired = {
+      auth: {
+        getUser: vi.fn(async () => ({
+          data: { user: null },
+          error: { name: 'AuthApiError', message: 'JWT expired', code: 'bad_jwt' }
+        })),
+        signOut
+      },
+      rpc: vi.fn()
+    };
+    const common = {
+      cookies: {
+        getAll: () => [{ name: 'sb-test-auth-token', value: 'expired' }],
+        delete: deleteCookie
+      },
+      locals: { supabase: expired },
+      params: { placeId }
+    };
+    const response = await run(
+      (method === 'PUT'
+        ? { ...common, request: jsonRequest({ desiredState: true }) }
+        : common) as never
+    );
+
+    expectPrivate(response, 401);
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(deleteCookie).toHaveBeenCalledWith('sb-test-auth-token', { path: '/' });
+    expect(expired.rpc).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      'GET rate limit',
+      (event: never) => GET(event),
+      { message: 'Too many requests', code: 'over_request_rate_limit', status: 429 }
+    ],
+    [
+      'PUT upstream failure',
+      (event: never) => PUT(event),
+      { message: 'Auth service unavailable', code: 'unexpected_failure', status: 503 }
+    ]
+  ] as const)(
+    'preserves the Favorite session and returns 503 for a returned temporary %s error',
+    async (label, run, providerError) => {
+      const signOut = vi.fn(async () => ({ error: null }));
+      const deleteCookie = vi.fn();
+      const temporary = {
+        auth: {
+          getUser: vi.fn(async () => ({ data: { user: null }, error: providerError })),
+          signOut
+        },
+        rpc: vi.fn()
+      };
+      const common = {
+        cookies: {
+          getAll: () => [{ name: 'sb-test-auth-token', value: 'still-valid' }],
+          delete: deleteCookie
+        },
+        locals: { supabase: temporary },
+        params: { placeId }
+      };
+      const response = await run(
+        (label.startsWith('PUT')
+          ? { ...common, request: jsonRequest({ desiredState: true }) }
+          : common) as never
+      );
+
+      expectPrivate(response, 503);
+      expect(signOut).not.toHaveBeenCalled();
+      expect(deleteCookie).not.toHaveBeenCalled();
+      expect(temporary.rpc).not.toHaveBeenCalled();
+    }
+  );
 
   it('applies private cache headers to every mutation success and error path', async () => {
     expectPrivate(
@@ -105,7 +218,11 @@ describe('Favourite API privacy headers', () => {
 
     const failed = {
       auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'member' } }, error: null })) },
-      rpc: vi.fn(async () => ({ data: null, error: { code: 'conflict' } }))
+      rpc: vi.fn(async (name: string) =>
+        name === 'get_current_member_account'
+          ? { data: [{ member_id: 'member' }], error: null }
+          : { data: null, error: { code: 'conflict' } }
+      )
     };
     expectPrivate(
       await PUT({
@@ -118,10 +235,14 @@ describe('Favourite API privacy headers', () => {
 
     const success = {
       auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'member' } }, error: null })) },
-      rpc: vi.fn(async () => ({
-        data: [{ place_id: placeId, is_favourite: true, changed_at: '2026-07-11T10:00:00Z' }],
-        error: null
-      }))
+      rpc: vi.fn(async (name: string) =>
+        name === 'get_current_member_account'
+          ? { data: [{ member_id: 'member' }], error: null }
+          : {
+              data: [{ place_id: placeId, is_favourite: true, changed_at: '2026-07-11T10:00:00Z' }],
+              error: null
+            }
+      )
     };
     expectPrivate(
       await PUT({

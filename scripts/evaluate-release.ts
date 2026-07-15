@@ -1,20 +1,24 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import {
+  appendFileSync,
   createWriteStream,
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   rmSync,
+  statSync,
   writeFileSync
 } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import {
   EVIDENCE_SCHEMA_VERSION,
   validateEvidenceManifest,
+  validateTestEvidenceArtifact,
   type EvidenceManifest,
   type EvidenceVerdict,
   type ScreenshotEvidence,
@@ -26,11 +30,20 @@ import {
   getLocalSupabaseStatus,
   type LocalSupabaseStatus
 } from '../tests/e2e/support/local-supabase.ts';
+import {
+  EVALUATION_LANE_SCHEMA_VERSION,
+  evaluationLaneNames,
+  evaluationLaneStages,
+  isEvaluationLaneName,
+  type EvaluationLaneName,
+  type EvaluationLaneResult
+} from './evaluation-lanes.ts';
 import { waitForHealth } from './wait-for-health.ts';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const artifactRoot = join(repositoryRoot, 'test-results/evaluation');
 const stageRoot = join(artifactRoot, 'stages');
+const laneRoot = join(artifactRoot, 'lanes');
 
 export interface EvaluationStageResult {
   name: string;
@@ -40,9 +53,14 @@ export interface EvaluationStageResult {
   failure?: string;
 }
 
-interface LoadedTestEvidence {
+export interface LoadedTestEvidence {
   path: string;
   artifact: TestEvidenceArtifact;
+}
+
+export interface LoadedTestEvidenceResult {
+  evidence: LoadedTestEvidence[];
+  failures: string[];
 }
 
 export interface ManifestAssemblyInput {
@@ -50,6 +68,266 @@ export interface ManifestAssemblyInput {
   testEvidence: LoadedTestEvidence[];
   commitSha: string;
   generatedAt: string;
+}
+
+export interface CollectedEvaluationLanes {
+  laneResults: EvaluationLaneResult[];
+  stageResults: EvaluationStageResult[];
+  failures: string[];
+}
+
+export function collectEvaluationLaneResults(
+  laneResults: unknown[],
+  expectedCommitSha: string
+): CollectedEvaluationLanes {
+  const failures: string[] = [];
+  const lanes = new Map<EvaluationLaneName, EvaluationLaneResult>();
+
+  for (const input of laneResults) {
+    if (!isUnknownRecord(input)) {
+      failures.push('invalid evaluation lane record');
+      continue;
+    }
+    const result = input as unknown as EvaluationLaneResult;
+    if (!isEvaluationLaneName(result.lane)) {
+      failures.push(`unknown evaluation lane: ${String(result.lane)}`);
+      continue;
+    }
+    if (result.schemaVersion !== EVALUATION_LANE_SCHEMA_VERSION) {
+      failures.push(`${result.lane} lane has unsupported schema ${result.schemaVersion}`);
+      continue;
+    }
+    if (!Array.isArray(result.stages)) {
+      failures.push(`${result.lane} lane has an invalid stage collection`);
+      continue;
+    }
+    if (
+      result.stages.some(
+        (stage) =>
+          typeof stage?.name !== 'string' ||
+          typeof stage.passed !== 'boolean' ||
+          !(
+            stage.exitCode === null ||
+            (Number.isInteger(stage.exitCode) && Number(stage.exitCode) >= 0)
+          ) ||
+          !Array.isArray(stage.evidencePaths)
+      )
+    ) {
+      failures.push(`${result.lane} lane has an invalid stage result`);
+      continue;
+    }
+    if (
+      typeof result.requestedCommitSha !== 'string' ||
+      typeof result.commitSha !== 'string' ||
+      typeof result.startedAt !== 'string' ||
+      Number.isNaN(Date.parse(result.startedAt)) ||
+      typeof result.finishedAt !== 'string' ||
+      Number.isNaN(Date.parse(result.finishedAt)) ||
+      typeof result.durationMs !== 'number' ||
+      !Number.isFinite(result.durationMs) ||
+      result.durationMs < 0 ||
+      Date.parse(result.finishedAt) - Date.parse(result.startedAt) !== result.durationMs
+    ) {
+      failures.push(`${result.lane} lane metadata is invalid`);
+      continue;
+    }
+    if (lanes.has(result.lane)) {
+      failures.push(`duplicate evaluation lane: ${result.lane}`);
+      continue;
+    }
+    lanes.set(result.lane, result);
+    if (result.requestedCommitSha !== expectedCommitSha) {
+      failures.push(`${result.lane} lane requested unexpected commit ${result.requestedCommitSha}`);
+    }
+    if (result.commitSha !== expectedCommitSha) {
+      failures.push(`${result.lane} lane observed unexpected commit ${result.commitSha}`);
+    }
+
+    const expectedStages = evaluationLaneStages[result.lane];
+    const stageCounts = new Map<string, number>();
+    for (const stage of result.stages) {
+      stageCounts.set(stage.name, (stageCounts.get(stage.name) ?? 0) + 1);
+      if (!expectedStages.includes(stage.name)) {
+        failures.push(`${result.lane} lane contains foreign stage: ${stage.name}`);
+      }
+      if ((stage.passed && stage.exitCode !== 0) || (!stage.passed && stage.exitCode === 0)) {
+        failures.push(
+          `${result.lane} lane stage ${stage.name} has inconsistent passed/exitCode values`
+        );
+      }
+      if (
+        stage.evidencePaths.length === 0 ||
+        stage.evidencePaths.some((path) => typeof path !== 'string' || path.trim().length === 0)
+      ) {
+        failures.push(
+          `${result.lane} lane stage ${stage.name} must contain non-empty evidence paths`
+        );
+      }
+    }
+    for (const [stageName, count] of stageCounts) {
+      if (count > 1) failures.push(`${result.lane} lane contains duplicate stage: ${stageName}`);
+    }
+    for (const requiredStage of evaluationLaneStages[result.lane]) {
+      if ((stageCounts.get(requiredStage) ?? 0) === 0) {
+        failures.push(`${result.lane} lane is missing required stage: ${requiredStage}`);
+      }
+    }
+  }
+
+  for (const lane of evaluationLaneNames) {
+    if (!lanes.has(lane)) failures.push(`missing evaluation lane: ${lane}`);
+  }
+
+  return {
+    laneResults: evaluationLaneNames.flatMap((lane) => {
+      const result = lanes.get(lane);
+      return result ? [result] : [];
+    }),
+    stageResults: evaluationLaneNames.flatMap((lane) => lanes.get(lane)?.stages ?? []),
+    failures: unique(failures)
+  };
+}
+
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+const stageArtifactRoots: Record<string, readonly string[]> = {
+  e2e: ['test-results/evaluation/stages', 'test-results/e2e'],
+  a11y: ['test-results/evaluation/stages', 'test-results/a11y'],
+  visual: ['test-results/evaluation/stages', 'test-results/visual'],
+  performance: ['test-results/evaluation/stages', 'test-results/performance']
+};
+
+export function validateEvaluationLaneArtifactFiles(
+  laneResults: EvaluationLaneResult[],
+  root: string = repositoryRoot
+): string[] {
+  const failures: string[] = [];
+
+  for (const result of laneResults) {
+    if (!isEvaluationLaneName(result.lane) || !Array.isArray(result.stages)) continue;
+    for (const stage of result.stages) {
+      if (!stage || typeof stage.name !== 'string' || !Array.isArray(stage.evidencePaths)) continue;
+      const allowedRoots = stageArtifactRoots[stage.name] ?? ['test-results/evaluation/stages'];
+      const coveredRoots = new Set<string>();
+
+      for (const evidencePath of stage.evidencePaths) {
+        if (typeof evidencePath !== 'string' || evidencePath.trim().length === 0) continue;
+        const validation = validateArtifactFile(
+          evidencePath,
+          allowedRoots,
+          root,
+          `${stage.name} evidence`
+        );
+        failures.push(...validation.failures);
+        if (validation.matchedRoot) coveredRoots.add(validation.matchedRoot);
+      }
+
+      for (const requiredRoot of allowedRoots) {
+        if (!coveredRoots.has(requiredRoot)) {
+          failures.push(`${stage.name} evidence is missing required artifact root ${requiredRoot}`);
+        }
+      }
+    }
+  }
+
+  return unique(failures);
+}
+
+export function validateManifestArtifactFiles(
+  manifest: EvidenceManifest,
+  root: string = repositoryRoot
+): string[] {
+  const paths = unique([
+    ...manifest.scenarios.flatMap((scenario) => scenario.evidencePaths),
+    manifest.accessibility.treePath,
+    ...manifest.visual.screenshots.map((screenshot) => screenshot.path)
+  ]);
+
+  return unique(
+    paths.flatMap(
+      (path) => validateArtifactFile(path, ['test-results'], root, 'manifest path').failures
+    )
+  );
+}
+
+interface ArtifactFileValidation {
+  failures: string[];
+  matchedRoot?: string;
+}
+
+function validateArtifactFile(
+  artifactPath: string,
+  allowedRoots: readonly string[],
+  root: string,
+  label: string
+): ArtifactFileValidation {
+  if (isAbsolute(artifactPath)) {
+    return { failures: [`${label} escapes its allowed artifact roots: ${artifactPath}`] };
+  }
+
+  const candidate = resolve(root, artifactPath);
+  const lexicalRoot = allowedRoots.find((allowedRoot) =>
+    isPathWithin(resolve(root, allowedRoot), candidate)
+  );
+  if (!lexicalRoot) {
+    return { failures: [`${label} escapes its allowed artifact roots: ${artifactPath}`] };
+  }
+  if (!existsSync(candidate)) {
+    return { failures: [`${label} is missing: ${artifactPath}`], matchedRoot: lexicalRoot };
+  }
+
+  let realCandidate: string;
+  try {
+    realCandidate = realpathSync(candidate);
+  } catch (error) {
+    return {
+      failures: [
+        `${label} could not be resolved: ${artifactPath}: ${error instanceof Error ? error.message : String(error)}`
+      ],
+      matchedRoot: lexicalRoot
+    };
+  }
+  const realRoot = allowedRoots.find((allowedRoot) => {
+    const absoluteRoot = resolve(root, allowedRoot);
+    if (!existsSync(absoluteRoot)) return false;
+    try {
+      const realRepositoryRoot = realpathSync(root);
+      const realAllowedRoot = realpathSync(absoluteRoot);
+      return (
+        isPathWithin(realRepositoryRoot, realAllowedRoot) &&
+        isPathWithin(realAllowedRoot, realCandidate)
+      );
+    } catch {
+      return false;
+    }
+  });
+  if (!realRoot) {
+    return { failures: [`${label} escapes its allowed artifact roots: ${artifactPath}`] };
+  }
+  try {
+    if (!statSync(realCandidate).isFile()) {
+      return {
+        failures: [`${label} is not a regular file: ${artifactPath}`],
+        matchedRoot: realRoot
+      };
+    }
+  } catch (error) {
+    return {
+      failures: [
+        `${label} could not be inspected: ${artifactPath}: ${error instanceof Error ? error.message : String(error)}`
+      ],
+      matchedRoot: realRoot
+    };
+  }
+
+  return { failures: [], matchedRoot: realRoot };
+}
+
+function isPathWithin(root: string, candidate: string): boolean {
+  const pathFromRoot = relative(root, candidate);
+  return pathFromRoot === '' || (!pathFromRoot.startsWith('..') && !isAbsolute(pathFromRoot));
 }
 
 const scenarioStages: Record<string, string[]> = {
@@ -102,11 +380,19 @@ export function assembleEvidenceManifest({
     }))
   );
   const performanceMeasurements = performanceEvidence.flatMap((item) => item.artifact.timings);
-  const axeViolations = a11yEvidence
+  const axeViolations = testEvidence
     .flatMap((item) => item.artifact.axe)
     .reduce((total, result) => total + result.violations, 0);
 
   if (a11yEvidence.length === 0) failures.push('accessibility evidence is missing');
+  if (
+    a11yEvidence.some(
+      (item) => !item.artifact.required.includes('axe') || item.artifact.axe.length === 0
+    )
+  ) {
+    failures.push('accessibility evidence is missing declared Axe proof');
+  }
+  if (axeViolations > 0) failures.push('accessibility evidence contains Axe violations');
   if (screenshots.filter((item) => item.locale === 'is').length < 8) {
     failures.push('Icelandic visual evidence is incomplete');
   }
@@ -114,6 +400,9 @@ export function assembleEvidenceManifest({
     failures.push('English visual evidence is incomplete');
   }
   if (performanceMeasurements.length === 0) failures.push('performance evidence is missing');
+  for (const measurement of performanceMeasurements) {
+    if (!measurement.passed) failures.push(`performance timing failed: ${measurement.name}`);
+  }
 
   const scenarios = evaluationScenarioCatalogue.scenarios.map((scenario) => {
     const requiredStages = scenarioStages[scenario.id] ?? [];
@@ -216,84 +505,7 @@ async function runCommandStage(
   });
 }
 
-async function runRetriedSetupStage(
-  name: string,
-  args: string[],
-  attempts = 3,
-  retryDelayMs = 2_000
-): Promise<EvaluationStageResult> {
-  let result = await runCommandStage(name, args);
-
-  for (let attempt = 2; !result.passed && attempt <= attempts; attempt += 1) {
-    console.warn(
-      `[${name}] local Supabase setup attempt ${attempt - 1} failed; retrying after ${retryDelayMs}ms`
-    );
-    await new Promise<void>((resolveWait) => setTimeout(resolveWait, retryDelayMs));
-    result = await runCommandStage(name, args);
-  }
-
-  return result;
-}
-
-async function resetDatabaseBefore(stageName: string): Promise<EvaluationStageResult[]> {
-  return runRetriedResetBoundary(
-    () =>
-      runRetriedSetupStage(`database-reset-before-${stageName}`, [
-        'exec',
-        'supabase',
-        'db',
-        'reset'
-      ]),
-    () => waitForSupabaseAuthStage(`auth-health-before-${stageName}`, 15_000),
-    {
-      onRetry: (attempt) => {
-        console.warn(
-          `[database-reset-before-${stageName}] reset boundary attempt ${attempt} was not ready; retrying`
-        );
-      }
-    }
-  );
-}
-
-interface RetriedResetBoundaryOptions {
-  attempts?: number;
-  retryDelayMs?: number;
-  sleep?: (milliseconds: number) => Promise<void>;
-  onRetry?: (attempt: number) => void;
-}
-
-export async function runRetriedResetBoundary(
-  runReset: () => Promise<EvaluationStageResult>,
-  runHealth: () => Promise<EvaluationStageResult>,
-  {
-    attempts = 3,
-    retryDelayMs = 2_000,
-    sleep = (milliseconds) =>
-      new Promise<void>((resolveWait) => setTimeout(resolveWait, milliseconds)),
-    onRetry = () => undefined
-  }: RetriedResetBoundaryOptions = {}
-): Promise<EvaluationStageResult[]> {
-  let resetResult: EvaluationStageResult | undefined;
-  let healthResult: EvaluationStageResult | undefined;
-
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    resetResult = await runReset();
-    healthResult = resetResult.passed ? await runHealth() : undefined;
-
-    if (resetResult.passed && healthResult?.passed) {
-      return [resetResult, healthResult];
-    }
-
-    if (attempt < attempts) {
-      onRetry(attempt);
-      await sleep(retryDelayMs);
-    }
-  }
-
-  return healthResult ? [resetResult!, healthResult] : [resetResult!];
-}
-
-async function startManagedServer(): Promise<{
+async function startManagedServer(lane: 'e2e' | 'a11y' | 'visual'): Promise<{
   child: ChildProcess;
   result: EvaluationStageResult;
 }> {
@@ -302,7 +514,8 @@ async function startManagedServer(): Promise<{
   const appOrigin = getEvaluationAppOrigin(process.env);
   const appPort = new URL(appOrigin).port;
   const healthUrl = new URL('/api/health', appOrigin).toString();
-  const logPath = join(stageRoot, 'application-health.log');
+  const stageName = `application-health-${lane}`;
+  const logPath = join(stageRoot, `${stageName}.log`);
   const log = createWriteStream(logPath, { flags: 'w' });
   const child = spawn('pnpm', ['dev', '--host', '127.0.0.1', '--port', appPort], {
     cwd: repositoryRoot,
@@ -312,6 +525,8 @@ async function startManagedServer(): Promise<{
   });
   child.stdout?.on('data', (chunk: Buffer) => log.write(chunk));
   child.stderr?.on('data', (chunk: Buffer) => log.write(chunk));
+  child.once('exit', () => log.end());
+  child.once('error', () => log.end());
 
   try {
     await Promise.race([
@@ -323,13 +538,14 @@ async function startManagedServer(): Promise<{
       }),
       new Promise<never>((_, reject) => {
         child.once('exit', (code) => reject(new Error(`application server exited with ${code}`)));
+        child.once('error', reject);
       })
     ]);
     log.write(`Healthy: ${healthUrl}\n`);
     return {
       child,
       result: {
-        name: 'application-health',
+        name: stageName,
         passed: true,
         exitCode: 0,
         evidencePaths: [relative(repositoryRoot, logPath)]
@@ -339,12 +555,41 @@ async function startManagedServer(): Promise<{
     return {
       child,
       result: {
-        name: 'application-health',
+        name: stageName,
         passed: false,
         exitCode: child.exitCode,
         failure: error instanceof Error ? error.message : String(error),
         evidencePaths: [relative(repositoryRoot, logPath)]
       }
+    };
+  }
+}
+
+async function captureSupabaseHealth(
+  lane: 'database' | 'e2e' | 'a11y' | 'visual' | 'performance'
+): Promise<EvaluationStageResult> {
+  const name = `supabase-health-${lane}`;
+  const logPath = join(stageRoot, `${name}.log`);
+
+  try {
+    const authHealthUrl = new URL('/auth/v1/health', getLocalSupabaseStatus().apiUrl).toString();
+    await waitForHealth({ url: authHealthUrl, timeoutMs: 60_000 });
+    writeFileSync(logPath, `Healthy: ${authHealthUrl}\n`, 'utf8');
+    return {
+      name,
+      passed: true,
+      exitCode: 0,
+      evidencePaths: [relative(repositoryRoot, logPath)]
+    };
+  } catch (error) {
+    const failure = error instanceof Error ? error.message : String(error);
+    writeFileSync(logPath, `${failure}\n`, 'utf8');
+    return {
+      name,
+      passed: false,
+      exitCode: null,
+      failure,
+      evidencePaths: [relative(repositoryRoot, logPath)]
     };
   }
 }
@@ -370,38 +615,6 @@ export function getEvaluationAppOrigin(baseEnvironment: NodeJS.ProcessEnv = proc
   return `http://127.0.0.1:${port}`;
 }
 
-export function getSupabaseAuthHealthUrl(status: Pick<LocalSupabaseStatus, 'apiUrl'>): string {
-  return new URL('/auth/v1/health', status.apiUrl).toString();
-}
-
-async function waitForSupabaseAuthStage(
-  name: string,
-  timeoutMs = 60_000
-): Promise<EvaluationStageResult> {
-  const logPath = join(stageRoot, `${name}.log`);
-  const url = getSupabaseAuthHealthUrl(getLocalSupabaseStatus());
-  try {
-    await waitForHealth({ url, timeoutMs });
-    writeFileSync(logPath, `Healthy: ${url}\n`, 'utf8');
-    return {
-      name,
-      passed: true,
-      exitCode: 0,
-      evidencePaths: [relative(repositoryRoot, logPath)]
-    };
-  } catch (error) {
-    const failure = error instanceof Error ? error.message : String(error);
-    writeFileSync(logPath, `${failure}\n`, 'utf8');
-    return {
-      name,
-      passed: false,
-      exitCode: null,
-      failure,
-      evidencePaths: [relative(repositoryRoot, logPath)]
-    };
-  }
-}
-
 async function stopManagedServer(child: ChildProcess): Promise<void> {
   if (child.exitCode !== null || !child.pid) return;
   const exited = new Promise<void>((resolveExit) => child.once('exit', () => resolveExit()));
@@ -414,80 +627,210 @@ async function stopManagedServer(child: ChildProcess): Promise<void> {
   }
 }
 
-async function main(): Promise<void> {
+async function runEvaluationLane(
+  lane: EvaluationLaneName,
+  requestedCommitSha: string
+): Promise<void> {
   rmSync(artifactRoot, { recursive: true, force: true });
   mkdirSync(stageRoot, { recursive: true });
+  mkdirSync(laneRoot, { recursive: true });
   const stageResults: EvaluationStageResult[] = [];
+  const startedAt = new Date();
+  const commitSha = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: repositoryRoot,
+    encoding: 'utf8'
+  }).trim();
   let server: ChildProcess | undefined;
 
-  stageResults.push(
-    await runCommandStage('database-stop', ['exec', 'supabase', 'stop', '--no-backup'])
-  );
-  stageResults.push(await runRetriedSetupStage('database-start', ['exec', 'supabase', 'start']));
-  stageResults.push(
-    await runRetriedSetupStage('database-reset', ['exec', 'supabase', 'db', 'reset'])
-  );
-  stageResults.push(await runCommandStage('format', ['format:check']));
-  stageResults.push(await runCommandStage('lint', ['lint']));
-  stageResults.push(await runCommandStage('check', ['check']));
-  stageResults.push(await runCommandStage('unit', ['test:unit']));
-  stageResults.push(await runCommandStage('component', ['test:component']));
-  stageResults.push(...(await resetDatabaseBefore('database')));
-  stageResults.push(await runCommandStage('database', ['test:database']));
-  stageResults.push(await runCommandStage('map-smoke', ['test:map-smoke']));
-  stageResults.push(...(await resetDatabaseBefore('browser-journeys')));
-
-  try {
-    const application = await startManagedServer();
-    server = application.child;
-    stageResults.push(application.result);
-    stageResults.push(
-      await runCommandStage('e2e', ['test:e2e'], ['test-results/e2e/results.json'])
-    );
-    stageResults.push(...(await resetDatabaseBefore('a11y')));
-    stageResults.push(
-      await runCommandStage('a11y', ['test:a11y'], ['test-results/a11y/results.json'])
-    );
-    stageResults.push(...(await resetDatabaseBefore('visual')));
-    stageResults.push(
-      await runCommandStage('visual', ['test:visual'], ['test-results/visual/results.json'])
-    );
-  } catch (error) {
-    stageResults.push({
-      name: 'application-health',
-      passed: false,
-      exitCode: null,
-      failure: error instanceof Error ? error.message : String(error),
-      evidencePaths: ['test-results/evaluation/stages/application-health.log']
-    });
-  } finally {
-    if (server) await stopManagedServer(server);
+  if (
+    commitSha === requestedCommitSha &&
+    (lane === 'database' ||
+      lane === 'e2e' ||
+      lane === 'a11y' ||
+      lane === 'visual' ||
+      lane === 'performance')
+  ) {
+    stageResults.push(await captureSupabaseHealth(lane));
   }
 
-  stageResults.push(...(await resetDatabaseBefore('performance')));
-  stageResults.push(
-    await runCommandStage(
-      'performance',
-      ['test:performance'],
-      ['test-results/performance/results.json']
-    )
+  if (commitSha !== requestedCommitSha) {
+    stageResults.push({
+      name: evaluationLaneStages[lane][0],
+      passed: false,
+      exitCode: null,
+      failure: `checked-out commit ${commitSha} does not match requested commit ${requestedCommitSha}`,
+      evidencePaths: []
+    });
+  } else if (lane === 'static') {
+    stageResults.push(await runCommandStage('format', ['format:check']));
+    stageResults.push(await runCommandStage('lint', ['lint']));
+    stageResults.push(await runCommandStage('check', ['check']));
+    stageResults.push(await runCommandStage('unit', ['test:unit']));
+    stageResults.push(await runCommandStage('build', ['build']));
+  } else if (lane === 'database') {
+    stageResults.push(await runCommandStage('database', ['test:database']));
+  } else if (lane === 'map') {
+    stageResults.push(await runCommandStage('component', ['test:component']));
+    stageResults.push(await runCommandStage('map-smoke', ['test:map-smoke']));
+  } else if (lane === 'performance') {
+    stageResults.push(
+      await runCommandStage(
+        'performance',
+        ['test:performance'],
+        ['test-results/performance/results.json']
+      )
+    );
+  } else {
+    try {
+      const application = await startManagedServer(lane);
+      server = application.child;
+      stageResults.push(application.result);
+      stageResults.push(
+        await runCommandStage(lane, [`test:${lane}`], [`test-results/${lane}/results.json`])
+      );
+    } catch (error) {
+      stageResults.push({
+        name: `application-health-${lane}`,
+        passed: false,
+        exitCode: null,
+        failure: error instanceof Error ? error.message : String(error),
+        evidencePaths: [`test-results/evaluation/stages/application-health-${lane}.log`]
+      });
+    } finally {
+      if (server) await stopManagedServer(server);
+    }
+  }
+
+  const finishedAt = new Date();
+  const laneResult: EvaluationLaneResult = {
+    schemaVersion: EVALUATION_LANE_SCHEMA_VERSION,
+    lane,
+    requestedCommitSha,
+    commitSha,
+    startedAt: startedAt.toISOString(),
+    finishedAt: finishedAt.toISOString(),
+    durationMs: finishedAt.getTime() - startedAt.getTime(),
+    stages: stageResults
+  };
+  const resultPath = join(laneRoot, `${lane}.json`);
+  writeFileSync(resultPath, `${JSON.stringify(laneResult, null, 2)}\n`, 'utf8');
+
+  console.log(`\nEvaluation lane evidence: ${relative(repositoryRoot, resultPath)}`);
+  if (stageResults.some((stage) => !stage.passed)) process.exitCode = 1;
+}
+
+async function aggregateEvaluationLanes(expectedCommitSha: string): Promise<void> {
+  mkdirSync(stageRoot, { recursive: true });
+  const aggregateCommitSha = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: repositoryRoot,
+    encoding: 'utf8'
+  }).trim();
+  const laneReadFailures: string[] = [];
+  const laneResults = existsSync(laneRoot)
+    ? readdirSync(laneRoot)
+        .filter((name) => name.endsWith('.json'))
+        .flatMap((name) => {
+          const laneArtifactPath = relative(repositoryRoot, join(laneRoot, name));
+          const fileValidation = validateArtifactFile(
+            laneArtifactPath,
+            ['test-results/evaluation/lanes'],
+            repositoryRoot,
+            'lane artifact'
+          );
+          if (fileValidation.failures.length > 0) {
+            laneReadFailures.push(...fileValidation.failures);
+            return [];
+          }
+          try {
+            return [JSON.parse(readFileSync(join(laneRoot, name), 'utf8')) as EvaluationLaneResult];
+          } catch (error) {
+            laneReadFailures.push(
+              `could not read evaluation lane ${name}: ${error instanceof Error ? error.message : String(error)}`
+            );
+            return [];
+          }
+        })
+    : [];
+  const collected = collectEvaluationLaneResults(laneResults, expectedCommitSha);
+  const laneArtifactFailures = validateEvaluationLaneArtifactFiles(
+    collected.laneResults,
+    repositoryRoot
   );
-  stageResults.push(await runCommandStage('build', ['build']));
+  const loadedTestEvidence = loadTestEvidence(join(repositoryRoot, 'test-results'), repositoryRoot);
+  const testEvidence = loadedTestEvidence.evidence;
+  const testEvidenceFailures = loadedTestEvidence.failures;
+  const aggregationFailures = unique([
+    ...collected.failures,
+    ...laneReadFailures,
+    ...laneArtifactFailures,
+    ...testEvidenceFailures,
+    ...(aggregateCommitSha === expectedCommitSha
+      ? []
+      : [
+          `aggregate observed unexpected commit ${aggregateCommitSha}; expected ${expectedCommitSha}`
+        ])
+  ]);
+  const measuredLaneResults = collected.laneResults.filter(
+    (result) => Number.isFinite(result.durationMs) && result.durationMs >= 0
+  );
+  const serialEquivalentMs = measuredLaneResults.reduce(
+    (total, result) => total + result.durationMs,
+    0
+  );
+  const parallelCriticalPathMs = Math.max(
+    0,
+    ...measuredLaneResults.map((result) => result.durationMs)
+  );
+  const timingPath = join(artifactRoot, 'timings.json');
+  writeFileSync(
+    timingPath,
+    `${JSON.stringify(
+      {
+        measuredScope: 'evaluation commands after dependency and runtime setup',
+        lanes: measuredLaneResults.map(({ lane, durationMs }) => ({ lane, durationMs })),
+        serialEquivalentMs,
+        parallelCriticalPathMs,
+        reductionPercent:
+          serialEquivalentMs === 0
+            ? 0
+            : Math.round((1 - parallelCriticalPathMs / serialEquivalentMs) * 100)
+      },
+      null,
+      2
+    )}\n`,
+    'utf8'
+  );
+  const aggregationLogPath = join(stageRoot, 'aggregation.log');
+  writeFileSync(
+    aggregationLogPath,
+    aggregationFailures.length === 0
+      ? `Aggregated ${collected.laneResults.length} exact-SHA evaluation lanes.\n`
+      : `${aggregationFailures.join('\n')}\n`,
+    'utf8'
+  );
+  const stageResults = [
+    ...collected.stageResults,
+    {
+      name: 'aggregation',
+      passed: aggregationFailures.length === 0,
+      exitCode: aggregationFailures.length === 0 ? 0 : 1,
+      failure: aggregationFailures.length === 0 ? undefined : aggregationFailures.join('; '),
+      evidencePaths: [relative(repositoryRoot, aggregationLogPath)]
+    }
+  ];
 
   const generatedAt = new Date().toISOString();
   const manifest = assembleEvidenceManifest({
     stageResults,
-    testEvidence: [
-      join(repositoryRoot, 'test-results/a11y'),
-      join(repositoryRoot, 'test-results/visual'),
-      join(repositoryRoot, 'test-results/performance')
-    ].flatMap(loadTestEvidence),
-    commitSha: execFileSync('git', ['rev-parse', 'HEAD'], {
-      cwd: repositoryRoot,
-      encoding: 'utf8'
-    }).trim(),
+    testEvidence,
+    commitSha: expectedCommitSha,
     generatedAt
   });
+  const manifestFileFailures = validateManifestArtifactFiles(manifest, repositoryRoot);
+  if (manifestFileFailures.length > 0) {
+    manifest.verdict.status = 'fail';
+    manifest.verdict.failures.push(...manifestFileFailures);
+  }
   const validation = validateEvidenceManifest(manifest);
   if (!validation.valid) {
     manifest.verdict.status = 'fail';
@@ -495,6 +838,14 @@ async function main(): Promise<void> {
   }
   const manifestPath = join(artifactRoot, 'manifest.json');
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(
+      process.env.GITHUB_STEP_SUMMARY,
+      `### Parallel evaluation\n\n- Commit: ${expectedCommitSha}\n- Lanes accepted: ${collected.laneResults.length}/${evaluationLaneNames.length}\n- Serial-equivalent command time: ${formatDuration(serialEquivalentMs)}\n- Parallel command critical path: ${formatDuration(parallelCriticalPathMs)}\n- Command-time reduction: ${serialEquivalentMs === 0 ? 0 : Math.round((1 - parallelCriticalPathMs / serialEquivalentMs) * 100)}%\n- Verdict: ${manifest.verdict.status}\n`,
+      'utf8'
+    );
+  }
 
   console.log(`\nEvaluation evidence: ${relative(repositoryRoot, manifestPath)}`);
   console.log(`Verdict: ${manifest.verdict.status}`);
@@ -504,14 +855,96 @@ async function main(): Promise<void> {
   }
 }
 
-function loadTestEvidence(root: string): LoadedTestEvidence[] {
-  if (!existsSync(root)) return [];
-  return walkFiles(root)
-    .filter((path) => path.endsWith('.json') && path.includes('evaluation-evidence-'))
-    .map((path) => ({
-      path: relative(repositoryRoot, path),
-      artifact: JSON.parse(readFileSync(path, 'utf8')) as TestEvidenceArtifact
-    }));
+function formatDuration(milliseconds: number): string {
+  const seconds = Math.round(milliseconds / 1_000);
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
+
+async function main(): Promise<void> {
+  const laneIndex = process.argv.indexOf('--lane');
+  const aggregate = process.argv.includes('--aggregate');
+  const shaIndex = process.argv.indexOf('--sha');
+  const lane = laneIndex >= 0 ? process.argv[laneIndex + 1] : undefined;
+  const requestedCommitSha = shaIndex >= 0 ? process.argv[shaIndex + 1] : undefined;
+
+  if (!requestedCommitSha || !/^[0-9a-f]{40}$/.test(requestedCommitSha)) {
+    throw new Error('--sha must be a full 40-character lowercase commit SHA');
+  }
+  if (aggregate) {
+    await aggregateEvaluationLanes(requestedCommitSha);
+    return;
+  }
+  if (!lane || !isEvaluationLaneName(lane)) {
+    throw new Error('--lane must name one supported evaluation lane');
+  }
+
+  await runEvaluationLane(lane, requestedCommitSha);
+}
+
+export function loadTestEvidence(
+  root: string,
+  repository: string = repositoryRoot
+): LoadedTestEvidenceResult {
+  const testResultsRoot = resolve(repository, 'test-results');
+  const scanRoot = resolve(root);
+  if (!isPathWithin(testResultsRoot, scanRoot)) {
+    return {
+      evidence: [],
+      failures: [`test evidence scan root escapes test-results: ${root}`]
+    };
+  }
+  if (!existsSync(scanRoot)) return { evidence: [], failures: [] };
+  const evidence: LoadedTestEvidence[] = [];
+  const failures: string[] = [];
+
+  for (const path of walkFiles(scanRoot).filter(
+    (candidate) => candidate.endsWith('.json') && candidate.includes('evaluation-evidence-')
+  )) {
+    const relativePath = relative(repository, path);
+    const firstArtifactSegment = relative(testResultsRoot, path).split(/[\\/]/, 1)[0];
+    const allowedRoot = join('test-results', firstArtifactSegment);
+    const evidenceFileValidation = validateArtifactFile(
+      relativePath,
+      [allowedRoot],
+      repository,
+      'test evidence file'
+    );
+    if (evidenceFileValidation.failures.length > 0) {
+      failures.push(...evidenceFileValidation.failures);
+      continue;
+    }
+
+    let input: unknown;
+    try {
+      input = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+    } catch (error) {
+      failures.push(
+        `could not parse test evidence ${relativePath}: ${error instanceof Error ? error.message : String(error)}`
+      );
+      continue;
+    }
+    const validationErrors = validateTestEvidenceArtifact(input);
+    if (validationErrors.length > 0) {
+      failures.push(
+        ...validationErrors.map((error) => `invalid test evidence ${relativePath}: ${error}`)
+      );
+      continue;
+    }
+
+    const artifact = input as TestEvidenceArtifact;
+    const screenshotFailures = artifact.screenshots.flatMap(
+      (screenshot) =>
+        validateArtifactFile(screenshot.path, [allowedRoot], repository, 'screenshot').failures
+    );
+    if (screenshotFailures.length > 0) {
+      failures.push(...screenshotFailures);
+      continue;
+    }
+
+    evidence.push({ path: relativePath, artifact });
+  }
+
+  return { evidence, failures: unique(failures) };
 }
 
 function walkFiles(root: string): string[] {

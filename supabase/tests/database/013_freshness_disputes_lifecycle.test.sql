@@ -242,12 +242,6 @@ select is(
   0::bigint,
   'A Place with no verified condition leaves normal discovery'
 );
-select is(
-  (select public_status from public.get_public_place_status(
-    '75300000-0000-4000-8000-000000000001', 'en')),
-  'access_under_review',
-  'A safe direct-profile status remains while all access is disputed'
-);
 select throws_ok(
   $$select * from public.reconfirm_access_condition(
     jsonb_build_object(
@@ -296,35 +290,14 @@ select is(
   2::bigint,
   'Original supporting and resolution Evidence support the restored public Verification'
 );
-select ok(
-  exists (
-    select 1
-    from public.get_published_place_profile(
-      '75300000-0000-4000-8000-000000000001', 'en'
-    ) profile,
-    jsonb_array_elements(profile.evidence_sources) evidence_source
-    where profile.access_condition_id = '75400000-0000-4000-8000-000000000001'
-      and evidence_source ->> 'sourceLabel' = 'Original cafe policy'
-  )
-  and exists (
-    select 1
-    from public.get_published_place_profile(
-      '75300000-0000-4000-8000-000000000001', 'en'
-    ) profile,
-    jsonb_array_elements(profile.evidence_sources) evidence_source
-    where profile.access_condition_id = '75400000-0000-4000-8000-000000000001'
-      and evidence_source ->> 'sourceLabel' = 'Resolution confirmation'
-  )
-  and not exists (
-    select 1
-    from public.get_published_place_profile(
-      '75300000-0000-4000-8000-000000000001', 'en'
-    ) profile,
-    jsonb_array_elements(profile.evidence_sources) evidence_source
-    where profile.access_condition_id = '75400000-0000-4000-8000-000000000001'
-      and evidence_source ->> 'sourceLabel' = 'Contradicting visit'
-  ),
-  'Dismissal restores complete public provenance without exposing contradicting Evidence'
+select is(
+  (select access_information_urls
+   from public.get_published_place_profile_v2(
+     '75300000-0000-4000-8000-000000000001', 'en'
+   )
+   where access_condition_id = '75400000-0000-4000-8000-000000000001'),
+  '[]'::jsonb,
+  'Dismissal restores access without exposing reviewed source links'
 );
 select is(
   (select status::text
@@ -375,6 +348,7 @@ select lives_ok(
       'replacement_condition', jsonb_build_object(
         'access_area', 'outdoors', 'restraint_condition', 'leash_required',
         'dog_eligibility', jsonb_build_object('scope', 'all_dogs'),
+        'availability_state', 'whenever_open',
         'availability_window', '{}'::jsonb,
         'permission_requirement', 'advance_approval'
       ),
@@ -386,6 +360,17 @@ select lives_ok(
     '75900000-0000-4000-8000-000000000002'
   ),
   'Confirming a contradiction replaces and verifies the condition atomically'
+);
+select is(
+  (
+    select availability_state::text
+    from private.access_conditions
+    where place_id = '75300000-0000-4000-8000-000000000001'
+      and permission_requirement = 'advance_approval'
+      and superseded_at is null
+  ),
+  'whenever_open'::text,
+  'Confirmed dispute replacement writes its explicit availability state directly'
 );
 select ok(
   (select superseded_at is not null from private.access_conditions
@@ -407,26 +392,14 @@ select is(
   1::bigint,
   'Only resolution Evidence supports the verified replacement condition'
 );
-select ok(
-  exists (
-    select 1
-    from public.get_published_place_profile(
-      '75300000-0000-4000-8000-000000000001', 'en'
-    ) profile,
-    jsonb_array_elements(profile.evidence_sources) evidence_source
-    where profile.permission_requirement = 'advance_approval'
-      and evidence_source ->> 'sourceLabel' = 'Replacement policy'
-  )
-  and not exists (
-    select 1
-    from public.get_published_place_profile(
-      '75300000-0000-4000-8000-000000000001', 'en'
-    ) profile,
-    jsonb_array_elements(profile.evidence_sources) evidence_source
-    where profile.permission_requirement = 'advance_approval'
-      and evidence_source ->> 'sourceLabel' in ('Original cafe policy', 'Contradicting report')
-  ),
-  'Confirmed replacement exposes only Evidence that supports the replacement facts'
+select is(
+  (select access_information_urls
+   from public.get_published_place_profile_v2(
+     '75300000-0000-4000-8000-000000000001', 'en'
+   )
+   where permission_requirement = 'advance_approval'),
+  '[]'::jsonb,
+  'Confirmed replacement keeps reviewed source links private'
 );
 select is(
   (select status::text
@@ -785,12 +758,6 @@ select throws_ok(
   ),
   '40001', null,
   'Dispute resolution fails closed after Place inactivity'
-);
-select is(
-  (select public_status from public.get_public_place_status(
-    '75300000-0000-4000-8000-000000000001', 'en')),
-  'inactive',
-  'Inactive history has a safe direct-profile status'
 );
 select is(
   (select count(*) from private.evidence

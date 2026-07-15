@@ -13,8 +13,9 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
   const lang = parseLocale(params.lang);
   const layout = await parent();
   if (!layout.signedIn) {
-    const returnTo = `/${lang}/saved`;
-    redirect(303, `/${lang}/account?returnTo=${encodeURIComponent(returnTo)}`);
+    const returnTo = `/${lang}/favorites`;
+    const discovery = `/${lang}?auth=open&authReturnTo=${encodeURIComponent(returnTo)}`;
+    redirect(303, discovery);
   }
   if (!locals.supabase) {
     error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Catalogue } from '$i18n';
+  import type { Catalogue, Locale } from '$i18n';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
 
   import PlaceList from './PlaceList.svelte';
@@ -7,27 +7,27 @@
   interface Props {
     places: PublishedPlaceSummary[];
     selectedPlaceId: string | null;
+    lang: Locale;
     copy: Catalogue;
-    onSelect: (placeId: string, trigger: HTMLButtonElement) => void;
+    onSelect: (placeId: string, trigger: HTMLButtonElement, openDetails?: boolean) => void;
     onClose?: () => void;
     closable?: boolean;
     signedIn?: boolean;
     favouritePlaceIds?: string[];
-    pendingFavouritePlaceId?: string | null;
     signInHref?: (placeId: string) => string;
-    onFavouriteChange?: (placeId: string, favourite: boolean) => void;
+    onFavouriteChange?: (placeId: string, favourite: boolean, trigger: HTMLButtonElement) => void;
   }
 
   let {
     places,
     selectedPlaceId,
+    lang,
     copy,
     onSelect,
     onClose = () => undefined,
     closable = true,
     signedIn = false,
     favouritePlaceIds = [],
-    pendingFavouritePlaceId = null,
     signInHref = () => '',
     onFavouriteChange = () => undefined
   }: Props = $props();
@@ -61,11 +61,11 @@
     <PlaceList
       {places}
       {selectedPlaceId}
+      {lang}
       {copy}
       {onSelect}
       {signedIn}
       {favouritePlaceIds}
-      {pendingFavouritePlaceId}
       {signInHref}
       {onFavouriteChange}
     />
@@ -132,5 +132,23 @@
     display: grid;
     gap: 0.25rem;
     padding: 0.75rem 0;
+  }
+
+  @container directory-shell (min-width: 58rem) {
+    .tray-heading button {
+      display: none;
+    }
+
+    .tray-heading {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
   }
 </style>

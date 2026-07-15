@@ -174,12 +174,15 @@
             <label class="hv-stack">
               {data.copy['evidenceField.kind']}
               <select class="hv-field" name="evidenceKind" required>
-                <option value="official_website">official_website</option>
-                <option value="venue_representative">venue_representative</option>
-                <option value="member_report">member_report</option>
-                <option value="direct_observation">direct_observation</option>
-                <option value="public_record">public_record</option>
-                <option value="other">other</option>
+                <option value="official_website">{data.copy['evidence.officialWebsite']}</option>
+                <option value="venue_representative"
+                  >{data.copy['evidence.venueRepresentative']}</option
+                >
+                <option value="member_report">{data.copy['evidence.memberReport']}</option>
+                <option value="direct_observation">{data.copy['evidence.directObservation']}</option
+                >
+                <option value="public_record">{data.copy['evidence.publicRecord']}</option>
+                <option value="other">{data.copy['evidence.other']}</option>
               </select>
             </label>
             <label class="hv-stack">

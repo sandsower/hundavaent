@@ -55,7 +55,13 @@ test('a Member rates a Place, updates the Rating, and the public Summary crosses
   expect(initialSummary.data?.[0]?.eligible_count).toBeNull();
 
   await signInMember(page, memberAEmail);
-  await submitRating(page, { welcome: '3', clarity: 'na', comfort: '5', thoughtfulness: '4' });
+  await submitRating(page, {
+    overall: '4',
+    welcome: '3',
+    clarity: 'na',
+    comfort: '5',
+    thoughtfulness: '4'
+  });
   await expect(page).toHaveURL(`/en?place=${placeId}`);
 
   // One eligible Rating still leaves the Place below the configured threshold of two.
@@ -68,6 +74,7 @@ test('a Member rates a Place, updates the Rating, and the public Summary crosses
   const memberBPage = await memberBContext.newPage();
   await signInMember(memberBPage, memberBEmail);
   await submitRating(memberBPage, {
+    overall: '3',
     welcome: '4',
     clarity: '5',
     comfort: '3',
@@ -93,18 +100,29 @@ test('a Member rates a Place, updates the Rating, and the public Summary crosses
 
   // Re-submitting with a new request updates the current Rating in place rather than
   // double-counting: the eligible count stays two.
-  await submitRating(page, { welcome: '2', clarity: 'na', comfort: '5', thoughtfulness: '4' });
+  await submitRating(page, {
+    overall: '2',
+    welcome: '2',
+    clarity: 'na',
+    comfort: '5',
+    thoughtfulness: '4'
+  });
   await expect(page).toHaveURL(`/en?place=${placeId}`);
   const afterUpdate = await publicClient.rpc('get_dog_friendliness_summary', {
     requested_place_id: placeId
   });
   expect(afterUpdate.data?.[0]?.eligible_count).toBe(2);
 
-  // Member A's own Rating form reflects their latest saved values on revisit.
+  // Member A's inline Rating reflects the latest autosaved values on revisit.
   await page.goto(`/en/places/${placeId}/rate`);
   await waitForHydration(page);
-  await expect(page.getByLabel('Welcome')).toHaveValue('2');
-  await expect(page.getByLabel('Clarity')).toHaveValue('na');
+  await expect(page).toHaveURL(`/en?place=${placeId}`);
+  const inlineRating = page.locator('[data-inline-rating]');
+  await expect(
+    inlineRating
+      .getByRole('radiogroup', { name: 'Overall rating' })
+      .getByRole('radio', { name: '2 stars' })
+  ).toHaveAttribute('aria-checked', 'true');
 
   const admin = createClient<Database>(status.apiUrl, status.secretKey, {
     auth: { persistSession: false, autoRefreshToken: false }
@@ -169,8 +187,10 @@ test('a Visitor cannot reach the Rating form or the Moderator exclusion workspac
 }) => {
   const ratePath = `/en/places/${placeId}/rate`;
   await page.goto(ratePath);
-  await expect(page).toHaveURL(`/en/account?returnTo=${encodeURIComponent(ratePath)}`);
-  await expect(page.getByLabel('Email address')).toBeVisible();
+  await expect(page).toHaveURL(`/en?place=${placeId}`);
+  await waitForHydration(page);
+  await page.locator('[data-inline-rating]').getByRole('radio', { name: '4 stars' }).click();
+  await expect(page.getByRole('dialog').getByLabel('Email address')).toBeVisible();
 
   const moderationPath = `/en/moderation/dog-friendliness/${placeId}`;
   await page.goto(moderationPath);
@@ -186,11 +206,12 @@ test('a Visitor cannot reach the Rating form or the Moderator exclusion workspac
     'Content-Type': 'application/json'
   };
   const submitResponse = await page.request.post(
-    `${status.apiUrl}/rest/v1/rpc/submit_dog_friendliness_rating`,
+    `${status.apiUrl}/rest/v1/rpc/save_inline_dog_friendliness_rating`,
     {
       headers: anonHeaders,
       data: {
         requested_place_id: placeId,
+        requested_overall_score: 5,
         requested_welcome_score: 5,
         requested_clarity_score: null,
         requested_comfort_score: null,
@@ -205,8 +226,8 @@ test('a Visitor cannot reach the Rating form or the Moderator exclusion workspac
 async function signInMember(page: Page, email: string): Promise<void> {
   await page.goto('/en/account');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(email);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(email);
   await page.goto(magicLink);
 }
@@ -220,21 +241,40 @@ async function signInModerator(page: Page): Promise<void> {
     `/en/moderation/sign-in?returnTo=${encodeURIComponent(`/en/moderation/dog-friendliness/${placeId}`)}`
   );
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
   await page.goto(magicLink);
 }
 
 async function submitRating(
   page: Page,
-  scores: { welcome: string; clarity: string; comfort: string; thoughtfulness: string }
+  scores: {
+    overall: string;
+    welcome: string;
+    clarity: string;
+    comfort: string;
+    thoughtfulness: string;
+  }
 ): Promise<void> {
-  await page.goto(`/en/places/${placeId}/rate`);
+  await page.goto(`/en?place=${placeId}`);
   await waitForHydration(page);
-  await page.getByLabel('Welcome').selectOption(scores.welcome);
-  await page.getByLabel('Clarity').selectOption(scores.clarity);
-  await page.getByLabel('Comfort').selectOption(scores.comfort);
-  await page.getByLabel('Thoughtfulness').selectOption(scores.thoughtfulness);
-  await page.getByRole('button', { name: 'Save Rating' }).click();
+  const rating = page.locator('[data-inline-rating]');
+  await rating
+    .getByRole('radiogroup', { name: 'Overall rating' })
+    .getByRole('radio', { name: `${scores.overall} stars` })
+    .click();
+  for (const [label, value] of [
+    ['Welcome', scores.welcome],
+    ['Clarity', scores.clarity],
+    ['Comfort', scores.comfort],
+    ['Thoughtfulness', scores.thoughtfulness]
+  ] as const) {
+    if (value === 'na') continue;
+    await rating
+      .getByRole('radiogroup', { name: label })
+      .getByRole('radio', { name: `${value} stars` })
+      .click();
+  }
+  await expect(rating.getByText('Saved')).toBeVisible();
 }

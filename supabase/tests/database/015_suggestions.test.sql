@@ -5,7 +5,7 @@ create extension if not exists pgtap with schema extensions;
 alter table private.locations alter column geometry_precision set default 'moderator_confirmed_point';
 alter table private.locations alter column geometry_source set default 'Reviewed database test fixture';
 
-select plan(91);
+select plan(92);
 
 select has_function(
   'public',
@@ -1039,9 +1039,17 @@ select lives_ok(
       'The Suggestion was accepted.',
       'Identity reviewed as a new continuity',
       jsonb_set(
-        (select proposal from public.get_moderation_place_suggestion('65000000-0000-4000-8000-000000000003')),
-        '{translations,en,name}',
-        '"Corrected suggestion cafe"'
+        jsonb_set(
+          jsonb_set(
+            (select proposal from public.get_moderation_place_suggestion('65000000-0000-4000-8000-000000000003')),
+            '{translations,en,name}',
+            '"Corrected suggestion cafe"'
+          ),
+          '{access_condition,availability_state}',
+          '"whenever_open"'
+        ),
+        '{access_condition,availability_window}',
+        '{}'::jsonb
       ),
       null,
       '35000000-0000-4000-8000-000000000001',
@@ -1075,6 +1083,18 @@ select is(
   ),
   'Corrected suggestion cafe'::text,
   'The corrected proposal is used to create the Candidate atomically'
+);
+
+select is(
+  (
+    select condition.availability_state::text
+    from private.place_suggestions as suggestion
+    join private.access_conditions as condition
+      on condition.place_id = suggestion.candidate_place_id
+    where suggestion.id = '65000000-0000-4000-8000-000000000003'
+  ),
+  'whenever_open'::text,
+  'Accepted Suggestion conversion writes its explicit availability state directly'
 );
 
 select is(

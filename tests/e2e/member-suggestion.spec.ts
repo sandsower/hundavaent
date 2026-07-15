@@ -44,11 +44,11 @@ test('discovery preserves the selected map context through sign-in to the Locati
   expect(suggestPath).toContain('latitude=64.1423');
   expect(suggestPath).toContain('longitude=-21.9555');
   await entry.click();
-  await expect(page).toHaveURL(`/en/account?returnTo=${encodeURIComponent(suggestPath)}`);
+  await expect(page).toHaveURL(`/en?auth=open&authReturnTo=${encodeURIComponent(suggestPath)}`);
 
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(memberEmail);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(memberEmail);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(memberEmail);
   await page.goto(magicLink);
 
@@ -215,8 +215,8 @@ test('private Suggestions reach accepted, rejected, and duplicate outcomes witho
 async function signInMember(page: Page, email: string): Promise<void> {
   await page.goto('/en/account?returnTo=%2Fen%2Fsuggest');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(email);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(email);
   await page.goto(magicLink);
   await expect(page).toHaveURL('/en/suggest');
@@ -225,8 +225,8 @@ async function signInMember(page: Page, email: string): Promise<void> {
 async function signInModerator(page: Page): Promise<void> {
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fsuggestions');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
   await page.goto(magicLink);
   await expect(page).toHaveURL('/en/moderation/suggestions');

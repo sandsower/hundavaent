@@ -16,7 +16,7 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL(/\/is$/);
     await expect(page.locator('html')).toHaveAttribute('lang', 'is');
     await expect(page.getByRole('heading', { name: 'Hundavænt' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /niðurstöð/ })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Staðir sem fundust' })).toBeVisible();
     await expect(page.getByText('Finndu hundvæna staði á höfuðborgarsvæðinu.')).toHaveCount(0);
   });
 
@@ -38,11 +38,14 @@ test.describe('public discovery locale routes', () => {
     await expect(page.getByText('Dog-friendly places', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Find dog-friendly places in the capital region.')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/en/about');
-    await expect(page.getByRole('link', { name: 'Log in / Register' })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toHaveAttribute(
       'href',
       '/en/account?returnTo=%2Fen'
     );
-    await expect(page.getByRole('link', { name: /Published Place/ })).toHaveCount(0);
+    const desktopResults = page.getByRole('region', { name: 'Places found' });
+    await expect(
+      desktopResults.getByRole('button', { name: 'Select Published Place' })
+    ).toBeVisible();
     await expect(page.getByText('Candidate Place')).toHaveCount(0);
     await expect(page.getByText('Unverified Place')).toHaveCount(0);
 
@@ -54,9 +57,11 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL('/en?place=30000000-0000-4000-8000-000000000003');
     const selected = page.getByLabel('Selected place');
     await expect(selected.getByText('Published Place')).toBeVisible();
-    await selected.getByText('Details and sources').click();
+    await selected.getByText('Details', { exact: true }).click();
     await expect(selected.getByRole('heading', { name: 'Dog access' })).toBeVisible();
-    await expect(selected.getByText('Official Place website')).toBeVisible();
+    await expect(selected.getByRole('link', { name: 'Website' })).toBeVisible();
+    await expect(selected.getByRole('link', { name: 'Access information' })).toHaveCount(0);
+    await expect(selected.getByText('Official Place website')).toHaveCount(0);
   });
 
   test('tells the localized About story and links into discovery and contribution', async ({
@@ -70,7 +75,7 @@ test.describe('public discovery locale routes', () => {
     await expect(page.getByAltText('Vic holding Miles, a long-haired dachshund')).toBeVisible();
     await expect(
       page.getByRole('heading', {
-        name: 'Most of the useful information travelled by word of mouth.'
+        name: 'Most of the useful information travels only by word of mouth.'
       })
     ).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Dog Access' })).toBeVisible();
@@ -113,9 +118,13 @@ test.describe('public discovery locale routes', () => {
 
   test('provides a localized Member account entry point', async ({ page }) => {
     await page.goto('/is/account');
-    await expect(page.getByRole('heading', { name: 'Velkomin á Hundavænt' })).toBeVisible();
-    await expect(page.getByLabel('Netfang')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Senda innskráningartengil' })).toBeEnabled();
+    await expect(page).toHaveURL('/is?auth=open&authReturnTo=%2Fis');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: 'Halda áfram með Hundavænt' })).toBeVisible();
+    await expect(dialog.getByLabel('Netfang')).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Senda mér innskráningartengil' })
+    ).toBeEnabled();
   });
 
   test('uses one map-first selected Place state across desktop and mobile', async ({ page }) => {
@@ -157,11 +166,10 @@ test.describe('public discovery locale routes', () => {
   test('shares combined discovery filters and selection across languages', async ({ page }) => {
     await page.goto('/en');
     await waitForHydration(page);
-    await page.getByRole('button', { name: 'Show filters' }).click();
-    await page.getByLabel('Place type').selectOption('outdoors');
+    await page.getByRole('button', { name: 'More filters' }).click();
+    await page.getByRole('combobox', { name: 'Place type' }).selectOption('outdoors');
     await page.getByRole('combobox', { name: 'Area', exact: true }).selectOption('Reykjavík');
     await page.getByLabel('Dog access area').selectOption('outdoors');
-    await page.getByRole('button', { name: 'More filters' }).click();
     await page.getByLabel('Leash and restraint').selectOption('leash_required');
     await page.getByLabel('Permission').selectOption('standing_permission');
     await page.getByRole('searchbox', { name: 'Search for a place' }).fill('Reykjavík');
@@ -170,7 +178,7 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL(/area=Reykjav%C3%ADk/);
     await expect(page).toHaveURL(/access=outdoors/);
     await expect(page).toHaveURL(/q=Reykjav%C3%ADk/);
-    await page.getByRole('button', { name: 'Show 1 result' }).click();
+    await page.getByRole('button', { name: 'Hide filters' }).click();
     await page.getByRole('button', { name: 'Select Published Place' }).click();
     await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
 
@@ -220,7 +228,7 @@ test.describe('public discovery locale routes', () => {
     });
     await page.goto('/en');
     await waitForHydration(page);
-    await page.getByRole('button', { name: 'Show filters' }).click();
+    await page.getByRole('button', { name: 'More filters' }).click();
     await expect(page.getByRole('button', { name: 'Hide filters' })).toBeVisible();
     await page.getByRole('button', { name: 'Use my location' }).click();
 
@@ -229,7 +237,7 @@ test.describe('public discovery locale routes', () => {
     await expect(page.getByRole('button', { name: 'Published Place', exact: true })).toBeVisible();
     await page.reload();
     await waitForHydration(page);
-    await page.getByRole('button', { name: 'Show filters' }).click();
+    await page.getByRole('button', { name: 'More filters' }).click();
     await expect(page.getByRole('button', { name: 'Try location again' })).toBeVisible();
   });
 
@@ -243,7 +251,6 @@ test.describe('public discovery locale routes', () => {
     await page.goto('/en?lat=64.2&lng=-21.8&z=11&view=map');
     await waitForHydration(page);
     await page.getByRole('searchbox', { name: 'Search for a place' }).fill('Published Place');
-    await page.getByRole('button', { name: 'Show filters' }).click();
     await page.getByRole('button', { name: 'More filters' }).click();
     await page.getByRole('button', { name: 'Use my location' }).click();
 
@@ -253,10 +260,12 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL(/lng=-21.8/);
     await expect(page).not.toHaveURL(/lat=64(?:\.0+)?(?:&|$)/);
     await expect(page).not.toHaveURL(/lng=-21.9426/);
-    await expect(page.getByRole('button', { name: 'Show 0 results' })).toBeVisible();
+    await page.getByRole('button', { name: 'Hide filters' }).click();
+    await expect(page.getByText('No places match')).toBeVisible();
 
+    await page.getByRole('button', { name: 'More filters' }).click();
     await page.getByRole('combobox', { name: 'Distance' }).selectOption('25');
-    await expect(page.getByRole('button', { name: 'Show 1 result' })).toBeVisible();
+    await page.getByRole('button', { name: 'Hide filters' }).click();
     await expect(page.getByRole('button', { name: 'Published Place', exact: true })).toBeVisible();
   });
 
@@ -265,17 +274,17 @@ test.describe('public discovery locale routes', () => {
     await page.goto('/en');
     await waitForHydration(page);
 
-    await page.getByRole('button', { name: 'Show filters' }).click();
+    await page.getByRole('button', { name: 'More filters' }).click();
     await expect(page.getByRole('combobox', { name: 'Place type' })).toBeFocused();
     await page.getByRole('button', { name: /Show \d+ results?/ }).click();
     await expect(page.getByRole('combobox', { name: 'Place type' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Close results' })).toBeFocused();
 
-    await page.getByRole('button', { name: 'Show filters' }).click();
+    await page.getByRole('button', { name: 'More filters' }).click();
     await expect(page.getByRole('heading', { name: 'Places found' })).toHaveCount(0);
     await expect(page.getByRole('combobox', { name: 'Place type' })).toBeFocused();
     await page.getByRole('button', { name: 'Hide filters' }).click();
-    await expect(page.getByRole('button', { name: 'Show filters' })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'More filters' })).toBeFocused();
 
     const showResults = page.getByRole('button', { name: /Show \d+ results?/ });
     await showResults.click();
@@ -298,7 +307,7 @@ test.describe('public discovery locale routes', () => {
     expect(bounds?.height).toBeGreaterThanOrEqual(250);
     expect(bounds?.width).toBeLessThanOrEqual(330);
 
-    await page.getByText('Details and sources').click();
+    await page.getByText('Details', { exact: true }).click();
     const accessHeading = page.getByRole('heading', { name: 'Dog access' });
     await accessHeading.scrollIntoViewIfNeeded();
     await expect(accessHeading).toBeVisible();

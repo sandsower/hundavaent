@@ -117,6 +117,24 @@ describe('evaluation evidence manifest', () => {
       );
     }
   });
+
+  it('rejects nonzero Axe violations and failed performance budgets', () => {
+    const unsafe = structuredClone(validManifest);
+    unsafe.accessibility.axeViolations = 1;
+    unsafe.performance.measurements[0].passed = false;
+
+    const result = validateEvidenceManifest(unsafe);
+
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          'accessibility.axeViolations must equal zero',
+          'performance.measurements[0] failed its budget'
+        ])
+      );
+    }
+  });
 });
 
 describe('required evaluation scenario catalogue', () => {
@@ -210,6 +228,19 @@ describe('per-test evaluation evidence', () => {
         'required screenshot evidence is missing',
         'timing budget failed: ttfb'
       ])
+    );
+  });
+
+  it('rejects accessibility artifacts that omit required Axe proof', () => {
+    const invalid: TestEvidenceArtifact = {
+      ...structuredClone(completeArtifact),
+      test: { ...completeArtifact.test, file: 'tests/evaluation/a11y.spec.ts' },
+      required: [],
+      axe: []
+    };
+
+    expect(validateTestEvidenceArtifact(invalid)).toContain(
+      'accessibility test evidence must declare and contain Axe proof'
     );
   });
 });

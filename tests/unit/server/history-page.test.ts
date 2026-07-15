@@ -24,6 +24,24 @@ function personalPlaceRow(index: number) {
 }
 
 describe('Personal history page boundary', () => {
+  it('does not query private history when the canonical layout is signed out', async () => {
+    const rpc = vi.fn();
+
+    await expect(
+      load({
+        locals: { supabase: { rpc }, requestId: 'request-signed-out' },
+        params: { lang: 'en' },
+        parent: vi.fn(async () => ({ signedIn: false })),
+        setHeaders: vi.fn(),
+        url: new URL('http://localhost/en/history?view=map')
+      } as never)
+    ).rejects.toMatchObject({
+      status: 303,
+      location: `/en/account?returnTo=${encodeURIComponent('/en/history?view=map')}`
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it('redirects a signed-in but not-activated Member through sign-in instead of failing', async () => {
     // A session cookie exists (layout says signedIn) but the Member activation is missing or was
     // revoked, so the RPC denies with 42501 and the adapter reports authentication_required.

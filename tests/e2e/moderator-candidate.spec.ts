@@ -16,8 +16,8 @@ test.beforeAll(async () => {
 
 test('a Moderator creates a private Candidate through the full application', async ({ page }) => {
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fplaces%2Fnew');
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await expect(page.getByText('The link has been sent.')).toBeVisible();
 
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);

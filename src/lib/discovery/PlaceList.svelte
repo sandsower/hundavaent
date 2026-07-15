@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Catalogue } from '$i18n';
+  import type { Catalogue, Locale } from '$i18n';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
 
   import PlaceCard from './PlaceCard.svelte';
@@ -7,27 +7,27 @@
   interface Props {
     places: PublishedPlaceSummary[];
     selectedPlaceId: string | null;
+    lang: Locale;
     focusSelected?: boolean;
     interactive?: boolean;
     copy: Catalogue;
-    onSelect?: (placeId: string, trigger: HTMLButtonElement) => void;
+    onSelect?: (placeId: string, trigger: HTMLButtonElement, openDetails?: boolean) => void;
     signedIn?: boolean;
     favouritePlaceIds?: string[];
-    pendingFavouritePlaceId?: string | null;
     signInHref?: (placeId: string) => string;
-    onFavouriteChange?: (placeId: string, favourite: boolean) => void;
+    onFavouriteChange?: (placeId: string, favourite: boolean, trigger: HTMLButtonElement) => void;
   }
 
   let {
     places,
     selectedPlaceId,
+    lang,
     focusSelected = false,
     interactive = true,
     copy,
     onSelect = () => undefined,
     signedIn = false,
     favouritePlaceIds = [],
-    pendingFavouritePlaceId = null,
     signInHref = () => '',
     onFavouriteChange = () => undefined
   }: Props = $props();
@@ -38,6 +38,7 @@
     <li>
       <PlaceCard
         {place}
+        {lang}
         selected={place.placeId === selectedPlaceId}
         focusSelected={focusSelected && place.placeId === selectedPlaceId}
         {interactive}
@@ -45,7 +46,6 @@
         {onSelect}
         {signedIn}
         favourite={favouritePlaceIds.includes(place.placeId)}
-        pendingConfirmation={pendingFavouritePlaceId === place.placeId}
         signInHref={signInHref(place.placeId)}
         {onFavouriteChange}
       />

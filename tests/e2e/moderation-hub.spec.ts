@@ -26,8 +26,8 @@ test('a Moderator signs in and opens a query-backed compact Suggestions workspac
 }) => {
   test.setTimeout(90_000);
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation');
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await expect(page.getByText('The link has been sent.')).toBeVisible();
 
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);

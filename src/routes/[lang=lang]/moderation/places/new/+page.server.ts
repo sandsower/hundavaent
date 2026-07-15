@@ -32,6 +32,7 @@ const restraintsAllowed = new Set([
   'other_sourced'
 ]);
 const permissionsAllowed = new Set(['standing_permission', 'ask_on_arrival', 'advance_approval']);
+const availabilityStatesAllowed = new Set(['whenever_open', 'limited', 'not_stated']);
 const evidenceKindsAllowed = new Set([
   'official_website',
   'venue_representative',
@@ -147,6 +148,7 @@ interface CandidateFormValues extends Record<string, string> {
   availabilityEndsAt: string;
   availabilityStartsOn: string;
   availabilityEndsOn: string;
+  availabilityStates: string;
   dogAmenities: string;
 }
 
@@ -196,6 +198,7 @@ function readValues(formData: FormData): CandidateFormValues {
     availabilityEndsAt: values('availabilityEndsAt'),
     availabilityStartsOn: values('availabilityStartsOn'),
     availabilityEndsOn: values('availabilityEndsOn'),
+    availabilityStates: values('availabilityState'),
     dogAmenities: value('dogAmenities')
   };
 }
@@ -209,6 +212,7 @@ function toCommand(values: CandidateFormValues): CandidatePlaceCommand | null {
   const accessAreas = split(values.accessAreas);
   const restraints = split(values.restraintConditions);
   const permissions = split(values.permissionRequirements);
+  const availabilityStates = split(values.availabilityStates);
   const evidenceKinds = split(values.evidenceKinds);
   const evidenceUrls = split(values.evidenceUrls);
   const evidenceCitations = split(values.evidenceCitations);
@@ -218,6 +222,7 @@ function toCommand(values: CandidateFormValues): CandidatePlaceCommand | null {
     accessAreas.length === 0 ||
     restraints.length !== accessAreas.length ||
     permissions.length !== accessAreas.length ||
+    availabilityStates.length !== accessAreas.length ||
     evidenceKinds.length === 0 ||
     evidenceUrls.length !== evidenceKinds.length ||
     evidenceCitations.length !== evidenceKinds.length ||
@@ -232,10 +237,12 @@ function toCommand(values: CandidateFormValues): CandidatePlaceCommand | null {
     const accessArea = accessAreas[index];
     const restraint = restraints[index];
     const permission = permissions[index];
+    const availabilityState = availabilityStates[index];
     if (
       !accessAreasAllowed.has(accessArea) ||
       !restraintsAllowed.has(restraint) ||
-      !permissionsAllowed.has(permission)
+      !permissionsAllowed.has(permission) ||
+      !availabilityStatesAllowed.has(availabilityState)
     )
       return null;
     const maximumWeight = at(values.maximumWeights, index);
@@ -273,7 +280,9 @@ function toCommand(values: CandidateFormValues): CandidatePlaceCommand | null {
     };
     if (
       parseDogEligibility(dogEligibility) === null ||
-      parseAvailabilityWindow(availabilityWindow) === null
+      parseAvailabilityWindow(availabilityWindow) === null ||
+      (availabilityState === 'limited' && Object.keys(availabilityWindow).length === 0) ||
+      (availabilityState !== 'limited' && Object.keys(availabilityWindow).length > 0)
     )
       return null;
     accessConditions.push({
@@ -284,6 +293,8 @@ function toCommand(values: CandidateFormValues): CandidatePlaceCommand | null {
       restraint_note: at(values.restraintNotes, index) || null,
       dog_eligibility: dogEligibility,
       availability_window: availabilityWindow,
+      availability_state:
+        availabilityState as CandidatePlaceCommand['access_conditions'][number]['availability_state'],
       permission_requirement:
         permission as CandidatePlaceCommand['access_conditions'][number]['permission_requirement']
     });

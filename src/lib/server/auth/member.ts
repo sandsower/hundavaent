@@ -11,8 +11,7 @@ export interface MemberAuthConfig {
   facebookEnabled: boolean;
 }
 
-export type MemberAuthConfigUnavailableReason =
-  'missing_app_origin' | 'unsafe_app_origin' | 'identity_linking_policy_required';
+export type MemberAuthConfigUnavailableReason = 'missing_app_origin' | 'unsafe_app_origin';
 
 export type MemberAuthConfigResolution =
   | { status: 'ready'; config: MemberAuthConfig }
@@ -92,10 +91,6 @@ export function getMemberAuthConfig(
       facebookEnabled: parseFeatureFlag(environment.AUTH_FACEBOOK_ENABLED, false)
     };
 
-    if (config.emailEnabled && config.facebookEnabled) {
-      return { status: 'unavailable', reason: 'identity_linking_policy_required' };
-    }
-
     return { status: 'ready', config };
   } catch {
     return { status: 'unavailable', reason: 'unsafe_app_origin' };
@@ -106,12 +101,14 @@ export function buildMemberCallbackUrl(
   config: MemberAuthConfig,
   locale: Locale,
   returnTo: string,
-  method: 'email' | 'facebook'
+  method: 'email' | 'facebook',
+  pendingIntent?: string | null
 ): string {
   const callback = new URL(`/${locale}/auth/callback`, config.appOrigin);
   callback.searchParams.set('returnTo', returnTo);
   callback.searchParams.set('flow', 'member');
   callback.searchParams.set('method', method);
+  if (pendingIntent) callback.searchParams.set('pendingIntent', pendingIntent);
   return callback.toString();
 }
 

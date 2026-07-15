@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { RequestSupabaseClient } from '$server/db/clients';
+import { signPlaceMediaUrls } from '$server/place-media/place-media';
 import {
   getPublishedProfile,
-  getPublicPlaceStatus,
-  listPublished
+  listPublished,
+  refreshPublishedPhotoUrl
 } from '$server/discovery/public-places';
 
 const listRow = {
@@ -23,10 +24,11 @@ const listRow = {
     {
       accessArea: 'outdoors',
       restraintCondition: 'leash_required',
-      permissionRequirement: 'standing_permission'
+      permissionRequirement: 'standing_permission',
+      dogEligibilityState: 'all_dogs',
+      availabilityState: 'not_stated'
     }
-  ],
-  verified_at: '2026-07-09T11:00:00.000Z'
+  ]
 };
 
 const profileRow = {
@@ -50,41 +52,81 @@ const profileRow = {
   restraint_note: null,
   dog_eligibility: { scope: 'all_dogs' },
   availability_window: {},
+  availability_state: 'not_stated',
   permission_requirement: 'standing_permission',
-  evidence_sources: [
-    {
-      kind: 'official_website',
-      sourceUrl: 'https://example.invalid/source',
-      sourceCitation: null,
-      sourceLabel: 'Official website',
-      observedAt: '2026-07-09T10:00:00Z'
-    }
-  ],
-  verified_at: '2026-07-09T11:00:00.000Z',
-  freshness_until: '2099-01-01T00:00:00.000Z'
+  access_information_urls: ['https://example.invalid/source']
 };
 
 function createClient(
   responses: Partial<
     Record<
-      'list_published_places' | 'get_published_place_profile' | 'get_public_place_status',
+      | 'list_published_places_v2'
+      | 'list_published_place_primary_photos'
+      | 'list_published_place_photos'
+      | 'get_published_place_profile_v2',
       { data: unknown; error: { code: string; message: string } | null }
     >
-  >
+  >,
+  signedUrls: Record<string, string> = {}
 ) {
   const rpc = vi.fn(
     async (name: keyof typeof responses) =>
       responses[name] ?? { data: null, error: { code: 'XX000', message: 'missing fake' } }
   );
 
-  return { client: { rpc } as unknown as RequestSupabaseClient, rpc };
+  const createSignedUrl = vi.fn(async (objectPath: string) => ({
+    data: signedUrls[objectPath] ? { signedUrl: signedUrls[objectPath] } : null,
+    error: signedUrls[objectPath] ? null : { message: 'not signed' }
+  }));
+  const createSignedUrls = vi.fn(async (objectPaths: string[]) => ({
+    data: objectPaths.map((path) => ({
+      path,
+      signedUrl: signedUrls[path] ?? null,
+      error: signedUrls[path] ? null : 'not signed'
+    })),
+    error: null
+  }));
+
+  return {
+    client: {
+      rpc,
+      storage: { from: vi.fn(() => ({ createSignedUrl, createSignedUrls })) }
+    } as unknown as RequestSupabaseClient,
+    rpc,
+    createSignedUrl,
+    createSignedUrls
+  };
 }
 
 describe('listPublished', () => {
   it('maps the fixed localized list projection', async () => {
-    const { client, rpc } = createClient({
-      list_published_places: { data: [listRow], error: null }
-    });
+    const { client, rpc, createSignedUrl, createSignedUrls } = createClient(
+      {
+        list_published_places_v2: { data: [listRow], error: null },
+        list_published_place_primary_photos: {
+          data: [
+            {
+              place_id: 'place-1',
+              media_id: 'photo-1',
+              storage_bucket: 'place-photos',
+              storage_object_path: 'place-1/primary.jpg',
+              width_px: 1600,
+              height_px: 1200,
+              alt_text_is: 'Hundur á kaffihúsi',
+              alt_text_en: 'A dog at a cafe',
+              rights_basis: 'cc_by',
+              source_url: 'https://photos.example.invalid/primary',
+              license_reference: 'CC BY 4.0',
+              license_url: 'https://creativecommons.org/licenses/by/4.0/',
+              attribution_text: 'A. Photographer',
+              attribution_url: 'https://photos.example.invalid/a-photographer'
+            }
+          ],
+          error: null
+        }
+      },
+      { 'place-1/primary.jpg': 'https://example.invalid/signed/primary.jpg' }
+    );
 
     await expect(listPublished(client, 'en')).resolves.toEqual({
       status: 'success',
@@ -105,16 +147,100 @@ describe('listPublished', () => {
             {
               accessArea: 'outdoors',
               restraintCondition: 'leash_required',
-              permissionRequirement: 'standing_permission'
+              permissionRequirement: 'standing_permission',
+              dogEligibilityState: 'all_dogs',
+              availabilityState: 'not_stated'
             }
           ],
-          verifiedAt: '2026-07-09T11:00:00.000Z'
+          primaryPhoto: {
+            mediaId: 'photo-1',
+            url: 'https://example.invalid/signed/primary.jpg',
+            widthPx: 1600,
+            heightPx: 1200,
+            altTextIs: 'Hundur á kaffihúsi',
+            altTextEn: 'A dog at a cafe',
+            rightsBasis: 'cc_by',
+            sourceUrl: 'https://photos.example.invalid/primary',
+            licenseReference: 'CC BY 4.0',
+            licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+            attributionText: 'A. Photographer',
+            attributionUrl: 'https://photos.example.invalid/a-photographer',
+            urlExpiresAt: expect.any(String)
+          }
         }
       ]
     });
-    expect(rpc).toHaveBeenCalledWith('list_published_places', {
+    expect(rpc).toHaveBeenCalledWith('list_published_places_v2', {
       requested_locale: 'en'
     });
+    expect(rpc).toHaveBeenCalledWith('list_published_place_primary_photos', {
+      requested_place_ids: ['place-1']
+    });
+    expect(createSignedUrls).toHaveBeenCalledTimes(1);
+    expect(createSignedUrls).toHaveBeenCalledWith(['place-1/primary.jpg'], 300);
+    expect(createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it('loads primary photo metadata in one batch and degrades individual signing failures', async () => {
+    const secondRow = { ...listRow, place_id: 'place-2', name: 'Second Place' };
+    const { client, rpc, createSignedUrls } = createClient(
+      {
+        list_published_places_v2: { data: [listRow, secondRow], error: null },
+        list_published_place_primary_photos: {
+          data: [
+            {
+              place_id: 'place-1',
+              media_id: 'photo-1',
+              storage_bucket: 'place-photos',
+              storage_object_path: 'place-1/primary.jpg',
+              width_px: 1600,
+              height_px: 1200,
+              alt_text_is: 'Hundur á kaffihúsi',
+              alt_text_en: 'A dog at a cafe',
+              rights_basis: 'cc_by',
+              source_url: 'https://photos.example.invalid/primary',
+              license_reference: 'CC BY 4.0',
+              license_url: 'https://creativecommons.org/licenses/by/4.0/',
+              attribution_text: 'A. Photographer',
+              attribution_url: null
+            },
+            {
+              place_id: 'place-2',
+              media_id: 'photo-2',
+              storage_bucket: 'place-photos',
+              storage_object_path: 'place-2/primary.jpg',
+              width_px: 1200,
+              height_px: 900,
+              alt_text_is: 'Hundur í garði',
+              alt_text_en: 'A dog in a park',
+              rights_basis: 'explicit_permission',
+              source_url: null,
+              license_reference: 'Owner supplied',
+              license_url: null,
+              attribution_text: 'Place owner',
+              attribution_url: null
+            }
+          ],
+          error: null
+        }
+      },
+      { 'place-1/primary.jpg': 'https://example.invalid/signed/primary.jpg' }
+    );
+
+    const result = await listPublished(client, 'en');
+
+    expect(result).toMatchObject({
+      status: 'success',
+      value: [{ primaryPhoto: { mediaId: 'photo-1' } }, { primaryPhoto: null }]
+    });
+    expect(rpc).toHaveBeenCalledWith('list_published_place_primary_photos', {
+      requested_place_ids: ['place-1', 'place-2']
+    });
+    expect(createSignedUrls).toHaveBeenCalledTimes(1);
+    expect(createSignedUrls).toHaveBeenCalledWith(
+      ['place-1/primary.jpg', 'place-2/primary.jpg'],
+      300
+    );
   });
 
   it('maps verified condition tuples while preserving null multi-condition summary fields', async () => {
@@ -129,17 +255,21 @@ describe('listPublished', () => {
         {
           accessArea: 'indoors',
           restraintCondition: 'carrier_required',
-          permissionRequirement: 'standing_permission'
+          permissionRequirement: 'standing_permission',
+          dogEligibilityState: 'small_dogs_only',
+          availabilityState: 'limited'
         },
         {
           accessArea: 'outdoors',
           restraintCondition: 'leash_required',
-          permissionRequirement: 'ask_on_arrival'
+          permissionRequirement: 'ask_on_arrival',
+          dogEligibilityState: 'all_dogs',
+          availabilityState: 'not_stated'
         }
       ]
     };
     const { client } = createClient({
-      list_published_places: { data: [multiConditionRow], error: null }
+      list_published_places_v2: { data: [multiConditionRow], error: null }
     });
 
     await expect(listPublished(client, 'en')).resolves.toEqual({
@@ -159,22 +289,22 @@ describe('listPublished', () => {
 
   it('accepts an empty list, omits invalid coordinates, and rejects malformed public fields', async () => {
     const empty = createClient({
-      list_published_places: { data: [], error: null }
+      list_published_places_v2: { data: [], error: null }
     }).client;
     const invalidCoordinates = createClient({
-      list_published_places: {
+      list_published_places_v2: {
         data: [{ ...listRow, latitude: 'private provider shape' }],
         error: null
       }
     }).client;
     const malformed = createClient({
-      list_published_places: {
+      list_published_places_v2: {
         data: [{ ...listRow, name: '' }],
         error: null
       }
     }).client;
     const malformedDimensions = createClient({
-      list_published_places: {
+      list_published_places_v2: {
         data: [
           {
             ...listRow,
@@ -182,7 +312,9 @@ describe('listPublished', () => {
               {
                 accessArea: 'private_value',
                 restraintCondition: 'leash_required',
-                permissionRequirement: 'standing_permission'
+                permissionRequirement: 'standing_permission',
+                dogEligibilityState: 'all_dogs',
+                availabilityState: 'not_stated'
               }
             ]
           }
@@ -209,7 +341,7 @@ describe('listPublished', () => {
 
   it('redacts provider and thrown failures', async () => {
     const failed = createClient({
-      list_published_places: {
+      list_published_places_v2: {
         data: null,
         error: { code: 'XX000', message: 'private database detail' }
       }
@@ -229,10 +361,82 @@ describe('listPublished', () => {
   });
 });
 
+describe('refreshPublishedPhotoUrl', () => {
+  it('revalidates the current public projection before refreshing a short-lived URL', async () => {
+    const { client, rpc, createSignedUrl } = createClient(
+      {
+        list_published_place_photos: {
+          data: [
+            {
+              media_id: 'photo-1',
+              storage_bucket: 'place-photos',
+              storage_object_path: 'place-1/primary.jpg',
+              width_px: 1600,
+              height_px: 1200,
+              alt_text_is: 'Hundur á kaffihúsi',
+              alt_text_en: 'A dog at a cafe',
+              rights_basis: 'cc_by',
+              source_url: 'https://photos.example.invalid/primary',
+              license_reference: 'CC BY 4.0',
+              license_url: 'https://creativecommons.org/licenses/by/4.0/',
+              attribution_text: 'A. Photographer',
+              attribution_url: null,
+              is_primary: true
+            }
+          ],
+          error: null
+        }
+      },
+      { 'place-1/primary.jpg': 'https://example.invalid/signed/refreshed.jpg' }
+    );
+
+    await expect(refreshPublishedPhotoUrl(client, 'place-1', 'photo-1')).resolves.toEqual({
+      status: 'success',
+      value: {
+        url: 'https://example.invalid/signed/refreshed.jpg',
+        urlExpiresAt: expect.any(String)
+      }
+    });
+    expect(rpc).toHaveBeenCalledWith('list_published_place_photos', {
+      requested_place_id: 'place-1'
+    });
+    expect(createSignedUrl).toHaveBeenCalledWith('place-1/primary.jpg', 300);
+  });
+
+  it('does not sign a photo absent from the current public projection', async () => {
+    const { client, createSignedUrl } = createClient({
+      list_published_place_photos: { data: [], error: null }
+    });
+
+    await expect(refreshPublishedPhotoUrl(client, 'place-1', 'retired-photo')).resolves.toEqual({
+      status: 'not_found'
+    });
+    expect(createSignedUrl).not.toHaveBeenCalled();
+  });
+});
+
+describe('signPlaceMediaUrls', () => {
+  it('degrades a thrown batch-signing failure to an empty result', async () => {
+    const client = {
+      storage: {
+        from: () => ({
+          createSignedUrls: async () => {
+            throw new Error('storage unavailable');
+          }
+        })
+      }
+    } as unknown as RequestSupabaseClient;
+
+    await expect(
+      signPlaceMediaUrls(client, 'place-photos', ['one.jpg', 'two.jpg'])
+    ).resolves.toEqual(new Map());
+  });
+});
+
 describe('getPublishedProfile', () => {
   it('maps the fixed localized profile and its access facts', async () => {
     const { client, rpc } = createClient({
-      get_published_place_profile: { data: [profileRow], error: null }
+      get_published_place_profile_v2: { data: [profileRow], error: null }
     });
 
     const result = await getPublishedProfile(client, 'place-1', 'is');
@@ -251,21 +455,14 @@ describe('getPublishedProfile', () => {
         accessConditions: [
           {
             id: 'condition-1',
-            evidenceSources: [
-              {
-                kind: 'official_website',
-                sourceUrl: 'https://example.invalid/source',
-                sourceCitation: null,
-                sourceLabel: 'Official website',
-                observedAt: '2026-07-09T10:00:00Z'
-              }
-            ],
-            freshnessUntil: '2099-01-01T00:00:00.000Z'
+            availabilityState: 'not_stated',
+            accessInformationUrls: []
           }
-        ]
+        ],
+        accessInformationUrls: []
       }
     });
-    expect(rpc).toHaveBeenCalledWith('get_published_place_profile', {
+    expect(rpc).toHaveBeenCalledWith('get_published_place_profile_v2', {
       requested_place_id: 'place-1',
       requested_locale: 'is'
     });
@@ -273,7 +470,7 @@ describe('getPublishedProfile', () => {
 
   it('returns not found without revealing private Place existence', async () => {
     const { client } = createClient({
-      get_published_place_profile: { data: [], error: null }
+      get_published_place_profile_v2: { data: [], error: null }
     });
 
     await expect(getPublishedProfile(client, 'private-place', 'en')).resolves.toEqual({
@@ -283,13 +480,13 @@ describe('getPublishedProfile', () => {
 
   it('rejects inconsistent rows and redacts provider failures', async () => {
     const malformed = createClient({
-      get_published_place_profile: {
+      get_published_place_profile_v2: {
         data: [profileRow, { ...profileRow, place_id: 'other-place' }],
         error: null
       }
     }).client;
     const failed = createClient({
-      get_published_place_profile: {
+      get_published_place_profile_v2: {
         data: null,
         error: { code: 'XX000', message: 'private database detail' }
       }
@@ -312,7 +509,7 @@ describe('getPublishedProfile', () => {
     { availability_window: { startsAt: '10:00', unknownRule: true } }
   ])('returns invalid_response for malformed structured access RPC data', async (override) => {
     const { client } = createClient({
-      get_published_place_profile: { data: [{ ...profileRow, ...override }], error: null }
+      get_published_place_profile_v2: { data: [{ ...profileRow, ...override }], error: null }
     });
 
     await expect(getPublishedProfile(client, 'place-1', 'en')).resolves.toEqual({
@@ -320,14 +517,14 @@ describe('getPublishedProfile', () => {
     });
   });
 
-  it('rejects Evidence projections containing undeclared private fields', async () => {
+  it('rejects access-information projections containing undeclared private fields', async () => {
     const { client } = createClient({
-      get_published_place_profile: {
+      get_published_place_profile_v2: {
         data: [
           {
             ...profileRow,
-            evidence_sources: [
-              { ...profileRow.evidence_sources[0], privateModeratorNote: 'never public' }
+            access_information_urls: [
+              { url: 'https://example.invalid/source', privateModeratorNote: 'never public' }
             ]
           }
         ],
@@ -339,53 +536,35 @@ describe('getPublishedProfile', () => {
       status: 'invalid_response'
     });
   });
-});
 
-describe('getPublicPlaceStatus', () => {
-  it('maps only the safe localized identity and public status', async () => {
-    const { client, rpc } = createClient({
-      get_public_place_status: {
+  it('drops provenance URLs and moderator-state notes at the public mapping boundary', async () => {
+    const { client } = createClient({
+      get_published_place_profile_v2: {
         data: [
           {
-            place_id: 'place-1',
-            name: 'Published Place',
-            public_status: 'access_under_review'
+            ...profileRow,
+            access_area_note:
+              'Moderator reconfirmation due. Source: https://example.invalid/internal',
+            restraint_note: 'Fenced area. Dogs remain under handler supervision.',
+            access_information_urls: ['https://example.invalid/raw-evidence']
           }
         ],
         error: null
       }
     });
 
-    await expect(getPublicPlaceStatus(client, 'place-1', 'en')).resolves.toEqual({
+    await expect(getPublishedProfile(client, 'place-1', 'en')).resolves.toMatchObject({
       status: 'success',
       value: {
-        placeId: 'place-1',
-        name: 'Published Place',
-        publicStatus: 'access_under_review'
+        accessInformationUrls: [],
+        accessConditions: [
+          {
+            accessAreaNote: null,
+            restraintNote: 'Fenced area. Dogs remain under handler supervision.',
+            accessInformationUrls: []
+          }
+        ]
       }
-    });
-    expect(rpc).toHaveBeenCalledWith('get_public_place_status', {
-      requested_place_id: 'place-1',
-      requested_locale: 'en'
-    });
-  });
-
-  it('does not reveal Candidates and rejects malformed private statuses', async () => {
-    const missing = createClient({
-      get_public_place_status: { data: [], error: null }
-    }).client;
-    const malformed = createClient({
-      get_public_place_status: {
-        data: [{ place_id: 'place-1', name: 'Place', public_status: 'candidate' }],
-        error: null
-      }
-    }).client;
-
-    await expect(getPublicPlaceStatus(missing, 'place-1', 'en')).resolves.toEqual({
-      status: 'not_found'
-    });
-    await expect(getPublicPlaceStatus(malformed, 'place-1', 'en')).resolves.toEqual({
-      status: 'invalid_response'
     });
   });
 });

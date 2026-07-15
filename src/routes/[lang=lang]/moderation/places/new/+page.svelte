@@ -23,6 +23,7 @@
       availabilityEndsAt: '',
       availabilityStartsOn: '',
       availabilityEndsOn: '',
+      availabilityState: 'not_stated',
       permissionRequirement: 'standing_permission'
     }
   ]);
@@ -80,6 +81,7 @@
       availabilityEndsAt: '',
       availabilityStartsOn: '',
       availabilityEndsOn: '',
+      availabilityState: 'not_stated',
       permissionRequirement: 'standing_permission'
     });
   }
@@ -419,6 +421,14 @@
               <label class="wide">
                 {data.copy['moderation.eligibilityNoteLabel']}
                 <input name="eligibilityNotes" bind:value={condition.eligibilityNotes} />
+              </label>
+              <label>
+                {data.copy['moderation.availabilityStateLabel']}
+                <select name="availabilityState" required bind:value={condition.availabilityState}>
+                  <option value="not_stated">{data.copy['accessSymbols.notStated']}</option>
+                  <option value="whenever_open">{data.copy['accessSymbols.wheneverOpen']}</option>
+                  <option value="limited">{data.copy['accessSymbols.limited']}</option>
+                </select>
               </label>
               <label>
                 {data.copy['moderation.weekdaysLabel']}

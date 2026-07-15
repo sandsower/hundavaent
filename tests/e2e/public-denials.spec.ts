@@ -95,3 +95,14 @@ test('public and Moderator responses use hardened origin and cache policies', as
   const moderatorResponse = await request.get('/en/moderation/sign-in');
   expect(moderatorResponse.headers()['cache-control']).toBe('private, no-store');
 });
+
+test('a signed-out auth continuation can never receive shared cache headers', async ({
+  request
+}) => {
+  const pendingIntent = 'A'.repeat(43);
+  const response = await request.get(`/en?pendingIntent=${pendingIntent}&pendingResult=retryable`);
+
+  expect(response.status()).toBe(200);
+  expect(response.headers()['cache-control']).toBe('private, no-store');
+  expect(response.headers()['cache-control']).not.toContain('s-maxage');
+});

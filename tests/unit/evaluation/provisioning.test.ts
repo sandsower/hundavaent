@@ -69,4 +69,29 @@ describe('deterministic evaluation provisioning', () => {
       'Evaluation administration requires a local origin'
     );
   });
+
+  it('binds fail-closed auth flags and the database capability into exact-SHA production releases', () => {
+    const workflow = readFileSync(
+      resolve(import.meta.dirname, '../../../.github/workflows/production.yml'),
+      'utf8'
+    );
+
+    expect(workflow).toContain('HUNDAVAENT_PRODUCTION_AUTH_EMAIL_ENABLED');
+    expect(workflow).toContain('HUNDAVAENT_PRODUCTION_AUTH_FACEBOOK_ENABLED');
+    expect(workflow).toContain('HUNDAVAENT_PRODUCTION_MEMBER_ACTIVATION_SECRET');
+    expect(workflow).toContain('configure_member_activation_capability');
+    expect(workflow).not.toContain('PGOPTIONS=');
+    expect(workflow).not.toContain("current_setting('app.member_activation_secret')");
+    expect(workflow).toContain(
+      'psql -v ON_ERROR_STOP=1 -v activation_secret="${MEMBER_ACTIVATION_SECRET}" "${db_url}" <<\'SQL\''
+    );
+    expect(workflow).toContain(
+      "select public.configure_member_activation_capability(:'activation_secret');"
+    );
+    expect(workflow).toContain('app_fingerprint');
+    expect(workflow).toContain('db_fingerprint');
+    expect(workflow).toContain('test "$(git rev-parse HEAD)" = "${{ inputs.sha }}"');
+  });
 });
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';

@@ -588,6 +588,29 @@ describe('Suggestions workspace action orchestration', () => {
     }
   );
 
+  it('preserves whenever-open timing through the accepted Candidate payload', async () => {
+    const { result, rpc } = await executeAction(
+      'resolve',
+      acceptedForm({ availabilityState: 'whenever_open' })
+    );
+
+    expect(result).toEqual({
+      status: 'confirmed',
+      effect: { kind: 'resolved', value: 'accepted' }
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'resolve_place_suggestion',
+      expect.objectContaining({
+        moderator_candidate_payload: expect.objectContaining({
+          access_condition: expect.objectContaining({
+            availability_state: 'whenever_open',
+            availability_window: {}
+          })
+        })
+      })
+    );
+  });
+
   it.each([
     [actionForm({}, 'rejected'), 'memberReasonEn', 'incomplete'],
     [actionForm({ outcome: 'submitted' }), null, 'invalid']

@@ -1,7 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 
 import { catalogues, parseLocale } from '$i18n';
-import { getPublishedProfile, getPublicPlaceStatus } from '$server/discovery/public-places';
+import { getPublishedProfile } from '$server/discovery/public-places';
 
 import type { PageServerLoad } from './$types';
 
@@ -13,14 +13,7 @@ export const load: PageServerLoad = async ({ locals, params, setHeaders, url }) 
   }
   const result = await getPublishedProfile(locals.supabase, params.id, lang);
   if (result.status === 'not_found') {
-    const status = await getPublicPlaceStatus(locals.supabase, params.id, lang);
-    if (status.status === 'success') {
-      return { lang, copy: catalogues[lang], place: status.value };
-    }
-    if (status.status === 'not_found') {
-      error(404, { message: catalogues[lang]['error.notFoundBody'], requestId: locals.requestId });
-    }
-    error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+    error(404, { message: catalogues[lang]['error.notFoundBody'], requestId: locals.requestId });
   }
   if (result.status !== 'success') {
     error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });

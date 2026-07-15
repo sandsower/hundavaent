@@ -436,7 +436,7 @@ select is(
 select is(
   (
     select array_agg(field_name order by field_name)
-    from public.list_published_places('is') as listed
+    from public.list_published_places_v2('is') as listed
     cross join lateral jsonb_object_keys(to_jsonb(listed)) as field_name
     where listed.place_id = '30000000-0000-4000-8000-000000000003'
   ),
@@ -452,8 +452,7 @@ select is(
     'permission_requirement',
     'place_id',
     'restraint_condition',
-    'simple_access_summary',
-    'verified_at'
+    'simple_access_summary'
   ]::text[],
   'The list projection exposes exactly its reviewed public field allowlist'
 );
@@ -461,7 +460,7 @@ select is(
 select is(
   (
     select array_agg(field_name order by field_name)
-    from public.get_published_place_profile(
+    from public.get_published_place_profile_v2(
       '30000000-0000-4000-8000-000000000003',
       'is'
     ) as profile
@@ -471,14 +470,14 @@ select is(
     'access_area',
     'access_area_note',
     'access_condition_id',
+    'access_information_urls',
     'address_line',
+    'availability_state',
     'availability_window',
     'category',
     'description',
     'dog_amenities',
     'dog_eligibility',
-    'evidence_sources',
-    'freshness_until',
     'latitude',
     'locality',
     'longitude',
@@ -490,7 +489,6 @@ select is(
     'postal_code',
     'restraint_condition',
     'restraint_note',
-    'verified_at',
     'website_url'
   ]::text[],
   'The profile projection exposes exactly its reviewed public field allowlist'

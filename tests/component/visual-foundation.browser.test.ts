@@ -51,6 +51,14 @@ test('place and operations modes share semantic colours while changing density',
   expect(placeStyles.getPropertyValue('--hv-color-moss').trim()).toBe('#58705b');
   expect(placeStyles.getPropertyValue('--hv-color-fjord').trim()).toBe('#2f6f86');
   expect(placeStyles.getPropertyValue('--hv-color-signal').trim()).toBe('#f2c94c');
+  expect(placeStyles.getPropertyValue('--hv-color-brand-paw').trim()).toBe('#d85b2b');
+  expect(placeStyles.getPropertyValue('--hv-access-area').trim()).toBe('#dce7e1');
+  expect(placeStyles.getPropertyValue('--hv-access-restraint').trim()).toBe('#f7dd9a');
+  expect(placeStyles.getPropertyValue('--hv-access-permission').trim()).toBe('#cfe5ed');
+  expect(placeStyles.getPropertyValue('--hv-access-eligibility').trim()).toBe('#f3d4be');
+  expect(placeStyles.getPropertyValue('--hv-access-timing').trim()).toBe('#d9d5e9');
+  expect(placeStyles.getPropertyValue('--hv-access-special').trim()).toBe('#f1d7bd');
+  expect(placeStyles.getPropertyValue('--hv-access-unknown').trim()).toBe('#e4e7e5');
   expect(operationsStyles.getPropertyValue('--hv-color-signal').trim()).toBe(
     placeStyles.getPropertyValue('--hv-color-signal').trim()
   );
@@ -60,4 +68,21 @@ test('place and operations modes share semantic colours while changing density',
 
   placeMode.remove();
   operationsMode.remove();
+});
+
+test('selected map markers stay compact and reveal labels only on direct interaction', () => {
+  const marker = document.createElement('button');
+  marker.className = 'hundavaent-marker selected';
+  marker.setAttribute('aria-pressed', 'true');
+  marker.innerHTML =
+    '<svg class="pin"><path class="pin-body"></path></svg><span class="marker-label">Brikk</span>';
+  document.body.append(marker);
+
+  const pin = marker.querySelector<SVGElement>('.pin')!;
+  const label = marker.querySelector<HTMLElement>('.marker-label')!;
+  expect(getComputedStyle(pin).width).toBe('36px');
+  expect(getComputedStyle(label).display).toBe('none');
+  expect(getComputedStyle(marker.querySelector('.pin-body')!).fill).toBe('rgb(242, 201, 76)');
+
+  marker.remove();
 });

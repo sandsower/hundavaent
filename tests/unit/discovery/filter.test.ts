@@ -31,7 +31,7 @@ const places: PublishedPlaceSummary[] = [
         permissionRequirement: 'ask_on_arrival'
       }
     ],
-    verifiedAt: '2026-07-09T11:00:00Z'
+    primaryPhoto: null
   },
   {
     placeId: '30000000-0000-4000-8000-000000000002',
@@ -52,7 +52,7 @@ const places: PublishedPlaceSummary[] = [
         permissionRequirement: 'standing_permission'
       }
     ],
-    verifiedAt: '2026-07-09T11:00:00Z'
+    primaryPhoto: null
   },
   {
     placeId: '30000000-0000-4000-8000-000000000003',
@@ -73,7 +73,7 @@ const places: PublishedPlaceSummary[] = [
         permissionRequirement: 'advance_approval'
       }
     ],
-    verifiedAt: '2026-07-09T11:00:00Z'
+    primaryPhoto: null
   }
 ];
 
@@ -232,6 +232,18 @@ describe('discovery filtering', () => {
     expect(
       filterPublishedPlaces(places, { ...defaultDiscoveryFilters, distanceKm: 3 }, catalogues.en)
     ).toEqual(places);
+  });
+
+  it('shows only the current Member Favorites when that private filter is active', () => {
+    expect(
+      filterPublishedPlaces(
+        places,
+        { ...defaultDiscoveryFilters, favoritesOnly: true },
+        catalogues.en,
+        null,
+        [places[1].placeId]
+      )
+    ).toEqual([places[1]]);
   });
 
   it('clears a stale or filtered selected Place', () => {

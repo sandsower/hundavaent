@@ -19,7 +19,8 @@ describe('public directory tracer', () => {
         fitPlacesOnMount: false,
         mapStyleUrl: null,
         forceMapFailure: false,
-        proximityAssistEnabled: false
+        proximityAssistEnabled: false,
+        favouritesAvailable: true
       },
       form: null
     });

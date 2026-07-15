@@ -3,7 +3,7 @@
 
   import type { Catalogue } from '$i18n';
 
-  import type { MapAdapter, MapCamera, MapPlace, MapPoint } from './types';
+  import type { MapAdapter, MapCamera, MapPadding, MapPlace, MapPoint } from './types';
 
   interface Props {
     adapter: MapAdapter;
@@ -19,6 +19,8 @@
     onFailureChange?: (failed: boolean) => void;
     compact?: boolean;
     fitPlacesOnMount?: boolean;
+    viewportPadding?: MapPadding;
+    motionDurationMs?: number;
   }
 
   let {
@@ -34,7 +36,9 @@
     failureContent,
     onFailureChange = () => undefined,
     compact = false,
-    fitPlacesOnMount = false
+    fitPlacesOnMount = false,
+    viewportPadding = { top: 0, right: 0, bottom: 0, left: 0 },
+    motionDurationMs = 0
   }: Props = $props();
   let container = $state<HTMLElement>();
   let mounted = $state(false);
@@ -43,6 +47,7 @@
   // The camera prop applied last; a fitted mount must not be snapped back to the
   // fallback camera when the camera effect first runs.
   let appliedCamera: MapCamera | null = null;
+  let appliedPadding: MapPadding | null = null;
 
   async function initialize(): Promise<void> {
     if (!container) return;
@@ -66,9 +71,11 @@
       if (fitPlacesOnMount && places.length > 0 && adapter.fitToPlaces) {
         adapter.fitToPlaces(places);
       } else {
-        adapter.setCamera(camera);
+        adapter.setCamera(camera, { duration: 0, padding: viewportPadding });
       }
+      adapter.setPadding?.(viewportPadding, { duration: 0 });
       appliedCamera = camera;
+      appliedPadding = viewportPadding;
       await nextPaint();
       paintReady = true;
       cameraInitialized = true;
@@ -110,12 +117,17 @@
       appliedCamera &&
       appliedCamera.latitude === camera.latitude &&
       appliedCamera.longitude === camera.longitude &&
-      appliedCamera.zoom === camera.zoom
+      appliedCamera.zoom === camera.zoom &&
+      appliedPadding?.top === viewportPadding.top &&
+      appliedPadding.right === viewportPadding.right &&
+      appliedPadding.bottom === viewportPadding.bottom &&
+      appliedPadding.left === viewportPadding.left
     ) {
       return;
     }
     appliedCamera = camera;
-    adapter.setCamera(camera);
+    appliedPadding = viewportPadding;
+    adapter.setCamera(camera, { duration: motionDurationMs, padding: viewportPadding });
   });
 </script>
 

@@ -36,6 +36,7 @@ export interface AccessConditionValue {
     'leash_required' | 'off_leash_permitted' | 'carrier_required' | 'other_sourced';
   restraint_note: string | null;
   dog_eligibility: { scope: 'all_dogs' };
+  availability_state: 'whenever_open' | 'limited' | 'not_stated';
   availability_window: Record<string, Json>;
   permission_requirement: 'standing_permission' | 'ask_on_arrival' | 'advance_approval';
 }
@@ -110,6 +111,11 @@ const permissions = new Set<AccessConditionValue['permission_requirement']>([
   'standing_permission',
   'ask_on_arrival',
   'advance_approval'
+]);
+const availabilityStates = new Set<AccessConditionValue['availability_state']>([
+  'whenever_open',
+  'limited',
+  'not_stated'
 ]);
 const evidenceKinds = new Set<FlagEvidence['kind']>([
   'official_website',
@@ -188,6 +194,9 @@ export function readAccessConditionValue(form: FormData): AccessConditionValue |
     : [];
   const startsAt = value('availabilityStartsAt');
   const endsAt = value('availabilityEndsAt');
+  const hasWindow = days.length > 0 || Boolean(startsAt) || Boolean(endsAt);
+  const requestedAvailabilityState = value('availabilityState');
+  const availabilityState = requestedAvailabilityState || (hasWindow ? 'limited' : 'not_stated');
 
   if (
     !accessAreas.has(accessArea as AccessConditionValue['access_area']) ||
@@ -197,6 +206,8 @@ export function readAccessConditionValue(form: FormData): AccessConditionValue |
     new Set(days).size !== days.length ||
     (startsAt && !validTime(startsAt)) ||
     (endsAt && !validTime(endsAt)) ||
+    !availabilityStates.has(availabilityState as AccessConditionValue['availability_state']) ||
+    (availabilityState === 'limited') !== hasWindow ||
     (accessArea === 'other_bounded' && !value('accessAreaNote')) ||
     (restraint === 'other_sourced' && !value('restraintNote'))
   ) {
@@ -209,6 +220,7 @@ export function readAccessConditionValue(form: FormData): AccessConditionValue |
     restraint_condition: restraint as AccessConditionValue['restraint_condition'],
     restraint_note: value('restraintNote') || null,
     dog_eligibility: { scope: 'all_dogs' },
+    availability_state: availabilityState as AccessConditionValue['availability_state'],
     availability_window: {
       ...(days.length ? { days } : {}),
       ...(startsAt ? { startsAt } : {}),
