@@ -19,6 +19,20 @@ export type Database = {
         Args: { activation_proof: string; activation_request_id: string }
         Returns: string
       }
+      activate_current_member_with_intent: {
+        Args: {
+          activation_proof: string
+          activation_request_id: string
+          pending_token: string
+        }
+        Returns: {
+          action: string
+          completion_status: string
+          member_id: string
+          overall_rating: number | null
+          place_id: string
+        }[]
+      }
       approve_place_media: {
         Args: { command_payload: Json; command_request_id: string }
         Returns: {
@@ -89,6 +103,23 @@ export type Database = {
       configure_member_activation_capability: {
         Args: { command_secret: string }
         Returns: undefined
+      }
+      create_auth_pending_intent: {
+        Args: {
+          requested_action: string
+          requested_overall_rating?: number | null
+          requested_place_id: string
+        }
+        Returns: string
+      }
+      complete_auth_pending_intent: {
+        Args: { command_request_id: string; pending_token: string }
+        Returns: {
+          action: string
+          completion_status: string
+          overall_rating: number | null
+          place_id: string
+        }[]
       }
       configure_place_flag_abuse_policy: {
         Args: {
@@ -205,8 +236,19 @@ export type Database = {
       get_member_provider_policy: {
         Args: never
         Returns: {
+          automatic_linking_verified_email: boolean
+          email_enabled: boolean
+          facebook_enabled: boolean
           policy_version: string
-          provider: string
+        }[]
+      }
+      get_auth_pending_intent: {
+        Args: { pending_token: string; requested_locale: string }
+        Returns: {
+          action: string
+          overall_rating: number | null
+          place_id: string
+          place_name: string
         }[]
       }
       get_moderation_contributor_status: {

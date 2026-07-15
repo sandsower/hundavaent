@@ -140,18 +140,18 @@
       />
     </section>
 
-    {#if signedIn}
-      <div class="member-actions">
-        <FavouriteControl
-          placeId={place.placeId}
-          placeName={place.name}
-          {signedIn}
-          {favourite}
-          {copy}
-          {signInHref}
-          {pendingConfirmation}
-          onChange={onFavouriteChange}
-        />
+    <div class="member-actions">
+      <FavouriteControl
+        placeId={place.placeId}
+        placeName={place.name}
+        {signedIn}
+        {favourite}
+        {copy}
+        {signInHref}
+        {pendingConfirmation}
+        onChange={onFavouriteChange}
+      />
+      {#if signedIn}
         <CheckInControl
           placeId={place.placeId}
           placeName={place.name}
@@ -166,8 +166,8 @@
           {proximityAssistEnabled}
           {initialCheckedInAt}
         />
-      </div>
-    {/if}
+      {/if}
+    </div>
 
     {#if loading && !profile}
       <p class="hv-notice details-status" data-tone="info" role="status">

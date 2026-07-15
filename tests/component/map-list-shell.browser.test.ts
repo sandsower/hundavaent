@@ -655,7 +655,9 @@ describe('MapListShell synchronization', () => {
     expect(within(selectedPlace).getByRole('button', { name: 'Generally welcome' })).toBeTruthy();
     expect(within(selectedPlace).queryByText('Last verified')).toBeNull();
     expect(within(selectedPlace).queryByText('Not yet rated')).toBeNull();
-    expect(within(selectedPlace).queryByText('Sign in to save')).toBeNull();
+    expect(
+      within(selectedPlace).getByRole('link', { name: 'Sign in to save Published Place' })
+    ).toBeTruthy();
     expect(within(selectedPlace).queryByText('Sign in to check in')).toBeNull();
     expect(within(selectedPlace).queryByText('Sign in to rate this place')).toBeNull();
     await waitFor(() =>

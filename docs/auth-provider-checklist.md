@@ -10,18 +10,18 @@ Never paste provider secrets into Linear, source control, logs, screenshots, or 
 - Keep PKCE enabled, refresh-token rotation enabled, and refresh-token reuse detection configured.
 - Keep email OTP single-use and set its expiry to 60 minutes or less.
 - Set provider and email rate limits in Supabase before enabling either feature switch.
-- Keep both provider switches disabled by default in every deployment.
-- Do not enable Facebook and email together before cross-provider-linking approves cross-provider identity linking and a new versioned policy explicitly implements it.
-- The current application deliberately rejects any environment that enables both providers.
-- Apply the provider-policy migration before enabling sign-in and confirm its provider matches the one enabled deployment switch.
-- The initial `member-single-provider-v1` tenant policy permits email only.
-- Treat a provider change as a versioned policy migration, never as an environment-variable change alone.
+- Keep both provider switches disabled by default until the environment passes this checklist.
+- Apply `202607150032_auth_funnel.sql` before enabling sign-in.
+- Confirm `get_member_provider_policy()` returns `member-linked-providers-v2`, both providers enabled, and verified-email automatic linking enabled.
+- Enable Facebook and email together only after the Supabase project confirms automatic identity linking for the same verified email in both sign-in orders.
+- Treat a provider-policy change as a versioned migration, never as an environment-variable change alone.
 - Confirm each sign-in initiation action resolves the persistent policy before contacting Supabase Auth.
 - Confirm requesting but not consuming a link creates no application Member account or Member role.
 - Generate a distinct high-entropy `MEMBER_ACTIVATION_SECRET` for every environment, store it only in the server secret store, and install the same value through the service-role-only database capability command.
 - Rotate the application and database activation capability together before enabling Member sign-in.
-- Confirm direct activation RPC calls with missing, invalid, Facebook, or multiple identities cannot create account, role, or audit state.
-- The callback resolves provider configuration before and after token exchange and accepts only one server-returned identity matching the single enabled provider.
+- Confirm direct activation RPC calls with missing, unverified, unsupported, or mismatched-email identities cannot create account, role, or audit state.
+- Confirm one email identity, one Facebook identity with a verified email, and linked email plus Facebook identities can activate the same canonical Auth user.
+- The callback resolves provider configuration before and after authentication and accepts only supported identities that include the method used for the callback.
 - Treat callback query parameters as navigation context only, never as proof of the authenticated provider.
 - Confirm every callback recovery path expires all request-scoped Supabase auth-cookie chunks even when provider sign-out rejects or returns an error.
 - Verify account and auth callback responses return `Cache-Control: private, no-store`.
@@ -35,15 +35,26 @@ Never paste provider secrets into Linear, source control, logs, screenshots, or 
   Hundavænt explicitly requests `email`; Facebook may include its mandatory basic scope.
 - Configure the Facebook application ID and secret in Supabase Auth, never in browser variables.
 - Complete Facebook data-use, privacy-policy, deletion-callback, and application-review requirements.
-- Set `AUTH_FACEBOOK_ENABLED=true` only after a full sign-in, denied-consent, revoked-access, and sign-out test passes in that environment, with email disabled until cross-provider-linking is implemented.
+- Set `AUTH_FACEBOOK_ENABLED=true` only after full sign-in, denied-consent, revoked-access, automatic-linking, and sign-out tests pass in that environment.
 
 ## Passwordless email
 
 - Configure a production SMTP provider and sender domain in Supabase Auth.
 - Publish SPF, DKIM, and DMARC records for the sender domain.
 - Localize the magic-link message and make the destination clearly identifiable as Hundavænt.
+- Configure the hosted Supabase magic-link template to send `token_hash={{ .TokenHash }}` and `type=email` to the allowlisted Hundavænt callback, matching `supabase/templates/magic-link.html`.
 - Confirm delivery, expiry, single use, replay denial, same-device success, and other-device recovery behavior.
-- Set `AUTH_EMAIL_ENABLED=true` only after delivery and abuse-rate tests pass, with Facebook disabled until cross-provider-linking is implemented.
+- Set `AUTH_EMAIL_ENABLED=true` only after delivery, token-hash callback, and abuse-rate tests pass.
+
+## Pending actions and acquisition funnel
+
+- Confirm Favorite and selected overall-rating intents contain only an opaque random token in the authentication redirect.
+- Confirm pending intents expire after 30 minutes, are consumed once, and cannot be claimed by another Member.
+- Confirm an expired, cancelled, or abandoned sign-in performs no Favorite or rating action.
+- Confirm callback retries are idempotent.
+- Confirm authentication analytics include origin, method, result, and pending-action outcome only.
+- Confirm analytics never include email, Facebook profile fields, provider subject IDs, rating notes, or other personal content.
+- Confirm the public Terms and Privacy Policy routes are live before Facebook review or production enablement.
 
 ## Privacy verification
 
@@ -53,7 +64,10 @@ Never paste provider secrets into Linear, source control, logs, screenshots, or 
 - Confirm Moderator users retain an ordinary private Member experience.
 - Provision new Moderators through the atomic production command, and verify migration backfill covers every pre-existing active Moderator.
 
-## External follow-ups
+## External production prerequisites
 
-The real Facebook application and production email service require authorized provisioning.
-Cross-provider linking/recovery and final account-deletion retention rules require explicit product and privacy approval before those behaviors are enabled.
+- Provision the real Facebook application, configure its production OAuth callback in Supabase, and complete Meta application review.
+- Provision production SMTP and publish SPF, DKIM, and DMARC.
+- Install the hosted token-hash magic-link template because local repository configuration does not update a hosted Supabase project.
+- Add both localized callback URLs to the hosted Supabase redirect allowlist.
+- Set both deployment switches and rotate the environment-specific Member activation secret only after all checks above pass.

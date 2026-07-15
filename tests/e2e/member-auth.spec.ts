@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { evaluationFixtureIds, evaluationModerator } from '../evaluation/fixtures';
 import {
+  clearLocalEvaluationMailbox,
   expireLocalMagicLink,
   provisionLocalModerator,
   waitForLocalMagicLink
@@ -21,16 +22,17 @@ test('a Visitor signs in by email, returns to the same Place state, signs out, a
   await waitForHydration(page);
   await expect(page).toHaveURL(placePath);
   const accountUrl = `/en/account?returnTo=${encodeURIComponent(placePath)}`;
-  const accountLink = page.getByRole('link', { name: 'Log in / Register' });
+  const accountLink = page.getByRole('link', { name: 'Sign in', exact: true });
   await expect(accountLink).toHaveAttribute('href', accountUrl);
   await accountLink.click();
 
-  await expect(page).toHaveURL(accountUrl);
-  await expect(page.getByRole('heading', { name: 'Welcome to Hundavænt' })).toBeVisible();
+  await expect(page).toHaveURL(placePath);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Continue with Hundavænt' })).toBeVisible();
   await waitForHydration(page);
   await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
-  await expect(page.getByText('Your link is on its way. Check your email.')).toBeVisible();
+  await page.getByRole('button', { name: 'Send me a sign-in link' }).click();
+  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
 
   const magicLink = await waitForLocalMagicLink(email);
   await page.goto(magicLink);
@@ -61,48 +63,46 @@ test('a Visitor signs in by email, returns to the same Place state, signs out, a
 
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page).toHaveURL(placePath);
-  await expect(page.getByRole('link', { name: 'Log in / Register' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible();
   await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
 
   await page.goto(magicLink);
-  await expect(page).toHaveURL(/\/en\/account\?.*authStatus=link_invalid/);
-  await expect(
-    page.getByText(/This link expired, was already used, or was opened on another device/)
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/en\?.*auth=open.*authStatus=link_invalid/);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByText("Sign-in didn't work. Please try again.")).toBeVisible();
 });
 
 test('Member authentication recovery states are bilingual and public discovery stays open', async ({
   page
 }) => {
-  await page.goto('/is/account?returnTo=%2Fis&authStatus=link_invalid');
-  await expect(page.getByRole('heading', { name: 'Velkomin á Hundavænt' })).toBeVisible();
-  await expect(page.getByText(/Tengillinn er útrunninn, hefur þegar verið notaður/)).toBeVisible();
+  await page.goto('/is?auth=open&authStatus=link_invalid');
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByText('Innskráningin tókst ekki. Reyndu aftur.')).toBeVisible();
 
   await page.goto('/en');
   await expect(page.getByText(/place found|places found/)).toBeVisible();
 });
 
-test('a passwordless link opened on another device fails safely and can be requested again', async ({
+test('a passwordless link opened on another device signs in without an originating verifier', async ({
   browser,
   page
 }) => {
   const email = `other-device-${Date.now()}@example.invalid`;
 
-  await page.goto('/en/account?returnTo=%2Fen');
+  await page.goto('/en');
   await waitForHydration(page);
+  await page.getByRole('link', { name: 'Sign in' }).click();
   await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
-  await expect(page.getByText('Your link is on its way. Check your email.')).toBeVisible();
+  await page.getByRole('button', { name: 'Send me a sign-in link' }).click();
+  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
   const magicLink = await waitForLocalMagicLink(email);
 
   const otherDevice = await browser.newContext();
   const otherPage = await otherDevice.newPage();
   await otherPage.goto(magicLink);
-  await expect(otherPage).toHaveURL(/\/en\/account\?.*authStatus=link_invalid/);
-  await expect(
-    otherPage.getByText(/This link expired, was already used, or was opened on another device/)
-  ).toBeVisible();
-  await expect(otherPage.getByRole('button', { name: 'Send sign-in link' })).toBeEnabled();
+  await waitForHydration(otherPage);
+  await expect(otherPage).toHaveURL('/en');
+  await expect(otherPage.getByRole('link', { name: 'My account' })).toBeVisible();
   await otherDevice.close();
 });
 
@@ -111,26 +111,26 @@ test('an actually expired local magic link is denied by the provider and recover
 }) => {
   const email = `expired-${Date.now()}@example.invalid`;
 
-  await page.goto('/en/account?returnTo=%2Fen');
+  await page.goto('/en');
   await waitForHydration(page);
+  await page.getByRole('link', { name: 'Sign in' }).click();
   await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
-  await expect(page.getByText('Your link is on its way. Check your email.')).toBeVisible();
+  await page.getByRole('button', { name: 'Send me a sign-in link' }).click();
+  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
 
   const magicLink = await waitForLocalMagicLink(email);
   await expireLocalMagicLink(email);
   await page.goto(magicLink);
-  await expect(page).toHaveURL(/\/en\/account\?.*authStatus=link_invalid/);
-  await expect(
-    page.getByText(/This link expired, was already used, or was opened on another device/)
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/en\?.*auth=open.*authStatus=link_invalid/);
+  await expect(page.getByRole('dialog')).toBeVisible();
 });
 
 test('a Moderator retains the ordinary private Member account experience', async ({ page }) => {
   await provisionLocalModerator(evaluationModerator.email);
+  await clearLocalEvaluationMailbox();
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
   await page.getByRole('button', { name: 'Send sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
   await page.goto(magicLink);

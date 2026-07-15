@@ -27,14 +27,20 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
       ? normalizeMemberReturnTo(url.searchParams.get('returnTo'), lang)
       : normalizeModerationReturnTo(url.searchParams.get('returnTo'), lang);
     const code = url.searchParams.get('code');
+    const tokenHash = url.searchParams.get('token_hash');
+    const otpType = url.searchParams.get('type');
+    const pendingIntent = url.searchParams.get('pendingIntent');
     const providerError = url.searchParams.get('error');
-    const initialMemberProvider = isMemberFlow
-      ? enabledMemberProvider(dependencies.resolveMemberAuthConfig())
-      : null;
+    const requestedMethod = memberMethod(url.searchParams.get('method'));
+    const initialConfig = dependencies.resolveMemberAuthConfig();
+    const initialMemberProviders = isMemberFlow ? enabledMemberProviders(initialConfig) : null;
 
-    if (isMemberFlow && !initialMemberProvider) {
+    if (
+      isMemberFlow &&
+      (!initialMemberProviders || !requestedMethod || !initialMemberProviders[requestedMethod])
+    ) {
       await clearRequestAuthSession(locals.supabase, cookies);
-      redirectToRecovery(lang, returnTo, true, 'unavailable');
+      redirectToRecovery(lang, returnTo, true, 'unavailable', pendingIntent);
     }
 
     if (providerError) {
@@ -46,15 +52,18 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
         lang,
         returnTo,
         isMemberFlow,
-        isMemberFlow && initialMemberProvider === 'email'
+        isMemberFlow && requestedMethod === 'email'
           ? 'link_invalid'
           : providerError === 'access_denied'
             ? 'denied'
-            : 'provider_failed'
+            : 'provider_failed',
+        pendingIntent
       );
     }
 
-    if (!code || !locals.supabase) {
+    const hasEmailToken =
+      tokenHash && otpType === 'email' && (!isMemberFlow || requestedMethod === 'email');
+    if ((!code && !hasEmailToken) || !locals.supabase) {
       if (isMemberFlow) {
         await clearRequestAuthSession(locals.supabase, cookies);
       }
@@ -63,7 +72,8 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
         lang,
         returnTo,
         isMemberFlow,
-        !locals.supabase ? 'unavailable' : 'link_invalid'
+        !locals.supabase ? 'unavailable' : 'link_invalid',
+        pendingIntent
       );
     }
 
@@ -74,10 +84,10 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
     if (
       isMemberFlow &&
       (initialProviderPolicy?.status !== 'ready' ||
-        initialProviderPolicy.policy.provider !== initialMemberProvider)
+        !policyAllowsMethod(initialProviderPolicy, requestedMethod))
     ) {
       await clearRequestAuthSession(locals.supabase, cookies);
-      redirectToRecovery(lang, returnTo, true, 'unavailable');
+      redirectToRecovery(lang, returnTo, true, 'unavailable', pendingIntent);
     }
     const initialProviderPolicyVersion =
       initialProviderPolicy?.status === 'ready' ? initialProviderPolicy.policy.version : null;
@@ -85,34 +95,42 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
     let exchangeError: unknown;
 
     try {
-      ({ error: exchangeError } = await locals.supabase.auth.exchangeCodeForSession(code));
+      if (hasEmailToken) {
+        ({ error: exchangeError } = await locals.supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: 'email'
+        }));
+      } else {
+        ({ error: exchangeError } = await locals.supabase.auth.exchangeCodeForSession(code!));
+      }
     } catch {
       if (isMemberFlow) {
         await clearRequestAuthSession(locals.supabase, cookies);
       }
-      redirectToRecovery(lang, returnTo, isMemberFlow, 'unavailable');
+      redirectToRecovery(lang, returnTo, isMemberFlow, 'unavailable', pendingIntent);
     }
 
     if (exchangeError) {
       if (isMemberFlow) {
         await clearRequestAuthSession(locals.supabase, cookies);
       }
-      redirectToRecovery(lang, returnTo, isMemberFlow, 'link_invalid');
+      redirectToRecovery(lang, returnTo, isMemberFlow, 'link_invalid', pendingIntent);
     }
 
     if (isMemberFlow) {
-      const currentMemberProvider = enabledMemberProvider(dependencies.resolveMemberAuthConfig());
+      const currentMemberProviders = enabledMemberProviders(dependencies.resolveMemberAuthConfig());
       const currentProviderPolicy = await resolveProviderPolicy(dependencies, locals.supabase);
 
       if (
-        !currentMemberProvider ||
-        currentMemberProvider !== initialMemberProvider ||
+        !currentMemberProviders ||
+        !requestedMethod ||
+        !currentMemberProviders[requestedMethod] ||
         currentProviderPolicy.status !== 'ready' ||
-        currentProviderPolicy.policy.provider !== currentMemberProvider ||
+        !policyAllowsMethod(currentProviderPolicy, requestedMethod) ||
         currentProviderPolicy.policy.version !== initialProviderPolicyVersion
       ) {
         await clearRequestAuthSession(locals.supabase, cookies);
-        redirectToRecovery(lang, returnTo, true, 'unavailable');
+        redirectToRecovery(lang, returnTo, true, 'unavailable', pendingIntent);
       }
 
       let userResult: Awaited<ReturnType<typeof locals.supabase.auth.getUser>>;
@@ -121,16 +139,16 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
         userResult = await locals.supabase.auth.getUser();
       } catch {
         await clearRequestAuthSession(locals.supabase, cookies);
-        redirectToRecovery(lang, returnTo, true, 'unavailable');
+        redirectToRecovery(lang, returnTo, true, 'unavailable', pendingIntent);
       }
 
       if (
         userResult.error ||
         !userResult.data.user ||
-        !hasOnlyExpectedIdentity(userResult.data.user.identities, currentMemberProvider)
+        !hasApprovedIdentities(userResult.data.user.identities, requestedMethod)
       ) {
         await clearRequestAuthSession(locals.supabase, cookies);
-        redirectToRecovery(lang, returnTo, true, 'unavailable');
+        redirectToRecovery(lang, returnTo, true, 'unavailable', pendingIntent);
       }
 
       let activationProof: string | null = null;
@@ -144,30 +162,61 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
           : null;
       } catch {
         await clearRequestAuthSession(locals.supabase, cookies);
-        redirectToRecovery(lang, returnTo, true, 'unavailable');
+        redirectToRecovery(lang, returnTo, true, 'unavailable', pendingIntent);
       }
 
       if (!activationProof) {
         await clearRequestAuthSession(locals.supabase, cookies);
-        redirectToRecovery(lang, returnTo, true, 'unavailable');
+        redirectToRecovery(lang, returnTo, true, 'unavailable', pendingIntent);
       }
 
       let activationError: unknown;
+      let pendingAction: string | null = null;
+      let pendingResult: string | null = null;
 
       try {
-        ({ error: activationError } = await locals.supabase.rpc('activate_current_member', {
-          activation_proof: activationProof,
-          activation_request_id: locals.requestId
-        }));
+        if (pendingIntent) {
+          const { data: completions, error } = await locals.supabase.rpc(
+            'activate_current_member_with_intent',
+            {
+              activation_proof: activationProof,
+              activation_request_id: locals.requestId,
+              pending_token: pendingIntent
+            }
+          );
+          activationError = error;
+          const completion = completions?.[0];
+          if (!error && completion) {
+            pendingAction = completion.action;
+            pendingResult = completion.completion_status;
+          } else if (!error) {
+            activationError = new Error('Pending authentication action was not completed');
+          }
+        } else {
+          ({ error: activationError } = await locals.supabase.rpc('activate_current_member', {
+            activation_proof: activationProof,
+            activation_request_id: locals.requestId
+          }));
+        }
       } catch {
         await clearRequestAuthSession(locals.supabase, cookies);
-        redirectToRecovery(lang, returnTo, true, 'unavailable');
+        redirectToRecovery(lang, returnTo, true, 'unavailable', pendingIntent);
       }
 
       if (activationError) {
         await clearRequestAuthSession(locals.supabase, cookies);
-        redirectToRecovery(lang, returnTo, true, 'unavailable');
+        redirectToRecovery(lang, returnTo, true, 'unavailable', pendingIntent);
       }
+
+      redirect(
+        303,
+        withAuthResult(returnTo, {
+          authResult: 'success',
+          authMethod: requestedMethod,
+          pendingAction,
+          pendingResult
+        })
+      );
     }
 
     redirect(303, returnTo);
@@ -183,20 +232,57 @@ async function resolveProviderPolicy(
     : { status: 'unavailable' };
 }
 
-function enabledMemberProvider(resolution: MemberAuthConfigResolution): MemberProvider | null {
+function enabledMemberProviders(
+  resolution: MemberAuthConfigResolution
+): { email: boolean; facebook: boolean } | null {
   if (resolution.status === 'unavailable') return null;
-
-  const { emailEnabled, facebookEnabled } = resolution.config;
-
-  if (emailEnabled === facebookEnabled) return null;
-  return emailEnabled ? 'email' : 'facebook';
+  return {
+    email: resolution.config.emailEnabled,
+    facebook: resolution.config.facebookEnabled
+  };
 }
 
-function hasOnlyExpectedIdentity(
+function memberMethod(value: string | null): Exclude<MemberProvider, 'unknown'> | null {
+  return value === 'email' || value === 'facebook' ? value : null;
+}
+
+function policyAllowsMethod(
+  resolution: MemberProviderPolicyResolution | null,
+  method: Exclude<MemberProvider, 'unknown'> | null
+): boolean {
+  if (resolution?.status !== 'ready' || !method) return false;
+  return method === 'email' ? resolution.policy.emailEnabled : resolution.policy.facebookEnabled;
+}
+
+function hasApprovedIdentities(
   identities: Array<{ provider?: string }> | undefined,
   expectedProvider: MemberProvider
 ): boolean {
-  return identities?.length === 1 && identities[0]?.provider === expectedProvider;
+  return (
+    identities !== undefined &&
+    identities.length > 0 &&
+    identities.some((identity) => identity.provider === expectedProvider) &&
+    identities.every(
+      (identity) => identity.provider === 'email' || identity.provider === 'facebook'
+    )
+  );
+}
+
+function withAuthResult(
+  returnTo: string,
+  result: {
+    authResult: string;
+    authMethod: string;
+    pendingAction: string | null;
+    pendingResult: string | null;
+  }
+): string {
+  const target = new URL(returnTo, 'https://hundavaent.local');
+  target.searchParams.set('authResult', result.authResult);
+  target.searchParams.set('authMethod', result.authMethod);
+  if (result.pendingAction) target.searchParams.set('pendingAction', result.pendingAction);
+  if (result.pendingResult) target.searchParams.set('pendingResult', result.pendingResult);
+  return `${target.pathname}${target.search}${target.hash}`;
 }
 
 export async function clearRequestAuthSession(
@@ -233,14 +319,16 @@ function redirectToRecovery(
   lang: 'is' | 'en',
   returnTo: string,
   memberFlow: boolean,
-  authStatus: string
+  authStatus: string,
+  pendingIntent?: string | null
 ): never {
   if (!memberFlow) {
     redirect(303, `/${lang}/moderation/sign-in?returnTo=${encodeURIComponent(returnTo)}`);
   }
 
-  const accountUrl = new URL(`/${lang}/account`, 'https://hundavaent.local');
-  accountUrl.searchParams.set('returnTo', returnTo);
-  accountUrl.searchParams.set('authStatus', authStatus);
-  redirect(303, `${accountUrl.pathname}${accountUrl.search}`);
+  const recovery = new URL(returnTo, 'https://hundavaent.local');
+  recovery.searchParams.set('auth', 'open');
+  recovery.searchParams.set('authStatus', authStatus);
+  if (pendingIntent) recovery.searchParams.set('pendingIntent', pendingIntent);
+  redirect(303, `${recovery.pathname}${recovery.search}${recovery.hash}`);
 }

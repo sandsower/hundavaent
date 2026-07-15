@@ -12,7 +12,7 @@ import {
   sendPasswordlessEmail,
   startFacebookSignIn
 } from '$server/auth/member';
-import { resolveConfiguredMemberProvider } from '$server/auth/provider-policy';
+import { resolveConfiguredMemberProviders } from '$server/auth/provider-policy';
 import { hasOptionalRole } from '$server/auth/role-capability';
 import { isValidEmail, normalizeMemberReturnTo } from '$server/auth/return-to';
 
@@ -23,13 +23,8 @@ function authConfig(): MemberAuthConfigResolution {
   return getMemberAuthConfig({ ...publicEnv, ...privateEnv });
 }
 
-function configError(
-  resolution: MemberAuthConfigResolution
-): 'configuration_conflict' | 'unavailable' {
-  return resolution.status === 'unavailable' &&
-    resolution.reason === 'identity_linking_policy_required'
-    ? 'configuration_conflict'
-    : 'unavailable';
+function configError(): 'unavailable' {
+  return 'unavailable';
 }
 
 export function _createLoad(
@@ -44,7 +39,7 @@ export function _createLoad(
     const hasConfiguredProvider = Boolean(config?.emailEnabled || config?.facebookEnabled);
     const configurationStatus =
       resolution.status === 'unavailable'
-        ? configError(resolution)
+        ? configError()
         : hasConfiguredProvider
           ? null
           : 'unavailable';
@@ -59,13 +54,12 @@ export function _createLoad(
       };
     }
 
-    const enabledProvider = await resolveConfiguredMemberProvider(locals.supabase, resolution);
-    const providers = {
-      email: enabledProvider === 'email',
-      facebook: enabledProvider === 'facebook'
+    const providers = (await resolveConfiguredMemberProviders(locals.supabase, resolution)) ?? {
+      email: false,
+      facebook: false
     };
     const resolvedConfigurationStatus =
-      configurationStatus ?? (enabledProvider ? null : 'unavailable');
+      configurationStatus ?? (providers.email || providers.facebook ? null : 'unavailable');
 
     let authResult: Awaited<ReturnType<typeof locals.supabase.auth.getUser>>;
 
@@ -144,7 +138,19 @@ export function _createLoad(
   };
 }
 
-export const load: PageServerLoad = _createLoad();
+const loadAccount = _createLoad();
+
+export const load: PageServerLoad = async (event) => {
+  const result = await loadAccount(event);
+  if (!result) return result;
+  if (!result.member) {
+    const destination = new URL(result.returnTo, 'https://hundavaent.local');
+    destination.searchParams.set('auth', 'open');
+    if (result.authStatus) destination.searchParams.set('authStatus', result.authStatus);
+    redirect(303, `${destination.pathname}${destination.search}${destination.hash}`);
+  }
+  return result;
+};
 
 export function _createFacebookAction(
   resolveAuthConfig: () => MemberAuthConfigResolution = authConfig
@@ -156,7 +162,7 @@ export function _createFacebookAction(
     const resolution = resolveAuthConfig();
 
     if (!locals.supabase || resolution.status === 'unavailable') {
-      return fail(503, { action: 'facebook', error: configError(resolution), returnTo });
+      return fail(503, { action: 'facebook', error: configError(), returnTo });
     }
 
     const { config } = resolution;
@@ -165,7 +171,7 @@ export function _createFacebookAction(
       return fail(503, { action: 'facebook', error: 'unavailable', returnTo });
     }
 
-    if ((await resolveConfiguredMemberProvider(locals.supabase, resolution)) !== 'facebook') {
+    if (!(await resolveConfiguredMemberProviders(locals.supabase, resolution))?.facebook) {
       return fail(503, { action: 'facebook', error: 'unavailable', returnTo });
     }
 
@@ -202,7 +208,7 @@ export function _createEmailAction(
       return fail(503, {
         action: 'email',
         email,
-        error: configError(resolution),
+        error: configError(),
         returnTo
       });
     }
@@ -213,7 +219,7 @@ export function _createEmailAction(
       return fail(503, { action: 'email', email, error: 'unavailable', returnTo });
     }
 
-    if ((await resolveConfiguredMemberProvider(locals.supabase, resolution)) !== 'email') {
+    if (!(await resolveConfiguredMemberProviders(locals.supabase, resolution))?.email) {
       return fail(503, { action: 'email', email, error: 'unavailable', returnTo });
     }
 

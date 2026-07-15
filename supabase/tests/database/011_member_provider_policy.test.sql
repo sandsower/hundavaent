@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(19);
+select plan(21);
 
 select has_table(
   'private',
@@ -38,14 +38,26 @@ select has_function(
 );
 
 select is(
-  (select provider from private.member_provider_policy where singleton),
-  'email'::text,
-  'The initial tenant policy permits email only'
+  (select email_enabled from private.member_provider_policy where singleton),
+  true,
+  'The tenant policy permits passwordless email'
+);
+
+select is(
+  (select facebook_enabled from private.member_provider_policy where singleton),
+  true,
+  'The tenant policy permits Facebook'
+);
+
+select is(
+  (select automatic_linking_verified_email from private.member_provider_policy where singleton),
+  true,
+  'The tenant policy permits automatic linking only through verified email'
 );
 
 select is(
   (select policy_version from private.member_provider_policy where singleton),
-  'member-single-provider-v1'::text,
+  'member-linked-providers-v2'::text,
   'The tenant provider boundary is explicitly versioned'
 );
 
@@ -114,18 +126,22 @@ select ok(
 select throws_ok(
   $$
     update private.member_provider_policy
-    set provider = 'facebook'
+    set automatic_linking_verified_email = false
     where singleton
   $$,
   '23514',
   null,
-  'Policy version one cannot be rebound to Facebook'
+  'The linked-provider policy cannot disable its verified-email boundary'
 );
 
 select throws_ok(
   $$
-    insert into private.member_provider_policy (provider, policy_version)
-    values ('email', 'member-single-provider-v1')
+    insert into private.member_provider_policy (
+      policy_version,
+      email_enabled,
+      facebook_enabled,
+      automatic_linking_verified_email
+    ) values ('member-linked-providers-v2', true, true, true)
   $$,
   '23505',
   null,

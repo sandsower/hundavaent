@@ -1,6 +1,7 @@
 <script lang="ts">
   import '../../app.css';
 
+  import { afterNavigate, replaceState } from '$app/navigation';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
   import { env } from '$env/dynamic/public';
@@ -11,6 +12,8 @@
     postHogAnalytics,
     resolvePostHogConfig
   } from '$lib/analytics/posthog';
+  import AuthDialog from '$lib/auth/AuthDialog.svelte';
+  import { requestAuthentication } from '$lib/auth/controller';
   import { replaceLocaleInUrl } from '$i18n/url';
 
   import type { LayoutProps } from './$types';
@@ -29,6 +32,10 @@
   const accountReturnTo = $derived(
     `${currentBrowserUrl.pathname}${currentBrowserUrl.search}${currentBrowserUrl.hash}`
   );
+
+  afterNavigate(() => {
+    setTimeout(captureAuthResult, 0);
+  });
 
   onMount(() => {
     const postHogEnvironment = {
@@ -58,6 +65,31 @@
     };
   });
 
+  function captureAuthResult(): void {
+    const url = new URL(window.location.href);
+    const result = url.searchParams.get('authResult');
+    if (!result) return;
+
+    postHogAnalytics.capture('auth completed', {
+      method: url.searchParams.get('authMethod') === 'facebook' ? 'facebook' : 'email',
+      outcome: result === 'success' ? 'success' : 'failed'
+    });
+    const pendingAction = url.searchParams.get('pendingAction');
+    const pendingResult = url.searchParams.get('pendingResult');
+    if (pendingAction === 'favourite' || pendingAction === 'rating') {
+      postHogAnalytics.capture('auth pending action completed', {
+        action: pendingAction,
+        outcome: pendingResult === 'completed' ? 'completed' : 'queued'
+      });
+    }
+
+    for (const name of ['authResult', 'authMethod', 'pendingAction', 'pendingResult']) {
+      url.searchParams.delete(name);
+    }
+    const cleanedUrl = `${url.pathname}${url.search}${url.hash}` as `/${string}`;
+    replaceState(resolve(cleanedUrl), page.state);
+  }
+
   function refreshLanguageHref(event: MouseEvent, targetLocale: 'is' | 'en'): void {
     if (!(event.currentTarget instanceof HTMLAnchorElement)) return;
     event.currentTarget.href = resolve(replaceLocaleInUrl(window.location.href, targetLocale));
@@ -72,6 +104,15 @@
     }
     const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     event.currentTarget.href = `${resolve('/[lang=lang]/account', { lang: data.lang })}?returnTo=${encodeURIComponent(returnTo)}`;
+  }
+
+  function openSignIn(event: MouseEvent): void {
+    if (data.signedIn) {
+      refreshAccountHref(event);
+      return;
+    }
+    event.preventDefault();
+    requestAuthentication({ origin: 'header' });
   }
 </script>
 
@@ -143,7 +184,7 @@
     <!-- eslint-disable svelte/no-navigation-without-resolve -->
     <a
       class="account-link"
-      onclick={refreshAccountHref}
+      onclick={openSignIn}
       href={page.route.id === '/[lang=lang]/account'
         ? resolve('/[lang=lang]/account', { lang: data.lang })
         : `${resolve('/[lang=lang]/account', { lang: data.lang })}?returnTo=${encodeURIComponent(accountReturnTo)}`}
@@ -155,6 +196,15 @@
 </header>
 
 {@render children()}
+
+{#if !data.signedIn}
+  <AuthDialog
+    lang={data.lang}
+    copy={data.copy}
+    providers={data.providers ?? { email: false, facebook: false }}
+    initialRequest={data.pendingAuthRequest ?? null}
+  />
+{/if}
 
 <style>
   .site-header {
