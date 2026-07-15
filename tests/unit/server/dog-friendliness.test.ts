@@ -49,6 +49,7 @@ describe('Dog-Friendliness RPC adapter', () => {
       value: {
         id: 'rating-1',
         placeId: 'place-1',
+        overallScore: null,
         scores: { welcome: 4, clarity: null, comfort: 5, thoughtfulness: 3 },
         ratedAt: '2026-07-12T09:00:00Z',
         excluded: false,
@@ -98,6 +99,7 @@ describe('Dog-Friendliness RPC adapter', () => {
       value: {
         id: 'rating-1',
         placeId: 'place-1',
+        overallScore: null,
         scores: { welcome: 2, clarity: null, comfort: 5, thoughtfulness: 3 },
         ratedAt: '2026-07-12T09:00:00Z',
         excluded: false,

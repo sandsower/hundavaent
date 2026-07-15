@@ -7,6 +7,51 @@ export interface RatingScores {
   thoughtfulness: number | null;
 }
 
+export interface InlineRatingInput {
+  overall: number;
+  welcome: number | null;
+  clarity: number | null;
+  comfort: number | null;
+  thoughtfulness: number | null;
+  noteUpdate: boolean;
+  privateNote: string | null;
+}
+
+function isScore(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 5;
+}
+
+function isOptionalScore(value: unknown): value is number | null {
+  return value === null || isScore(value);
+}
+
+export function parseInlineRatingInput(value: unknown): InlineRatingInput | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const input = value as Record<string, unknown>;
+  if (
+    !isScore(input.overall) ||
+    !isOptionalScore(input.welcome) ||
+    !isOptionalScore(input.clarity) ||
+    !isOptionalScore(input.comfort) ||
+    !isOptionalScore(input.thoughtfulness) ||
+    typeof input.noteUpdate !== 'boolean' ||
+    (input.privateNote !== null && typeof input.privateNote !== 'string')
+  ) {
+    return null;
+  }
+  const privateNote = input.privateNote?.trim() || null;
+  if (privateNote && privateNote.length > 1_000) return null;
+  return {
+    overall: input.overall,
+    welcome: input.welcome,
+    clarity: input.clarity,
+    comfort: input.comfort,
+    thoughtfulness: input.thoughtfulness,
+    noteUpdate: input.noteUpdate,
+    privateNote
+  };
+}
+
 export type RatingInputError = 'incomplete' | 'invalid';
 
 export type RatingInputResult =
