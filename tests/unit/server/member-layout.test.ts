@@ -15,9 +15,13 @@ function eventWith(
     };
     memberAccount?: boolean;
     completion?: { action: string; completion_status: string } | 'error' | 'throw' | 'unavailable';
+    authError?: { message: string; name?: string; code?: string; status?: number };
   } = {}
 ) {
-  const getUser = vi.fn(async () => ({ data: { user: options.user ?? null }, error: null }));
+  const getUser = vi.fn(async () => ({
+    data: { user: options.user ?? null },
+    error: options.authError ?? null
+  }));
   const signOut = vi.fn(async () => ({ error: null }));
   const deleteCookie = vi.fn();
   const rpc = vi.fn(async (name: string) => {
@@ -110,6 +114,37 @@ describe('Member-aware public layout', () => {
 
     expect(result).not.toHaveProperty('signedIn');
     expect(rpc).toHaveBeenCalledWith('get_current_member_account');
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(deleteCookie).toHaveBeenCalledWith('sb-project-auth-token.0', { path: '/' });
+  });
+
+  it('preserves a public-layout session when Auth returns a temporary non-expiry error', async () => {
+    const { event, rpc, signOut, deleteCookie } = eventWith({
+      cookie: 'sb-project-auth-token.0',
+      authError: {
+        message: 'Auth upstream temporarily unavailable',
+        code: 'unexpected_failure',
+        status: 503
+      }
+    });
+
+    const result = await load(event as never);
+
+    expect(result).not.toHaveProperty('signedIn');
+    expect(rpc).not.toHaveBeenCalledWith('get_current_member_account');
+    expect(signOut).not.toHaveBeenCalled();
+    expect(deleteCookie).not.toHaveBeenCalled();
+  });
+
+  it('clears a public-layout session when Auth confirms invalid credentials', async () => {
+    const { event, signOut, deleteCookie } = eventWith({
+      cookie: 'sb-project-auth-token.0',
+      authError: { message: 'JWT expired', code: 'bad_jwt', status: 401 }
+    });
+
+    const result = await load(event as never);
+
+    expect(result).not.toHaveProperty('signedIn');
     expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(deleteCookie).toHaveBeenCalledWith('sb-project-auth-token.0', { path: '/' });
   });
