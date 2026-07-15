@@ -9,15 +9,15 @@ const migration = readFileSync(
 );
 
 describe('inline Rating migration safety contract', () => {
-  it('fails closed when any pre-launch identity or pending Rating state exists', () => {
+  it('permits existing identities and pending intents while rejecting legacy Rating rows', () => {
     const guard = migration.match(/do \$\$([\s\S]*?)\$\$;/)?.[1] ?? '';
 
     expect(guard).toContain('private.dog_friendliness_ratings');
     expect(guard).toContain('private.dog_friendliness_rating_events');
-    expect(guard).toContain('private.member_accounts');
-    expect(guard).toContain('private.auth_pending_intents');
-    expect(guard).toContain('private.pending_member_rating_completions');
-    expect(guard).toContain('auth.users');
-    expect(guard).toContain('auth.identities');
+    expect(guard).not.toContain('private.member_accounts');
+    expect(guard).not.toContain('private.auth_pending_intents');
+    expect(guard).not.toContain('private.pending_member_rating_completions');
+    expect(guard).not.toContain('auth.users');
+    expect(guard).not.toContain('auth.identities');
   });
 });
