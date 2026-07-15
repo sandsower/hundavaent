@@ -378,7 +378,7 @@
     gap: 0.65rem;
     margin-top: 0.65rem;
     padding-top: 0.65rem;
-    border-top: 1px solid rgb(25 59 69 / 25%);
+    border-top: 1px solid var(--hv-border-subtle);
   }
 
   .filter-grid {
@@ -389,7 +389,7 @@
 
   .advanced-filters {
     grid-column: 1 / -1;
-    border-top: 1px solid rgb(25 59 69 / 22%);
+    border-top: 1px solid var(--hv-border-subtle);
     padding-top: 0.65rem;
   }
 

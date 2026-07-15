@@ -6,25 +6,6 @@
 :root {
   color-scheme: light;
   --hv-app-header-height: 4.4rem;
-  --ink: #193b45;
-  --ink-soft: #45616a;
-  --paper: #f7f0df;
-  --paper-light: #fffaf0;
-  --paper-deep: #ecdcbf;
-  --paper-raised: #fffaf0;
-  --coral: #c94b2b;
-  --coral-dark: #a83b27;
-  --coral-soft: #f6d9d0;
-  --sun: #f8cf58;
-  --amber: #f1a33b;
-  --teal: #2f818d;
-  --mint: #d9ece7;
-  --success: #28715e;
-  --danger: #9e3025;
-  --focus: #ffad25;
-  --shadow-offset: 0.32rem;
-  --radius-organic: 1.4rem 0.65rem 1.55rem 0.75rem;
-  --content-wide: 72rem;
   --font-sans: 'Inter Variable', Inter, ui-rounded, 'Avenir Next Rounded', system-ui, sans-serif;
   font-family: var(--font-sans);
   font-synthesis: none;

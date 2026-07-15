@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { page as browserPage } from 'vitest/browser';
 
 import { catalogues } from '$i18n';
 import { defaultDiscoveryState } from '$lib/discovery/state';
@@ -340,8 +341,8 @@ describe('MapListShell synchronization', () => {
     expect(within(selectedPlace).getByText('Outdoors')).toBeTruthy();
     expect(within(selectedPlace).getByText('Leash required')).toBeTruthy();
     expect(within(selectedPlace).queryByText('Dogs are generally allowed')).toBeNull();
-    expect(within(selectedPlace).queryByText('Last verified')).toBeNull();
-    expect(within(selectedPlace).queryByText('9 July 2026')).toBeNull();
+    expect(within(selectedPlace).getByText('Last verified')).toBeTruthy();
+    expect(within(selectedPlace).getByText('9 July 2026')).toBeTruthy();
     expect(within(selectedPlace).queryByText('Not yet rated')).toBeNull();
     expect(within(selectedPlace).queryByText('Sign in to save')).toBeNull();
     expect(within(selectedPlace).queryByText('Sign in to check in')).toBeNull();
@@ -376,7 +377,7 @@ describe('MapListShell synchronization', () => {
     expect(question.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('asks the friendly welcome question in Icelandic without routine verification metadata', () => {
+  it('asks the friendly welcome question in Icelandic with concise trust metadata', () => {
     history.replaceState(null, '', '/is?place=30000000-0000-4000-8000-000000000003');
     render(MapListShell, {
       places,
@@ -397,7 +398,7 @@ describe('MapListShell synchronization', () => {
       within(selectedPlace).getByRole('heading', { name: 'Eru hundar velkomnir?' })
     ).toBeTruthy();
     expect(within(selectedPlace).getByText('Já')).toBeTruthy();
-    expect(within(selectedPlace).queryByText('9. júlí 2026')).toBeNull();
+    expect(within(selectedPlace).getByText('9. júlí 2026')).toBeTruthy();
   });
 
   it('withdraws the verified welcome signal when loaded access evidence is stale', async () => {
@@ -461,9 +462,10 @@ describe('MapListShell synchronization', () => {
     expect(welcome?.getAttribute('data-tone')).toBe('info');
     expect(welcome?.getAttribute('data-access-state')).toBe('conditional');
     expect(welcome?.getAttribute('data-tone')).not.toBe('verified');
+    expect(selectedPlace.querySelector('.trust-summary [data-status="verified"]')).toBeNull();
   });
 
-  it('reveals every restriction and provenance inside the floating card without navigating away', async () => {
+  it('reveals every restriction and provenance inside the rail card without navigating away', async () => {
     history.replaceState(null, '', `/en?place=${places[0].placeId}`);
     const multiConditionPlaces = [
       {
@@ -819,7 +821,9 @@ describe('MapListShell synchronization', () => {
     const closeSelected = screen.getByRole('button', { name: 'Close selected place' });
     await waitFor(() => expect(document.activeElement).toBe(closeSelected));
     await fireEvent.click(closeSelected);
-    await waitFor(() => expect(document.activeElement).toBe(fallbackResult));
+    await waitFor(() =>
+      expect(document.activeElement?.getAttribute('data-place-id')).toBe(places[0].placeId)
+    );
   });
 
   it('keeps filters and results mutually exclusive with deterministic focus restoration', async () => {
@@ -1047,6 +1051,35 @@ describe('MapListShell synchronization', () => {
         screen.getByRole('button', { name: 'Close selected place' })
       )
     );
+  });
+
+  it('uses the approved desktop rail-map grid geometry', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1200, 800);
+
+    try {
+      const { container } = render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: defaultDiscoveryState,
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+      const shell = container.querySelector<HTMLElement>('[data-responsive-shell]');
+      expect(shell).toBeTruthy();
+      if (!shell) throw new Error('Expected the discovery shell');
+
+      const shellStyle = getComputedStyle(shell);
+      const desktopColumns = shellStyle.gridTemplateColumns.split(' ').map(Number.parseFloat);
+      expect(shellStyle.display).toBe('grid');
+      expect(desktopColumns).toHaveLength(2);
+      expect(desktopColumns[0] / desktopColumns[1]).toBeCloseTo(0.72 / 1.28, 1);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
   });
 
   it('opens only terminal cluster members in the selectable result tray', async () => {

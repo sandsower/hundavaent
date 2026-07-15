@@ -360,7 +360,7 @@
     right: 1.2rem;
     left: 1.2rem;
     z-index: 2;
-    border-radius: 0 0 0.65rem 0.65rem;
+    border-radius: 0 0 var(--hv-radius-shell) var(--hv-radius-shell);
     background: var(--hv-color-success-soft);
     font-size: 0.78rem;
     font-weight: 850;

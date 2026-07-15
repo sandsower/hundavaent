@@ -151,9 +151,11 @@
     </section>
 
     <div class="trust-summary">
-      <span class="hv-status" data-status={reconfirmationDue ? 'attention' : 'verified'}>
-        {reconfirmationDue ? copy['status.reconfirmationDue'] : copy['status.verified']}
-      </span>
+      {#if reconfirmationDue || summaryVerified}
+        <span class="hv-status" data-status={reconfirmationDue ? 'attention' : 'verified'}>
+          {reconfirmationDue ? copy['status.reconfirmationDue'] : copy['status.verified']}
+        </span>
+      {/if}
       <span>
         {copy['place.lastVerified']}
         <time datetime={place.verifiedAt}>{formatLocalizedDate(place.verifiedAt, lang)}</time>
@@ -187,12 +189,6 @@
           {initialCheckedInAt}
         />
       </div>
-    {/if}
-
-    {#if reconfirmationDue}
-      <p class="hv-notice freshness-warning" data-tone="attention">
-        {copy['status.reconfirmationDue']}
-      </p>
     {/if}
 
     {#if loading && !profile}
@@ -444,13 +440,6 @@
     color: var(--hv-color-basalt-muted);
     font-size: 0.75rem;
     font-weight: 750;
-  }
-
-  .freshness-warning {
-    margin: 0.65rem 0 0;
-    padding: 0.65rem 0.75rem;
-    font-size: 0.8rem;
-    font-weight: 850;
   }
 
   details {
