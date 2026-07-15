@@ -82,9 +82,10 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('${query};\n          COMMIT;');
     expect(workflow).toContain('--quote-all-identifier');
     expect(workflow).toContain('--role "postgres"');
-    expect(workflow).toContain('--exclude-table "auth.schema_migrations"');
-    expect(workflow.match(/snapshot_query/g)).toHaveLength(6);
-    expect(workflow.match(/dump_snapshot_data/g)).toHaveLength(3);
+    expect(workflow).not.toContain('--exclude-table "auth.schema_migrations"');
+    expect(workflow).not.toContain('--exclude-table "storage.migrations"');
+    expect(workflow.match(/snapshot_query/g)).toHaveLength(9);
+    expect(workflow.match(/dump_snapshot_data/g)).toHaveLength(4);
     expect(exportedSnapshot).toBeGreaterThan(0);
     expect(applicationDump).toBeGreaterThan(exportedSnapshot);
     expect(identityCounts).toBeGreaterThan(applicationDump);
@@ -122,11 +123,38 @@ describe('release evaluation orchestration', () => {
 
     expect(workflow).not.toContain('Auth data restore is not testable');
     expect(workflow).toContain(
-      'psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/auth-data.sql'
+      'psql -v ON_ERROR_STOP=1 "${recovery_db_url}" -f recovery/auth-data.sql'
     );
     expect(workflow).toContain('recovery/auth-production-counts.txt');
     expect(workflow).toContain('recovery/auth-dump-counts.txt');
+    expect(workflow).toContain('dump_snapshot_schema "auth" recovery/auth-schema.sql');
+    expect(workflow).toContain('dump_snapshot_schema "storage" recovery/storage-schema.sql');
+    expect(workflow).toContain('dump_snapshot_data "storage" recovery/storage-data.sql');
+    expect(workflow).toContain("and n.nspname = 'auth'\" |");
+    expect(workflow).toContain("and n.nspname = 'storage'\" |");
+    expect(workflow).not.toContain("c.relname <> 'schema_migrations'");
+    expect(workflow).not.toContain("c.relname <> 'migrations'");
+    expect(workflow).toContain("array_to_string(roles, ',')");
+    expect(workflow).toContain('quote_nullable(with_check)');
+    expect(workflow).toContain('[[ ! -s recovery/auth-schema.sql ]]');
+    expect(workflow).toContain('[[ ! -s recovery/storage-schema.sql ]]');
+    expect(workflow).not.toContain("-c 'drop schema if exists auth cascade'");
+    expect(workflow).toContain('alter schema auth rename to scratch_auth');
+    expect(workflow).toContain('alter schema storage rename to scratch_storage');
+    expect(workflow).toContain(
+      'psql -v ON_ERROR_STOP=1 "${recovery_db_url}" -f recovery/auth-schema.sql'
+    );
+    expect(workflow).toContain("-c 'create database hundavaent_recovery template postgres'");
+    expect(workflow).toContain('alter database postgres with allow_connections false');
+    expect(workflow).toContain('alter database postgres with allow_connections true');
+    expect(workflow).toContain('recovery_db_url="${RESTORE_DB_URL%/postgres}/hundavaent_recovery"');
+    expect(workflow).toContain(
+      'actual="$(psql -At "${recovery_db_url}" -c "select count(*) from ${table}")"'
+    );
     expect(workflow).toContain('recovery/auth-restored-counts.txt');
+    expect(workflow).toContain('recovery/storage-restored-counts.txt');
+    expect(workflow).toContain('recovery/managed-restored-schema.txt');
+    expect(workflow).toContain('recovery/restored-member-auth-joins.txt');
     expect(workflow.match(/\[\[ ! -s recovery\/auth-production-counts\.txt \]\]/g)).toHaveLength(3);
     expect(workflow.match(/\[\[ ! -s recovery\/auth-dump-counts\.txt \]\]/g)).toHaveLength(3);
     expect(workflow.match(/'\^auth\\\.users \[0-9\]\+\$'/g)).toHaveLength(6);

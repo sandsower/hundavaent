@@ -150,14 +150,23 @@ jobs:
                 --quote-all-identifier \
                 --role "postgres" \
                 --exclude-schema "" \
-                --exclude-table "auth.schema_migrations" \
-                --exclude-table "storage.migrations" \
-                --exclude-table "supabase_functions.migrations" \
                 --schema "${schemas}" \
                 --snapshot "${recovery_snapshot}" | \
                 sed -E 's/^\\(un)?restrict .*$/-- &/'
               printf '\nRESET ALL;\n'
             } > "${output}"
+          }
+          dump_snapshot_schema() {
+            local schemas="$1"
+            local output="$2"
+            docker run --rm "${postgres_dump_image}" pg_dump \
+              --dbname "${db_url}" \
+              --schema-only \
+              --quote-all-identifier \
+              --role "postgres" \
+              --schema "${schemas}" \
+              --snapshot "${recovery_snapshot}" | \
+              sed -E 's/^\\(un)?restrict .*$/-- &/' > "${output}"
           }
           trap cleanup_recovery_snapshot EXIT
           docker run --rm "${postgres_dump_image}" pg_dump --version
@@ -198,14 +207,16 @@ jobs:
             echo "Production has no Member or Auth identities; auth backup and restore are not required."
           else
             echo "required" > recovery/auth-recovery-mode.txt
+            dump_snapshot_schema "auth" recovery/auth-schema.sql
             dump_snapshot_data "auth" recovery/auth-data.sql
+            dump_snapshot_schema "storage" recovery/storage-schema.sql
+            dump_snapshot_data "storage" recovery/storage-data.sql
             snapshot_query "
               select n.nspname || '.' || c.relname
               from pg_class c
               join pg_namespace n on n.oid = c.relnamespace
               where c.relkind = 'r'
-                and n.nspname = 'auth'
-                and c.relname <> 'schema_migrations'" |
+                and n.nspname = 'auth'" |
               while read -r table; do
                 echo "${table} $(snapshot_query "select count(*) from ${table}")"
               done | sort > recovery/auth-production-counts.txt
@@ -222,6 +233,38 @@ jobs:
                 ! grep -Eq '^auth\.users [0-9]+$' recovery/auth-dump-counts.txt || \
                 ! grep -Eq '^auth\.identities [0-9]+$' recovery/auth-dump-counts.txt; then
               echo "Required Auth dump counts are missing identity tables." >&2
+              exit 1
+            fi
+            snapshot_query "
+              select n.nspname || '.' || c.relname
+              from pg_class c
+              join pg_namespace n on n.oid = c.relnamespace
+              where c.relkind = 'r'
+                and n.nspname = 'storage'" |
+              while read -r table; do
+                echo "${table} $(snapshot_query "select count(*) from ${table}")"
+              done | sort > recovery/storage-production-counts.txt
+            node --experimental-strip-types scripts/verify-recovery-copy-dump.ts \
+              recovery/storage-data.sql recovery/storage-production-counts.txt \
+              recovery/storage-dump-counts.txt
+            snapshot_query "
+              select 'column ' || table_schema || '.' || table_name || '.' || column_name ||
+                ' ' || udt_schema || '.' || udt_name || ' ' || is_nullable
+              from information_schema.columns
+              where table_schema in ('auth', 'storage')
+              union all
+              select 'policy ' || schemaname || '.' || tablename || '.' || policyname ||
+                ' ' || permissive || ' ' || array_to_string(roles, ',') || ' ' || cmd ||
+                ' ' || quote_nullable(qual) || ' ' || quote_nullable(with_check)
+              from pg_policies
+              where schemaname = 'storage'
+              order by 1" > recovery/managed-production-schema.txt
+            if [[ ! -s recovery/storage-production-counts.txt ]] || \
+                [[ ! -s recovery/storage-dump-counts.txt ]] || \
+                [[ ! -s recovery/managed-production-schema.txt ]] || \
+                ! grep -Eq '^column auth\.audit_log_entries\.ip_address ' \
+                  recovery/managed-production-schema.txt; then
+              echo "Managed Auth and Storage recovery proof is incomplete." >&2
               exit 1
             fi
           fi
@@ -247,12 +290,16 @@ jobs:
           set -euo pipefail
           # Role creation tolerates roles the supabase image already ships.
           psql "${RESTORE_DB_URL}" -f recovery/roles.sql || true
-          psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/schema.sql
-          psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/data.sql
           if [[ "$(cat recovery/auth-recovery-mode.txt)" == "required" ]]; then
-            if [[ ! -s recovery/auth-data.sql ]] || \
+            if [[ ! -s recovery/auth-schema.sql ]] || \
+                [[ ! -s recovery/auth-data.sql ]] || \
+                [[ ! -s recovery/storage-schema.sql ]] || \
+                [[ ! -s recovery/storage-data.sql ]] || \
                 [[ ! -s recovery/auth-production-counts.txt ]] || \
                 [[ ! -s recovery/auth-dump-counts.txt ]] || \
+                [[ ! -s recovery/storage-production-counts.txt ]] || \
+                [[ ! -s recovery/storage-dump-counts.txt ]] || \
+                [[ ! -s recovery/managed-production-schema.txt ]] || \
                 ! grep -Eq '^auth\.users [0-9]+$' recovery/auth-production-counts.txt || \
                 ! grep -Eq '^auth\.identities [0-9]+$' recovery/auth-production-counts.txt || \
                 ! grep -Eq '^auth\.users [0-9]+$' recovery/auth-dump-counts.txt || \
@@ -260,7 +307,43 @@ jobs:
               echo "Required Auth recovery proof is missing or incomplete." >&2
               exit 1
             fi
-            psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/auth-data.sql
+            # The hosted managed schemas can be ahead of the scratch image. Clone
+            # the initialized database and build one coherent recovery target with
+            # production Auth, Storage, application schemas, and all corresponding
+            # data. Renaming avoids cascading through the clone before replacements
+            # exist under the canonical schema names.
+            restore_url_prefix="${RESTORE_DB_URL%/postgres}"
+            restore_admin_url="${restore_url_prefix}/template1"
+            recovery_db_url="${restore_url_prefix}/hundavaent_recovery"
+            restore_postgres_connections() {
+              psql -v ON_ERROR_STOP=1 "${restore_admin_url}" \
+                -c 'alter database postgres with allow_connections true' >/dev/null
+            }
+            trap restore_postgres_connections EXIT
+            psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" \
+              -c 'alter database postgres with allow_connections false'
+            psql -v ON_ERROR_STOP=1 "${restore_admin_url}" -c "
+              select pg_terminate_backend(pid)
+              from pg_stat_activity
+              where datname = 'postgres';
+            "
+            psql -v ON_ERROR_STOP=1 "${restore_admin_url}" \
+              -c 'create database hundavaent_recovery template postgres'
+            restore_postgres_connections
+            trap - EXIT
+            psql -v ON_ERROR_STOP=1 "${recovery_db_url}" -c '
+              alter schema auth rename to scratch_auth;
+              alter schema storage rename to scratch_storage;
+            '
+            psql -v ON_ERROR_STOP=1 "${recovery_db_url}" -f recovery/auth-schema.sql
+            psql -v ON_ERROR_STOP=1 "${recovery_db_url}" -f recovery/schema.sql
+            psql -v ON_ERROR_STOP=1 "${recovery_db_url}" -f recovery/storage-schema.sql
+            psql -v ON_ERROR_STOP=1 "${recovery_db_url}" -f recovery/auth-data.sql
+            psql -v ON_ERROR_STOP=1 "${recovery_db_url}" -f recovery/storage-data.sql
+            psql -v ON_ERROR_STOP=1 "${recovery_db_url}" -f recovery/data.sql
+          else
+            psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/schema.sql
+            psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/data.sql
           fi
 
       - name: Verify restored row counts match the dump
@@ -270,21 +353,25 @@ jobs:
           # Dump counts were parsed and matched against production while the
           # recovery write lock was still held.
           test -s recovery/dump-counts.txt
-          psql -At "${RESTORE_DB_URL}" -c "
+          auth_recovery_mode="$(cat recovery/auth-recovery-mode.txt)"
+          recovery_db_url="${RESTORE_DB_URL}"
+          if [[ "${auth_recovery_mode}" == "required" ]]; then
+            recovery_db_url="${RESTORE_DB_URL%/postgres}/hundavaent_recovery"
+          fi
+          psql -At "${recovery_db_url}" -c "
             select schemaname || '.' || relname || ' ' || n_live_tup
             from pg_stat_user_tables" |
             awk '{ print $1, $2 }' | sort > recovery/restored-counts-raw.txt
           # pg_stat estimates lag; recount exactly for the tables the dump names.
           : > recovery/restored-counts.txt
           while read -r table _; do
-            actual="$(psql -At "${RESTORE_DB_URL}" -c "select count(*) from ${table}")"
+            actual="$(psql -At "${recovery_db_url}" -c "select count(*) from ${table}")"
             echo "${table} ${actual}" >> recovery/restored-counts.txt
           done < recovery/dump-counts.txt
           if ! diff -u recovery/dump-counts.txt recovery/restored-counts.txt; then
             echo "Restored table counts do not match the dump." >&2
             exit 1
           fi
-          auth_recovery_mode="$(cat recovery/auth-recovery-mode.txt)"
           if [[ "${auth_recovery_mode}" == "required" ]]; then
             if [[ ! -s recovery/auth-production-counts.txt ]] || \
                 [[ ! -s recovery/auth-dump-counts.txt ]] || \
@@ -297,11 +384,50 @@ jobs:
             fi
             : > recovery/auth-restored-counts.txt
             while read -r table _; do
-              actual="$(psql -At "${RESTORE_DB_URL}" -c "select count(*) from ${table}")"
+              actual="$(psql -At "${recovery_db_url}" -c "select count(*) from ${table}")"
               echo "${table} ${actual}" >> recovery/auth-restored-counts.txt
             done < recovery/auth-dump-counts.txt
             if ! diff -u recovery/auth-dump-counts.txt recovery/auth-restored-counts.txt; then
               echo "Restored Auth table counts do not match the dump." >&2
+              exit 1
+            fi
+            : > recovery/storage-restored-counts.txt
+            while read -r table _; do
+              actual="$(psql -At "${recovery_db_url}" -c "select count(*) from ${table}")"
+              echo "${table} ${actual}" >> recovery/storage-restored-counts.txt
+            done < recovery/storage-dump-counts.txt
+            if ! diff -u recovery/storage-dump-counts.txt \
+                recovery/storage-restored-counts.txt; then
+              echo "Restored Storage table counts do not match the dump." >&2
+              exit 1
+            fi
+            psql -X -qAt -F ' ' "${recovery_db_url}" \
+              > recovery/managed-restored-schema.txt <<'SQL'
+          select 'column ' || table_schema || '.' || table_name || '.' || column_name ||
+            ' ' || udt_schema || '.' || udt_name || ' ' || is_nullable
+          from information_schema.columns
+          where table_schema in ('auth', 'storage')
+          union all
+          select 'policy ' || schemaname || '.' || tablename || '.' || policyname ||
+            ' ' || permissive || ' ' || array_to_string(roles, ',') || ' ' || cmd ||
+            ' ' || quote_nullable(qual) || ' ' || quote_nullable(with_check)
+          from pg_policies
+          where schemaname = 'storage'
+          order by 1;
+          SQL
+            if ! diff -u recovery/managed-production-schema.txt \
+                recovery/managed-restored-schema.txt; then
+              echo "Restored managed schema does not match production." >&2
+              exit 1
+            fi
+            psql -v ON_ERROR_STOP=1 -At "${recovery_db_url}" -c "
+              select count(*)
+              from private.member_accounts member
+              join auth.users auth_user on auth_user.id = member.user_id
+            " > recovery/restored-member-auth-joins.txt
+            if [[ "$(cat recovery/restored-member-auth-joins.txt)" != \
+                "$(cat recovery/member-count.txt)" ]]; then
+              echo "Restored Members do not have matching Auth users." >&2
               exit 1
             fi
           fi
