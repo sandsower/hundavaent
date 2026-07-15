@@ -19,24 +19,8 @@
   let currentHash = $state('');
   let hydrated = $state(false);
   let isDiscovery = $derived(page.route.id === '/[lang=lang]');
-  let isPlaceStatus = $derived(page.route.id === '/[lang=lang]/places/[id]');
-  let isMemberOrContribution = $derived(
-    page.route.id?.startsWith('/[lang=lang]/account') === true ||
-      page.route.id === '/[lang=lang]/saved' ||
-      page.route.id === '/[lang=lang]/history' ||
-      page.route.id === '/[lang=lang]/suggest' ||
-      page.route.id === '/[lang=lang]/places/[id]/correct' ||
-      page.route.id === '/[lang=lang]/places/[id]/report' ||
-      page.route.id === '/[lang=lang]/places/[id]/rate'
-  );
   let isModeration = $derived(page.route.id?.startsWith('/[lang=lang]/moderation') === true);
-  let northStarMode = $derived(
-    isDiscovery || isPlaceStatus || isMemberOrContribution
-      ? 'place'
-      : isModeration
-        ? 'operations'
-        : undefined
-  );
+  let northStarMode = $derived(isModeration ? 'operations' : 'place');
   const currentBrowserUrl = $derived.by(() => {
     const currentUrl = new URL(page.url.href);
     currentUrl.hash = currentHash;
@@ -96,12 +80,7 @@
   <meta name="description" content={data.copy['meta.description']} />
 </svelte:head>
 
-<header
-  class="site-header"
-  class:north-star={northStarMode !== undefined}
-  data-ui-mode={northStarMode}
-  data-app-hydrated={hydrated}
->
+<header class="site-header" data-ui-mode={northStarMode} data-app-hydrated={hydrated}>
   <a
     class="brand"
     href={resolve('/[lang=lang]', { lang: data.lang })}
@@ -182,22 +161,26 @@
     position: relative;
     z-index: 10;
     display: flex;
-    width: min(100% - 2rem, 72rem);
-    margin: 0 auto;
-    padding-top: 1rem;
+    width: 100%;
+    height: var(--hv-app-header-height);
+    min-height: var(--hv-app-header-height);
+    padding: 0 clamp(1rem, 2vw, 1.5rem);
+    border-bottom: 1px solid var(--hv-border-subtle);
     gap: 1rem;
     align-items: center;
     justify-content: space-between;
+    background: var(--hv-color-snow-raised);
   }
 
   .brand {
     display: inline-flex;
     gap: 0.55rem;
     align-items: center;
-    color: var(--ink);
-    font-size: 1.2rem;
-    font-weight: 950;
-    letter-spacing: -0.03em;
+    color: var(--hv-color-basalt);
+    font-family: var(--hv-font-display);
+    font-size: 1.4rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
     text-decoration: none;
   }
 
@@ -207,28 +190,25 @@
   }
 
   .brand img {
-    filter: drop-shadow(0.13rem 0.16rem 0 var(--ink));
-    transform: rotate(-4deg);
+    flex: 0 0 auto;
   }
 
-  /* A bordered segmented toggle so the current language reads as a state, not a button. */
   nav {
     display: flex;
     gap: 0.15rem;
     padding: 0.15rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    background: var(--paper-light, #fffaef);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
   }
 
   nav a {
     padding: 0.25rem 0.6rem;
-    border: 2px solid transparent;
+    border: 1px solid transparent;
   }
 
   .header-actions {
     display: flex;
-    flex-wrap: wrap;
     gap: 0.4rem;
     align-items: center;
     justify-content: flex-end;
@@ -240,75 +220,26 @@
 
   a {
     padding: 0.4rem 0.7rem;
-    border: 2px solid transparent;
-    border-radius: 999px;
-    color: var(--ink);
+    border: 1px solid transparent;
+    border-radius: var(--hv-radius-control);
+    color: var(--hv-color-basalt);
     font-weight: 800;
   }
 
   a[aria-current='page'] {
-    border-color: var(--ink);
-    background: var(--sun);
+    border-color: var(--hv-color-basalt);
+    background: var(--hv-color-signal);
     text-decoration: none;
   }
 
   .account-link {
-    border-color: var(--ink);
-    background: var(--teal);
-    color: white;
-    text-decoration: none;
-    box-shadow: 0 0.18rem 0 var(--ink);
-  }
-
-  a:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 3px;
-  }
-
-  .site-header.north-star {
-    width: min(100% - 2rem, 96rem);
-    padding: 0.85rem 0;
-    border-bottom: 1px solid var(--hv-border-subtle);
-  }
-
-  .site-header.north-star .brand {
-    color: var(--hv-color-basalt);
-    font-family: var(--hv-font-display);
-    font-size: 1.4rem;
-    font-weight: 650;
-    letter-spacing: -0.02em;
-  }
-
-  .site-header.north-star .brand img {
-    filter: none;
-    transform: none;
-  }
-
-  .site-header.north-star nav {
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-  }
-
-  .site-header.north-star a {
-    border-width: 1px;
-    border-radius: var(--hv-radius-control);
-    color: var(--hv-color-basalt);
-  }
-
-  .site-header.north-star a[aria-current='page'] {
-    border-color: var(--hv-color-basalt);
-    background: var(--hv-color-signal);
-  }
-
-  .site-header.north-star .account-link {
     border-color: var(--hv-color-basalt);
     background: var(--hv-color-basalt);
     color: var(--hv-color-snow-raised);
-    box-shadow: none;
+    text-decoration: none;
   }
 
-  .site-header.north-star a:focus-visible {
+  a:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
     box-shadow: 0 0 0 2px var(--hv-focus-offset);
@@ -317,6 +248,8 @@
   @media (max-width: 34rem) {
     .site-header {
       display: grid;
+      height: var(--hv-app-header-height);
+      padding-block: 0.7rem;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 0.55rem;
     }
@@ -348,9 +281,9 @@
     }
 
     .mobile-menu summary {
-      border: 2px solid var(--ink);
-      border-radius: 999px;
-      background: var(--paper-light);
+      border: 1px solid var(--hv-color-basalt);
+      border-radius: var(--hv-radius-control);
+      background: var(--hv-color-snow-raised);
       padding: 0.4rem 0.8rem;
       font-weight: 850;
       cursor: pointer;
@@ -369,11 +302,11 @@
       display: grid;
       min-width: 13rem;
       gap: 0.55rem;
-      border: 2px solid var(--ink);
-      border-radius: 1rem;
-      background: var(--paper-light);
+      border: 1px solid var(--hv-color-basalt);
+      border-radius: var(--hv-radius-control);
+      background: var(--hv-color-snow-raised);
       padding: 0.75rem;
-      box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--amber);
+      box-shadow: var(--hv-shadow-raised);
     }
 
     .mobile-menu-panel nav {
@@ -386,15 +319,6 @@
       max-width: 9.5rem;
       line-height: 1.05;
       text-align: center;
-    }
-
-    .site-header.north-star .mobile-menu summary,
-    .site-header.north-star .mobile-menu-panel {
-      border-width: 1px;
-      border-radius: var(--hv-radius-control);
-      border-color: var(--hv-color-basalt);
-      background: var(--hv-color-snow-raised);
-      box-shadow: var(--hv-shadow-raised);
     }
   }
 </style>
