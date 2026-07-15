@@ -4,7 +4,6 @@ import type { RequestSupabaseClient } from '$server/db/clients';
 import { signPlaceMediaUrls } from '$server/place-media/place-media';
 import {
   getPublishedProfile,
-  getPublicPlaceStatus,
   listPublished,
   refreshPublishedPhotoUrl
 } from '$server/discovery/public-places';
@@ -64,8 +63,7 @@ function createClient(
       | 'list_published_places_v2'
       | 'list_published_place_primary_photos'
       | 'list_published_place_photos'
-      | 'get_published_place_profile_v2'
-      | 'get_public_place_status',
+      | 'get_published_place_profile_v2',
       { data: unknown; error: { code: string; message: string } | null }
     >
   >,
@@ -535,55 +533,6 @@ describe('getPublishedProfile', () => {
     });
 
     await expect(getPublishedProfile(client, 'place-1', 'en')).resolves.toEqual({
-      status: 'invalid_response'
-    });
-  });
-});
-
-describe('getPublicPlaceStatus', () => {
-  it('maps only the safe localized identity and public status', async () => {
-    const { client, rpc } = createClient({
-      get_public_place_status: {
-        data: [
-          {
-            place_id: 'place-1',
-            name: 'Published Place',
-            public_status: 'access_under_review'
-          }
-        ],
-        error: null
-      }
-    });
-
-    await expect(getPublicPlaceStatus(client, 'place-1', 'en')).resolves.toEqual({
-      status: 'success',
-      value: {
-        placeId: 'place-1',
-        name: 'Published Place',
-        publicStatus: 'access_under_review'
-      }
-    });
-    expect(rpc).toHaveBeenCalledWith('get_public_place_status', {
-      requested_place_id: 'place-1',
-      requested_locale: 'en'
-    });
-  });
-
-  it('does not reveal Candidates and rejects malformed private statuses', async () => {
-    const missing = createClient({
-      get_public_place_status: { data: [], error: null }
-    }).client;
-    const malformed = createClient({
-      get_public_place_status: {
-        data: [{ place_id: 'place-1', name: 'Place', public_status: 'candidate' }],
-        error: null
-      }
-    }).client;
-
-    await expect(getPublicPlaceStatus(missing, 'place-1', 'en')).resolves.toEqual({
-      status: 'not_found'
-    });
-    await expect(getPublicPlaceStatus(malformed, 'place-1', 'en')).resolves.toEqual({
       status: 'invalid_response'
     });
   });

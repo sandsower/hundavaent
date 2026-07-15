@@ -141,6 +141,29 @@ const complexProfile = {
   photos: []
 };
 
+const multiConditionPlaces = [
+  {
+    ...places[0],
+    accessConditionCount: 2,
+    simpleAccessSummary: false,
+    accessArea: null,
+    restraintCondition: null,
+    permissionRequirement: null,
+    accessConditions: [
+      {
+        accessArea: 'indoors' as const,
+        restraintCondition: 'carrier_required' as const,
+        permissionRequirement: 'standing_permission' as const
+      },
+      {
+        accessArea: 'outdoors' as const,
+        restraintCondition: 'leash_required' as const,
+        permissionRequirement: 'ask_on_arrival' as const
+      }
+    ]
+  }
+];
+
 const replaceUrl = (url: string) => history.replaceState(history.state, '', url);
 const pushUrl = replaceUrl;
 
@@ -993,28 +1016,6 @@ describe('MapListShell synchronization', () => {
 
   it('reveals every restriction and provenance inside the rail card without navigating away', async () => {
     history.replaceState(null, '', `/en?place=${places[0].placeId}`);
-    const multiConditionPlaces = [
-      {
-        ...places[0],
-        accessConditionCount: 2,
-        simpleAccessSummary: false,
-        accessArea: null,
-        restraintCondition: null,
-        permissionRequirement: null,
-        accessConditions: [
-          {
-            accessArea: 'indoors' as const,
-            restraintCondition: 'carrier_required' as const,
-            permissionRequirement: 'standing_permission' as const
-          },
-          {
-            accessArea: 'outdoors' as const,
-            restraintCondition: 'leash_required' as const,
-            permissionRequirement: 'ask_on_arrival' as const
-          }
-        ]
-      }
-    ];
     render(MapListShell, {
       places: multiConditionPlaces,
       lang: 'en',
@@ -1052,6 +1053,49 @@ describe('MapListShell synchronization', () => {
     expect(selectedPlace.querySelector('[data-status="verified"]')).toBeNull();
     expect(window.location.pathname).toBe('/en');
   });
+
+  it.each([
+    ['mobile list', 390],
+    ['persistent desktop rail', 1000]
+  ])(
+    'opens complete details from one compact complex-symbol click in the %s',
+    async (_layout, width) => {
+      const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+      const profileRequest = deferred<typeof complexProfile>();
+      await browserPage.viewport(width, 800);
+      history.replaceState(null, '', '/en?view=list');
+
+      try {
+        render(MapListShell, {
+          places: multiConditionPlaces,
+          lang: 'en',
+          copy: catalogues.en,
+          initialState: { ...defaultDiscoveryState, view: 'list' },
+          adapter: createDomTestMapAdapter(),
+          replaceUrl,
+          pushUrl,
+          loadPlace: vi.fn(() => profileRequest.promise)
+        });
+
+        const compactCard = screen.getByLabelText('Published Place');
+        await fireEvent.click(
+          within(compactCard).getByRole('button', { name: 'Different conditions apply' })
+        );
+
+        const selectedPlace = screen.getByLabelText('Selected place');
+        expect(within(selectedPlace).getByText('Loading every access condition…')).toBeTruthy();
+        profileRequest.resolve(complexProfile);
+        await waitFor(() =>
+          expect(
+            selectedPlace.querySelector<HTMLDetailsElement>('details.hv-disclosure')?.open
+          ).toBe(true)
+        );
+        expect(within(selectedPlace).getByRole('heading', { name: 'Dog access' })).toBeTruthy();
+      } finally {
+        await browserPage.viewport(initialViewport.width, initialViewport.height);
+      }
+    }
+  );
 
   it('localizes known structured labels in Icelandic and preserves sourced free text', async () => {
     history.replaceState(null, '', `/is?place=${places[0].placeId}`);

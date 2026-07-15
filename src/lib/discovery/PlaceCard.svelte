@@ -16,7 +16,7 @@
     focusSelected?: boolean;
     interactive?: boolean;
     copy: Catalogue;
-    onSelect?: (placeId: string, trigger: HTMLButtonElement) => void;
+    onSelect?: (placeId: string, trigger: HTMLButtonElement, openDetails?: boolean) => void;
     signedIn?: boolean;
     favourite?: boolean;
     signInHref?: string;
@@ -100,7 +100,7 @@
         placeName={place.name}
         conditions={place.accessConditions}
         {copy}
-        onOpenDetails={() => selectButton && onSelect(place.placeId, selectButton)}
+        onOpenDetails={() => selectButton && onSelect(place.placeId, selectButton, true)}
       />
     </div>
   {:else}

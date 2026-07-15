@@ -99,6 +99,7 @@
   let clusterPlaceIds = $state<readonly string[] | null>(null);
   const clusterHistoryKey = 'hundavaentClusterPlaceIds';
   let selectionFocusOrigin = $state<HTMLButtonElement | null>(null);
+  let openDetailsIntentPlaceId = $state<string | null>(null);
   let directorySidebar = $state<HTMLElement>();
   let directoryRailWidth = $state(0);
   let wideDetailLayout = $state(false);
@@ -468,13 +469,15 @@
     placeId: string,
     focusOverlay = false,
     focusOrigin: HTMLButtonElement | null = null,
-    source: 'map' | 'list' | 'fallback' = 'map'
+    source: 'map' | 'list' | 'fallback' = 'map',
+    openDetails = false
   ): void {
     const place = filteredPlaces.find((candidate) => candidate.placeId === placeId);
     if (!place) return;
 
     clusterPlaceIds = null;
     filtersOpen = false;
+    openDetailsIntentPlaceId = openDetails ? placeId : null;
     commitState(
       {
         ...discoveryState,
@@ -506,6 +509,7 @@
   function clearSelectedPlace(): void {
     const previouslySelectedPlaceId = discoveryState.selectedPlaceId;
     commitState({ ...discoveryState, selectedPlaceId: null, view: 'map' }, 'replace');
+    openDetailsIntentPlaceId = null;
     announcement = '';
     if (previouslySelectedPlaceId) {
       const focusOrigin = selectionFocusOrigin;
@@ -884,6 +888,12 @@
                 checkInSignInHref={checkInSignInHref(selectedPlace.placeId)}
                 {proximityAssistEnabled}
                 initialCheckedInAt={selectedCheckInStatus}
+                openDetails={openDetailsIntentPlaceId === selectedPlace.placeId}
+                onDetailsOpened={() => {
+                  if (openDetailsIntentPlaceId === selectedPlace.placeId) {
+                    openDetailsIntentPlaceId = null;
+                  }
+                }}
               />
             {/key}
           </div>
@@ -903,8 +913,8 @@
               selectedPlaceId={discoveryState.selectedPlaceId}
               {lang}
               {copy}
-              onSelect={(placeId, trigger) =>
-                selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list')}
+              onSelect={(placeId, trigger, openDetails) =>
+                selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list', openDetails)}
               onClose={closeResults}
               closable={discoveryState.view === 'list' && !mapFailed && !persistentRailLayout}
               {signedIn}

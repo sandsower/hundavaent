@@ -26,7 +26,6 @@ import type { PlacePhotoRightsBasis } from '$server/place-media/place-media-inpu
 type ListRow = Database['public']['Functions']['list_published_places_v2']['Returns'][number];
 type ProfileRow =
   Database['public']['Functions']['get_published_place_profile_v2']['Returns'][number];
-type StatusRow = Database['public']['Functions']['get_public_place_status']['Returns'][number];
 const publishedPhotoUrlTtlSeconds = 300;
 
 export interface PublishedPlaceSummary {
@@ -135,18 +134,6 @@ export type PublicProfileResult =
 export type PublicPhotoDeliveryResult =
   | { status: 'success'; value: { url: string; urlExpiresAt: string } }
   | { status: 'not_found' }
-  | { status: 'infrastructure_error' };
-
-export interface PublicPlaceStatus {
-  placeId: string;
-  name: string;
-  publicStatus: 'access_under_review' | 'inactive';
-}
-
-export type PublicPlaceStatusResult =
-  | { status: 'success'; value: PublicPlaceStatus }
-  | { status: 'not_found' }
-  | { status: 'invalid_response' }
   | { status: 'infrastructure_error' };
 
 export async function listPublished(
@@ -397,35 +384,6 @@ function hiddenDogFriendlinessSummary(placeId: string): DogFriendlinessSummary {
   };
 }
 
-export async function getPublicPlaceStatus(
-  client: RequestSupabaseClient,
-  placeId: string,
-  locale: Locale
-): Promise<PublicPlaceStatusResult> {
-  try {
-    const { data, error } = await client.rpc('get_public_place_status', {
-      requested_place_id: placeId,
-      requested_locale: locale
-    });
-    if (error) return { status: 'infrastructure_error' };
-    if (!Array.isArray(data)) return { status: 'invalid_response' };
-    if (data.length === 0) return { status: 'not_found' };
-    if (data.length !== 1 || !isStatusRow(data[0], placeId)) {
-      return { status: 'invalid_response' };
-    }
-    return {
-      status: 'success',
-      value: {
-        placeId: data[0].place_id,
-        name: data[0].name,
-        publicStatus: data[0].public_status
-      }
-    };
-  } catch {
-    return { status: 'infrastructure_error' };
-  }
-}
-
 function mapListRow(row: ListRow): PublishedPlaceSummary {
   const accessConditions = parsePublishedAccessConditionSummaries(row.access_conditions);
   if (!accessConditions) throw new Error('Invalid access condition summaries reached mapper');
@@ -554,17 +512,6 @@ function parsePublishedAccessConditionSummaries(
 
 function hasValidCoordinates(row: ListRow): boolean {
   return isLatitude(row.latitude) && isLongitude(row.longitude);
-}
-
-function isStatusRow(
-  row: StatusRow,
-  placeId: string
-): row is StatusRow & { public_status: PublicPlaceStatus['publicStatus'] } {
-  return (
-    row.place_id === placeId &&
-    hasText(row.name) &&
-    (row.public_status === 'access_under_review' || row.public_status === 'inactive')
-  );
 }
 
 function isProfileRow(row: ProfileRow): boolean {

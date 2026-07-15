@@ -52,6 +52,7 @@
   let latestDirty: Snapshot | null = null;
   let interactionVersion = 0;
   let destroyed = false;
+  let initialLoadReady = $state(false);
 
   const lowScore = $derived(
     overall !== null &&
@@ -81,6 +82,7 @@
 
   async function load(): Promise<void> {
     const loadVersion = interactionVersion;
+    initialLoadReady = false;
     errorContext = null;
     status = 'loading';
     try {
@@ -94,7 +96,10 @@
         note = payload.rating.privateNote ?? '';
         existingNote = payload.rating.privateNote !== null;
       }
-      if (!destroyed) status = 'idle';
+      if (!destroyed) {
+        initialLoadReady = true;
+        status = 'idle';
+      }
     } catch {
       if (!destroyed && loadVersion === interactionVersion) {
         errorContext = 'load';
@@ -111,6 +116,7 @@
       });
       return;
     }
+    if (!initialLoadReady) return;
     interactionVersion += 1;
     overall = value;
     expanded = true;
@@ -118,12 +124,14 @@
   }
 
   function chooseCategory(category: Category, value: number): void {
+    if (!initialLoadReady) return;
     interactionVersion += 1;
     values[category] = value;
     enqueue(snapshot(false));
   }
 
   function resetCategory(category: Category): void {
+    if (!initialLoadReady) return;
     interactionVersion += 1;
     values[category] = null;
     enqueue(snapshot(false));
@@ -241,6 +249,7 @@
   <StarRating
     label={copy['rating.inline.overall']}
     value={overall}
+    disabled={signedIn && !initialLoadReady}
     onSelect={chooseOverall}
     scoreLabel={labelScore}
   />
@@ -260,6 +269,7 @@
             label={copy[`rating.dimension.${category}.label` as MessageKey]}
             value={values[category] ?? overall}
             inherited={values[category] === null}
+            disabled={!initialLoadReady}
             onSelect={(value) => chooseCategory(category, value)}
             scoreLabel={labelScore}
           />

@@ -9,6 +9,12 @@ select no_plan();
 
 -- Function surface and privileges ---------------------------------------------------------------
 
+select ok(
+  not (select attnotnull from pg_attribute
+    where attrelid = 'private.place_media'::regclass and attname = 'uploaded_by'),
+  'Uploader attribution is nullable so media survives disposable Auth recovery'
+);
+
 select has_function(
   'public', 'register_place_media', array['jsonb', 'uuid'],
   'Moderators register one uploaded Storage object as Evidence or a candidate Photo'

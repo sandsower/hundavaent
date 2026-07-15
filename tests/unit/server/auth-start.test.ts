@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { _createPendingIntent } from '../../../src/routes/[lang=lang]/auth/start/+server';
+import { passwordlessResendCooldownSeconds } from '../../../src/lib/auth/resend';
 import {
   createAuthPendingIntentProof,
   createAuthPendingIntentSubject
@@ -13,6 +14,10 @@ function form(values: Record<string, string>): FormData {
 }
 
 describe('authentication start continuation', () => {
+  it('matches the hosted provider resend boundary', () => {
+    expect(passwordlessResendCooldownSeconds).toBe(60);
+  });
+
   it('does not create an intent for a generic header sign-in', async () => {
     const rpc = vi.fn();
     await expect(_createPendingIntent({ rpc } as never, form({}))).resolves.toEqual({

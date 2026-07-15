@@ -454,14 +454,6 @@ export type Database = {
           low_score_threshold: number
         }[]
       }
-      get_public_place_status: {
-        Args: { requested_locale: string; requested_place_id: string }
-        Returns: {
-          name: string
-          place_id: string
-          public_status: string
-        }[]
-      }
       get_published_place_profile: {
         Args: { requested_locale: string; requested_place_id: string }
         Returns: {

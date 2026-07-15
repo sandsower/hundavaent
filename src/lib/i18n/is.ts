@@ -114,10 +114,8 @@ export const isCatalogue = {
   'favourite.available': 'Tiltækur í staðaleit',
   'favourite.unavailable': 'Tímabundið ekki tiltækur í staðaleit',
   'favourite.inactive': 'Staðurinn er ekki lengur virkur',
-  'favourite.unavailableHelp':
-    'Upplýsingarnar eru í yfirferð. Einkaupplýsingar um umsýslu eru ekki birtar.',
-  'favourite.inactiveHelp':
-    'Staðurinn hefur lokað eða er ekki lengur skráður hér. Einkaupplýsingar um umsýslu eru ekki birtar.',
+  'favourite.unavailableHelp': 'Þessi staður er ekki tiltækur í leitinni eins og er.',
+  'favourite.inactiveHelp': 'Þessi staður er ekki lengur tiltækur hér.',
   'favourite.removedAnnouncement': '{name} var fjarlægður úr uppáhaldi.',
   'favourite.pageEmptyTitle': 'Engir uppáhaldsstaðir á þessari síðu',
   'favourite.pageEmptyBody':
@@ -771,14 +769,6 @@ export const isCatalogue = {
   'moderation.unauthorized': 'Þú hefur ekki heimild til að framkvæma þessa aðgerð.',
   'moderation.versionConflict': 'Upplýsingarnar breyttust á meðan þú varst að vinna.',
   'moderation.incomplete': 'Það vantar nauðsynlegar upplýsingar fyrir birtingu.',
-  'placeStatus.back': 'Til baka á kortið',
-  'placeStatus.eyebrow': 'Staða staðar',
-  'placeStatus.underReviewTitle': 'Upplýsingar um hundaaðgengi eru í yfirferð',
-  'placeStatus.underReviewBody':
-    'Við höfum fengið misvísandi upplýsingar og birtum staðinn ekki í leitinni fyrr en aðgengið hefur verið staðfest aftur.',
-  'placeStatus.inactiveTitle': 'Þessi staður er ekki lengur virkur',
-  'placeStatus.inactiveBody':
-    'Við höldum eldri staðreyndum og heimildum til haga en sýnum staðinn ekki lengur í leitinni.',
   'common.required': 'Nauðsynlegt',
   'common.loading': 'Hleður',
   'common.retry': 'Reyna aftur',
@@ -861,18 +851,6 @@ export const isCatalogue = {
   'rating.inline.note': 'Hvað mætti bæta? (valfrjálst)',
   'rating.star.one': '{score} stjarna',
   'rating.star.many': '{score} stjörnur',
-  'rating.summary.notYetRated': 'Ekki enn metið',
-  'rating.summary.notYetRatedDetail':
-    'Of fá meðlimamöt liggja fyrir til að sýna niðurstöðu opinberlega.',
-  'rating.summary.eligibleCount': 'Byggt á {count} gildum mötum',
-  'rating.summary.recencyContext': 'Byggt á mötum síðustu 12 mánaða ({count})',
-  'rating.summary.overall': 'Heildarniðurstaða',
-  'rating.summary.overallNotYetAvailable':
-    'Ekki liggja fyrir nógu margar víddir til að reikna heildarniðurstöðu ennþá.',
-  'rating.summary.rateLink': 'Meta þennan stað',
-  'rating.summary.signInToRate': 'Skrá inn til að meta þennan stað',
-  'rating.summary.myRatingExcluded':
-    'Matið þitt er ekki talið með í heildarniðurstöðunni eins og er.',
   'moderation.dogFriendliness.title': 'Hundvænleikamöt',
   'moderation.dogFriendliness.intro':
     'Farðu yfir gild möt fyrir þennan stað og útilokaðu möt vegna misnotkunar, svindls eða tvítekningar með rökstuðningi.',

@@ -128,6 +128,30 @@ describe('request pipeline', () => {
     expect(response.headers.get('cache-control')).toBe('private, no-store');
   });
 
+  it.each([
+    'pendingIntent=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+    'pendingResult=retryable',
+    'auth=open',
+    'authResult=success'
+  ])('never shares public-page responses carrying auth continuation state: %s', async (query) => {
+    const { event } = createEvent();
+    event.request = new Request(`https://preview.hundavaent.is/en?${query}`);
+    event.url = new URL(`https://preview.hundavaent.is/en?${query}`);
+    const handle = createHandle({
+      getPublicConfig: () => null,
+      createClient: vi.fn(),
+      createRequestId: () => 'request-continuation',
+      getGateConfig: () => null
+    });
+
+    const response = await handle({
+      event,
+      resolve: async () => new Response('auth continuation')
+    } as never);
+
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+  });
+
   it('logs returned server failures with duration and no request contents', async () => {
     const { event } = createEvent();
     const logger = createLogger();

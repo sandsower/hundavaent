@@ -113,10 +113,8 @@ export const enCatalogue = {
   'favourite.available': 'Available in place discovery',
   'favourite.unavailable': 'Temporarily unavailable in place discovery',
   'favourite.inactive': 'This place is no longer active',
-  'favourite.unavailableHelp':
-    'The information is being reviewed. Private moderation details are not shown.',
-  'favourite.inactiveHelp':
-    'The place has closed or is no longer represented here. Private moderation details are not shown.',
+  'favourite.unavailableHelp': 'This place is not available in discovery right now.',
+  'favourite.inactiveHelp': 'This place is no longer available here.',
   'favourite.removedAnnouncement': '{name} was removed from your favorites.',
   'favourite.pageEmptyTitle': 'No favorites on this page',
   'favourite.pageEmptyBody': 'The places on this page were removed or are no longer available.',
@@ -766,14 +764,6 @@ export const enCatalogue = {
   'moderation.unauthorized': 'You are not authorized to perform this action.',
   'moderation.versionConflict': 'The information changed while you were working.',
   'moderation.incomplete': 'Required publication information is missing.',
-  'placeStatus.back': 'Back to the map',
-  'placeStatus.eyebrow': 'Place status',
-  'placeStatus.underReviewTitle': 'Dog access information is under review',
-  'placeStatus.underReviewBody':
-    'We received conflicting information and have removed this place from discovery until its access has been verified again.',
-  'placeStatus.inactiveTitle': 'This place is no longer active',
-  'placeStatus.inactiveBody':
-    'We retain its previous facts and sources for history, but it no longer appears in discovery.',
   'common.required': 'Required',
   'common.loading': 'Loading',
   'common.retry': 'Try again',
@@ -856,17 +846,6 @@ export const enCatalogue = {
   'rating.inline.note': 'What could be better? (optional)',
   'rating.star.one': '{score} star',
   'rating.star.many': '{score} stars',
-  'rating.summary.notYetRated': 'Not yet rated',
-  'rating.summary.notYetRatedDetail': 'Too few Member Ratings exist yet to show a public result.',
-  'rating.summary.eligibleCount': 'Based on {count} eligible Ratings',
-  'rating.summary.recencyContext': 'Based on Ratings from the last 12 months ({count})',
-  'rating.summary.overall': 'Overall result',
-  'rating.summary.overallNotYetAvailable':
-    'Not enough Dimensions qualify yet to show an overall result.',
-  'rating.summary.rateLink': 'Rate this place',
-  'rating.summary.signInToRate': 'Sign in to rate this place',
-  'rating.summary.myRatingExcluded':
-    'Your Rating is not currently counted toward the public result.',
   'moderation.dogFriendliness.title': 'Dog-Friendliness Ratings',
   'moderation.dogFriendliness.intro':
     'Review eligible Ratings for this Place and exclude any Rating for abuse, fraud, or duplication with a stated reason.',

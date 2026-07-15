@@ -11,7 +11,7 @@
     focusSelected?: boolean;
     interactive?: boolean;
     copy: Catalogue;
-    onSelect?: (placeId: string, trigger: HTMLButtonElement) => void;
+    onSelect?: (placeId: string, trigger: HTMLButtonElement, openDetails?: boolean) => void;
     signedIn?: boolean;
     favouritePlaceIds?: string[];
     signInHref?: (placeId: string) => string;

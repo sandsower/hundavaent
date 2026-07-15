@@ -50,7 +50,7 @@ describe('AuthDialog', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       expect(String(input)).toContain('/en/auth/start');
       submitted = options?.body as FormData;
-      return new Response(JSON.stringify({ status: 'link_sent', resendAfterSeconds: 30 }), {
+      return new Response(JSON.stringify({ status: 'link_sent', resendAfterSeconds: 60 }), {
         status: 200,
         headers: { 'content-type': 'application/json' }
       });
@@ -85,7 +85,7 @@ describe('AuthDialog', () => {
       placeId: 'place-1',
       overallRating: '2'
     });
-    expect(screen.getByRole('button', { name: 'Send again in 30s' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Send again in 60s' })).toBeDisabled();
   });
 
   it('preserves a server-normalized Favorite intent after the anchor fallback navigates', async () => {
@@ -100,7 +100,7 @@ describe('AuthDialog', () => {
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, options?: RequestInit) => {
         submitted = options?.body as FormData;
-        return new Response(JSON.stringify({ status: 'link_sent', resendAfterSeconds: 30 }), {
+        return new Response(JSON.stringify({ status: 'link_sent' }), {
           status: 200,
           headers: { 'content-type': 'application/json' }
         });
@@ -124,5 +124,6 @@ describe('AuthDialog', () => {
       placeId,
       returnTo: `/en?place=${placeId}`
     });
+    expect(await screen.findByRole('button', { name: 'Send again in 60s' })).toBeDisabled();
   });
 });

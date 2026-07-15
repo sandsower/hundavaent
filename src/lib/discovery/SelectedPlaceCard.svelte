@@ -35,6 +35,8 @@
     checkInSignInHref?: string;
     proximityAssistEnabled?: boolean;
     initialCheckedInAt?: string | null;
+    openDetails?: boolean;
+    onDetailsOpened?: () => void;
   }
 
   let {
@@ -53,7 +55,9 @@
     correctionHref,
     checkInSignInHref = '',
     proximityAssistEnabled = false,
-    initialCheckedInAt = null
+    initialCheckedInAt = null,
+    openDetails = false,
+    onDetailsOpened = () => undefined
   }: Props = $props();
   const categoryKeys: Record<PlaceCategory, MessageKey> = {
     restaurant: 'category.restaurant',
@@ -73,6 +77,12 @@
   function openCompleteDetails(): void {
     if (completeDetails) completeDetails.open = true;
   }
+
+  $effect(() => {
+    if (!openDetails || !profile || !completeDetails || completeDetails.open) return;
+    completeDetails.open = true;
+    queueMicrotask(onDetailsOpened);
+  });
 </script>
 
 <aside

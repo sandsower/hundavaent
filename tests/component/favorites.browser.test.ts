@@ -71,16 +71,8 @@ describe('Favorites page', () => {
     expect(screen.getByText('Available in place discovery')).toBeTruthy();
     expect(screen.getByText('Temporarily unavailable in place discovery')).toBeTruthy();
     expect(screen.getByText('This place is no longer active')).toBeTruthy();
-    expect(
-      screen.getByText(
-        'The information is being reviewed. Private moderation details are not shown.'
-      )
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        'The place has closed or is no longer represented here. Private moderation details are not shown.'
-      )
-    ).toBeTruthy();
+    expect(screen.getByText('This place is not available in discovery right now.')).toBeTruthy();
+    expect(screen.getByText('This place is no longer available here.')).toBeTruthy();
     expect(screen.getAllByRole('button', { name: /Remove .* from favorites/ })).toHaveLength(3);
     expect(screen.getAllByRole('link', { name: 'View place' })).toHaveLength(1);
     expect(
@@ -121,16 +113,8 @@ describe('Favorites page', () => {
       }
     });
 
-    expect(
-      screen.getByText(
-        'Upplýsingarnar eru í yfirferð. Einkaupplýsingar um umsýslu eru ekki birtar.'
-      )
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        'Staðurinn hefur lokað eða er ekki lengur skráður hér. Einkaupplýsingar um umsýslu eru ekki birtar.'
-      )
-    ).toBeTruthy();
+    expect(screen.getByText('Þessi staður er ekki tiltækur í leitinni eins og er.')).toBeTruthy();
+    expect(screen.getByText('Þessi staður er ekki lengur tiltækur hér.')).toBeTruthy();
   });
 
   it('distinguishes an empty later page from a globally empty saved list', () => {

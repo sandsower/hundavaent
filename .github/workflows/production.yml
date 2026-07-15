@@ -44,6 +44,9 @@ jobs:
           --health-timeout 5s
           --health-retries 20
     env:
+      BACKUP_PASSPHRASE: ${{ secrets.HUNDAVAENT_PRODUCTION_BACKUP_PASSPHRASE }}
+      AUTH_EMAIL_ENABLED: ${{ vars.HUNDAVAENT_PRODUCTION_AUTH_EMAIL_ENABLED }}
+      AUTH_FACEBOOK_ENABLED: ${{ vars.HUNDAVAENT_PRODUCTION_AUTH_FACEBOOK_ENABLED }}
       SUPABASE_DB_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_PROJECT_REF }}
       # Session-mode pooler for the production project; GitHub runners have no IPv6
@@ -65,6 +68,16 @@ jobs:
           fi
           if [[ "$(git rev-parse HEAD)" != "${{ inputs.sha }}" ]]; then
             echo "Checked-out HEAD does not match the requested SHA." >&2
+            exit 1
+          fi
+          if [[ ${#BACKUP_PASSPHRASE} -lt 32 ]] || \
+              [[ ! "${BACKUP_PASSPHRASE}" =~ [^[:space:]] ]]; then
+            echo "The production backup passphrase must be a high-entropy value of at least 32 characters." >&2
+            exit 1
+          fi
+          if [[ "${AUTH_EMAIL_ENABLED}" != "false" || \
+              "${AUTH_FACEBOOK_ENABLED}" != "false" ]]; then
+            echo "Production Auth providers must remain disabled while managed Auth recovery is excluded." >&2
             exit 1
           fi
       - uses: pnpm/action-setup@v6
@@ -142,6 +155,14 @@ jobs:
           dump_snapshot_data() {
             local schemas="$1"
             local output="$2"
+            local exclusion_args=()
+            if [[ "${schemas}" == "public|private|security" ]]; then
+              test -s recovery/auth-hard-excluded-tables.txt
+              test -s recovery/auth-neutralized-references.txt
+              while IFS= read -r table; do
+                exclusion_args+=("--exclude-table-data=${table}")
+              done < recovery/auth-hard-excluded-tables.txt
+            fi
             {
               printf 'SET session_replication_role = replica;\n\n'
               docker run --rm "${postgres_dump_image}" pg_dump \
@@ -151,8 +172,21 @@ jobs:
                 --role "postgres" \
                 --exclude-schema "" \
                 --schema "${schemas}" \
+                "${exclusion_args[@]}" \
                 --snapshot "${recovery_snapshot}" | \
                 sed -E 's/^\\(un)?restrict .*$/-- &/'
+              if [[ "${schemas}" == "public|private|security" ]]; then
+                printf '\n-- Neutralize retained references to disposable Auth identity rows.\n'
+                while IFS='|' read -r table column _; do
+                  schema="${table%%.*}"
+                  relation="${table#*.}"
+                  if [[ "${table}.${column}" == "private.place_media.uploaded_by" ]]; then
+                    printf 'ALTER TABLE "private"."place_media" ALTER COLUMN "uploaded_by" DROP NOT NULL;\n'
+                  fi
+                  printf 'UPDATE "%s"."%s" SET "%s" = NULL WHERE "%s" IS NOT NULL;\n' \
+                    "${schema}" "${relation}" "${column}" "${column}"
+                done < recovery/auth-neutralized-references.txt
+              fi
               printf '\nRESET ALL;\n'
             } > "${output}"
           }
@@ -173,9 +207,141 @@ jobs:
           pnpm exec supabase db dump --db-url "${db_url}" --role-only -f recovery/roles.sql
           pnpm exec supabase db dump --db-url "${db_url}" -f recovery/schema.sql
           export_recovery_snapshot "${db_url}"
+          hard_auth_tables_cte="
+            with recursive hard_auth_tables(table_oid) as (
+              select 'auth.users'::regclass::oid
+              union
+              select constraint_row.conrelid
+              from hard_auth_tables hard_parent
+              join pg_constraint constraint_row
+                on constraint_row.contype = 'f'
+               and constraint_row.confrelid = hard_parent.table_oid
+              join pg_class child on child.oid = constraint_row.conrelid
+              join pg_namespace child_namespace on child_namespace.oid = child.relnamespace
+              where child_namespace.nspname in ('public', 'private', 'security')
+                and not (
+                  child_namespace.nspname = 'private' and
+                  child.relname = 'place_media' and
+                  cardinality(constraint_row.conkey) = 1 and
+                  constraint_row.conkey[1] = (
+                    select attnum from pg_attribute
+                    where attrelid = constraint_row.conrelid and attname = 'uploaded_by'
+                  )
+                )
+                and not exists (
+                  select 1
+                  from unnest(constraint_row.conkey) as key_column(attnum)
+                  join pg_attribute attribute_row
+                    on attribute_row.attrelid = constraint_row.conrelid
+                   and attribute_row.attnum = key_column.attnum
+                  where not attribute_row.attnotnull
+                )
+            )"
+          snapshot_query "
+            ${hard_auth_tables_cte}
+            select child_namespace.nspname || '.' || child.relname
+            from hard_auth_tables hard_table
+            join pg_class child on child.oid = hard_table.table_oid
+            join pg_namespace child_namespace on child_namespace.oid = child.relnamespace
+            where child_namespace.nspname in ('public', 'private', 'security')
+            order by 1" > recovery/auth-hard-excluded-tables.txt
+          if [[ ! -s recovery/auth-hard-excluded-tables.txt ]] || \
+              ! grep -Fxq 'private.member_accounts' recovery/auth-hard-excluded-tables.txt || \
+              grep -Fxq 'private.places' recovery/auth-hard-excluded-tables.txt || \
+              grep -Fxq 'private.place_media' recovery/auth-hard-excluded-tables.txt; then
+            echo "Could not derive the safe hard Auth-dependent table boundary." >&2
+            exit 1
+          fi
+          composite_boundary_count="$(snapshot_query "
+            ${hard_auth_tables_cte}
+            select count(*)
+            from hard_auth_tables hard_parent
+            join pg_constraint constraint_row
+              on constraint_row.contype = 'f'
+             and constraint_row.confrelid = hard_parent.table_oid
+            join pg_class child on child.oid = constraint_row.conrelid
+            join pg_namespace child_namespace on child_namespace.oid = child.relnamespace
+            where child_namespace.nspname in ('public', 'private', 'security')
+              and (
+                cardinality(constraint_row.conkey) <> 1 or
+                cardinality(constraint_row.confkey) <> 1
+              )")"
+          if [[ "${composite_boundary_count}" != "0" ]]; then
+            echo "Composite foreign keys cross the disposable Auth recovery boundary." >&2
+            exit 1
+          fi
+          snapshot_query "
+            ${hard_auth_tables_cte}
+            select child_namespace.nspname || '.' || child.relname || '|' ||
+              child_attribute.attname || '|' || constraint_row.conname
+            from hard_auth_tables hard_parent
+            join pg_constraint constraint_row
+              on constraint_row.contype = 'f'
+             and constraint_row.confrelid = hard_parent.table_oid
+            join pg_class child on child.oid = constraint_row.conrelid
+            join pg_namespace child_namespace on child_namespace.oid = child.relnamespace
+            join pg_attribute child_attribute
+              on child_attribute.attrelid = child.oid
+             and child_attribute.attnum = constraint_row.conkey[1]
+            where child_namespace.nspname in ('public', 'private', 'security')
+              and child.oid not in (select table_oid from hard_auth_tables)
+              and cardinality(constraint_row.conkey) = 1
+              and cardinality(constraint_row.confkey) = 1
+              and (
+                not child_attribute.attnotnull or
+                (
+                  child_namespace.nspname = 'private' and
+                  child.relname = 'place_media' and
+                  child_attribute.attname = 'uploaded_by'
+                )
+              )
+            order by 1" > recovery/auth-neutralized-reference-contracts.txt
+          : > recovery/auth-neutralized-references.txt
+          while IFS='|' read -r table column constraint_name; do
+            if [[ ! "${table}" =~ ^(public|private|security)\.[a-z][a-z0-9_]*$ ]] || \
+                [[ ! "${column}" =~ ^[a-z][a-z0-9_]*$ ]] || \
+                [[ ! "${constraint_name}" =~ ^[a-z][a-z0-9_]*$ ]]; then
+              echo "Unsafe identifier reached the Auth neutralization boundary." >&2
+              exit 1
+            fi
+            neutralized_rows="$(snapshot_query \
+              "select count(*) from ${table} where ${column} is not null")"
+            echo "${table}|${column}|${neutralized_rows}" \
+              >> recovery/auth-neutralized-references.txt
+          done < recovery/auth-neutralized-reference-contracts.txt
+          if [[ ! -s recovery/auth-neutralized-references.txt ]] || \
+              ! grep -Eq '^private\.places\|created_by\|[0-9]+$' \
+                recovery/auth-neutralized-references.txt || \
+              ! grep -Eq '^private\.place_media\|uploaded_by\|[0-9]+$' \
+                recovery/auth-neutralized-references.txt; then
+            echo "Could not derive required nullable Auth attribution neutralizations." >&2
+            exit 1
+          fi
+          production_uploaded_by_nullable="$(snapshot_query "
+            select is_nullable
+            from information_schema.columns
+            where table_schema = 'private'
+              and table_name = 'place_media'
+              and column_name = 'uploaded_by'")"
+          if [[ "${production_uploaded_by_nullable}" != "YES" && \
+              "${production_uploaded_by_nullable}" != "NO" ]]; then
+            echo "Could not prove the production Place media uploader nullability." >&2
+            exit 1
+          fi
+          echo "private.place_media|uploaded_by|drop_not_null|${production_uploaded_by_nullable}" \
+            > recovery/auth-recovery-schema-relaxations.txt
+          : > recovery/auth-hard-excluded-counts.txt
+          while IFS= read -r table; do
+            echo "${table} $(snapshot_query "select count(*) from ${table}")"
+          done < recovery/auth-hard-excluded-tables.txt \
+            > recovery/auth-hard-excluded-counts.txt
           dump_snapshot_data "public|private|security" recovery/data.sql
-          # Auth identities and Member linkage are disposable pre-launch test
-          # state. Preserve the application schemas plus uploaded Storage data.
+          test "$(grep -Ec '^ALTER TABLE .* DROP NOT NULL;$' recovery/data.sql)" -eq 1
+          grep -Fxq \
+            'ALTER TABLE "private"."place_media" ALTER COLUMN "uploaded_by" DROP NOT NULL;' \
+            recovery/data.sql
+          # Hard identity-owned rows are disposable pre-launch test state. Core application rows
+          # survive with nullable identity attribution deterministically neutralized.
           dump_snapshot_schema "storage" recovery/storage-schema.sql
           dump_snapshot_data "storage" recovery/storage-data.sql
           snapshot_query "
@@ -218,6 +384,9 @@ jobs:
             join pg_namespace n on n.oid = c.relnamespace
             where c.relkind = 'r' and n.nspname in ('public', 'private', 'security')" |
             while read -r table; do
+              if grep -Fxq "${table}" recovery/auth-hard-excluded-tables.txt; then
+                continue
+              fi
               echo "${table} $(snapshot_query "select count(*) from ${table}")"
             done | sort > recovery/production-counts.txt
           node --experimental-strip-types scripts/verify-recovery-copy-dump.ts \
@@ -269,6 +438,96 @@ jobs:
             echo "Restored table counts do not match the dump." >&2
             exit 1
           fi
+          : > recovery/auth-hard-excluded-restored-counts.txt
+          while read -r table _; do
+            actual="$(psql -At "${recovery_db_url}" -c "select count(*) from ${table}")"
+            echo "${table} ${actual}" >> recovery/auth-hard-excluded-restored-counts.txt
+            if [[ "${actual}" != "0" ]]; then
+              echo "Hard Auth-dependent test data was restored for ${table}." >&2
+              exit 1
+            fi
+          done < recovery/auth-hard-excluded-counts.txt
+          excluded_oids="$(
+            cut -d' ' -f1 recovery/auth-hard-excluded-counts.txt |
+              sed "s/.*/'&'::regclass/" | paste -sd, -
+          )"
+          hard_parent_oids="'auth.users'::regclass,${excluded_oids}"
+          restored_composite_boundary_count="$(psql -At "${recovery_db_url}" -c "
+            select count(*)
+            from pg_constraint constraint_row
+            join pg_class child on child.oid = constraint_row.conrelid
+            join pg_namespace child_namespace on child_namespace.oid = child.relnamespace
+            where constraint_row.contype = 'f'
+              and constraint_row.confrelid in (${hard_parent_oids})
+              and constraint_row.conrelid not in (${excluded_oids})
+              and child_namespace.nspname in ('public', 'private', 'security')
+              and (
+                cardinality(constraint_row.conkey) <> 1 or
+                cardinality(constraint_row.confkey) <> 1
+              )")"
+          if [[ "${restored_composite_boundary_count}" != "0" ]]; then
+            echo "A composite foreign key crosses the restored Auth boundary." >&2
+            exit 1
+          fi
+          psql -At -F '|' "${recovery_db_url}" -c "
+            select child_namespace.nspname || '.' || child.relname,
+              child_attribute.attname,
+              constraint_row.conname
+            from pg_constraint constraint_row
+            join pg_class child on child.oid = constraint_row.conrelid
+            join pg_namespace child_namespace on child_namespace.oid = child.relnamespace
+            join pg_attribute child_attribute
+              on child_attribute.attrelid = child.oid
+             and child_attribute.attnum = constraint_row.conkey[1]
+            where constraint_row.contype = 'f'
+              and constraint_row.confrelid in (${hard_parent_oids})
+              and constraint_row.conrelid not in (${excluded_oids})
+              and child_namespace.nspname in ('public', 'private', 'security')
+              and cardinality(constraint_row.conkey) = 1
+              and cardinality(constraint_row.confkey) = 1
+              and not child_attribute.attnotnull
+            order by 1, 2, 3" > recovery/auth-restored-neutralization-contracts.txt
+          if ! diff -u recovery/auth-neutralized-reference-contracts.txt \
+              recovery/auth-restored-neutralization-contracts.txt; then
+            echo "The restored nullable Auth boundary differs from production." >&2
+            exit 1
+          fi
+          : > recovery/auth-neutralized-restored-counts.txt
+          while IFS='|' read -r table column expected_neutralized; do
+            actual_nonnull="$(psql -At "${recovery_db_url}" \
+              -c "select count(*) from ${table} where ${column} is not null")"
+            echo "${table}|${column}|${actual_nonnull}" \
+              >> recovery/auth-neutralized-restored-counts.txt
+            if [[ "${actual_nonnull}" != "0" ]]; then
+              echo "A retained Auth attribution was not neutralized for ${table}.${column}." >&2
+              exit 1
+            fi
+            if [[ ! "${expected_neutralized}" =~ ^[0-9]+$ ]]; then
+              echo "Invalid production neutralization count for ${table}.${column}." >&2
+              exit 1
+            fi
+          done < recovery/auth-neutralized-references.txt
+          if [[ "$(wc -l < recovery/auth-recovery-schema-relaxations.txt)" != "1" ]] || \
+              ! grep -Eq '^private\.place_media\|uploaded_by\|drop_not_null\|(YES|NO)$' \
+                recovery/auth-recovery-schema-relaxations.txt; then
+            echo "Unexpected Auth recovery schema relaxation contract." >&2
+            exit 1
+          fi
+          restored_uploaded_by_nullable="$(psql -At "${recovery_db_url}" -c "
+            select is_nullable
+            from information_schema.columns
+            where table_schema = 'private'
+              and table_name = 'place_media'
+              and column_name = 'uploaded_by'")"
+          if [[ "${restored_uploaded_by_nullable}" != "YES" ]]; then
+            echo "Restored Place media uploader attribution is not nullable." >&2
+            exit 1
+          fi
+          if ! grep -Eq '^private\.places [0-9]+$' recovery/restored-counts.txt || \
+              ! grep -Eq '^private\.place_media [0-9]+$' recovery/restored-counts.txt; then
+            echo "Core Place or Place media row-count proof is missing." >&2
+            exit 1
+          fi
           : > recovery/storage-restored-counts.txt
           while read -r table _; do
             actual="$(psql -At "${recovery_db_url}" -c "select count(*) from ${table}")"
@@ -311,15 +570,125 @@ jobs:
             echo "- Tables: ${tables}"
             echo "- Rows: ${rows}"
             echo "- Storage schema/data: preserved and restore-tested"
-            echo "- Managed Auth/test-user recovery: intentionally skipped"
+            echo "- Managed Auth and hard identity-owned test rows: intentionally skipped"
+            echo "- Retained nullable identity attribution: neutralized and restore-tested"
             echo "- Restore test: passed against supabase/postgres:17.6.1.141"
           } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Encrypt the restore-tested recovery point
+        shell: bash
+        run: |
+          set -euo pipefail
+          plaintext_archive="${RUNNER_TEMP}/hundavaent-recovery-${{ inputs.sha }}.tar.gz"
+          ciphertext="retained-recovery/hundavaent-recovery-${{ inputs.sha }}.tar.gz.enc"
+          manifest="retained-recovery/recovery-manifest.json"
+          rm -rf retained-recovery
+          mkdir -p retained-recovery
+          hard_excluded_auth_tables="$(
+            jq -Rn \
+              '[inputs | split(" ") | {table: .[0], rows: (.[1] | tonumber)}]' \
+              < recovery/auth-hard-excluded-counts.txt
+          )"
+          neutralized_auth_references="$(
+            jq -Rn \
+              '[inputs | split("|") | {table: .[0], column: .[1], rows: (.[2] | tonumber)}]' \
+              < recovery/auth-neutralized-references.txt
+          )"
+          auth_recovery_schema_relaxations="$(
+            jq -Rn \
+              '[inputs | split("|") | {
+                table: .[0],
+                column: .[1],
+                action: .[2],
+                production_was_nullable: (.[3] == "YES")
+              }]' < recovery/auth-recovery-schema-relaxations.txt
+          )"
+          tar --sort=name --mtime='UTC 1970-01-01' \
+            --owner=0 --group=0 --numeric-owner \
+            -cf - recovery | gzip -n -9 > "${plaintext_archive}"
+          plaintext_archive_sha256="$(sha256sum "${plaintext_archive}" | cut -d' ' -f1)"
+          openssl enc -aes-256-cbc -salt -pbkdf2 -iter 600000 \
+            -pass env:BACKUP_PASSPHRASE \
+            -in "${plaintext_archive}" \
+            -out "${ciphertext}"
+          ciphertext_sha256="$(sha256sum "${ciphertext}" | cut -d' ' -f1)"
+          jq -n \
+            --arg release_sha "${{ inputs.sha }}" \
+            --arg plaintext_archive_sha256 "${plaintext_archive_sha256}" \
+            --arg ciphertext_sha256 "${ciphertext_sha256}" \
+            --argjson hard_excluded_auth_tables "${hard_excluded_auth_tables}" \
+            --argjson neutralized_auth_references "${neutralized_auth_references}" \
+            --argjson auth_recovery_schema_relaxations "${auth_recovery_schema_relaxations}" \
+            '{
+              schema_version: 1,
+              release_sha: $release_sha,
+              format: "tar.gz",
+              encryption: {
+                algorithm: "AES-256-CBC",
+                kdf: "PBKDF2-HMAC-SHA256",
+                iterations: 600000,
+                salt: true
+              },
+              plaintext_archive_sha256: $plaintext_archive_sha256,
+              ciphertext_sha256: $ciphertext_sha256,
+              managed_auth_mode: "excluded-prelaunch-auth-and-hard-identity-rows-providers-disabled",
+              hard_excluded_auth_tables: $hard_excluded_auth_tables,
+              neutralized_auth_references: $neutralized_auth_references,
+              auth_recovery_schema_relaxations: $auth_recovery_schema_relaxations
+            }' > "${manifest}"
+          rm -rf recovery
+          rm -f "${plaintext_archive}"
+
+      - name: Prove the retained recovery point contains no plaintext
+        shell: bash
+        run: |
+          set -euo pipefail
+          plaintext_archive="${RUNNER_TEMP}/hundavaent-recovery-${{ inputs.sha }}.tar.gz"
+          test ! -e recovery
+          test ! -e "${plaintext_archive}"
+          test -s "retained-recovery/hundavaent-recovery-${{ inputs.sha }}.tar.gz.enc"
+          test -s retained-recovery/recovery-manifest.json
+          test "$(find retained-recovery -type f | wc -l)" -eq 2
+          if find retained-recovery -type f \
+              \( -name '*.sql' -o -name '*.log' -o -name '*.txt' -o -name '*.tar.gz' \
+              -o -name 'roles*' -o -name '*counts*' \) | grep -q .; then
+            echo "Plaintext recovery material reached the retained artifact directory." >&2
+            exit 1
+          fi
+          if find retained-recovery -type f \
+              ! -name 'hundavaent-recovery-${{ inputs.sha }}.tar.gz.enc' \
+              ! -name 'recovery-manifest.json' | grep -q .; then
+            echo "Unexpected file reached the retained artifact directory." >&2
+            exit 1
+          fi
+          jq -e \
+            --arg release_sha "${{ inputs.sha }}" \
+            '.release_sha == $release_sha and
+             .format == "tar.gz" and
+             .encryption.algorithm == "AES-256-CBC" and
+             .encryption.kdf == "PBKDF2-HMAC-SHA256" and
+             .encryption.iterations == 600000 and
+             .managed_auth_mode == "excluded-prelaunch-auth-and-hard-identity-rows-providers-disabled" and
+             (.hard_excluded_auth_tables | length > 0) and
+             any(.hard_excluded_auth_tables[]; .table == "private.member_accounts") and
+             all(.hard_excluded_auth_tables[]; .table != "private.places" and .table != "private.place_media") and
+             any(.neutralized_auth_references[]; .table == "private.places" and .column == "created_by") and
+             any(.neutralized_auth_references[]; .table == "private.place_media" and .column == "uploaded_by") and
+             (.auth_recovery_schema_relaxations | length == 1) and
+             .auth_recovery_schema_relaxations[0].table == "private.place_media" and
+             .auth_recovery_schema_relaxations[0].column == "uploaded_by" and
+             .auth_recovery_schema_relaxations[0].action == "drop_not_null" and
+             (.plaintext_archive_sha256 | test("^[0-9a-f]{64}$")) and
+             (.ciphertext_sha256 | test("^[0-9a-f]{64}$"))' \
+            retained-recovery/recovery-manifest.json > /dev/null
+          test "$(sha256sum retained-recovery/*.enc | cut -d' ' -f1)" = \
+            "$(jq -r '.ciphertext_sha256' retained-recovery/recovery-manifest.json)"
 
       - name: Retain the tested recovery point
         uses: actions/upload-artifact@v7
         with:
           name: recovery-point-${{ inputs.sha }}
-          path: recovery/
+          path: retained-recovery/
           if-no-files-found: error
           retention-days: 90
 
@@ -467,8 +836,9 @@ jobs:
             echo "APP_RELEASE must be the exact requested SHA." >&2
             exit 1
           fi
-          if [[ ! "${AUTH_EMAIL_ENABLED}" =~ ^(true|false)$ || ! "${AUTH_FACEBOOK_ENABLED}" =~ ^(true|false)$ ]]; then
-            echo "Production provider flags must be explicit true or false values." >&2
+          if [[ "${AUTH_EMAIL_ENABLED}" != "false" || \
+              "${AUTH_FACEBOOK_ENABLED}" != "false" ]]; then
+            echo "Production Auth providers must remain disabled while managed Auth recovery is excluded." >&2
             exit 1
           fi
           if [[ ! "${MEMBER_ACTIVATION_SECRET}" =~ ^[A-Za-z0-9_-]{43,}$ ]]; then

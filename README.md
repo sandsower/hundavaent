@@ -1,7 +1,7 @@
 # Hundavænt
 
 Hundavænt is a bilingual directory of trustworthy dog-access information for Places in Iceland's capital region.
-The first delivery wave supports verified publication, map-first search and filtering, complete conditional access and Evidence in a floating Place card, and private Member sign-in.
+The first delivery wave supports verified publication, map-first search and filtering, complete conditional access with public Website and Access information links in a floating Place card, and private Member sign-in.
 
 ## Current implementation status
 
@@ -162,15 +162,20 @@ The preview workflow is then the external evidence source for visual and health 
 
 ## Protected production release
 
-The manual `Hundavaent production recovery and build` workflow accepts one reviewed, full 40-character commit SHA.
+The manual `Hundavaent production` workflow accepts one reviewed, full 40-character commit SHA.
 Run the manual clean evaluation successfully for that exact SHA before starting the protected production workflow.
-When production proves that `private.member_accounts`, `auth.users`, and `auth.identities` all have no rows, recovery skips only the auth-user dump and restore path.
-Any positive or unprovable Member or Auth count automatically retains full auth recovery handling, including pending pre-activation identities, while public, private, and security data always receive the complete dump and restore proof.
-Recovery exports one read-only production snapshot and imports it into application capture, identity counting, and any required Auth capture so those artifacts describe one consistent state without table locks.
-When Auth recovery is required, every Auth table must match production, parse as a complete COPY dump, restore without errors, and match the scratch database row for row.
-It checks out that exact commit, builds the Cloudflare Pages artifact with the protected `production` environment, creates a custom PostgreSQL dump of the complete application schemas plus auth data whenever Members or Auth identities may exist, and restores that dump into an ephemeral Supabase PostgreSQL 17 container.
-The workflow refuses empty or invalid dumps and requires restored application schemas plus at least one baseline Place record.
-Only after the restore passes does it encrypt the dump with AES-256-CBC and retain the encrypted recovery point, its checksum manifest, and the exact Cloudflare build for 30 days.
+The workflow always creates and restore-tests one consistent recovery point for the `public`, `private`, `security`, and Storage schemas before any requested migration or deployment.
+Managed Supabase Auth identities and tables that are hard-owned through required Auth foreign keys are intentionally excluded while the site has only disposable pre-launch test users.
+Tables reached only through nullable identity attribution remain in the recovery point, and those attribution columns are deterministically set to `NULL` in the restored data.
+This preserves core Places, Place media, Evidence, and other independent application rows without retaining disposable user identities.
+For the first cumulative deployment, the recovery archive contains one explicit schema relaxation for `private.place_media.uploaded_by` before it neutralizes that attribution; migration `202607150036_nullable_place_media_uploader.sql` then converges production to the same nullable contract.
+The workflow proves that no second schema relaxation is present.
+The same production snapshot derives the hard-excluded tables and nullable neutralization set, records only table names, column names, and counts in the encrypted bundle manifest, and proves after scratch restoration that hard-owned tables are empty, retained table counts match, every nullable identity reference is neutralized, and no unhandled or composite foreign key crosses the boundary.
+Both production provider variables must be exactly `false`, and the workflow rejects recovery or deployment if either email or Facebook sign-in is enabled.
+Provider activation therefore requires upgrading the workflow to full Auth-capable recovery or replacing this temporary guard before either provider variable can be enabled.
+After the scratch restore passes, the workflow creates a deterministic `tar.gz` archive, records its SHA-256 checksum, encrypts it with AES-256-CBC and PBKDF2, records the ciphertext checksum, and deletes every plaintext recovery file.
+One artifact containing only the encrypted archive and its manifest is retained for 90 days.
+The `migrate` and `deploy` dispatch inputs can apply the exact reviewed migration set and deploy that same SHA after recovery succeeds.
 
 Configure these additional GitHub `production` environment values before dispatching the workflow:
 
@@ -181,36 +186,42 @@ Configure these additional GitHub `production` environment values before dispatc
 - Secret `HUNDAVAENT_PRODUCTION_BACKUP_PASSPHRASE` containing a dedicated high-entropy recovery passphrase.
 
 The workflow also uses the existing production Supabase URL, project ref, database password, publishable key, MapTiler style URL, and application URL bindings.
-It does not apply database migrations and it does not deploy to Cloudflare.
-An operator must inspect the retained recovery manifest, dry-run the reviewed pending migrations, apply only that migration set, and deploy the retained build artifact with the authenticated local Supabase and Wrangler CLIs.
+Leave `migrate` or `deploy` disabled when an operator wants only the encrypted recovery point.
 
-The logical recovery artifact protects application and authentication schemas but is not a substitute for managed point-in-time recovery.
+The logical recovery artifact protects independent application data and Storage schemas but does not currently protect managed Auth identities, hard identity-owned application rows, or the original values of neutralized identity-attribution columns, and it is not a substitute for managed point-in-time recovery.
 Until managed physical backups or PITR are enabled, recovery can restore only to the timestamp captured by the most recent successful workflow run.
 
 ### Recovery artifact validation
 
-Download both retained artifacts from the successful production workflow run and work only in a private temporary directory.
-First compare the encrypted dump's SHA-256 value with `ciphertext_sha256` in `recovery-manifest.json`.
-Then read the production recovery passphrase without echoing it, decrypt the dump, compare the plaintext SHA-256 value with `dump_sha256`, and rerun the isolated restore verifier:
+Download the single retained artifact from the successful production workflow run and work only in a private temporary directory.
+First compare the encrypted archive's SHA-256 value with `ciphertext_sha256` in `recovery-manifest.json`.
+Then read the production recovery passphrase without echoing it, decrypt the archive, compare its SHA-256 value with `plaintext_archive_sha256`, and extract it only after both checks pass.
+Restore roles first, then the application schema, Storage schema, Storage data, and application data in that order:
 
 ```bash
 expected_ciphertext_checksum="$(jq -r '.ciphertext_sha256' recovery-manifest.json)"
-actual_ciphertext_checksum="$(shasum -a 256 hundavaent-*.dump.enc | awk '{print $1}')"
+encrypted_archive="$(find . -maxdepth 1 -name 'hundavaent-recovery-*.tar.gz.enc' -print -quit)"
+actual_ciphertext_checksum="$(shasum -a 256 "${encrypted_archive}" | awk '{print $1}')"
 test "${actual_ciphertext_checksum}" = "${expected_ciphertext_checksum}"
 read -r -s BACKUP_PASSPHRASE
 export BACKUP_PASSPHRASE
 openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
-  -in hundavaent-*.dump.enc \
-  -out hundavaent-restored.dump \
+  -in "${encrypted_archive}" \
+  -out hundavaent-recovery.tar.gz \
   -pass env:BACKUP_PASSPHRASE
-test "$(shasum -a 256 hundavaent-restored.dump | awk '{print $1}')" = \
-  "$(jq -r '.dump_sha256' recovery-manifest.json)"
-scripts/verify-production-recovery.sh \
-  hundavaent-restored.dump \
-  recovery-validation.json \
-  "$(jq -r '.release_sha' recovery-manifest.json)"
+test "$(shasum -a 256 hundavaent-recovery.tar.gz | awk '{print $1}')" = \
+  "$(jq -r '.plaintext_archive_sha256' recovery-manifest.json)"
+mkdir restored
+tar -xzf hundavaent-recovery.tar.gz -C restored
+psql "${RESTORE_DB_URL}" -f restored/recovery/roles.sql || true
+psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" \
+  -c 'alter schema storage rename to scratch_storage'
+psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f restored/recovery/schema.sql
+psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f restored/recovery/storage-schema.sql
+psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f restored/recovery/storage-data.sql
+psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f restored/recovery/data.sql
 unset BACKUP_PASSPHRASE
-rm -f hundavaent-restored.dump recovery-validation.json
+rm -rf restored hundavaent-recovery.tar.gz
 ```
 
 Do not apply migrations until this validation succeeds.

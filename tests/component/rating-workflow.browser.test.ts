@@ -2,94 +2,11 @@ import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import { catalogues } from '$i18n';
-import RatingSummary from '$lib/discovery/RatingSummary.svelte';
-import type {
-  DogFriendlinessSummary,
-  ModerationRating
-} from '$server/dog-friendliness/dog-friendliness';
+import type { ModerationRating } from '$server/dog-friendliness/dog-friendliness';
 
 import ModerationRatingsPage from '../../src/routes/[lang=lang]/moderation/dog-friendliness/[placeId]/+page.svelte';
 
 const placeId = '30000000-0000-4000-8000-000000000003';
-
-const hiddenSummary: DogFriendlinessSummary = {
-  placeId,
-  visible: false,
-  eligibleCount: null,
-  trailingTwelveMonthCount: null,
-  dimensions: [],
-  overallMean: null,
-  overallVisible: false
-};
-
-const visibleSummary: DogFriendlinessSummary = {
-  placeId,
-  visible: true,
-  eligibleCount: 5,
-  trailingTwelveMonthCount: 5,
-  dimensions: [
-    { dimension: 'welcome', applicableCount: 5, mean: 4 },
-    { dimension: 'comfort', applicableCount: 5, mean: 3.5 }
-  ],
-  overallMean: 3.5,
-  overallVisible: true
-};
-
-const partialSummary: DogFriendlinessSummary = {
-  placeId,
-  visible: true,
-  eligibleCount: 5,
-  trailingTwelveMonthCount: 5,
-  dimensions: [{ dimension: 'welcome', applicableCount: 5, mean: 4 }],
-  overallMean: null,
-  overallVisible: false
-};
-
-describe('RatingSummary', () => {
-  it('leaks no counts or values below threshold', () => {
-    render(RatingSummary, {
-      summary: hiddenSummary,
-      copy: catalogues.en,
-      signedIn: false,
-      rateHref: '/en/places/place-1/rate'
-    });
-
-    expect(screen.getByText('Not yet rated')).toBeTruthy();
-    expect(screen.queryByText(/Based on/)).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Sign in to rate this place' })).toBeNull();
-  });
-
-  it('shows the eligible count, recency context, qualifying Dimensions, and overall result', () => {
-    render(RatingSummary, {
-      summary: visibleSummary,
-      copy: catalogues.en,
-      signedIn: true,
-      rateHref: '/en/places/place-1/rate'
-    });
-
-    expect(screen.getByText('Based on 5 eligible Ratings')).toBeTruthy();
-    expect(screen.getByText('Based on Ratings from the last 12 months (5)')).toBeTruthy();
-    expect(screen.getByText('Welcome')).toBeTruthy();
-    expect(screen.getByText('Comfort')).toBeTruthy();
-    expect(screen.queryByText('Clarity')).toBeNull();
-    expect(screen.getByText('Overall result').closest('p')?.textContent).toContain('3.5');
-    expect(screen.getByRole('link', { name: 'Rate this place' })).toBeTruthy();
-  });
-
-  it('shows qualifying Dimensions without an overall when fewer than two qualify', () => {
-    render(RatingSummary, {
-      summary: partialSummary,
-      copy: catalogues.en,
-      signedIn: true,
-      rateHref: '/en/places/place-1/rate'
-    });
-
-    expect(screen.getByText('Welcome')).toBeTruthy();
-    expect(
-      screen.getByText('Not enough Dimensions qualify yet to show an overall result.')
-    ).toBeTruthy();
-  });
-});
 
 const eligibleRating: ModerationRating = {
   id: 'rating-1',

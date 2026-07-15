@@ -65,6 +65,10 @@
     cursor: pointer;
     place-items: center;
   }
+  button:disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
   [data-inherited='true'] button {
     opacity: 0.62;
   }

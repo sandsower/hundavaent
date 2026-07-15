@@ -29,7 +29,7 @@ import {
 import { verifyRecoveryCopyDump } from '../../../scripts/verify-recovery-copy-dump';
 
 describe('release evaluation orchestration', () => {
-  it('skips disposable Auth identities while preserving application and Storage data', () => {
+  it('excludes hard identity rows while preserving and neutralizing core application data', () => {
     const workflow = readFileSync(
       new URL('../../../.github/workflows/production.yml', import.meta.url),
       'utf8'
@@ -48,7 +48,82 @@ describe('release evaluation orchestration', () => {
     expect(workflow).not.toContain('dump_snapshot_schema "auth"');
     expect(workflow).not.toContain('dump_snapshot_data "auth"');
     expect(workflow).not.toContain('select count(*) from auth.users');
-    expect(workflow).toContain('Managed Auth/test-user recovery: intentionally skipped');
+    expect(workflow).toContain(
+      'Managed Auth and hard identity-owned test rows: intentionally skipped'
+    );
+    expect(workflow).toContain('with recursive hard_auth_tables(table_oid)');
+    expect(workflow).toContain("select 'auth.users'::regclass::oid");
+    expect(workflow).toContain("grep -Fxq 'private.member_accounts'");
+    expect(workflow).toContain("grep -Fxq 'private.places'");
+    expect(workflow).toContain("grep -Fxq 'private.place_media'");
+    expect(workflow).toContain('recovery/auth-hard-excluded-counts.txt');
+    expect(workflow).toContain('recovery/auth-hard-excluded-restored-counts.txt');
+    expect(workflow).toContain('recovery/auth-neutralized-references.txt');
+    expect(workflow).toContain('recovery/auth-neutralized-restored-counts.txt');
+    expect(workflow).toContain(
+      'Composite foreign keys cross the disposable Auth recovery boundary.'
+    );
+    expect(workflow).toContain('where not attribute_row.attnotnull');
+    expect(workflow).toContain('"${table}.${column}" == "private.place_media.uploaded_by"');
+    expect(workflow).toContain('constraint_row.confrelid in (${hard_parent_oids})');
+    expect(workflow).toContain('exclusion_args+=("--exclude-table-data=${table}")');
+    expect(workflow).toContain('SET "%s" = NULL WHERE "%s" IS NOT NULL');
+    expect(workflow).toContain('hard_excluded_auth_tables');
+    expect(workflow).toContain('neutralized_auth_references');
+    expect(workflow).toContain(
+      'any(.neutralized_auth_references[]; .table == "private.places" and .column == "created_by")'
+    );
+    expect(workflow).toContain(
+      'any(.neutralized_auth_references[]; .table == "private.place_media" and .column == "uploaded_by")'
+    );
+    expect(workflow).toContain(
+      'all(.hard_excluded_auth_tables[]; .table != "private.places" and .table != "private.place_media")'
+    );
+    expect(workflow).toContain('(.auth_recovery_schema_relaxations | length == 1)');
+    expect(workflow).toContain(
+      'ALTER TABLE "private"."place_media" ALTER COLUMN "uploaded_by" DROP NOT NULL;'
+    );
+    expect(workflow).toContain('Restored Place media uploader attribution is not nullable.');
+    expect(workflow).toContain("'^private\\.places [0-9]+$'");
+    expect(workflow).toContain("'^private\\.place_media [0-9]+$'");
+    expect(workflow).toContain(
+      'BACKUP_PASSPHRASE: ${{ secrets.HUNDAVAENT_PRODUCTION_BACKUP_PASSPHRASE }}'
+    );
+    expect(workflow).toContain(
+      'AUTH_EMAIL_ENABLED: ${{ vars.HUNDAVAENT_PRODUCTION_AUTH_EMAIL_ENABLED }}'
+    );
+    expect(workflow).toContain(
+      'AUTH_FACEBOOK_ENABLED: ${{ vars.HUNDAVAENT_PRODUCTION_AUTH_FACEBOOK_ENABLED }}'
+    );
+    expect(workflow.match(/AUTH_EMAIL_ENABLED}" != "false"/g)).toHaveLength(2);
+    expect(workflow.match(/AUTH_FACEBOOK_ENABLED}" != "false"/g)).toHaveLength(2);
+  });
+
+  it('retains only an encrypted, checksummed recovery archive and fail-closes plaintext upload', () => {
+    const workflow = readFileSync(
+      new URL('../../../.github/workflows/production.yml', import.meta.url),
+      'utf8'
+    );
+
+    expect(workflow).toContain("--sort=name --mtime='UTC 1970-01-01'");
+    expect(workflow).toContain('--owner=0 --group=0 --numeric-owner');
+    expect(workflow).toContain('gzip -n -9');
+    expect(workflow).toContain('openssl enc -aes-256-cbc -salt -pbkdf2 -iter 600000');
+    expect(workflow).toContain('plaintext_archive_sha256');
+    expect(workflow).toContain('ciphertext_sha256');
+    expect(workflow).toContain('managed_auth_mode');
+    expect(workflow).toContain('excluded-prelaunch-auth-and-hard-identity-rows-providers-disabled');
+    expect(workflow).toContain('rm -rf recovery');
+    expect(workflow).toContain('test ! -e recovery');
+    expect(workflow).toContain('test ! -e "${plaintext_archive}"');
+    expect(workflow).toContain('retained-recovery/recovery-manifest.json');
+    expect(workflow).toContain('path: retained-recovery/');
+    expect(workflow).toContain('retention-days: 90');
+    expect(workflow).not.toContain('path: recovery/');
+    expect(workflow).toContain("'*.sql'");
+    expect(workflow).toContain("'*.log'");
+    expect(workflow).toContain("'*.txt'");
+    expect(workflow).toContain("'*.tar.gz'");
   });
 
   it('uses one permission-compatible exported snapshot for every production read', () => {
@@ -79,7 +154,7 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('--role "postgres"');
     expect(workflow).not.toContain('--exclude-table "auth.schema_migrations"');
     expect(workflow).not.toContain('--exclude-table "storage.migrations"');
-    expect(workflow.match(/snapshot_query/g)).toHaveLength(6);
+    expect(workflow.match(/snapshot_query/g)).toHaveLength(12);
     expect(workflow.match(/dump_snapshot_data/g)).toHaveLength(3);
     expect(exportedSnapshot).toBeGreaterThan(0);
     expect(applicationDump).toBeGreaterThan(exportedSnapshot);

@@ -128,6 +128,17 @@ const reportFlag: ModerationPlaceFlag = {
   privateNote: 'Escalated informally; venue contacted.'
 };
 
+function evidenceKindLabels(lang: 'is' | 'en'): string[] {
+  return [
+    catalogues[lang]['evidence.officialWebsite'],
+    catalogues[lang]['evidence.venueRepresentative'],
+    catalogues[lang]['evidence.memberReport'],
+    catalogues[lang]['evidence.directObservation'],
+    catalogues[lang]['evidence.publicRecord'],
+    catalogues[lang]['evidence.other']
+  ];
+}
+
 describe('Member Correction and Report submission', () => {
   it.each([
     ['is', 'Leggja til leiðréttingu', 'Senda einkaleiðréttingu'],
@@ -154,6 +165,29 @@ describe('Member Correction and Report submission', () => {
       expect(screen.getByRole('button', { name: submitLabel })).toBeTruthy();
     }
   );
+
+  it.each(['is', 'en'] as const)('localizes the %s Correction source choices', (lang) => {
+    render(CorrectionPage, {
+      params: { lang, id: place.placeId },
+      data: {
+        lang,
+        copy: catalogues[lang],
+        signInUrl: null,
+        place,
+        presetField: 'phone',
+        presetConditionId: null
+      },
+      form: null
+    } as never);
+
+    const source = screen.getByLabelText(
+      catalogues[lang]['evidenceField.kind']
+    ) as HTMLSelectElement;
+    expect(Array.from(source.options, (option) => option.textContent)).toEqual(
+      evidenceKindLabels(lang)
+    );
+    expect(source.textContent).not.toContain('official_website');
+  });
 
   it('preselects an Access Condition target from the query preset', () => {
     render(CorrectionPage, {
@@ -245,6 +279,29 @@ describe('Member Correction and Report submission', () => {
     expect(screen.getByLabelText('This is a Safety Concern')).toBeTruthy();
     expect(screen.getByRole('note').textContent).toContain('112');
     expect(screen.getByLabelText('What kind of problem is this?')).toBeTruthy();
+  });
+
+  it.each(['is', 'en'] as const)('localizes the %s Report source choices', (lang) => {
+    render(ReportPage, {
+      params: { lang, id: place.placeId },
+      data: {
+        lang,
+        copy: catalogues[lang],
+        signInUrl: null,
+        place,
+        presetField: null,
+        presetConditionId: null
+      },
+      form: null
+    } as never);
+
+    const source = screen.getByLabelText(
+      catalogues[lang]['evidenceField.kind']
+    ) as HTMLSelectElement;
+    expect(Array.from(source.options, (option) => option.textContent)).toEqual(
+      evidenceKindLabels(lang)
+    );
+    expect(source.textContent).not.toContain('venue_representative');
   });
 });
 

@@ -6,6 +6,7 @@
 
   import type { Catalogue, Locale } from '$i18n';
   import { postHogAnalytics } from '$lib/analytics/posthog';
+  import { passwordlessResendCooldownSeconds } from '$lib/auth/resend';
   import { authRequestEventName, isAuthRequest, type AuthRequest } from '$lib/auth/controller';
 
   interface Props {
@@ -158,7 +159,7 @@
       if (method === 'email' && result.status === 'link_sent') {
         sent = true;
         postHogAnalytics.capture('auth link requested', { origin: request.origin });
-        startResendTimer(result.resendAfterSeconds ?? 30);
+        startResendTimer(result.resendAfterSeconds ?? passwordlessResendCooldownSeconds);
         return;
       }
 

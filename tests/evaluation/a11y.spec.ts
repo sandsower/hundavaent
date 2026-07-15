@@ -174,9 +174,16 @@ test('public discovery and floating access details are keyboard-operable and Axe
   await page.keyboard.press('Enter');
   await expect(symbolButtons.first()).toHaveAttribute('aria-expanded', 'true');
   await page.waitForTimeout(250);
-  const disclosure = selectedCard.getByText('Details', { exact: true });
+  const completeDetails = selectedCard.locator('details.hv-disclosure');
+  await expect(completeDetails).toHaveAttribute('open', '');
+  await expect(selectedCard.getByRole('heading', { name: 'Dog access' })).toBeVisible();
+  const disclosure = completeDetails.locator(':scope > summary');
   await disclosure.focus();
+  await expect(disclosure).toBeFocused();
   await page.keyboard.press('Enter');
+  await expect(completeDetails).not.toHaveAttribute('open', '');
+  await page.keyboard.press('Enter');
+  await expect(completeDetails).toHaveAttribute('open', '');
   await expect(selectedCard.getByRole('heading', { name: 'Dog access' })).toBeVisible();
   await expectNoSeriousAxeViolations(page, evidence);
 });
@@ -216,24 +223,14 @@ test('place-mode directory results remain bilingual and reflow without page over
   }
 });
 
-test('public Place status routes remain bilingual, place-mode, reflowing, and Axe-clean', async ({
+test('unpublished Place routes remain neutral, bilingual, reflowing, and Axe-clean', async ({
   page,
   evidence
 }) => {
-  // Candidate identities are private. The published-but-unverified fixture is the public
-  // access-under-review state exercised by this route.
   const placeId = evaluationFixtureIds.places.unverified;
   const scenarios = [
-    {
-      locale: 'en',
-      underReview: 'Dog access information is under review',
-      inactive: 'This place is no longer active'
-    },
-    {
-      locale: 'is',
-      underReview: 'Upplýsingar um hundaaðgengi eru í yfirferð',
-      inactive: 'Þessi staður er ekki lengur virkur'
-    }
+    { locale: 'en', heading: 'Page not found' },
+    { locale: 'is', heading: 'Síðan fannst ekki' }
   ] as const;
 
   setLocalPlaceLifecycle(placeId, 'published');
@@ -244,19 +241,19 @@ test('public Place status routes remain bilingual, place-mode, reflowing, and Ax
         { width: 390, height: 844 }
       ]) {
         await page.setViewportSize(viewport);
-        for (const state of [
-          { lifecycle: 'published', heading: scenario.underReview },
-          { lifecycle: 'inactive', heading: scenario.inactive }
-        ] as const) {
-          setLocalPlaceLifecycle(placeId, state.lifecycle);
-          await page.goto(`/${scenario.locale}/places/${placeId}`);
+        for (const lifecycle of ['published', 'inactive'] as const) {
+          setLocalPlaceLifecycle(placeId, lifecycle);
+          evidence.allowHttpStatus(404, `/places/${placeId}`);
+          evidence.allowConsoleError(
+            'Failed to load resource: the server responded with a status of 404'
+          );
+          const response = await page.goto(`/${scenario.locale}/places/${placeId}`);
+          expect(response?.status()).toBe(404);
           await waitForHydration(page);
           await expect(page.locator('header[data-ui-mode="place"]')).toBeVisible();
           await expect(page.locator('main[data-ui-mode="place"]')).toBeVisible();
-          const statusPanel = page.locator('article.hv-panel.status-panel');
-          await expect(statusPanel).toBeVisible();
-          await expect(statusPanel.locator('.hv-notice[data-tone="info"]')).toBeVisible();
-          await expect(statusPanel.getByRole('heading', { name: state.heading })).toBeVisible();
+          await expect(page.getByRole('heading', { name: scenario.heading })).toBeVisible();
+          await expect(page.getByText(/review|verified|reconfirm|source/i)).toHaveCount(0);
           await expectNoHorizontalPageScroll(page);
           await expectNoSeriousAxeViolations(page, evidence);
         }
@@ -683,7 +680,7 @@ test('Correction, Report, and Moderator review forms are keyboard-operable and A
   retireLocalPlaceFlagFixtures();
 });
 
-test('Dog-Friendliness Rating form, public Summary, and Moderator exclusion view are keyboard-operable and Axe-clean', async ({
+test('inline Dog-Friendliness Rating, public average, and Moderator exclusion view are keyboard-operable and Axe-clean', async ({
   browser,
   page,
   evidence
@@ -700,32 +697,44 @@ test('Dog-Friendliness Rating form, public Summary, and Moderator exclusion view
     await expectNoSeriousAxeViolations(page, evidence);
 
     const memberEmail = `dog-friendliness-a11y-${Date.now()}@example.invalid`;
-    await page.goto(`/en/account?returnTo=${encodeURIComponent(`/en/places/${placeId}/rate`)}`);
+    await page.goto('/en/account');
     await waitForHydration(page);
     await page.getByRole('dialog').getByLabel('Email address').fill(memberEmail);
     await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
     await page.goto(await waitForLocalMagicLink(memberEmail));
 
-    await expect(page.getByRole('heading', { name: 'Rate Dog-Friendliness' })).toBeVisible();
-    await page.getByLabel('Welcome').focus();
+    await page.goto(`/en?place=${placeId}&view=map`);
+    await waitForHydration(page);
+    const rating = selected.locator('[data-inline-rating]');
+    const overallRating = rating.getByRole('radiogroup', { name: 'Overall rating' });
+    const oneStar = overallRating.getByRole('radio', { name: '1 star' });
+    await expect(oneStar).toBeEnabled();
+    await oneStar.focus();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await expect(overallRating.getByRole('radio', { name: '4 stars' })).toBeFocused();
+    await expect(overallRating.getByRole('radio', { name: '4 stars' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    await rating
+      .getByRole('radiogroup', { name: 'Welcome' })
+      .getByRole('radio', { name: '4 stars' })
+      .focus();
     await page.keyboard.press('Tab');
-    await expect(page.getByLabel('Clarity')).toBeFocused();
+    await expect(
+      rating.getByRole('radiogroup', { name: 'Clarity' }).getByRole('radio', { name: '4 stars' })
+    ).toBeFocused();
+    await expect(rating.getByText('Saved')).toBeVisible();
     await expectNoSeriousAxeViolations(page, evidence);
-
-    await page.getByLabel('Welcome').selectOption('4');
-    await page.getByLabel('Clarity').selectOption('na');
-    await page.getByLabel('Comfort').selectOption('5');
-    await page.getByLabel('Thoughtfulness').selectOption('3');
-    await page.getByRole('button', { name: 'Save Rating' }).click();
-    await expect(page).toHaveURL(`/en?place=${placeId}`);
 
     const secondMember = await browser.newContext();
     try {
       const secondPage = await secondMember.newPage();
       const secondEmail = `dog-friendliness-a11y-second-${Date.now()}@example.invalid`;
-      const ratingPath = `/en/places/${placeId}/rate`;
       await clearLocalEvaluationMailbox();
-      await secondPage.goto(`/en/account?returnTo=${encodeURIComponent(ratingPath)}`);
+      await secondPage.goto('/en/account');
       await waitForHydration(secondPage);
       await secondPage.getByRole('dialog').getByLabel('Email address').fill(secondEmail);
       await secondPage
@@ -733,21 +742,24 @@ test('Dog-Friendliness Rating form, public Summary, and Moderator exclusion view
         .getByRole('button', { name: 'Send me a sign-in link' })
         .click();
       await secondPage.goto(await waitForLocalMagicLink(secondEmail));
-      await secondPage.getByLabel('Welcome').selectOption('5');
-      await secondPage.getByLabel('Clarity').selectOption('4');
-      await secondPage.getByLabel('Comfort').selectOption('4');
-      await secondPage.getByLabel('Thoughtfulness').selectOption('4');
-      await secondPage.getByRole('button', { name: 'Save Rating' }).click();
+      await secondPage.goto(`/en?place=${placeId}&view=map`);
+      await waitForHydration(secondPage);
+      const secondRating = secondPage.locator('[data-inline-rating]');
+      const fiveStars = secondRating
+        .getByRole('radiogroup', { name: 'Overall rating' })
+        .getByRole('radio', { name: '5 stars' });
+      await expect(fiveStars).toBeEnabled();
+      await fiveStars.click();
+      await expect(secondRating.getByText('Saved')).toBeVisible();
     } finally {
       await secondMember.close();
     }
 
     await page.goto(`/en?place=${placeId}&view=map`);
-    await selected.locator('summary').click();
-    const ratingEvidence = page.locator('[data-rating-summary][data-rating-visible="true"]');
-    await expect(ratingEvidence).toBeVisible();
-    await expect(ratingEvidence.locator('[data-status="info"]')).toHaveCount(2);
-    await expect(ratingEvidence.locator('dl')).toBeVisible();
+    await waitForHydration(page);
+    const publicAverage = selected.getByLabel('Dog-Friendliness by Members');
+    await expect(publicAverage).toBeVisible();
+    await expect(publicAverage).toContainText('★');
     await expectNoHorizontalPageScroll(page);
     await expectNoSeriousAxeViolations(page, evidence);
 
@@ -832,7 +844,7 @@ test('the private personal history route is keyboard-operable and Axe-clean in b
   }
 });
 
-test('Private Rating Note fieldset, Report prompt, and Moderator note workspace are keyboard-operable and Axe-clean', async ({
+test('optional low-score Rating note and Moderator note workspace are keyboard-operable and Axe-clean', async ({
   page,
   evidence
 }) => {
@@ -843,34 +855,39 @@ test('Private Rating Note fieldset, Report prompt, and Moderator note workspace 
   const { placeId } = localPrivateRatingNoteFixture;
 
   const memberEmail = `rating-note-a11y-${Date.now()}@example.invalid`;
-  await page.goto(`/en/account?returnTo=${encodeURIComponent(`/en/places/${placeId}/rate`)}`);
+  await page.goto('/en/account');
   await waitForHydration(page);
   await page.getByRole('dialog').getByLabel('Email address').fill(memberEmail);
   await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(memberEmail));
   await waitForHydration(page);
 
-  // A qualifying low score reveals the note fieldset with an explicit classification group.
-  await expect(page.getByRole('heading', { name: 'Rate Dog-Friendliness' })).toBeVisible();
-  await page.getByLabel('Welcome').selectOption('1');
-  await page.getByLabel('Clarity').selectOption('na');
-  await page.getByLabel('Comfort').selectOption('na');
-  await page.getByLabel('Thoughtfulness').selectOption('na');
-  await expect(page.getByText('Private context for a low Rating')).toBeVisible();
-  await page.getByLabel('A subjective experience').focus();
-  await page.keyboard.press('ArrowDown');
-  await expect(page.getByLabel('Possibly inaccurate access information')).toBeFocused();
+  // A qualifying low overall score reveals the optional note without a separate Report flow.
+  await page.goto(`/en?place=${placeId}&view=map`);
+  await waitForHydration(page);
+  const rating = page.locator('[data-inline-rating]');
+  const oneStar = rating
+    .getByRole('radiogroup', { name: 'Overall rating' })
+    .getByRole('radio', { name: '1 star' });
+  await expect(oneStar).toBeEnabled();
+  await oneStar.focus();
+  await page.keyboard.press('Space');
+  const note = rating.getByRole('textbox', { name: 'What could be better? (optional)' });
+  await expect(note).toBeVisible();
+  await rating
+    .getByRole('radiogroup', { name: 'Welcome' })
+    .getByRole('radio', { name: '1 star' })
+    .focus();
+  await page.keyboard.press('Tab');
+  await expect(
+    rating.getByRole('radiogroup', { name: 'Clarity' }).getByRole('radio', { name: '1 star' })
+  ).toBeFocused();
   await expectNoSeriousAxeViolations(page, evidence);
 
-  await page
-    .getByLabel('Your private explanation')
-    .fill('The posted opening hours do not match what staff told me.');
-  await page.getByRole('button', { name: 'Save Rating' }).click();
-
-  // The explicit Report prompt is itself a labelled, keyboard-reachable region.
-  await expect(page.getByText('Send a formal Report?')).toBeVisible();
-  await page.getByRole('button', { name: 'Create a Report from this note' }).focus();
-  await expect(page.getByRole('button', { name: 'Create a Report from this note' })).toBeFocused();
+  await note.fill('The posted opening hours do not match what staff told me.');
+  await note.blur();
+  await expect(rating.getByText('Saved')).toBeVisible();
+  await expect(page.getByText('Send a formal Report?')).toHaveCount(0);
   await expectNoSeriousAxeViolations(page, evidence);
 
   await page.goto(

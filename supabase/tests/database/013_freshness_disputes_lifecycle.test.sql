@@ -242,12 +242,6 @@ select is(
   0::bigint,
   'A Place with no verified condition leaves normal discovery'
 );
-select is(
-  (select public_status from public.get_public_place_status(
-    '75300000-0000-4000-8000-000000000001', 'en')),
-  'access_under_review',
-  'A safe direct-profile status remains while all access is disputed'
-);
 select throws_ok(
   $$select * from public.reconfirm_access_condition(
     jsonb_build_object(
@@ -764,12 +758,6 @@ select throws_ok(
   ),
   '40001', null,
   'Dispute resolution fails closed after Place inactivity'
-);
-select is(
-  (select public_status from public.get_public_place_status(
-    '75300000-0000-4000-8000-000000000001', 'en')),
-  'inactive',
-  'Inactive history has a safe direct-profile status'
 );
 select is(
   (select count(*) from private.evidence

@@ -11,6 +11,9 @@ Never paste provider secrets into Linear, source control, logs, screenshots, or 
 - Keep email OTP single-use and set its expiry to 60 minutes or less.
 - Set provider and email rate limits in Supabase before enabling either feature switch.
 - Keep both provider switches disabled by default until the environment passes this checklist.
+- Keep both production provider variables exactly `false` while the production recovery workflow intentionally excludes managed Auth identities and hard identity-owned application rows, and neutralizes nullable identity attribution on retained core data.
+- The first cumulative deployment may use the recovery bundle's single `private.place_media.uploaded_by` nullability relaxation; migration `202607150036_nullable_place_media_uploader.sql` must converge production to that same contract in the same workflow run.
+- Before activating either provider, upgrade the production workflow to capture and restore managed Auth coherently, or remove the temporary guard only after an equivalent Auth-capable recovery design is implemented and restore-tested.
 - Apply `202607150032_auth_funnel.sql` before enabling sign-in.
 - Confirm `get_member_provider_policy()` returns `member-linked-providers-v2`, both providers enabled, and verified-email automatic linking enabled.
 - Enable Facebook and email together only after the Supabase project confirms automatic identity linking for the same verified email in both sign-in orders.
@@ -70,7 +73,8 @@ Never paste provider secrets into Linear, source control, logs, screenshots, or 
 - Provision production SMTP and publish SPF, DKIM, and DMARC.
 - Install the hosted token-hash magic-link template because local repository configuration does not update a hosted Supabase project.
 - Add both localized callback URLs to the hosted Supabase redirect allowlist.
-- Set both deployment switches and rotate the environment-specific Member activation secret only after all checks above pass.
+- Upgrade production recovery to include managed Auth identities and remove its provider-disabled guard before changing either production deployment switch.
+- Set both deployment switches and rotate the environment-specific Member activation secret only after the recovery upgrade and all checks above pass.
 
 ## Hosted production audit - 2026-07-15
 
@@ -81,7 +85,7 @@ Never paste provider secrets into Linear, source control, logs, screenshots, or 
 - Facebook sign-in is disabled and `AUTH_FACEBOOK_ENABLED` must remain `false` until the hosted Facebook proof passes.
 - Manual identity linking is disabled.
 - The production release workflow binds the explicit GitHub environment variables `HUNDAVAENT_PRODUCTION_AUTH_EMAIL_ENABLED` and `HUNDAVAENT_PRODUCTION_AUTH_FACEBOOK_ENABLED`, plus the Member activation secret, to the exact deployed SHA.
-- Both production provider variables are currently `false` and must remain fail-closed until their hosted proof passes.
+- Both production provider variables are currently `false` and must remain fail-closed until their hosted proof passes and full Auth-capable recovery is restore-tested.
 - The production migration step provisions the same Member activation capability into the database and compares secret fingerprints before deployment traffic is allowed.
 - Custom production SMTP is off and the hosted token-hash email template cannot yet be installed, so email sign-in is not production-ready despite the hosted Supabase email provider being enabled.
 - Custom production SMTP, the hosted token-hash email template, delivered-link smoke tests, and automatic Facebook/email identity-linking proof remain explicit launch prerequisites.

@@ -140,8 +140,11 @@ test('a Moderator can open an Access Dispute or retire a Place directly from a R
   expect(published?.some((place) => place.name === disputable.nameEn)).toBe(false);
   expect(published?.some((place) => place.name === retirable.nameEn)).toBe(false);
 
-  await page.goto(`/en/places/${retirable.placeId}`);
-  await expect(page.getByRole('heading', { name: 'This place is no longer active' })).toBeVisible();
+  const unavailableResponse = await page.goto(`/en/places/${retirable.placeId}`);
+  expect(unavailableResponse?.status()).toBe(404);
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.getByText(retirable.nameEn)).toHaveCount(0);
+  await expect(page.getByText(/inactive|review|verified|reconfirm|source/i)).toHaveCount(0);
 });
 
 test('a signed-in Member cannot open the Moderator Correction/Report queue', async ({ page }) => {

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 
 import { isLocale } from '$i18n';
-import { getPublishedProfile, getPublicPlaceStatus } from '$server/discovery/public-places';
+import { getPublishedProfile } from '$server/discovery/public-places';
 
 import type { RequestHandler } from './$types';
 
@@ -14,15 +14,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
 
   const result = await getPublishedProfile(locals.supabase, params.id, locale);
   if (result.status === 'not_found') {
-    const placeStatus = await getPublicPlaceStatus(locals.supabase, params.id, locale);
-    if (placeStatus.status === 'success') {
-      return json(
-        { error: placeStatus.value.publicStatus, place: placeStatus.value },
-        { status: 409, headers: { 'cache-control': 'no-store' } }
-      );
-    }
-    if (placeStatus.status === 'not_found') return json({ error: 'not_found' }, { status: 404 });
-    return json({ error: 'unavailable' }, { status: 503 });
+    return json({ error: 'not_found' }, { status: 404, headers: { 'cache-control': 'no-store' } });
   }
   if (result.status !== 'success') return json({ error: 'unavailable' }, { status: 503 });
   return json(result.value, { headers: { 'cache-control': 'no-store' } });

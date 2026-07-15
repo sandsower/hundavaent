@@ -174,7 +174,7 @@ test('an Inactive saved Place stays recognizable and removable without exposing 
     await page.goto('/en/favorites');
     await expect(page.getByRole('heading', { name: 'Published Place' })).toBeVisible();
     await expect(page.getByText('This place is no longer active')).toBeVisible();
-    await expect(page.getByText('Private moderation details are not shown.')).toBeVisible();
+    await expect(page.getByText('This place is no longer available here.')).toBeVisible();
     // The remove button's click handler only exists after hydration; clicking the
     // server-rendered button early would silently do nothing.
     await waitForHydration(page);

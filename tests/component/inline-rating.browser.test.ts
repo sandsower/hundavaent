@@ -17,6 +17,10 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+async function waitForOverallEnabled(): Promise<void> {
+  await waitFor(() => expect(screen.getByRole('radio', { name: '2 stars' })).not.toBeDisabled());
+}
+
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -74,7 +78,7 @@ describe('InlineRating', () => {
       signedIn: true,
       summary: null
     });
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull());
+    await waitForOverallEnabled();
     await fireEvent.click(screen.getByRole('radio', { name: '2 stars' }));
 
     await waitFor(() => expect(bodies).toHaveLength(1));
@@ -84,12 +88,14 @@ describe('InlineRating', () => {
     expect(screen.queryByRole('button', { name: /save/i })).toBeNull();
   });
 
-  it('does not let a stale initial read overwrite a newer star selection', async () => {
+  it('loads and preserves existing category scores before an overall change can save', async () => {
     const initialRead = deferred<Response>();
+    const bodies: Array<Record<string, unknown>> = [];
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
         if (!init?.method) return initialRead.promise;
+        bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
         return new Response(JSON.stringify({ rating: null }));
       })
     );
@@ -101,7 +107,9 @@ describe('InlineRating', () => {
       summary: null
     });
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('radio', { name: '2 stars' })).toBeDisabled();
     await fireEvent.click(screen.getByRole('radio', { name: '2 stars' }));
+    expect(bodies).toHaveLength(0);
     initialRead.resolve(
       new Response(
         JSON.stringify({
@@ -109,7 +117,7 @@ describe('InlineRating', () => {
             id: 'rating-1',
             placeId,
             overallScore: 4,
-            scores: { welcome: null, clarity: null, comfort: null, thoughtfulness: null },
+            scores: { welcome: 5, clarity: 3, comfort: 4, thoughtfulness: 2 },
             ratedAt: '2026-07-15T00:00:00Z',
             privateNote: null,
             privateNoteUpdatedAt: null
@@ -118,13 +126,16 @@ describe('InlineRating', () => {
       )
     );
 
-    const overallGroup = screen.getByRole('radiogroup', { name: 'Overall rating' });
-    await waitFor(() =>
-      expect(overallGroup.querySelector('[aria-label="2 stars"]')).toHaveAttribute(
-        'aria-checked',
-        'true'
-      )
-    );
+    await waitForOverallEnabled();
+    await fireEvent.click(screen.getByRole('radio', { name: '2 stars' }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toMatchObject({
+      overall: 2,
+      welcome: 5,
+      clarity: 3,
+      comfort: 4,
+      thoughtfulness: 2
+    });
   });
 
   it('retains the newest queued snapshot when an earlier save fails', async () => {
@@ -146,7 +157,7 @@ describe('InlineRating', () => {
       signedIn: true,
       summary: null
     });
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull());
+    await waitForOverallEnabled();
     await fireEvent.click(screen.getByRole('radio', { name: '2 stars' }));
     await fireEvent.click(
       screen.getByRole('radiogroup', { name: 'Welcome' }).querySelectorAll('[role="radio"]')[3]
@@ -177,6 +188,7 @@ describe('InlineRating', () => {
       signedIn: true,
       summary: null
     });
+    await waitForOverallEnabled();
     await fireEvent.click(screen.getByRole('radio', { name: '2 stars' }));
     await waitFor(() => expect(bodies).toHaveLength(1));
 
@@ -209,16 +221,28 @@ describe('InlineRating', () => {
       signedIn: true,
       summary: null
     });
+    await waitForOverallEnabled();
     await fireEvent.click(screen.getByRole('radio', { name: '2 stars' }));
 
     expect(await screen.findByText('Not saved. Try again.')).toHaveAttribute('aria-live', 'polite');
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
   });
 
-  it('describes an initial load failure without implying unsaved changes', async () => {
+  it('blocks every signed-in write during load and failure until retry succeeds', async () => {
+    const initialRead = deferred<Response>();
+    const retryRead = deferred<Response>();
+    const bodies: Array<Record<string, unknown>> = [];
+    let reads = 0;
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(null, { status: 503 }))
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method) {
+          bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+          return new Response(JSON.stringify({ rating: null }));
+        }
+        reads += 1;
+        return reads === 1 ? initialRead.promise : retryRead.promise;
+      })
     );
     render(InlineRating, {
       placeId,
@@ -228,12 +252,28 @@ describe('InlineRating', () => {
       summary: null
     });
 
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const overallTwo = screen.getByRole('radio', { name: '2 stars' });
+    expect(overallTwo).toBeDisabled();
+    await fireEvent.click(overallTwo);
+    expect(bodies).toHaveLength(0);
+    initialRead.resolve(new Response(null, { status: 503 }));
+
     expect(await screen.findByText("Couldn't load your rating. Try again.")).toHaveAttribute(
       'aria-live',
       'polite'
     );
     expect(screen.queryByText('Not saved. Try again.')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(overallTwo).toBeDisabled();
+    await fireEvent.click(overallTwo);
+    expect(bodies).toHaveLength(0);
+    await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(overallTwo).toBeDisabled();
+    retryRead.resolve(new Response(JSON.stringify({ rating: null })));
+    await waitForOverallEnabled();
+    await fireEvent.click(overallTwo);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toMatchObject({ overall: 2, welcome: null });
   });
 
   it('flushes the latest dirty snapshot with keepalive when unmounted', async () => {
@@ -256,7 +296,7 @@ describe('InlineRating', () => {
       signedIn: true,
       summary: null
     });
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull());
+    await waitForOverallEnabled();
     await fireEvent.click(screen.getByRole('radio', { name: '2 stars' }));
     await fireEvent.click(
       screen.getByRole('radiogroup', { name: 'Welcome' }).querySelectorAll('[role="radio"]')[3]

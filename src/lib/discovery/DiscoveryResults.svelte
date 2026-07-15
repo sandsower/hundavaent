@@ -9,7 +9,7 @@
     selectedPlaceId: string | null;
     lang: Locale;
     copy: Catalogue;
-    onSelect: (placeId: string, trigger: HTMLButtonElement) => void;
+    onSelect: (placeId: string, trigger: HTMLButtonElement, openDetails?: boolean) => void;
     onClose?: () => void;
     closable?: boolean;
     signedIn?: boolean;

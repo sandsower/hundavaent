@@ -206,22 +206,23 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   expect(disputeListError).toBeNull();
   expect(duringDispute?.some((place) => place.place_id === candidateId)).toBe(false);
 
-  await page.goto(`/en/places/${candidateId}`);
-  await expect(page.getByRole('heading', { name: candidate.nameEn })).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Dog access information is under review' })
-  ).toBeVisible();
+  const unavailableResponse = await page.goto(`/en/places/${candidateId}`);
+  expect(unavailableResponse?.status()).toBe(404);
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.getByText(candidate.nameEn)).toHaveCount(0);
+  await expect(page.getByText(/review|verified|reconfirm|source/i)).toHaveCount(0);
   await expect(page.getByText('Contradictory member report')).toHaveCount(0);
   const underReviewProfileResponse = await page.request.get(`/api/places/${candidateId}?lang=en`);
-  expect(underReviewProfileResponse.status()).toBe(409);
+  expect(underReviewProfileResponse.status()).toBe(404);
   expect(underReviewProfileResponse.headers()['cache-control']).toBe('no-store');
+  expect(await underReviewProfileResponse.json()).toEqual({ error: 'not_found' });
   const seriousAccessibilityViolations = (
     await new AxeBuilder({ page }).analyze()
   ).violations.filter(
     (violation) => violation.impact === 'critical' || violation.impact === 'serious'
   );
   expect(seriousAccessibilityViolations).toEqual([]);
-  const backToMap = page.getByRole('link', { name: 'Back to the map' });
+  const backToMap = page.getByRole('link', { name: 'Back to place search' });
   await backToMap.focus();
   await expect(backToMap).toBeFocused();
 

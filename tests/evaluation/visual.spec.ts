@@ -87,14 +87,12 @@ const copy = {
     selectedPlace: 'Valinn staður',
     correctionForm: 'Leggja til leiðréttingu',
     reportForm: 'Tilkynna vandamál',
-    ratingForm: 'Meta hundvænleika',
-    saveRating: 'Vista mat',
+    overallRating: 'Heildareinkunn',
+    ratingSaved: 'Vistað',
+    ratingSummary: 'Hundvænleiki að mati meðlima',
     dogFriendlinessReview: 'Hundvænleikamöt',
     historyTitle: 'Heimsóknir',
-    noteHeading: 'Einkaskýring við lágt mat',
-    noteInaccurate: 'Hugsanlega rangar upplýsingar um aðgang',
-    noteText: 'Skýring þín (einkamál)',
-    reportPrompt: 'Viltu senda formlega ábendingu?',
+    noteText: 'Hvað mætti bæta? (valfrjálst)',
     mediaTitle: 'Myndefni',
     mediaFileLabel: 'Mynd (PNG, JPEG eða WebP, að hámarki 15 MB)',
     mediaSourceUrlLabel: 'Vefslóð heimildar',
@@ -156,14 +154,12 @@ const copy = {
     selectedPlace: 'Selected place',
     correctionForm: 'Suggest a correction',
     reportForm: 'Report a problem',
-    ratingForm: 'Rate Dog-Friendliness',
-    saveRating: 'Save Rating',
+    overallRating: 'Overall rating',
+    ratingSaved: 'Saved',
+    ratingSummary: 'Dog-Friendliness by Members',
     dogFriendlinessReview: 'Dog-Friendliness Ratings',
     historyTitle: 'Visits',
-    noteHeading: 'Private context for a low Rating',
-    noteInaccurate: 'Possibly inaccurate access information',
-    noteText: 'Your private explanation',
-    reportPrompt: 'Send a formal Report?',
+    noteText: 'What could be better? (optional)',
     mediaTitle: 'Media',
     mediaFileLabel: 'Image (PNG, JPEG, or WebP, 15 MB maximum)',
     mediaSourceUrlLabel: 'Source URL',
@@ -702,48 +698,43 @@ for (const locale of ['is', 'en'] as const) {
     );
     const accessCard = page.getByRole('complementary', { name: copy[locale].selectedPlace });
     await expect(accessCard).toBeVisible();
-    await accessCard.locator('summary').click();
+    await accessCard.locator('details.hv-disclosure').locator(':scope > summary').click();
     await expect(
       accessCard.getByRole('heading', { name: locale === 'is' ? 'Aðgangur hunda' : 'Dog access' })
     ).toBeVisible();
     await capture(page, evidence, `access-details-${locale}-desktop.png`);
 
-    // Candidate identities are private. The published-but-unverified fixture is the public
-    // access-under-review state exercised by this route.
     const statusPlaceId = evaluationFixtureIds.places.unverified;
     setLocalPlaceLifecycle(statusPlaceId, 'published');
     try {
-      await page.goto(`/${locale}/places/${statusPlaceId}`);
+      evidence.allowHttpStatus(404, `/places/${statusPlaceId}`);
+      evidence.allowConsoleError(
+        'Failed to load resource: the server responded with a status of 404'
+      );
+      const unavailableResponse = await page.goto(`/${locale}/places/${statusPlaceId}`);
+      expect(unavailableResponse?.status()).toBe(404);
       await expect(page.locator('header[data-ui-mode="place"]')).toBeVisible();
       await expect(page.locator('main[data-ui-mode="place"]')).toBeVisible();
-      const statusPanel = page.locator('article.hv-panel.status-panel');
-      await expect(statusPanel).toBeVisible();
-      await expect(statusPanel.locator('.hv-notice[data-tone="info"]')).toBeVisible();
       await expect(
-        statusPanel.getByRole('heading', {
-          name:
-            locale === 'is'
-              ? 'Upplýsingar um hundaaðgengi eru í yfirferð'
-              : 'Dog access information is under review'
+        page.getByRole('heading', {
+          name: locale === 'is' ? 'Síðan fannst ekki' : 'Page not found'
         })
       ).toBeVisible();
-      await capture(page, evidence, `place-status-under-review-${locale}-desktop.png`);
+      await capture(page, evidence, `place-unavailable-published-${locale}-desktop.png`, {
+        prepare: () => removeDynamicRequestReferenceForVisualEvidence(page)
+      });
 
       setLocalPlaceLifecycle(statusPlaceId, 'inactive');
-      await page.goto(`/${locale}/places/${statusPlaceId}`);
-      await expect(page.locator('header[data-ui-mode="place"]')).toBeVisible();
-      await expect(page.locator('main[data-ui-mode="place"]')).toBeVisible();
-      await expect(statusPanel).toBeVisible();
-      await expect(statusPanel.locator('.hv-notice[data-tone="info"]')).toBeVisible();
+      const inactiveResponse = await page.goto(`/${locale}/places/${statusPlaceId}`);
+      expect(inactiveResponse?.status()).toBe(404);
       await expect(
-        statusPanel.getByRole('heading', {
-          name:
-            locale === 'is'
-              ? 'Þessi staður er ekki lengur virkur'
-              : 'This place is no longer active'
+        page.getByRole('heading', {
+          name: locale === 'is' ? 'Síðan fannst ekki' : 'Page not found'
         })
       ).toBeVisible();
-      await capture(page, evidence, `place-status-inactive-${locale}-desktop.png`);
+      await capture(page, evidence, `place-unavailable-inactive-${locale}-desktop.png`, {
+        prepare: () => removeDynamicRequestReferenceForVisualEvidence(page)
+      });
     } finally {
       setLocalPlaceLifecycle(statusPlaceId, 'published');
     }
@@ -937,7 +928,7 @@ for (const locale of ['is', 'en'] as const) {
       .getByRole('button', {
         name:
           locale === 'is'
-            ? 'Fjarlægja Birtur staður úr vistuðum stöðum'
+            ? 'Fjarlægja Birtur staður úr uppáhaldi'
             : 'Remove Published Place from favorites'
       })
       .click();
@@ -1004,34 +995,31 @@ for (const locale of ['is', 'en'] as const) {
     retireLocalPlaceFlagFixtures();
 
     // provision_moderator also creates a private.member_accounts row for the already-signed-in
-    // Moderator session, so the Rating form can be captured without a separate Member sign-in.
+    // Moderator session, so the inline Rating can be captured without a separate Member sign-in.
     provisionLocalDogFriendlinessFixture();
     const { placeId: dogFriendlinessPlaceId } = localDogFriendlinessFixture;
     try {
       await configureLocalDogFriendlinessSummaryPolicy();
-      await page.goto(`/${locale}/places/${dogFriendlinessPlaceId}/rate`);
-      await expect(page.getByRole('heading', { name: copy[locale].ratingForm })).toBeVisible();
-      await capture(page, evidence, `rating-form-${locale}-desktop.png`);
-
-      const welcomeLabel = locale === 'is' ? 'Móttökur' : 'Welcome';
-      const clarityLabel = locale === 'is' ? 'Skýrleiki' : 'Clarity';
-      const comfortLabel = locale === 'is' ? 'Þægindi' : 'Comfort';
-      const thoughtfulnessLabel = locale === 'is' ? 'Tillitssemi' : 'Thoughtfulness';
-      await page.getByLabel(welcomeLabel).selectOption('4');
-      await page.getByLabel(clarityLabel).selectOption('4');
-      await page.getByLabel(comfortLabel).selectOption('5');
-      await page.getByLabel(thoughtfulnessLabel).selectOption('3');
-      await page.getByRole('button', { name: copy[locale].saveRating }).click();
-      await expect(page).toHaveURL(`/${locale}?place=${dogFriendlinessPlaceId}`);
+      await page.goto(`/${locale}?place=${dogFriendlinessPlaceId}&view=map`);
+      await waitForHydration(page);
+      const selectedRatingProfile = page.getByRole('complementary', {
+        name: copy[locale].selectedPlace
+      });
+      const inlineRating = selectedRatingProfile.locator('[data-inline-rating]');
+      const fourStars = inlineRating
+        .getByRole('radiogroup', { name: copy[locale].overallRating })
+        .getByRole('radio', { name: locale === 'is' ? '4 stjörnur' : '4 stars' });
+      await expect(fourStars).toBeEnabled();
+      await capture(page, evidence, `rating-inline-idle-${locale}-desktop.png`);
+      await fourStars.click();
+      await expect(inlineRating.getByText(copy[locale].ratingSaved)).toBeVisible();
+      await capture(page, evidence, `rating-inline-details-${locale}-desktop.png`);
 
       const ratingMemberContext = await browser.newContext();
       try {
         const ratingMemberPage = await ratingMemberContext.newPage();
-        const ratingPath = `/${locale}/places/${dogFriendlinessPlaceId}/rate`;
         await clearLocalEvaluationMailbox();
-        await ratingMemberPage.goto(
-          `/${locale}/account?returnTo=${encodeURIComponent(ratingPath)}`
-        );
+        await ratingMemberPage.goto(`/${locale}/account`);
         await waitForHydration(ratingMemberPage);
         const authDialog = ratingMemberPage.getByRole('dialog');
         await authDialog
@@ -1044,31 +1032,26 @@ for (const locale of ['is', 'en'] as const) {
         await ratingMemberPage.goto(
           await waitForLocalMagicLink(`rating-visual-${locale}@example.invalid`)
         );
-        await expect(ratingMemberPage).toHaveURL(ratingPath);
-        await ratingMemberPage.getByLabel(welcomeLabel).selectOption('5');
-        await ratingMemberPage.getByLabel(clarityLabel).selectOption('4');
-        await ratingMemberPage.getByLabel(comfortLabel).selectOption('4');
-        await ratingMemberPage.getByLabel(thoughtfulnessLabel).selectOption('4');
-        await ratingMemberPage.getByRole('button', { name: copy[locale].saveRating }).click();
-        await expect(ratingMemberPage).toHaveURL(`/${locale}?place=${dogFriendlinessPlaceId}`);
+        await ratingMemberPage.goto(`/${locale}?place=${dogFriendlinessPlaceId}&view=map`);
+        await waitForHydration(ratingMemberPage);
+        const secondInlineRating = ratingMemberPage.locator('[data-inline-rating]');
+        const fiveStars = secondInlineRating
+          .getByRole('radiogroup', { name: copy[locale].overallRating })
+          .getByRole('radio', { name: locale === 'is' ? '5 stjörnur' : '5 stars' });
+        await expect(fiveStars).toBeEnabled();
+        await fiveStars.click();
+        await expect(secondInlineRating.getByText(copy[locale].ratingSaved)).toBeVisible();
       } finally {
         await ratingMemberContext.close();
       }
 
-      await page.goto(`/${locale}?place=${dogFriendlinessPlaceId}`);
-      const selectedRatingProfile = page.getByRole('complementary', {
-        name: copy[locale].selectedPlace
-      });
+      await page.goto(`/${locale}?place=${dogFriendlinessPlaceId}&view=map`);
+      await waitForHydration(page);
       await expect(selectedRatingProfile).toHaveAttribute('data-overlay', 'place');
-      await selectedRatingProfile.locator('summary').click();
-      const ratingEvidence = selectedRatingProfile.locator('[data-rating-summary]');
-      await expect(ratingEvidence).toHaveAttribute('data-rating-visible', 'true');
-      await expect(ratingEvidence).toHaveAttribute('data-surface', 'rating-evidence');
-      await expect(ratingEvidence).toHaveAttribute('data-tone', 'info');
-      await expect(ratingEvidence.locator('[data-status="info"]')).toHaveCount(2);
-      await expect(ratingEvidence.locator('dl')).toBeVisible();
-      await expect(ratingEvidence.locator('strong')).toBeVisible();
-      await capture(page, evidence, `selected-rating-evidence-${locale}-desktop.png`);
+      const publicAverage = selectedRatingProfile.getByLabel(copy[locale].ratingSummary);
+      await expect(publicAverage).toBeVisible();
+      await expect(publicAverage).toContainText('★');
+      await capture(page, evidence, `selected-rating-average-${locale}-desktop.png`);
 
       await page.goto(`/${locale}/moderation/dog-friendliness/${dogFriendlinessPlaceId}`);
       await waitForHydration(page);
@@ -1086,35 +1069,34 @@ for (const locale of ['is', 'en'] as const) {
       }
     }
 
-    // private-rating-note Private Rating Note: a fresh, dedicated fixture per locale pass (provisioning also
-    // clears any Ratings/linked Reports the other locale's pass left on it) plus the fail-closed
-    // policy explicitly enabled through the service-role RPC.
+    // private-rating-note Private Rating Note: a fresh, dedicated fixture per locale pass
+    // (provisioning also clears any Ratings the other locale's pass left on it) plus the
+    // fail-closed policy explicitly enabled through the service-role RPC.
     provisionLocalPrivateRatingNoteFixture();
     await configureLocalPrivateRatingNotePolicy();
     const { placeId: notePlaceId } = localPrivateRatingNoteFixture;
-    await page.goto(`/${locale}/places/${notePlaceId}/rate`);
+    await page.goto(`/${locale}?place=${notePlaceId}&view=map`);
     await waitForHydration(page);
-    await expect(page.getByRole('heading', { name: copy[locale].ratingForm })).toBeVisible();
-    const noteWelcomeLabel = locale === 'is' ? 'Móttökur' : 'Welcome';
-    await page.getByLabel(noteWelcomeLabel).selectOption('1');
-    await expect(page.getByText(copy[locale].noteHeading)).toBeVisible();
-    await page.getByLabel(copy[locale].noteInaccurate).check();
-    await page
-      .getByLabel(copy[locale].noteText)
-      .fill(
-        locale === 'is'
-          ? 'Skráður opnunartími stemmir ekki við það sem starfsfólk sagði.'
-          : 'The posted opening hours do not match what staff told me.'
-      );
-    await capture(page, evidence, `rating-note-fieldset-${locale}-desktop.png`);
+    const noteRating = page.locator('[data-inline-rating]');
+    const oneStar = noteRating
+      .getByRole('radiogroup', { name: copy[locale].overallRating })
+      .getByRole('radio', { name: locale === 'is' ? '1 stjarna' : '1 star' });
+    await expect(oneStar).toBeEnabled();
+    await oneStar.click();
+    const noteInput = noteRating.getByRole('textbox', { name: copy[locale].noteText });
+    await expect(noteInput).toBeVisible();
+    await noteInput.fill(
+      locale === 'is'
+        ? 'Skráður opnunartími stemmir ekki við það sem starfsfólk sagði.'
+        : 'The posted opening hours do not match what staff told me.'
+    );
+    await noteInput.blur();
+    await expect(noteRating.getByText(copy[locale].ratingSaved)).toBeVisible();
+    await capture(page, evidence, `rating-note-inline-${locale}-desktop.png`);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await capture(page, evidence, `rating-note-fieldset-${locale}-mobile.png`);
+    await capture(page, evidence, `rating-note-inline-${locale}-mobile.png`);
     await page.setViewportSize({ width: 1280, height: 900 });
-
-    await page.getByRole('button', { name: copy[locale].saveRating }).click();
-    await expect(page.getByText(copy[locale].reportPrompt)).toBeVisible();
-    await capture(page, evidence, `rating-note-report-prompt-${locale}-desktop.png`);
 
     await page.goto(`/${locale}/moderation/dog-friendliness/${notePlaceId}`);
     await waitForHydration(page);

@@ -3,6 +3,7 @@ import { env as publicEnv } from '$env/dynamic/public';
 import { json, type RequestHandler } from '@sveltejs/kit';
 
 import { parseLocale } from '$i18n';
+import { passwordlessResendCooldownSeconds } from '$lib/auth/resend';
 import { authPendingIntentTokenPattern } from '$server/auth/callback';
 import {
   buildMemberCallbackUrl,
@@ -78,7 +79,7 @@ export const POST: RequestHandler = async ({ getClientAddress, locals, params, r
 
   const result = await sendPasswordlessEmail(locals.supabase, email, callbackUrl);
   return result === 'sent'
-    ? json({ status: 'link_sent', resendAfterSeconds: 30 })
+    ? json({ status: 'link_sent', resendAfterSeconds: passwordlessResendCooldownSeconds })
     : json({ error: 'provider_failed' }, { status: 503 });
 };
 
