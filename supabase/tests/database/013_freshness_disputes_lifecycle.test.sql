@@ -298,7 +298,7 @@ select is(
 );
 select is(
   (select access_information_urls
-   from public.get_published_place_profile(
+   from public.get_published_place_profile_v2(
      '75300000-0000-4000-8000-000000000001', 'en'
    )
    where access_condition_id = '75400000-0000-4000-8000-000000000001'),
@@ -388,7 +388,7 @@ select is(
 );
 select is(
   (select access_information_urls
-   from public.get_published_place_profile(
+   from public.get_published_place_profile_v2(
      '75300000-0000-4000-8000-000000000001', 'en'
    )
    where permission_requirement = 'advance_approval'),

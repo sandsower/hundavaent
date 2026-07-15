@@ -40,6 +40,7 @@ export interface SuggestionProposal {
       'leash_required' | 'off_leash_permitted' | 'carrier_required' | 'other_sourced';
     restraint_note: string | null;
     dog_eligibility: { scope: 'all_dogs' };
+    availability_state: 'whenever_open' | 'limited' | 'not_stated';
     availability_window: Record<string, Json>;
     permission_requirement: 'standing_permission' | 'ask_on_arrival' | 'advance_approval';
   };
@@ -97,6 +98,11 @@ const permissions = new Set<SuggestionProposal['access_condition']['permission_r
   'standing_permission',
   'ask_on_arrival',
   'advance_approval'
+]);
+const availabilityStates = new Set<SuggestionProposal['access_condition']['availability_state']>([
+  'whenever_open',
+  'limited',
+  'not_stated'
 ]);
 const evidenceKinds = new Set<SuggestionProposal['evidence']['kind']>([
   'official_website',
@@ -184,9 +190,14 @@ export function parseSuggestionFormData(
   const openingHoursNote = value('openingHoursNote');
   const startsAt = value('availabilityStartsAt');
   const endsAt = value('availabilityEndsAt');
+  const availabilityState = resolveAvailabilityState(
+    value('availabilityState'),
+    days.length > 0 || Boolean(startsAt) || Boolean(endsAt)
+  );
   if ((startsAt && !validTime(startsAt)) || (endsAt && !validTime(endsAt))) {
     return { ok: false, error: 'invalid' };
   }
+  if (!availabilityState) return { ok: false, error: 'invalid' };
 
   const proposal: SuggestionProposal = {
     purpose: 'dog_access_destination',
@@ -219,6 +230,7 @@ export function parseSuggestionFormData(
         restraint as SuggestionProposal['access_condition']['restraint_condition'],
       restraint_note: value('restraintNote') || null,
       dog_eligibility: { scope: 'all_dogs' },
+      availability_state: availabilityState,
       availability_window: {
         ...(days.length ? { days } : {}),
         ...(startsAt ? { startsAt } : {}),
@@ -315,9 +327,14 @@ function parseSimpleSuggestionFormData(
   const days = parseAvailabilityDays(value('availabilityDays'));
   const startsAt = value('availabilityStartsAt');
   const endsAt = value('availabilityEndsAt');
+  const availabilityState = resolveAvailabilityState(
+    value('availabilityState'),
+    days !== 'invalid' && (days.length > 0 || Boolean(startsAt) || Boolean(endsAt))
+  );
   if (days === 'invalid' || (startsAt && !validTime(startsAt)) || (endsAt && !validTime(endsAt))) {
     return { ok: false, error: 'invalid' };
   }
+  if (!availabilityState) return { ok: false, error: 'invalid' };
 
   const locale = options.locale ?? 'en';
   const description = value('description') || explanation;
@@ -354,6 +371,7 @@ function parseSimpleSuggestionFormData(
           restraint as SuggestionProposal['access_condition']['restraint_condition'],
         restraint_note: restraintNote || null,
         dog_eligibility: { scope: 'all_dogs' },
+        availability_state: availabilityState,
         availability_window: {
           ...(days.length ? { days } : {}),
           ...(startsAt ? { startsAt } : {}),
@@ -373,6 +391,20 @@ function parseSimpleSuggestionFormData(
       }
     }
   };
+}
+
+function resolveAvailabilityState(
+  requestedState: string,
+  hasWindow: boolean
+): SuggestionProposal['access_condition']['availability_state'] | null {
+  const state = requestedState || (hasWindow ? 'limited' : 'not_stated');
+  if (
+    !availabilityStates.has(state as SuggestionProposal['access_condition']['availability_state'])
+  ) {
+    return null;
+  }
+  if ((state === 'limited') !== hasWindow) return null;
+  return state as SuggestionProposal['access_condition']['availability_state'];
 }
 
 function parseAvailabilityDays(value: string): number[] | 'invalid' {

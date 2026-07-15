@@ -134,7 +134,7 @@
       <h3 id={`welcome-${place.placeId}`}>{copy['place.welcomeQuestion']}</h3>
       <AccessSymbols
         placeName={place.name}
-        conditions={place.accessConditions}
+        conditions={profile?.accessConditions ?? place.accessConditions}
         {copy}
         onOpenDetails={openCompleteDetails}
       />

@@ -436,7 +436,7 @@ select is(
 select is(
   (
     select array_agg(field_name order by field_name)
-    from public.list_published_places('is') as listed
+    from public.list_published_places_v2('is') as listed
     cross join lateral jsonb_object_keys(to_jsonb(listed)) as field_name
     where listed.place_id = '30000000-0000-4000-8000-000000000003'
   ),
@@ -460,7 +460,7 @@ select is(
 select is(
   (
     select array_agg(field_name order by field_name)
-    from public.get_published_place_profile(
+    from public.get_published_place_profile_v2(
       '30000000-0000-4000-8000-000000000003',
       'is'
     ) as profile

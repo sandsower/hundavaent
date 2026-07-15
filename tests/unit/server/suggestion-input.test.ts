@@ -134,6 +134,7 @@ describe('Suggestion input', () => {
 
   it('keeps opening hours separate from Access Condition Availability Windows', () => {
     const form = completeForm();
+    form.set('availabilityState', 'limited');
     form.set('openingHoursNote', 'Weekdays 08:00-17:00');
     form.set('availabilityStartsAt', '10:00');
     form.set('availabilityEndsAt', '16:00');
@@ -147,6 +148,22 @@ describe('Suggestion input', () => {
       days: [1, 2, 3, 4, 5],
       startsAt: '10:00',
       endsAt: '16:00'
+    });
+    expect(result.proposal.access_condition.availability_state).toBe('limited');
+  });
+
+  it('preserves explicit whenever-open timing without manufacturing a window', () => {
+    const form = completeForm();
+    form.set('availabilityState', 'whenever_open');
+    form.delete('availabilityDays');
+
+    const result = parseSuggestionFormData(form);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.proposal.access_condition).toMatchObject({
+      availability_state: 'whenever_open',
+      availability_window: {}
     });
   });
 

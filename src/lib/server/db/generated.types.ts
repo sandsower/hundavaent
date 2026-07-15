@@ -432,6 +432,35 @@ export type Database = {
           access_area: string
           access_area_note: string
           access_condition_id: string
+          address_line: string
+          availability_window: Json
+          category: string
+          description: string
+          dog_amenities: Json
+          dog_eligibility: Json
+          evidence_sources: Json
+          freshness_until: string
+          latitude: number
+          locality: string
+          longitude: number
+          name: string
+          opening_hours: Json
+          permission_requirement: string
+          phone: string
+          place_id: string
+          postal_code: string
+          restraint_condition: string
+          restraint_note: string
+          verified_at: string
+          website_url: string
+        }[]
+      }
+      get_published_place_profile_v2: {
+        Args: { requested_locale: string; requested_place_id: string }
+        Returns: {
+          access_area: string
+          access_area_note: string
+          access_condition_id: string
           access_information_urls: Json
           address_line: string
           availability_state: string
@@ -493,8 +522,8 @@ export type Database = {
           place_id: string
           saved_at: string
           successor_available: boolean
-          successor_name: string
-          successor_place_id: string
+          successor_name: string | null
+          successor_place_id: string | null
         }[]
       }
       list_member_contributor_priority: {
@@ -757,6 +786,24 @@ export type Database = {
         }[]
       }
       list_published_places: {
+        Args: { requested_locale: string }
+        Returns: {
+          access_area: string
+          access_condition_count: number
+          access_conditions: Json
+          category: string
+          latitude: number
+          locality: string
+          longitude: number
+          name: string
+          permission_requirement: string
+          place_id: string
+          restraint_condition: string
+          simple_access_summary: boolean
+          verified_at: string
+        }[]
+      }
+      list_published_places_v2: {
         Args: { requested_locale: string }
         Returns: {
           access_area: string
