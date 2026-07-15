@@ -19,7 +19,8 @@ export const enCatalogue = {
   'stub.accountBody': 'Account access is coming soon.',
   'account.navSignedIn': 'My account',
   'account.title': 'Welcome to Hundavænt',
-  'account.intro': 'Favorite places, remember visits, and share useful tips with other dog people.',
+  'account.intro':
+    'Keep favorite places, remember visits, and share useful tips with other dog people.',
   'account.facebook': 'Continue with Facebook',
   'account.facebookUnavailable': 'Facebook sign-in is not ready in this environment.',
   'account.orEmail': 'or receive a secure link by email',

@@ -1260,7 +1260,7 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Selected place');
-    expect(within(selectedPlace).getAllByRole('button')).toHaveLength(6);
+    expect(selectedPlace.querySelectorAll('.access-presentation button.symbol')).toHaveLength(5);
     expect(within(selectedPlace).getByRole('button', { name: 'Special conditions' })).toBeTruthy();
     expect(within(selectedPlace).queryByText('Dogs are generally allowed')).toBeNull();
   });

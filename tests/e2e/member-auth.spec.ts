@@ -92,7 +92,7 @@ test('a passwordless link opened on another device signs in without an originati
 
   await page.goto('/en');
   await waitForHydration(page);
-  await page.getByRole('link', { name: 'Sign in' }).click();
+  await page.getByRole('link', { name: 'Sign in', exact: true }).click();
   const authDialog = page.getByRole('dialog');
   await authDialog.getByLabel('Email address').fill(email);
   await authDialog.getByRole('button', { name: 'Send me a sign-in link' }).click();
@@ -115,7 +115,7 @@ test('an actually expired local magic link is denied by the provider and recover
 
   await page.goto('/en');
   await waitForHydration(page);
-  await page.getByRole('link', { name: 'Sign in' }).click();
+  await page.getByRole('link', { name: 'Sign in', exact: true }).click();
   const authDialog = page.getByRole('dialog');
   await authDialog.getByLabel('Email address').fill(email);
   await authDialog.getByRole('button', { name: 'Send me a sign-in link' }).click();

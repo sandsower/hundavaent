@@ -5,7 +5,7 @@ import { load } from '../../../src/routes/[lang=lang]/+page.server';
 describe('Discovery Member boundary', () => {
   it('marks Favorites unavailable instead of presenting a false empty projection', async () => {
     const rpc = vi.fn(async (name: string) => {
-      if (name === 'list_published_places') return { data: [], error: null };
+      if (name === 'list_published_places_v2') return { data: [], error: null };
       if (name === 'list_current_favourite_ids') {
         return { data: null, error: { code: 'infrastructure' } };
       }
@@ -29,7 +29,7 @@ describe('Discovery Member boundary', () => {
 
   it('fails closed when the requested private Favorites projection is unavailable', async () => {
     const rpc = vi.fn(async (name: string) => {
-      if (name === 'list_published_places') return { data: [], error: null };
+      if (name === 'list_published_places_v2') return { data: [], error: null };
       if (name === 'list_current_favourite_ids') {
         return { data: null, error: { code: 'infrastructure' } };
       }
@@ -66,7 +66,12 @@ describe('Discovery Member boundary', () => {
 
   it('loads only public Places when the canonical layout is signed out', async () => {
     const rpc = vi.fn(async (name: string) => {
-      if (name !== 'list_published_places') throw new Error(`Unexpected private RPC: ${name}`);
+      if (name === 'list_published_place_primary_photos') {
+        return { data: [], error: null };
+      }
+      if (name !== 'list_published_places_v2') {
+        throw new Error(`Unexpected private RPC: ${name}`);
+      }
       return {
         data: [
           {
@@ -85,7 +90,9 @@ describe('Discovery Member boundary', () => {
               {
                 accessArea: 'outdoors',
                 restraintCondition: 'leash_required',
-                permissionRequirement: 'standing_permission'
+                permissionRequirement: 'standing_permission',
+                dogEligibilityState: 'all_dogs',
+                availabilityState: 'whenever_open'
               }
             ],
             verified_at: '2026-07-09T11:00:00.000Z'
@@ -106,8 +113,11 @@ describe('Discovery Member boundary', () => {
 
     expect(result).toMatchObject({ proximityAssistEnabled: false });
     expect(result).not.toHaveProperty('favouritePlaceIds');
-    expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc).toHaveBeenCalledWith('list_published_places', { requested_locale: 'en' });
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenCalledWith('list_published_places_v2', { requested_locale: 'en' });
+    expect(rpc).toHaveBeenCalledWith('list_published_place_primary_photos', {
+      requested_place_ids: ['30000000-0000-4000-8000-000000000003']
+    });
     expect(setHeaders).not.toHaveBeenCalled();
   });
 });

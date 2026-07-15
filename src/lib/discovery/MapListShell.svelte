@@ -879,7 +879,6 @@
                 {signedIn}
                 favourite={favouritePlaceIds.includes(selectedPlace.placeId)}
                 signInHref={favouriteSignInHref(selectedPlace.placeId)}
-                pendingConfirmation={pendingFavourite === selectedPlace.placeId}
                 onFavouriteChange={applyFavouriteState}
                 {correctionHref}
                 checkInSignInHref={checkInSignInHref(selectedPlace.placeId)}
@@ -910,7 +909,6 @@
               closable={discoveryState.view === 'list' && !mapFailed && !persistentRailLayout}
               {signedIn}
               {favouritePlaceIds}
-              pendingFavouritePlaceId={pendingFavourite}
               signInHref={favouriteSignInHref}
               onFavouriteChange={applyFavouriteState}
             />

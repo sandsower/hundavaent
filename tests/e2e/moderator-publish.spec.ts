@@ -26,6 +26,8 @@ test.beforeAll(async () => {
 test('a Moderator verifies and publishes a Candidate through the full application', async ({
   page
 }) => {
+  const placeWebsite = 'https://example.invalid/publication-candidate';
+
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fplaces%2Fnew');
   await page.locator('main').getByLabel('Email address').fill(evaluationPublisher.email);
   await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
@@ -49,6 +51,7 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   await page.getByLabel('Longitude').fill(candidate.longitude);
   await page.getByLabel('Geometry precision').selectOption('moderator_confirmed_point');
   await page.getByLabel('Geometry source').fill('End-to-end fixture point confirmed by Moderator.');
+  await page.getByLabel('Place website').fill(placeWebsite);
   await page.getByLabel('Evidence URL').fill(candidate.evidenceUrl);
   await page.getByLabel('Evidence source title').fill(candidate.evidenceSourceLabel);
   await page.getByLabel('Evidence observed at').fill(candidate.evidenceObservedAt);
@@ -64,9 +67,11 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   await page.getByLabel('Evidence observed at').nth(2).fill(candidate.evidenceObservedAt);
   await page.getByLabel('Where dogs are allowed').nth(0).selectOption('indoors');
   await page.getByLabel('Leash and restraint').nth(0).selectOption('carrier_required');
+  await page.getByLabel('When are dogs welcome?').nth(0).selectOption('whenever_open');
   await page.getByRole('button', { name: 'Add another condition' }).click();
   await page.getByLabel('Where dogs are allowed').nth(1).selectOption('indoors');
   await page.getByLabel('Leash and restraint').nth(1).selectOption('carrier_required');
+  await page.getByLabel('When are dogs welcome?').nth(1).selectOption('limited');
   await page.getByLabel('Maximum weight, kg (inclusive)').nth(1).fill('10');
   await page.getByLabel('Ends at').nth(1).fill('17:00');
   await page.getByRole('button', { name: 'Save Candidate' }).click();
@@ -80,7 +85,7 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
 
   const conditionGroups = page.getByRole('group', { name: /Evidence supporting condition/ });
   const unrestrictedCondition = conditionGroups.filter({
-    hasText: 'All dogs are allowed indoors when carried. Access times are unknown.'
+    hasText: 'All dogs are allowed indoors when carried.'
   });
   const restrictedCondition = conditionGroups.filter({
     hasText:
@@ -109,7 +114,7 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   const publicClient = createClient<Database>(status.apiUrl, status.publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
-  const { data, error } = await publicClient.rpc('list_published_places', {
+  const { data, error } = await publicClient.rpc('list_published_places_v2', {
     requested_locale: 'en'
   });
 
@@ -136,15 +141,23 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   await page.goto(`/en?place=${candidateId}`);
   const englishCard = page.getByRole('complementary', { name: 'Selected place' });
   await expect(englishCard).toBeVisible();
-  await englishCard.getByText('Details and sources').click();
-  await expect(englishCard.getByText(candidate.evidenceSourceLabel)).toBeVisible();
-  await expect(englishCard.getByText('Supporting public record')).toHaveCount(2);
-  await expect(englishCard.getByText(candidate.evidenceUrl)).toBeVisible();
-  await expect(englishCard.getByText('Municipal rule 4')).toHaveCount(2);
-  await expect(englishCard.locator('small').filter({ hasText: /^Official website$/ })).toHaveCount(
-    2
+  await englishCard.getByText('Details', { exact: true }).click();
+  await expect(englishCard.getByRole('link', { name: 'Website' })).toHaveAttribute(
+    'href',
+    placeWebsite
   );
-  await expect(englishCard.locator('small').filter({ hasText: /^Public record$/ })).toHaveCount(2);
+  const englishAccessLinks = englishCard.getByRole('link', {
+    name: /^Access information(?: \d+)?$/
+  });
+  await expect(englishAccessLinks).not.toHaveCount(0);
+  await expect(englishCard.locator(`a[href="${candidate.evidenceUrl}"]`)).toHaveText(
+    /^Access information(?: \d+)?$/
+  );
+  await expect(englishCard.getByText(candidate.evidenceSourceLabel)).toHaveCount(0);
+  await expect(englishCard.getByText('Supporting public record')).toHaveCount(0);
+  await expect(englishCard.getByText('Municipal rule 4')).toHaveCount(0);
+  await expect(englishCard.getByText('Official website')).toHaveCount(0);
+  await expect(englishCard.getByText('Public record')).toHaveCount(0);
   await expect(englishCard.getByText('Contradictory member report')).toHaveCount(0);
   await expect(
     englishCard.getByText(
@@ -158,13 +171,25 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
     'Hundar sem eru allt að og með 10 kg mega vera innandyra fyrir kl. 17:00 í burðartösku.'
   );
   if (!(await icelandicExplanation.isVisible())) {
-    await icelandicCard.getByText('Nánar og heimildir').click();
+    await icelandicCard.getByText('Nánari upplýsingar').click();
   }
   await expect(icelandicExplanation).toBeVisible();
-  await expect(icelandicCard.locator('small').filter({ hasText: /^Opinber vefsíða$/ })).toHaveCount(
-    2
+  await expect(icelandicCard.getByRole('link', { name: 'Vefsíða' })).toHaveAttribute(
+    'href',
+    placeWebsite
   );
-  await expect(icelandicCard.getByText('Municipal rule 4')).toHaveCount(2);
+  const icelandicAccessLinks = icelandicCard.getByRole('link', {
+    name: /^Upplýsingar um aðgang(?: \d+)?$/
+  });
+  await expect(icelandicAccessLinks).not.toHaveCount(0);
+  await expect(icelandicCard.locator(`a[href="${candidate.evidenceUrl}"]`)).toHaveText(
+    /^Upplýsingar um aðgang(?: \d+)?$/
+  );
+  await expect(icelandicCard.getByText(candidate.evidenceSourceLabel)).toHaveCount(0);
+  await expect(icelandicCard.getByText('Supporting public record')).toHaveCount(0);
+  await expect(icelandicCard.getByText('Municipal rule 4')).toHaveCount(0);
+  await expect(icelandicCard.getByText('Opinber vefsíða')).toHaveCount(0);
+  await expect(icelandicCard.getByText('Opinber skrá')).toHaveCount(0);
 
   const audit = getLocalPublicationAudit(candidateId!);
   expect(audit.map((event) => event.action)).toEqual(['place.published', 'place.verified']);
@@ -175,7 +200,7 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   expect(disputeIds).toHaveLength(2);
 
   const { data: duringDispute, error: disputeListError } = await publicClient.rpc(
-    'list_published_places',
+    'list_published_places_v2',
     { requested_locale: 'en' }
   );
   expect(disputeListError).toBeNull();
@@ -204,7 +229,7 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   expect(restoredVerificationIds).toHaveLength(2);
 
   const { data: afterResolution, error: resolutionListError } = await publicClient.rpc(
-    'list_published_places',
+    'list_published_places_v2',
     { requested_locale: 'en' }
   );
   expect(resolutionListError).toBeNull();
@@ -221,7 +246,7 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
 
   await provisionLocalModerator(evaluationPublisher.email);
   const { data: afterCleanup, error: cleanupError } = await publicClient.rpc(
-    'list_published_places',
+    'list_published_places_v2',
     { requested_locale: 'en' }
   );
   expect(cleanupError).toBeNull();
