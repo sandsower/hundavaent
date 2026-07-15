@@ -1,14 +1,130 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import { validateEvidenceManifest } from '$server/evaluation/evidence';
 import {
   assembleEvidenceManifest,
+  collectEvaluationLaneResults,
   getManagedServerEnvironment,
   getSupabaseAuthHealthUrl,
   runRetriedResetBoundary
 } from '../../../scripts/evaluate-release';
+import {
+  EVALUATION_LANE_SCHEMA_VERSION,
+  configureEvaluationSupabase,
+  evaluationLaneNames,
+  evaluationLaneStages,
+  getEvaluationLaneEnvironment,
+  getEvaluationLaneRuntime,
+  type EvaluationLaneResult
+} from '../../../scripts/evaluation-lanes';
 
 describe('release evaluation orchestration', () => {
+  it('keeps production recovery fail-closed around the no-Member auth fast path', () => {
+    const workflow = readFileSync(
+      new URL('../../../.github/workflows/production.yml', import.meta.url),
+      'utf8'
+    );
+    const applicationDump = workflow.indexOf('--schema public,private,security');
+    const memberCount = workflow.indexOf('select count(*) from private.member_accounts');
+    const zeroMemberBranch = workflow.indexOf('[[ "${member_count}" == "0" ]]');
+    const fullAuthDump = workflow.indexOf('--schema auth -f recovery/auth-data.sql');
+
+    expect(applicationDump).toBeGreaterThan(0);
+    expect(memberCount).toBeGreaterThan(applicationDump);
+    expect(zeroMemberBranch).toBeGreaterThan(memberCount);
+    expect(fullAuthDump).toBeGreaterThan(zeroMemberBranch);
+    expect(workflow).toContain('member_count="unknown"');
+    expect(workflow).toContain('retaining full auth recovery handling');
+  });
+
+  it('assigns every concurrent lane a distinct runtime identity and port set', () => {
+    const runtimes = evaluationLaneNames.map(getEvaluationLaneRuntime);
+
+    expect(new Set(runtimes.map((runtime) => runtime.projectId)).size).toBe(runtimes.length);
+    expect(
+      new Set(
+        runtimes.flatMap((runtime) => [
+          runtime.apiPort,
+          runtime.databasePort,
+          runtime.shadowDatabasePort,
+          runtime.smtpPort,
+          runtime.appPort,
+          runtime.gatePort,
+          runtime.providerPort,
+          runtime.performancePort
+        ])
+      ).size
+    ).toBe(runtimes.length * 8);
+  });
+
+  it('configures Supabase and browser origins for an isolated lane', () => {
+    const source = `project_id = "hundavaent"
+
+[api]
+port = 55321
+
+[db]
+port = 55322
+shadow_port = 55320
+
+[local_smtp]
+port = 55324
+
+[auth]
+site_url = "http://127.0.0.1:5173"
+additional_redirect_urls = ["http://127.0.0.1:4173/en"]
+`;
+    const configured = configureEvaluationSupabase(source, 'visual');
+    const runtime = getEvaluationLaneRuntime('visual');
+
+    expect(configured).toContain(`project_id = "${runtime.projectId}"`);
+    expect(configured).toContain(`port = ${runtime.apiPort}`);
+    expect(configured).toContain(`port = ${runtime.databasePort}`);
+    expect(configured).toContain(`shadow_port = ${runtime.shadowDatabasePort}`);
+    expect(configured).toContain(`site_url = "http://127.0.0.1:${runtime.appPort}"`);
+    expect(configured).not.toContain('127.0.0.1:4173');
+    expect(getEvaluationLaneEnvironment('visual').HUNDAVAENT_E2E_APP_PORT).toBe(
+      String(runtime.appPort)
+    );
+  });
+
+  it('rejects missing, duplicate, and wrong-SHA lane evidence', () => {
+    const commitSha = 'a'.repeat(40);
+    const makeResult = (lane: EvaluationLaneResult['lane']): EvaluationLaneResult => ({
+      schemaVersion: EVALUATION_LANE_SCHEMA_VERSION,
+      lane,
+      requestedCommitSha: commitSha,
+      commitSha,
+      startedAt: '2026-07-15T10:00:00.000Z',
+      finishedAt: '2026-07-15T10:01:00.000Z',
+      durationMs: 60_000,
+      stages: evaluationLaneStages[lane].map((name) => ({
+        name,
+        passed: true,
+        exitCode: 0,
+        evidencePaths: [`test-results/evaluation/stages/${name}.log`]
+      }))
+    });
+    const results = evaluationLaneNames.map(makeResult);
+
+    expect(collectEvaluationLaneResults(results, commitSha)).toMatchObject({ failures: [] });
+    expect(collectEvaluationLaneResults(results.slice(1), commitSha).failures).toContain(
+      'missing evaluation lane: static'
+    );
+    expect(
+      collectEvaluationLaneResults([...results, makeResult('static')], commitSha).failures
+    ).toContain('duplicate evaluation lane: static');
+    expect(
+      collectEvaluationLaneResults(
+        results.map((result) =>
+          result.lane === 'visual' ? { ...result, commitSha: 'b'.repeat(40) } : result
+        ),
+        commitSha
+      ).failures
+    ).toContain(`visual lane observed unexpected commit ${'b'.repeat(40)}`);
+  });
   it('starts the managed browser server with the complete local Member auth contract', () => {
     expect(
       getManagedServerEnvironment(
