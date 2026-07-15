@@ -96,6 +96,8 @@
   <meta name="description" content={data.copy['meta.description']} />
 </svelte:head>
 
+<svelte:body class:north-star-place={northStarMode === 'place'} />
+
 <header
   class="site-header"
   class:north-star={northStarMode !== undefined}

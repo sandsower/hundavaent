@@ -53,6 +53,10 @@
     gap: var(--hv-space-context);
   }
 
+  :where([data-ui-mode]) .hv-grid > * {
+    min-width: 0;
+  }
+
   :where([data-ui-mode]) .hv-grid[data-columns='2'] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -63,6 +67,7 @@
 
   :where([data-ui-mode]) .hv-form-section {
     display: grid;
+    min-inline-size: 0;
     gap: var(--hv-space-panel);
   }
 
@@ -109,6 +114,12 @@
     justify-content: center;
     font-weight: 800;
     text-decoration: none;
+  }
+
+  :where([data-ui-mode]) .hv-field {
+    width: 100%;
+    min-width: 0;
+    padding: 0.55rem 0.8rem;
   }
 
   :where([data-ui-mode]) .hv-control[data-intent='primary'] {
