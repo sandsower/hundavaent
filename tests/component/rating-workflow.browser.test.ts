@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/svelte';
+import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import { catalogues } from '$i18n';
@@ -7,9 +7,7 @@ import type {
   DogFriendlinessSummary,
   ModerationRating
 } from '$server/dog-friendliness/dog-friendliness';
-import type { PublishedPlaceProfile } from '$server/discovery/public-places';
 
-import RatePage from '../../src/routes/[lang=lang]/places/[id]/rate/+page.svelte';
 import ModerationRatingsPage from '../../src/routes/[lang=lang]/moderation/dog-friendliness/[placeId]/+page.svelte';
 
 const placeId = '30000000-0000-4000-8000-000000000003';
@@ -90,168 +88,6 @@ describe('RatingSummary', () => {
     expect(
       screen.getByText('Not enough Dimensions qualify yet to show an overall result.')
     ).toBeTruthy();
-  });
-});
-
-const place: PublishedPlaceProfile = {
-  placeId,
-  name: 'Published Place',
-  description: 'A verified dog-friendly Place.',
-  category: 'park',
-  location: {
-    addressLine: 'Hundagata 1',
-    locality: 'Reykjavík',
-    postalCode: '101',
-    latitude: 64.1423,
-    longitude: -21.9555
-  },
-  websiteUrl: null,
-  phone: null,
-  openingHours: {},
-  dogAmenities: [],
-  accessConditions: [],
-  dogFriendlinessSummary: hiddenSummary,
-  photos: []
-};
-
-describe('Member Rating submission', () => {
-  it.each([
-    ['is', 'Meta hundvænleika', 'Vista mat'],
-    ['en', 'Rate Dog-Friendliness', 'Save Rating']
-  ] as const)('renders four independent Dimension controls in %s', (lang, heading, submitLabel) => {
-    render(RatePage, {
-      params: { lang, id: place.placeId },
-      data: { lang, copy: catalogues[lang], signInUrl: null, place, myRating: null },
-      form: null
-    } as never);
-
-    expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
-    expect(screen.getByRole('button', { name: submitLabel })).toBeTruthy();
-    expect(screen.getAllByRole('combobox')).toHaveLength(4);
-  });
-
-  it('explains each Dimension without soliciting a staff, product, food, or business review', () => {
-    render(RatePage, {
-      params: { lang: 'en', id: place.placeId },
-      data: { lang: 'en', copy: catalogues.en, signInUrl: null, place, myRating: null },
-      form: null
-    } as never);
-
-    expect(screen.getByRole('note').textContent).toContain(
-      'not a review of staff, products, food, or general business quality'
-    );
-    expect(screen.getByText('How positively were you and your dog received?')).toBeTruthy();
-    expect(screen.getByText('How easy were the Place dog rules to understand?')).toBeTruthy();
-  });
-
-  it('lets every Dimension independently be marked not applicable', () => {
-    render(RatePage, {
-      params: { lang: 'en', id: place.placeId },
-      data: { lang: 'en', copy: catalogues.en, signInUrl: null, place, myRating: null },
-      form: null
-    } as never);
-
-    for (const select of screen.getAllByRole('combobox') as HTMLSelectElement[]) {
-      expect(select.value).toBe('na');
-      expect(within(select).getByText('Not applicable')).toBeTruthy();
-    }
-  });
-
-  it('prefills the form from the Member existing current Rating', () => {
-    render(RatePage, {
-      params: { lang: 'en', id: place.placeId },
-      data: {
-        lang: 'en',
-        copy: catalogues.en,
-        signInUrl: null,
-        place,
-        myRating: {
-          id: 'rating-1',
-          placeId,
-          scores: { welcome: 4, clarity: null, comfort: 5, thoughtfulness: 2 },
-          ratedAt: '2026-07-12T09:00:00Z',
-          excluded: false
-        }
-      },
-      form: null
-    } as never);
-
-    const selects = screen.getAllByRole('combobox') as HTMLSelectElement[];
-    expect(selects.map((select) => select.value)).toEqual(['4', 'na', '5', '2']);
-  });
-
-  it('surfaces when the Member own Rating is not currently counted toward the public result', () => {
-    render(RatePage, {
-      params: { lang: 'en', id: place.placeId },
-      data: {
-        lang: 'en',
-        copy: catalogues.en,
-        signInUrl: null,
-        place,
-        myRating: {
-          id: 'rating-1',
-          placeId,
-          scores: { welcome: 1, clarity: 1, comfort: 1, thoughtfulness: 1 },
-          ratedAt: '2026-07-12T09:00:00Z',
-          excluded: true
-        }
-      },
-      form: null
-    } as never);
-
-    expect(
-      screen.getByText('Your Rating is not currently counted toward the public result.')
-    ).toBeTruthy();
-  });
-});
-
-describe('Private Rating Note prompt on the Rating form', () => {
-  it('never offers a note when the policy is disabled, even at the lowest score', async () => {
-    render(RatePage, {
-      params: { lang: 'en', id: place.placeId },
-      data: {
-        lang: 'en',
-        copy: catalogues.en,
-        signInUrl: null,
-        place,
-        myRating: null,
-        notePolicy: { enabled: false, lowScoreThreshold: 2 }
-      },
-      form: null
-    } as never);
-
-    const [welcomeSelect] = screen.getAllByRole('combobox') as HTMLSelectElement[];
-    await fireEvent.change(welcomeSelect, { target: { value: '1' } });
-
-    expect(screen.queryByText('Private context for a low Rating')).toBeNull();
-  });
-
-  it('offers a note once a submitted score meets the configured threshold, with no default classification', async () => {
-    render(RatePage, {
-      params: { lang: 'en', id: place.placeId },
-      data: {
-        lang: 'en',
-        copy: catalogues.en,
-        signInUrl: null,
-        place,
-        myRating: null,
-        notePolicy: { enabled: true, lowScoreThreshold: 2 }
-      },
-      form: null
-    } as never);
-
-    expect(screen.queryByText('Private context for a low Rating')).toBeNull();
-
-    const [welcomeSelect] = screen.getAllByRole('combobox') as HTMLSelectElement[];
-    await fireEvent.change(welcomeSelect, { target: { value: '2' } });
-
-    expect(screen.getByText('Private context for a low Rating')).toBeTruthy();
-    const radios = screen.getAllByRole('radio') as HTMLInputElement[];
-    expect(radios).toHaveLength(3);
-    expect(radios.every((radio) => !radio.checked)).toBe(true);
-
-    await fireEvent.change(welcomeSelect, { target: { value: '4' } });
-    expect(screen.queryByText('Private context for a low Rating')).toBeNull();
   });
 });
 

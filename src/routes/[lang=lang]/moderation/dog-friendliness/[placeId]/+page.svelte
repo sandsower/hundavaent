@@ -79,6 +79,10 @@
           </div>
 
           <dl class="scores">
+            <div>
+              <dt>{data.copy['rating.inline.overall']}</dt>
+              <dd>{scoreLabel(rating.overallScore ?? null)}</dd>
+            </div>
             {#each dimensions as dimension (dimension)}
               <div>
                 <dt>{data.copy[`rating.dimension.${dimension}.label` as MessageKey]}</dt>

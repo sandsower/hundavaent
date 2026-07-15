@@ -852,6 +852,11 @@ export const isCatalogue = {
   'rating.conflict': 'Matið þitt breyttist. Uppfærðu síðuna og reyndu aftur.',
   'rating.unavailable': 'Ekki tókst að vista matið. Reyndu aftur eftir augnablik.',
   'rating.summary.heading': 'Hundvænleiki að mati meðlima',
+  'rating.inline.heading': 'Gefðu staðnum einkunn',
+  'rating.inline.overall': 'Heildareinkunn',
+  'rating.inline.saved': 'Vistað',
+  'rating.inline.reset': 'Nota heildareinkunn',
+  'rating.inline.note': 'Hvað mætti bæta? (valfrjálst)',
   'rating.summary.notYetRated': 'Ekki enn metið',
   'rating.summary.notYetRatedDetail':
     'Of fá meðlimamöt liggja fyrir til að sýna niðurstöðu opinberlega.',

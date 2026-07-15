@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   parseRatingExclusionFormData,
   parseRatingFormData,
-  parseRatingReinstatementFormData
+  parseRatingReinstatementFormData,
+  parseInlineRatingInput
 } from '$server/dog-friendliness/dog-friendliness-input';
 
 function ratingForm(overrides: Record<string, string> = {}): FormData {
@@ -20,6 +21,42 @@ function ratingForm(overrides: Record<string, string> = {}): FormData {
 }
 
 describe('Rating input', () => {
+  it('requires an explicit overall score while leaving untouched optional categories null', () => {
+    expect(
+      parseInlineRatingInput({
+        overall: 4,
+        welcome: null,
+        clarity: null,
+        comfort: null,
+        thoughtfulness: null,
+        noteUpdate: false,
+        privateNote: null
+      })
+    ).toEqual({
+      overall: 4,
+      welcome: null,
+      clarity: null,
+      comfort: null,
+      thoughtfulness: null,
+      noteUpdate: false,
+      privateNote: null
+    });
+  });
+
+  it.each([null, 0, 6, 2.5])('rejects invalid inline overall score %s', (overall) => {
+    expect(
+      parseInlineRatingInput({
+        overall,
+        welcome: null,
+        clarity: null,
+        comfort: null,
+        thoughtfulness: null,
+        noteUpdate: false,
+        privateNote: null
+      })
+    ).toBeNull();
+  });
+
   it('parses all four Dimensions scored', () => {
     const result = parseRatingFormData(ratingForm());
 

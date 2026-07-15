@@ -7,7 +7,7 @@
   import { explainAccessCondition } from '$domain/access-explanation';
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
   import CheckInControl from '$lib/check-ins/CheckInControl.svelte';
-  import RatingSummary from '$lib/discovery/RatingSummary.svelte';
+  import InlineRating from '$lib/discovery/InlineRating.svelte';
   import PlacePhotos from '$lib/discovery/PlacePhotos.svelte';
   import AccessSymbols from '$lib/discovery/AccessSymbols.svelte';
   import PhotoCredit from '$lib/discovery/PhotoCredit.svelte';
@@ -170,6 +170,14 @@
       {/if}
     </div>
 
+    <InlineRating
+      placeId={place.placeId}
+      placeName={place.name}
+      {copy}
+      {signedIn}
+      summary={profile?.dogFriendlinessSummary ?? null}
+    />
+
     {#if loading && !profile}
       <p class="hv-notice details-status" data-tone="info" role="status">
         {copy['place.loadingDetails']}
@@ -183,15 +191,6 @@
       <details class="hv-disclosure" bind:this={completeDetails}>
         <summary>{copy['place.showCompleteAccess']}</summary>
         <div class="complete-details">
-          {#if profile.dogFriendlinessSummary.visible && correctionHref}
-            <RatingSummary
-              summary={profile.dogFriendlinessSummary}
-              {copy}
-              {signedIn}
-              rateHref={correctionHref(place.placeId, 'rate')}
-            />
-          {/if}
-
           <section aria-labelledby={`access-${place.placeId}`}>
             <h3 id={`access-${place.placeId}`}>{copy['place.accessHeading']}</h3>
             <ol class="conditions">

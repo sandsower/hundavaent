@@ -111,12 +111,14 @@ select ok(
 
 -- Table-level integrity, bypassing the RPC boundary -----------------------------------------------
 
-select throws_ok(
-  $$insert into private.dog_friendliness_ratings (member_id, place_id, last_request_id)
-    values ('76000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000003', gen_random_uuid())$$,
-  '23514',
-  null,
-  'A Rating with every Dimension left null is rejected at the table level'
+select ok(
+  not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'private.dog_friendliness_ratings'::regclass
+      and conname = 'dog_friendliness_rating_has_dimension_check'
+  ),
+  'Optional categories may all remain null when overall is present'
 );
 
 -- Fixture identities -------------------------------------------------------------------------------
@@ -499,8 +501,8 @@ select is(
   'Resubmitting never double-counts: exactly one current row per Member and Place'
 );
 select throws_ok(
-  $$insert into private.dog_friendliness_ratings (member_id, place_id, welcome_score, last_request_id)
-    values ('78000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000003', 4, gen_random_uuid())$$,
+  $$insert into private.dog_friendliness_ratings (member_id, place_id, overall_score, welcome_score, last_request_id)
+    values ('78000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000003', 4, 4, gen_random_uuid())$$,
   '23505',
   null,
   'The database itself enforces one current Rating per Member and Place'
@@ -564,8 +566,8 @@ select is(
 );
 select is(
   (select overall_mean from public.get_dog_friendliness_summary('30000000-0000-4000-8000-000000000003')),
-  3.5,
-  'Overall mean of 3.0, 4.0, 3.0 rounds from 3.333... to the nearest 0.5'
+  3.0,
+  'The explicit overall scores are averaged independently of optional Dimensions'
 );
 
 -- "Every Rating marks a different Dimension N/A" (fresh fixture Place, Members 3-6) --------------
@@ -870,7 +872,7 @@ select throws_ok(
 );
 reset role;
 
--- Recency context is independent of the eligibility threshold ------------------------------------
+-- Only the rolling twelve-month cohort can cross the privacy threshold ----------------------------
 
 update private.dog_friendliness_ratings
 set rated_at = statement_timestamp() - interval '13 months'
@@ -879,13 +881,13 @@ where member_id = '78000000-0000-4000-8000-000000000002'
 
 select is(
   (select eligible_count from public.get_dog_friendliness_summary('30000000-0000-4000-8000-000000000003')),
-  2,
-  'A very old Rating still counts toward the eligible threshold'
+  null,
+  'A very old Rating cannot count toward the current eligible threshold'
 );
 select is(
   (select trailing_twelve_month_count from public.get_dog_friendliness_summary('30000000-0000-4000-8000-000000000003')),
-  1,
-  'A very old Rating is excluded from the trailing twelve month recency count, with no decay weighting elsewhere'
+  null,
+  'Below-threshold public responses leak neither the recent count nor an aggregate value'
 );
 
 -- Place inactivity hides the Summary and blocks further submission -------------------------------
