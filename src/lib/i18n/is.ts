@@ -11,10 +11,83 @@ export const isCatalogue = {
   'nav.language': 'Tungumál',
   'language.is': 'Íslenska',
   'language.en': 'English',
-  'stub.aboutTitle': 'Um Hundavænt',
-  'stub.aboutBody': 'Nánari upplýsingar eru væntanlegar.',
-  'stub.accountTitle': 'Innskráning og nýskráning',
-  'stub.accountBody': 'Þessi virkni er væntanleg.',
+  'about.metaTitle': 'Um Hundavænt',
+  'about.metaDescription':
+    'Persónulega sagan á bak við Hundavænt, staðaleit sem byggir á þekkingu hundafólks á Íslandi.',
+  'about.heroEyebrow': 'Okkar saga · Reykjavík',
+  'about.heroTitle': 'Okkur langaði að taka Miles með.',
+  'about.heroLede':
+    'Þegar konan mín og ég vildum taka Miles með okkur lentum við oft í sama vandanum: upplýsingarnar sem við þurftum voru hvergi sjáanlegar.',
+  'about.heroStory':
+    'Ég flutti frá Mexíkó til Íslands árið 2013. Við fengum Miles, síðhærða dachshundinn okkar, árið 2019, rétt áður en heimsfaraldurinn skall á. Þegar samfélagið fór aftur af stað langaði okkur að taka hann með á kaffihús, veitingastaði og aðra staði innandyra, eða finna hundagerði nálægt þegar við vorum á ókunnugum slóðum.',
+  'about.photoAlt': 'Vic heldur á Miles, síðhærðum dachshundi',
+  'about.photoCaption': 'Vic og Miles',
+  'about.browseAction': 'Skoða kortið',
+  'about.offersAction': 'Hvað býður Hundavænt upp á?',
+  'about.problemTitle': 'Flestar gagnlegar upplýsingar gengu manna á milli.',
+  'about.problemBodyOne':
+    'Staður gat tekið vel á móti hundum án þess að segja frá því nokkurs staðar. Annar leyfði hunda aðeins utandyra, á afmörkuðu svæði eða ef spurt var fyrst. Hundagerði sáust á kortum, en kortin sögðu mér ekki hvort auðvelt væri að komast að þeim eða hvernig aðstaðan væri.',
+  'about.problemBodyTwo':
+    'Þess vegna bjó ég til Hundavænt. Mig langaði í einn stað þar sem hundaeigendur gætu kynnt sér reglurnar áður en lagt væri af stað og hjálpað hver öðrum að halda upplýsingunum gagnlegum.',
+  'about.historyEyebrow': 'Borg í breytingum',
+  'about.historyTitle': 'Reykjavík hefur gert meira pláss fyrir hunda.',
+  'about.historyIntro':
+    'Þetta gerðist ekki í einu vetfangi og hver staður setur enn sín eigin skilyrði. Fleiri dyr opnast og staðir sem leggja sig fram eiga skilið að fólk finni þá.',
+  'about.history1924Date': '1924',
+  'about.history1924Title': 'Hundahald var bannað í Reykjavík',
+  'about.history1924Body': 'Lengst af á tuttugustu öld var óheimilt að halda hund í borginni.',
+  'about.history1984Date': '1984',
+  'about.history1984Title': 'Farið var að slaka á reglunum',
+  'about.history1984Body':
+    'Hægt varð að sækja um undanþágu. Síðar á áratugnum voru hundar enn bannaðir á götum á borð við Laugaveg.',
+  'about.historyTodayDate': 'Í dag',
+  'about.historyTodayTitle': 'Fleiri staðir taka á móti hundum',
+  'about.historyTodayBody':
+    'Hundar mega ferðast með Strætó á höfuðborgarsvæðinu utan annatíma á virkum dögum með ákveðnum skilyrðum og litlir hundar eru velkomnir í Kringluna alla daga með nokkrum undantekningum.',
+  'about.offersEyebrow': 'Félagi fyrir staðaleit',
+  'about.offersTitle': 'Kort með upplýsingunum sem skipta máli.',
+  'about.offersIntro':
+    'Hundavænt safnar hagnýtum upplýsingum um hundaaðgang og reynslu hundafólks á einn stað og heldur þessu tvennu skýrt aðskildu.',
+  'about.offerDiscoverCue': 'Uppgötva',
+  'about.offerDiscoverTitle': 'Finndu stað sem hentar',
+  'about.offerDiscoverBody':
+    'Skoðaðu staði í nágrenninu og síaðu eftir kaffihúsum, veitingastöðum, görðum, verslunum, aðgangi innandyra og skilyrðunum sem skipta þig máli.',
+  'about.offerAccessCue': 'Aðgangur',
+  'about.offerAccessTitle': 'Vitaðu áður en þú leggur af stað',
+  'about.offerAccessBody':
+    'Sjáðu hvar hundar mega vera, hvort þeir þurfi að vera í taumi, hvort þurfi að spyrja fyrst og hvenær upplýsingarnar voru síðast staðfestar.',
+  'about.offerRememberCue': 'Muna',
+  'about.offerRememberTitle': 'Haltu utan um staðina sem þér þykir vænt um',
+  'about.offerRememberBody':
+    'Vistaðu staði, haltu einkayfirlit yfir heimsóknir og segðu frá því hvernig tekið var á móti þér og hundinum.',
+  'about.offerContributeCue': 'Leggja af mörkum',
+  'about.offerContributeTitle': 'Hjálpaðu til við að fylla í eyðurnar',
+  'about.offerContributeBody':
+    'Leggðu til stað sem vantar, leiðréttu úreltar upplýsingar eða láttu vita af áhyggjum svo næsti hundaeigandi þurfi ekki að giska.',
+  'about.trustEyebrow': 'Hvernig traustið virkar',
+  'about.trustTitle': 'Upplýsingar frá hundafólki sem eru yfirfarnar áður en þær birtast.',
+  'about.trustIntro':
+    'Allir geta lagt til stað eða látið vita ef eitthvað virðist rangt. Umsjónarfólk fer yfir upplýsingar um hundaaðgang og heimildir áður en þær verða staðfestar og opinberar. Það skiptir máli þegar maður stendur fyrir utan með hund og reynir að ákveða hvort það sé í lagi að fara inn.',
+  'about.verifiedStatus': 'Staðfestur aðgangur',
+  'about.accessTitle': 'Hundaaðgangur',
+  'about.accessSubtitle': 'Staðreyndirnar',
+  'about.accessBody':
+    'Hann lýsir hvar hundar mega vera og hvaða skilyrði gilda. Hundavænt sýnir hvenær upplýsingarnar voru staðfestar.',
+  'about.friendlinessTitle': 'Hundvænni',
+  'about.friendlinessSubtitle': 'Upplifunin',
+  'about.friendlinessBody':
+    'Einkunnir lýsa hversu vel var tekið á móti hundi, hversu skýrar reglurnar voru og hversu þægileg og úthugsuð heimsóknin var. Þær breyta aldrei staðfestum reglum um aðgang.',
+  'about.visionEyebrow': 'Byrjar heima',
+  'about.visionTitle': 'Höfuðborgarsvæðið fyrst. Kannski allt Ísland næst.',
+  'about.visionBodyOne':
+    'Hundavænt byrjar þar sem við búum og þar sem ég get haldið fyrstu upplýsingunum gagnlegum. Ef nógu margir hafa gagn af síðunni og vilja leggja sitt af mörkum vona ég að hún geti vaxið um allt Ísland.',
+  'about.visionBodyTwo':
+    'Síðar gæti Hundavænt líka orðið staður þar sem hundaeigendur tengjast með beinni hætti. Í bili byggjum við samfélagið með því að nota kortið og bæta við því sem vantar.',
+  'about.suggestAction': 'Leggja til stað',
+  'about.sourcesTitle': 'Heimildir',
+  'about.sourceHistory': 'Saga reglna um hundahald í Reykjavík',
+  'about.sourceBus': 'Reglur Strætó um gæludýr',
+  'about.sourceMall': 'Reglur Kringlunnar um hunda',
   'account.navSignedIn': 'Reikningurinn minn',
   'account.title': 'Velkomin á Hundavænt',
   'account.intro':
