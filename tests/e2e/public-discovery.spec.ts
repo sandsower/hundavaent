@@ -54,9 +54,11 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL('/en?place=30000000-0000-4000-8000-000000000003');
     const selected = page.getByLabel('Selected place');
     await expect(selected.getByText('Published Place')).toBeVisible();
-    await selected.getByText('Details and sources').click();
+    await selected.getByText('Details', { exact: true }).click();
     await expect(selected.getByRole('heading', { name: 'Dog access' })).toBeVisible();
-    await expect(selected.getByText('Official Place website')).toBeVisible();
+    await expect(selected.getByRole('link', { name: 'Website' })).toBeVisible();
+    await expect(selected.getByRole('link', { name: 'Access information' })).toBeVisible();
+    await expect(selected.getByText('Official Place website')).toHaveCount(0);
   });
 
   test('provides localized About and Member account entry points', async ({ page }) => {
@@ -250,7 +252,7 @@ test.describe('public discovery locale routes', () => {
     expect(bounds?.height).toBeGreaterThanOrEqual(250);
     expect(bounds?.width).toBeLessThanOrEqual(330);
 
-    await page.getByText('Details and sources').click();
+    await page.getByText('Details', { exact: true }).click();
     const accessHeading = page.getByRole('heading', { name: 'Dog access' });
     await accessHeading.scrollIntoViewIfNeeded();
     await expect(accessHeading).toBeVisible();

@@ -261,6 +261,7 @@ describe('Publication checklist', () => {
                   endsOn: '2026-08-31',
                   notes: 'staff confirms the patio'
                 },
+                availabilityState: 'limited' as const,
                 permissionRequirement: 'ask_on_arrival' as const
               },
               {
@@ -274,6 +275,7 @@ describe('Publication checklist', () => {
                   maximumWeightKg: 10
                 },
                 availabilityWindow: { endsAt: '17:00' },
+                availabilityState: 'limited' as const,
                 permissionRequirement: 'ask_on_arrival' as const
               }
             ]

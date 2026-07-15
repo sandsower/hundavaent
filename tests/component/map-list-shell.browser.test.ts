@@ -33,7 +33,10 @@ const places = [
       {
         accessArea: 'outdoors' as const,
         restraintCondition: 'leash_required' as const,
-        permissionRequirement: 'standing_permission' as const
+        permissionRequirement: 'standing_permission' as const,
+        dogEligibility: { scope: 'all_dogs' as const },
+        availabilityState: 'not_stated' as const,
+        availabilityWindow: {}
       }
     ],
     verifiedAt: '2026-07-09T11:00:00.000Z'
@@ -59,6 +62,7 @@ const complexProfile = {
     seasonal_note: 'Call ahead on holidays'
   },
   dogAmenities: ['water_bowl', 'covered patio hook'],
+  accessInformationUrls: ['https://example.invalid/rules'],
   accessConditions: [
     {
       id: 'condition-complex',
@@ -68,6 +72,7 @@ const complexProfile = {
       restraintNote: null,
       dogEligibility: { scope: 'restricted' as const, maximumWeightKg: 10 },
       availabilityWindow: { endsAt: '17:00' },
+      availabilityState: 'limited' as const,
       permissionRequirement: 'standing_permission' as const,
       evidenceSources: [
         {
@@ -89,6 +94,7 @@ const complexProfile = {
       restraintNote: null,
       dogEligibility: { scope: 'all_dogs' as const },
       availabilityWindow: {},
+      availabilityState: 'not_stated' as const,
       permissionRequirement: 'ask_on_arrival' as const,
       evidenceSources: [
         {
@@ -337,12 +343,10 @@ describe('MapListShell synchronization', () => {
 
     const selectedPlace = screen.getByLabelText('Selected place');
     expect(within(selectedPlace).getByRole('heading', { name: 'Are dogs welcome?' })).toBeTruthy();
-    expect(within(selectedPlace).getByText('Yes')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Outdoors')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Leash required')).toBeTruthy();
-    expect(within(selectedPlace).queryByText('Dogs are generally allowed')).toBeNull();
-    expect(within(selectedPlace).getByText('Last verified')).toBeTruthy();
-    expect(within(selectedPlace).getByText('9 July 2026')).toBeTruthy();
+    expect(within(selectedPlace).getByRole('button', { name: 'Special conditions' })).toBeTruthy();
+    expect(within(selectedPlace).getByRole('button', { name: 'Leash required' })).toBeTruthy();
+    expect(within(selectedPlace).getByRole('button', { name: 'Generally welcome' })).toBeTruthy();
+    expect(within(selectedPlace).queryByText('Last verified')).toBeNull();
     expect(within(selectedPlace).queryByText('Not yet rated')).toBeNull();
     expect(within(selectedPlace).queryByText('Sign in to save')).toBeNull();
     expect(within(selectedPlace).queryByText('Sign in to check in')).toBeNull();
@@ -377,7 +381,7 @@ describe('MapListShell synchronization', () => {
     expect(question.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('asks the friendly welcome question in Icelandic with concise trust metadata', () => {
+  it('asks the friendly welcome question in Icelandic with localized symbols', () => {
     history.replaceState(null, '', '/is?place=30000000-0000-4000-8000-000000000003');
     render(MapListShell, {
       places,
@@ -397,11 +401,12 @@ describe('MapListShell synchronization', () => {
     expect(
       within(selectedPlace).getByRole('heading', { name: 'Eru hundar velkomnir?' })
     ).toBeTruthy();
-    expect(within(selectedPlace).getByText('Já')).toBeTruthy();
-    expect(within(selectedPlace).getByText('9. júlí 2026')).toBeTruthy();
+    expect(within(selectedPlace).getByRole('button', { name: 'Sérstök skilyrði' })).toBeTruthy();
+    expect(within(selectedPlace).getByRole('button', { name: 'Taumur áskilinn' })).toBeTruthy();
+    expect(within(selectedPlace).queryByText('Síðast staðfest')).toBeNull();
   });
 
-  it('withdraws the verified welcome signal when loaded access evidence is stale', async () => {
+  it('keeps internal freshness state out of the public card', async () => {
     history.replaceState(null, '', `/en?place=${places[0].placeId}`);
     const profileRequest = deferred<typeof complexProfile>();
     render(MapListShell, {
@@ -416,10 +421,6 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Selected place');
-    const welcome = selectedPlace.querySelector<HTMLElement>('.welcome-answer');
-    expect(welcome?.getAttribute('data-tone')).toBe('info');
-    expect(welcome?.getAttribute('data-access-state')).toBe('conditional');
-
     profileRequest.resolve({
       ...complexProfile,
       accessConditions: [
@@ -430,11 +431,9 @@ describe('MapListShell synchronization', () => {
       ]
     });
 
-    await waitFor(() => expect(welcome?.getAttribute('data-tone')).toBe('attention'));
-    expect(welcome?.getAttribute('data-access-state')).toBe('attention');
-    expect(welcome?.getAttribute('data-tone')).not.toBe('verified');
-    expect(welcome?.getAttribute('data-access-state')).not.toBe('verified');
-    expect(within(selectedPlace).getAllByText('Reconfirmation due')).toHaveLength(2);
+    await within(selectedPlace).findByText('Details');
+    expect(within(selectedPlace).queryByText('Reconfirmation due')).toBeNull();
+    expect(within(selectedPlace).queryByText('Last verified')).toBeNull();
   });
 
   it('never promotes summary access to verified when complete details fail to load', async () => {
@@ -453,16 +452,13 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Selected place');
-    const welcome = selectedPlace.querySelector<HTMLElement>('.welcome-answer');
     await waitFor(() =>
       expect(
         within(selectedPlace).getByText('The complete access information could not be loaded.')
       ).toBeTruthy()
     );
-    expect(welcome?.getAttribute('data-tone')).toBe('info');
-    expect(welcome?.getAttribute('data-access-state')).toBe('conditional');
-    expect(welcome?.getAttribute('data-tone')).not.toBe('verified');
-    expect(selectedPlace.querySelector('.trust-summary [data-status="verified"]')).toBeNull();
+    expect(within(selectedPlace).getByRole('button', { name: 'Special conditions' })).toBeTruthy();
+    expect(within(selectedPlace).queryByText('Verified')).toBeNull();
   });
 
   it('reveals every restriction and provenance inside the rail card without navigating away', async () => {
@@ -502,13 +498,9 @@ describe('MapListShell synchronization', () => {
 
     const selectedPlace = screen.getByLabelText('Selected place');
     expect(selectedPlace.classList.contains('hv-panel')).toBe(true);
-    expect(selectedPlace.querySelector('[data-access-state="conditional"]')).not.toBeNull();
-    expect(
-      within(selectedPlace).getByText(
-        '2 different access conditions apply. Review every restriction.'
-      )
-    ).toBeTruthy();
-    await fireEvent.click(await within(selectedPlace).findByText('Details and sources'));
+    await fireEvent.click(
+      within(selectedPlace).getByRole('button', { name: 'Different conditions apply' })
+    );
     expect(
       within(selectedPlace).getByText(
         'Dogs weighing up to and including 10 kg are allowed indoors before 17:00 when carried.'
@@ -517,20 +509,17 @@ describe('MapListShell synchronization', () => {
     expect(
       within(selectedPlace).getByText(/may be allowed after asking on arrival outdoors on a leash/)
     ).toBeTruthy();
-    expect(within(selectedPlace).getByText('Official rules')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Municipal rule')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Official website')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Public record')).toBeTruthy();
-    expect(within(selectedPlace).getByText('https://example.invalid/rules')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Rule 4')).toBeTruthy();
-    expect(within(selectedPlace).getByText('8 July 2026')).toBeTruthy();
-    expect(within(selectedPlace).getAllByText('Reconfirmation due')).toHaveLength(2);
+    expect(
+      within(selectedPlace).getByRole('link', { name: 'Access information' }).getAttribute('href')
+    ).toBe('https://example.invalid/rules');
+    expect(within(selectedPlace).queryByText('Official rules')).toBeNull();
+    expect(within(selectedPlace).queryByText('Reconfirmation due')).toBeNull();
     expect(within(selectedPlace).getByText(/Monday: 09:00-17:00/)).toBeTruthy();
     expect(within(selectedPlace).getByText(/seasonal_note: Call ahead on holidays/)).toBeTruthy();
     expect(within(selectedPlace).getByText('Water bowl, covered patio hook')).toBeTruthy();
     expect(selectedPlace.querySelector('details.hv-disclosure')).not.toBeNull();
-    expect(selectedPlace.querySelector('[data-status="attention"]')).not.toBeNull();
-    expect(selectedPlace.querySelector('[data-status="verified"]')).not.toBeNull();
+    expect(selectedPlace.querySelector('[data-status="attention"]')).toBeNull();
+    expect(selectedPlace.querySelector('[data-status="verified"]')).toBeNull();
     expect(window.location.pathname).toBe('/en');
   });
 
@@ -569,18 +558,14 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Valinn staður');
-    await fireEvent.click(await within(selectedPlace).findByText('Nánar og heimildir'));
-    expect(within(selectedPlace).getByText('Rule 4')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Opinber skrá')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Opinber vefsíða')).toBeTruthy();
-    expect(within(selectedPlace).getByText('https://example.invalid/rules')).toBeTruthy();
-    expect(within(selectedPlace).getByText('8. júlí 2026')).toBeTruthy();
+    await fireEvent.click(await within(selectedPlace).findByText('Nánari upplýsingar'));
+    expect(within(selectedPlace).getByRole('link', { name: 'Upplýsingar um aðgang' })).toBeTruthy();
     expect(within(selectedPlace).getByText(/Mánudagur: 09:00-17:00/)).toBeTruthy();
     expect(within(selectedPlace).getByText(/seasonal_note: Call ahead on holidays/)).toBeTruthy();
     expect(within(selectedPlace).getByText('Vatnsskál, covered patio hook')).toBeTruthy();
   });
 
-  it('renders distinct provenance when Evidence sources share a kind and label', async () => {
+  it('does not render internal provenance records supplied by an obsolete fixture', async () => {
     history.replaceState(null, '', `/en?place=${places[0].placeId}`);
     const duplicateLabelProfile = {
       ...complexProfile,
@@ -611,16 +596,14 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Selected place');
-    await fireEvent.click(await within(selectedPlace).findByText('Details and sources'));
-    expect(within(selectedPlace).getAllByText('Official rules')).toHaveLength(2);
-    expect(within(selectedPlace).getByText('https://example.invalid/rules')).toBeTruthy();
-    expect(within(selectedPlace).getByText('https://example.invalid/rules/archive')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Archived rule 2')).toBeTruthy();
+    await fireEvent.click(await within(selectedPlace).findByText('Details'));
+    expect(within(selectedPlace).queryByText('Official rules')).toBeNull();
+    expect(within(selectedPlace).queryByText('Archived rule 2')).toBeNull();
   });
 
   it.each([
-    ['en', 'Selected place', 'Details and sources'],
-    ['is', 'Valinn staður', 'Nánar og heimildir']
+    ['en', 'Selected place', 'Details'],
+    ['is', 'Valinn staður', 'Nánari upplýsingar']
   ] as const)('renders every populated restriction in %s', async (lang, cardLabel, expandLabel) => {
     history.replaceState(null, '', `/${lang}?place=${places[0].placeId}`);
     const fullyRestricted = {
@@ -719,7 +702,7 @@ describe('MapListShell synchronization', () => {
       placeId: secondPlace.placeId,
       name: 'Second Place'
     });
-    await screen.findByText('Details and sources');
+    await screen.findByText('Details');
     firstRequest.reject(new Error('late failure'));
     await Promise.resolve();
 
@@ -747,9 +730,8 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Selected place');
-    expect(
-      within(selectedPlace).getByText('Specific restrictions apply. Review the complete condition.')
-    ).toBeTruthy();
+    expect(within(selectedPlace).getAllByRole('button')).toHaveLength(6);
+    expect(within(selectedPlace).getByRole('button', { name: 'Special conditions' })).toBeTruthy();
     expect(within(selectedPlace).queryByText('Dogs are generally allowed')).toBeNull();
   });
 
@@ -776,7 +758,7 @@ describe('MapListShell synchronization', () => {
     expect(unavailable.getAttribute('data-tone')).toBe('error');
     await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(loadPlace).toHaveBeenCalledTimes(2));
-    expect(screen.getByText('Outdoors')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Special conditions' })).toBeTruthy();
   });
 
   it('reveals the complete Place list only when the map is unavailable', async () => {
@@ -1044,7 +1026,7 @@ describe('MapListShell synchronization', () => {
     const selectedPlace = screen.getByLabelText('Selected place');
     expect(selectedPlace).toBeTruthy();
     expect(sidebar.contains(selectedPlace)).toBe(true);
-    expect(selectedPlace.querySelector('.trust-summary')?.textContent).toContain('Last verified');
+    expect(selectedPlace.querySelector('.trust-summary')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Places found' })).toBeNull();
     await waitFor(() =>
       expect(document.activeElement).toBe(

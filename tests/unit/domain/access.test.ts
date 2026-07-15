@@ -48,6 +48,7 @@ describe('Access Condition', () => {
       permissionRequirement: 'standing_permission',
       dogEligibility: { scope: 'all_dogs' },
       availabilityWindow: {},
+      availabilityState: 'not_stated',
       supersededAt: null
     });
   });
@@ -62,6 +63,7 @@ describe('Access Condition', () => {
       permissionRequirement: 'standing_permission' as const,
       dogEligibility: { scope: 'restricted' as const, maximumWeightKg: 10 },
       availabilityWindow: { endsAt: '17:00' },
+      availabilityState: 'limited' as const,
       supersededAt: null
     };
 
@@ -167,7 +169,8 @@ describe('Access Condition', () => {
         startsOn: '2026-06-01',
         endsOn: '2026-08-31',
         notes: 'staff confirms the room is available'
-      }
+      },
+      availabilityState: 'limited' as const
     };
 
     expect(explainAccessCondition(condition, 'en')).toBe(
@@ -192,7 +195,8 @@ describe('Access Condition', () => {
         endsAt: '16:00',
         startsOn: '2026-06-01',
         endsOn: '2026-08-31'
-      }
+      },
+      availabilityState: 'limited' as const
     };
     expect(explainAccessCondition(condition, 'en')).toContain(
       'on Monday from 10:00 to 16:00 from 1 June 2026 through 31 August 2026'

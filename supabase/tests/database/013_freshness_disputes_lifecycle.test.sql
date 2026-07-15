@@ -296,35 +296,14 @@ select is(
   2::bigint,
   'Original supporting and resolution Evidence support the restored public Verification'
 );
-select ok(
-  exists (
-    select 1
-    from public.get_published_place_profile(
-      '75300000-0000-4000-8000-000000000001', 'en'
-    ) profile,
-    jsonb_array_elements(profile.evidence_sources) evidence_source
-    where profile.access_condition_id = '75400000-0000-4000-8000-000000000001'
-      and evidence_source ->> 'sourceLabel' = 'Original cafe policy'
-  )
-  and exists (
-    select 1
-    from public.get_published_place_profile(
-      '75300000-0000-4000-8000-000000000001', 'en'
-    ) profile,
-    jsonb_array_elements(profile.evidence_sources) evidence_source
-    where profile.access_condition_id = '75400000-0000-4000-8000-000000000001'
-      and evidence_source ->> 'sourceLabel' = 'Resolution confirmation'
-  )
-  and not exists (
-    select 1
-    from public.get_published_place_profile(
-      '75300000-0000-4000-8000-000000000001', 'en'
-    ) profile,
-    jsonb_array_elements(profile.evidence_sources) evidence_source
-    where profile.access_condition_id = '75400000-0000-4000-8000-000000000001'
-      and evidence_source ->> 'sourceLabel' = 'Contradicting visit'
-  ),
-  'Dismissal restores complete public provenance without exposing contradicting Evidence'
+select is(
+  (select access_information_urls
+   from public.get_published_place_profile(
+     '75300000-0000-4000-8000-000000000001', 'en'
+   )
+   where access_condition_id = '75400000-0000-4000-8000-000000000001'),
+  '["https://example.invalid/cafe"]'::jsonb,
+  'Dismissal restores the reviewed access-information link without exposing moderator details'
 );
 select is(
   (select status::text
@@ -407,26 +386,14 @@ select is(
   1::bigint,
   'Only resolution Evidence supports the verified replacement condition'
 );
-select ok(
-  exists (
-    select 1
-    from public.get_published_place_profile(
-      '75300000-0000-4000-8000-000000000001', 'en'
-    ) profile,
-    jsonb_array_elements(profile.evidence_sources) evidence_source
-    where profile.permission_requirement = 'advance_approval'
-      and evidence_source ->> 'sourceLabel' = 'Replacement policy'
-  )
-  and not exists (
-    select 1
-    from public.get_published_place_profile(
-      '75300000-0000-4000-8000-000000000001', 'en'
-    ) profile,
-    jsonb_array_elements(profile.evidence_sources) evidence_source
-    where profile.permission_requirement = 'advance_approval'
-      and evidence_source ->> 'sourceLabel' in ('Original cafe policy', 'Contradicting report')
-  ),
-  'Confirmed replacement exposes only Evidence that supports the replacement facts'
+select is(
+  (select access_information_urls
+   from public.get_published_place_profile(
+     '75300000-0000-4000-8000-000000000001', 'en'
+   )
+   where permission_requirement = 'advance_approval'),
+  '["https://example.invalid/replacement"]'::jsonb,
+  'Confirmed replacement exposes only its reviewed access-information link'
 );
 select is(
   (select status::text

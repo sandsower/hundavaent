@@ -35,18 +35,9 @@ const place: PublishedPlaceProfile = {
       restraintNote: null,
       dogEligibility: { scope: 'all_dogs' },
       availabilityWindow: {},
+      availabilityState: 'not_stated',
       permissionRequirement: 'standing_permission',
-      evidenceSources: [
-        {
-          kind: 'official_website',
-          sourceUrl: 'https://example.invalid/flag-cafe',
-          sourceCitation: null,
-          sourceLabel: 'Original policy',
-          observedAt: '2026-01-01T00:00:00Z'
-        }
-      ],
-      verifiedAt: '2026-01-01T00:00:00Z',
-      freshnessUntil: '2030-01-01T00:00:00Z'
+      accessInformationUrls: []
     }
   ],
   dogFriendlinessSummary: {

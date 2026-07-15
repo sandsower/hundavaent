@@ -23,10 +23,12 @@ const listRow = {
     {
       accessArea: 'outdoors',
       restraintCondition: 'leash_required',
-      permissionRequirement: 'standing_permission'
+      permissionRequirement: 'standing_permission',
+      dogEligibility: { scope: 'all_dogs' },
+      availabilityState: 'not_stated',
+      availabilityWindow: {}
     }
-  ],
-  verified_at: '2026-07-09T11:00:00.000Z'
+  ]
 };
 
 const profileRow = {
@@ -50,18 +52,9 @@ const profileRow = {
   restraint_note: null,
   dog_eligibility: { scope: 'all_dogs' },
   availability_window: {},
+  availability_state: 'not_stated',
   permission_requirement: 'standing_permission',
-  evidence_sources: [
-    {
-      kind: 'official_website',
-      sourceUrl: 'https://example.invalid/source',
-      sourceCitation: null,
-      sourceLabel: 'Official website',
-      observedAt: '2026-07-09T10:00:00Z'
-    }
-  ],
-  verified_at: '2026-07-09T11:00:00.000Z',
-  freshness_until: '2099-01-01T00:00:00.000Z'
+  access_information_urls: ['https://example.invalid/source']
 };
 
 function createClient(
@@ -105,10 +98,12 @@ describe('listPublished', () => {
             {
               accessArea: 'outdoors',
               restraintCondition: 'leash_required',
-              permissionRequirement: 'standing_permission'
+              permissionRequirement: 'standing_permission',
+              dogEligibility: { scope: 'all_dogs' },
+              availabilityState: 'not_stated',
+              availabilityWindow: {}
             }
-          ],
-          verifiedAt: '2026-07-09T11:00:00.000Z'
+          ]
         }
       ]
     });
@@ -129,12 +124,18 @@ describe('listPublished', () => {
         {
           accessArea: 'indoors',
           restraintCondition: 'carrier_required',
-          permissionRequirement: 'standing_permission'
+          permissionRequirement: 'standing_permission',
+          dogEligibility: { scope: 'restricted', maximumWeightKg: 10 },
+          availabilityState: 'limited',
+          availabilityWindow: { endsAt: '17:00' }
         },
         {
           accessArea: 'outdoors',
           restraintCondition: 'leash_required',
-          permissionRequirement: 'ask_on_arrival'
+          permissionRequirement: 'ask_on_arrival',
+          dogEligibility: { scope: 'all_dogs' },
+          availabilityState: 'not_stated',
+          availabilityWindow: {}
         }
       ]
     };
@@ -182,7 +183,10 @@ describe('listPublished', () => {
               {
                 accessArea: 'private_value',
                 restraintCondition: 'leash_required',
-                permissionRequirement: 'standing_permission'
+                permissionRequirement: 'standing_permission',
+                dogEligibility: { scope: 'all_dogs' },
+                availabilityState: 'not_stated',
+                availabilityWindow: {}
               }
             ]
           }
@@ -251,18 +255,11 @@ describe('getPublishedProfile', () => {
         accessConditions: [
           {
             id: 'condition-1',
-            evidenceSources: [
-              {
-                kind: 'official_website',
-                sourceUrl: 'https://example.invalid/source',
-                sourceCitation: null,
-                sourceLabel: 'Official website',
-                observedAt: '2026-07-09T10:00:00Z'
-              }
-            ],
-            freshnessUntil: '2099-01-01T00:00:00.000Z'
+            availabilityState: 'not_stated',
+            accessInformationUrls: ['https://example.invalid/source']
           }
-        ]
+        ],
+        accessInformationUrls: ['https://example.invalid/source']
       }
     });
     expect(rpc).toHaveBeenCalledWith('get_published_place_profile', {
@@ -320,14 +317,14 @@ describe('getPublishedProfile', () => {
     });
   });
 
-  it('rejects Evidence projections containing undeclared private fields', async () => {
+  it('rejects access-information projections containing undeclared private fields', async () => {
     const { client } = createClient({
       get_published_place_profile: {
         data: [
           {
             ...profileRow,
-            evidence_sources: [
-              { ...profileRow.evidence_sources[0], privateModeratorNote: 'never public' }
+            access_information_urls: [
+              { url: 'https://example.invalid/source', privateModeratorNote: 'never public' }
             ]
           }
         ],

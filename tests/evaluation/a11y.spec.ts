@@ -164,8 +164,17 @@ test('public discovery and floating access details are keyboard-operable and Axe
   const selectedCard = page.getByRole('complementary', { name: 'Selected place' });
   await expect(selectedCard).toBeVisible();
   await expect(selectedCard).toHaveAttribute('data-overlay', 'place');
-  await expect(selectedCard.locator('[data-access-state="verified"]')).toBeVisible();
-  const disclosure = selectedCard.locator('summary');
+  await expect(selectedCard.locator('[data-access-state="verified"]')).toHaveCount(0);
+  const accessSymbols = selectedCard.getByRole('group', {
+    name: 'Dog access at Published Place'
+  });
+  const symbolButtons = accessSymbols.getByRole('button');
+  await expect(symbolButtons).toHaveCount(5);
+  await symbolButtons.first().focus();
+  await page.keyboard.press('Enter');
+  await expect(symbolButtons.first()).toHaveAttribute('aria-expanded', 'true');
+  await page.waitForTimeout(250);
+  const disclosure = selectedCard.getByText('Details', { exact: true });
   await disclosure.focus();
   await page.keyboard.press('Enter');
   await expect(selectedCard.getByRole('heading', { name: 'Dog access' })).toBeVisible();

@@ -30,8 +30,7 @@ const places: PublishedPlaceSummary[] = [
         restraintCondition: 'leash_required',
         permissionRequirement: 'ask_on_arrival'
       }
-    ],
-    verifiedAt: '2026-07-09T11:00:00Z'
+    ]
   },
   {
     placeId: '30000000-0000-4000-8000-000000000002',
@@ -51,8 +50,7 @@ const places: PublishedPlaceSummary[] = [
         restraintCondition: 'off_leash_permitted',
         permissionRequirement: 'standing_permission'
       }
-    ],
-    verifiedAt: '2026-07-09T11:00:00Z'
+    ]
   },
   {
     placeId: '30000000-0000-4000-8000-000000000003',
@@ -72,8 +70,7 @@ const places: PublishedPlaceSummary[] = [
         restraintCondition: 'leash_required',
         permissionRequirement: 'advance_approval'
       }
-    ],
-    verifiedAt: '2026-07-09T11:00:00Z'
+    ]
   }
 ];
 

@@ -2,6 +2,7 @@ import type { Json } from '$server/db/generated.types';
 import type { RequestSupabaseClient } from '$server/db/clients';
 import type {
   AccessArea,
+  AvailabilityState,
   AvailabilityWindow,
   DogEligibility,
   PermissionRequirement,
@@ -48,6 +49,7 @@ export interface CandidatePlaceCommand {
     restraint_note?: string | null;
     dog_eligibility: Readonly<Record<string, Json>>;
     availability_window: Readonly<Record<string, Json>>;
+    availability_state?: AvailabilityState;
     permission_requirement: PermissionRequirement;
   }>;
 }
@@ -151,6 +153,7 @@ export interface ModerationAccessCondition {
   restraintNote: string | null;
   dogEligibility: DogEligibility;
   availabilityWindow: AvailabilityWindow;
+  availabilityState?: AvailabilityState;
   permissionRequirement: PermissionRequirement;
 }
 
@@ -464,6 +467,7 @@ function parseModerationConditions(value: Json): ModerationAccessCondition[] | n
       !isOptionalText(item.restraintNote) ||
       parseDogEligibility(item.dogEligibility) === null ||
       parseAvailabilityWindow(item.availabilityWindow) === null ||
+      (item.availabilityState !== undefined && !isAvailabilityState(item.availabilityState)) ||
       !isPermission(item.permissionRequirement)
     )
       return null;
@@ -517,6 +521,10 @@ function isPermission(value: Json | undefined): value is PermissionRequirement {
     typeof value === 'string' &&
     ['standing_permission', 'ask_on_arrival', 'advance_approval'].includes(value)
   );
+}
+
+function isAvailabilityState(value: Json | undefined): value is AvailabilityState {
+  return typeof value === 'string' && ['whenever_open', 'limited', 'not_stated'].includes(value);
 }
 
 function isEvidenceKind(value: Json | undefined): value is EvidenceKind {

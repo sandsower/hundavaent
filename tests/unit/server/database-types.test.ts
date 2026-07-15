@@ -21,11 +21,9 @@ describe('generated public database types', () => {
       | 'place_id'
       | 'restraint_condition'
       | 'simple_access_summary'
-      | 'verified_at'
     >();
     expectTypeOf<ListPublishedPlace>().toHaveProperty('place_id').toEqualTypeOf<string>();
     expectTypeOf<ListPublishedPlace>().toHaveProperty('name').toEqualTypeOf<string>();
-    expectTypeOf<ListPublishedPlace>().toHaveProperty('verified_at').toEqualTypeOf<string>();
   });
 
   it('types the reviewed profile projection', () => {
@@ -36,7 +34,12 @@ describe('generated public database types', () => {
     expectTypeOf<PublishedPlaceProfile>()
       .toHaveProperty('access_condition_id')
       .toEqualTypeOf<string>();
-    expectTypeOf<PublishedPlaceProfile>().toHaveProperty('evidence_sources').toEqualTypeOf<Json>();
+    expectTypeOf<PublishedPlaceProfile>()
+      .toHaveProperty('access_information_urls')
+      .toEqualTypeOf<Json>();
+    expectTypeOf<PublishedPlaceProfile>()
+      .toHaveProperty('availability_state')
+      .toEqualTypeOf<string>();
     expectTypeOf<PublishedPlaceProfile>().toHaveProperty('opening_hours').toEqualTypeOf<Json>();
   });
 
