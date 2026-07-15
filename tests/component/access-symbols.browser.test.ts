@@ -40,22 +40,29 @@ describe('AccessSymbols', () => {
 
     const control = screen.getByRole('button', { name: /Different conditions apply/ });
     expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(control.hasAttribute('aria-controls')).toBe(false);
+    await fireEvent.click(control);
     const detailId = control.getAttribute('aria-controls');
     expect(detailId).toBeTruthy();
-    await fireEvent.click(control);
     expect(onOpenDetails).toHaveBeenCalledOnce();
     expect(document.getElementById(detailId!)?.textContent).toContain(
       '2 different access conditions'
     );
   });
 
-  it('keeps visual tooltips out of the accessible name and reveals the bounded rule on click', async () => {
-    render(AccessSymbols, {
+  it('shows full localized English explanations without leaking raw enum values', async () => {
+    const { container } = render(AccessSymbols, {
       placeName: 'Brikk',
       conditions: [
         {
           ...simpleCondition,
           accessArea: 'outdoors' as const,
+          permissionRequirement: 'ask_on_arrival' as const,
+          dogEligibility: {
+            scope: 'restricted' as const,
+            maximumWeightKg: 10,
+            maximumDogs: 2
+          },
           availabilityState: 'limited' as const,
           availabilityWindow: { days: [1, 2], startsAt: '10:00', endsAt: '16:00' }
         }
@@ -63,22 +70,99 @@ describe('AccessSymbols', () => {
       copy: catalogues.en
     });
 
-    const outdoors = screen.getByRole('button', { name: 'Special conditions' });
+    const outdoors = container.querySelector<HTMLButtonElement>('button.area')!;
     expect(outdoors.hasAttribute('aria-describedby')).toBe(false);
+    expect(outdoors.hasAttribute('aria-controls')).toBe(false);
     const tooltip = outdoors.querySelector('[role="tooltip"]');
     expect(tooltip?.getAttribute('aria-hidden')).toBe('true');
+    expect(tooltip?.textContent).toContain('Dogs are welcome in the outdoor customer area.');
+    expect(tooltip?.textContent).not.toContain('outdoors');
     await fireEvent.focus(outdoors);
     expect(tooltip?.getAttribute('aria-hidden')).toBe('true');
 
     await fireEvent.click(outdoors);
     const detailId = outdoors.getAttribute('aria-controls');
     expect(detailId).toBeTruthy();
-    expect(document.getElementById(detailId!)?.textContent).toContain('outdoors');
+    expect(document.getElementById(detailId!)?.textContent).toContain(
+      'Dogs are welcome in the outdoor customer area.'
+    );
 
-    const limited = screen.getByRole('button', { name: 'Only at certain times' });
+    const permission = container.querySelector<HTMLButtonElement>('button.permission')!;
+    await fireEvent.click(permission);
+    expect(
+      document.getElementById(permission.getAttribute('aria-controls')!)?.textContent
+    ).toContain('Ask staff on arrival before bringing a dog in.');
+
+    const dogs = container.querySelector<HTMLButtonElement>('button.dogs')!;
+    await fireEvent.click(dogs);
+    const dogText = document.getElementById(dogs.getAttribute('aria-controls')!)?.textContent ?? '';
+    expect(dogText).toContain('Only dogs within the stated size limit are welcome.');
+    expect(dogText).toContain('Maximum weight: 10 kg.');
+    expect(dogText).toContain('Maximum number of dogs: 2.');
+
+    const limited = container.querySelector<HTMLButtonElement>('button.timing')!;
     await fireEvent.click(limited);
-    expect(document.getElementById(limited.getAttribute('aria-controls')!)?.textContent).toContain(
-      '10:00'
+    const timingText =
+      document.getElementById(limited.getAttribute('aria-controls')!)?.textContent ?? '';
+    const timingDetailId = limited.getAttribute('aria-controls')!;
+    expect(timingText).toContain('Days: Monday, Tuesday.');
+    expect(timingText).toContain('From 10:00.');
+    expect(timingText).toContain('Until 16:00.');
+    expect(container.textContent).not.toMatch(
+      /outdoors|designated_area|other_bounded|leash_required|off_leash_permitted|carrier_required|other_sourced|standing_permission|ask_on_arrival|advance_approval|whenever_open|not_stated|maximumWeightKg|startsAt|endsAt/
+    );
+
+    await fireEvent.click(limited);
+    expect(limited.hasAttribute('aria-controls')).toBe(false);
+    expect(document.getElementById(timingDetailId)).toBeNull();
+  });
+
+  it('shows the same full explanations and constraints in Icelandic', async () => {
+    const { container } = render(AccessSymbols, {
+      placeName: 'Brikk',
+      conditions: [
+        {
+          ...simpleCondition,
+          accessArea: 'outdoors' as const,
+          permissionRequirement: 'advance_approval' as const,
+          dogEligibility: { scope: 'restricted' as const, maximumWeightKg: 7.5 },
+          availabilityState: 'limited' as const,
+          availabilityWindow: { days: [6, 7], startsAt: '11:00', endsAt: '15:00' }
+        }
+      ],
+      copy: catalogues.is
+    });
+
+    const outdoors = container.querySelector<HTMLButtonElement>('button.area')!;
+    expect(outdoors.querySelector('[role="tooltip"]')?.textContent).toContain(
+      'Hundar eru velkomnir á útisvæði viðskiptavina.'
+    );
+    await fireEvent.click(outdoors);
+    expect(document.getElementById(outdoors.getAttribute('aria-controls')!)?.textContent).toContain(
+      'Hundar eru velkomnir á útisvæði viðskiptavina.'
+    );
+
+    const permission = container.querySelector<HTMLButtonElement>('button.permission')!;
+    await fireEvent.click(permission);
+    expect(
+      document.getElementById(permission.getAttribute('aria-controls')!)?.textContent
+    ).toContain('Fáðu leyfi áður en komið er með hund.');
+
+    const dogs = container.querySelector<HTMLButtonElement>('button.dogs')!;
+    await fireEvent.click(dogs);
+    expect(document.getElementById(dogs.getAttribute('aria-controls')!)?.textContent).toContain(
+      'Hámarksþyngd: 7,5 kg.'
+    );
+
+    const timing = container.querySelector<HTMLButtonElement>('button.timing')!;
+    await fireEvent.click(timing);
+    const timingText =
+      document.getElementById(timing.getAttribute('aria-controls')!)?.textContent ?? '';
+    expect(timingText).toContain('Dagar: Laugardagur, Sunnudagur.');
+    expect(timingText).toContain('Frá kl. 11:00.');
+    expect(timingText).toContain('Til kl. 15:00.');
+    expect(container.textContent).not.toMatch(
+      /outdoors|designated_area|other_bounded|leash_required|off_leash_permitted|carrier_required|other_sourced|standing_permission|ask_on_arrival|advance_approval|whenever_open|not_stated|maximumWeightKg|startsAt|endsAt/
     );
   });
 });

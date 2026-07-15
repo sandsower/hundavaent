@@ -167,6 +167,26 @@ describe('Suggestion input', () => {
     });
   });
 
+  it.each([
+    ['not_stated', null, {}],
+    ['whenever_open', null, {}],
+    ['limited', '1,2', { days: [1, 2] }]
+  ] as const)(
+    'preserves the named %s state submitted after the schedule disclosure closes',
+    (state, days, expectedWindow) => {
+      const form = simpleForm();
+      form.set('availabilityState', state);
+      if (days) form.set('availabilityDays', days);
+
+      const result = parseSuggestionFormData(form);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.proposal.access_condition.availability_state).toBe(state);
+      expect(result.proposal.access_condition.availability_window).toEqual(expectedWindow);
+    }
+  );
+
   it('allows optional facts to remain unknown', () => {
     const result = parseSuggestionFormData(completeForm());
 

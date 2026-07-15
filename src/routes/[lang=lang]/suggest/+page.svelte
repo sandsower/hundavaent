@@ -199,7 +199,7 @@
           >
             {data.copy['suggestion.scheduleToggle']}
           </button>
-          {#if scheduleOpen}
+          <div class="schedule-disclosure" hidden={!scheduleOpen}>
             <label class="hv-stack">
               {data.copy['moderation.availabilityStateLabel']}
               <select class="hv-field" name="availabilityState" bind:value={availabilityState}>
@@ -233,7 +233,7 @@
                 >
               </div>
             {/if}
-          {/if}
+          </div>
         </fieldset>
 
         <fieldset class="hv-form-section hv-panel">
