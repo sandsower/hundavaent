@@ -856,7 +856,12 @@ describe('MapListShell synchronization', () => {
     for (const element of [welcomeAnswer, disclosure]) {
       const animation = element
         .getAnimations()
-        .find((candidate) => candidate.animationName.includes('detail-content-enter'));
+        .find(
+          (candidate) =>
+            'animationName' in candidate &&
+            typeof candidate.animationName === 'string' &&
+            candidate.animationName.includes('detail-content-enter')
+        );
       expect(animation).toBeTruthy();
       if (!animation) throw new Error('Expected the selected-place entry animation');
       animation.pause();

@@ -55,7 +55,7 @@ export const isCatalogue = {
   'about.offerAccessCue': 'Aðgangur',
   'about.offerAccessTitle': 'Vitaðu áður en þú leggur af stað',
   'about.offerAccessBody':
-    'Sjáðu hvar hundar mega vera, hvort þeir þurfi að vera í taumi, hvort þurfi að spyrja fyrst og hvenær upplýsingarnar voru síðast staðfestar.',
+    'Sjáðu hvar hundar mega vera, hvort þeir þurfi að vera í taumi, hvort þurfi að spyrja fyrst og hvaða önnur skilyrði gilda.',
   'about.offerRememberCue': 'Muna',
   'about.offerRememberTitle': 'Haltu utan um staðina sem þér þykir vænt um',
   'about.offerRememberBody':
@@ -65,18 +65,17 @@ export const isCatalogue = {
   'about.offerContributeBody':
     'Leggðu til stað sem vantar, leiðréttu úreltar upplýsingar eða láttu vita af áhyggjum svo næsti hundaeigandi þurfi ekki að giska.',
   'about.trustEyebrow': 'Hvernig traustið virkar',
-  'about.trustTitle': 'Upplýsingar frá hundafólki sem eru yfirfarnar áður en þær birtast.',
+  'about.trustTitle': 'Skýrar aðgangsupplýsingar og reynsla úr heimsóknum.',
   'about.trustIntro':
-    'Allir geta lagt til stað eða látið vita ef eitthvað virðist rangt. Umsjónarfólk fer yfir upplýsingar um hundaaðgang og heimildir áður en þær verða staðfestar og opinberar. Það skiptir máli þegar maður stendur fyrir utan með hund og reynir að ákveða hvort það sé í lagi að fara inn.',
-  'about.verifiedStatus': 'Staðfestur aðgangur',
+    'Sjáðu hagnýtar reglur áður en þú leggur af stað, lestu hvernig öðrum hundeigendum leið í heimsókninni og láttu okkur vita ef eitthvað virðist rangt.',
   'about.accessTitle': 'Hundaaðgangur',
   'about.accessSubtitle': 'Staðreyndirnar',
   'about.accessBody':
-    'Hann lýsir hvar hundar mega vera og hvaða skilyrði gilda. Hundavænt sýnir hvenær upplýsingarnar voru staðfestar.',
+    'Hann lýsir hvar hundar mega vera og hvaða skilyrði gilda svo þú getir ákveðið hvort staðurinn henti áður en lagt er af stað.',
   'about.friendlinessTitle': 'Hundvænni',
   'about.friendlinessSubtitle': 'Upplifunin',
   'about.friendlinessBody':
-    'Einkunnir lýsa hversu vel var tekið á móti hundi, hversu skýrar reglurnar voru og hversu þægileg og úthugsuð heimsóknin var. Þær breyta aldrei staðfestum reglum um aðgang.',
+    'Einkunnir byggja á heimsóknum og lýsa hversu vel var tekið á móti hundi, hversu skýrar reglurnar voru og hversu þægilegur staðurinn var. Þær breyta ekki aðgangsupplýsingunum.',
   'about.visionEyebrow': 'Byrjar heima',
   'about.visionTitle': 'Höfuðborgarsvæðið fyrst. Kannski allt Ísland næst.',
   'about.visionBodyOne':

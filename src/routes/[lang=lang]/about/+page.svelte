@@ -126,8 +126,7 @@
         <p>{data.copy['about.trustIntro']}</p>
       </div>
       <div class="trust-cards">
-        <article class="trust-card verified">
-          <span class="hv-status" data-status="verified">{data.copy['about.verifiedStatus']}</span>
+        <article class="trust-card">
           <p class="trust-subtitle">{data.copy['about.accessSubtitle']}</p>
           <h3>{data.copy['about.accessTitle']}</h3>
           <p>{data.copy['about.accessBody']}</p>
@@ -451,11 +450,6 @@
     background: var(--hv-color-snow-raised);
   }
 
-  .trust-card.verified {
-    border-color: var(--hv-color-basalt);
-    background: var(--hv-color-signal-soft);
-  }
-
   .trust-subtitle {
     margin: 0 0 0.35rem;
     color: var(--hv-color-fjord);
@@ -463,11 +457,6 @@
     font-weight: 850;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-  }
-
-  .trust-card .hv-status {
-    display: inline-flex;
-    margin-bottom: 0.9rem;
   }
 
   .vision {

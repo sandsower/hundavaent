@@ -155,12 +155,14 @@ test('About story remains bilingual, responsive, and Axe-clean', async ({ page, 
     {
       path: '/en/about',
       heading: 'We wanted to bring Miles with us.',
-      photoAlt: 'Vic holding Miles, a long-haired dachshund'
+      photoAlt: 'Vic holding Miles, a long-haired dachshund',
+      visitorHiddenTrustTerms: /verified|verification|moderator|sources?|evidence|last checked/i
     },
     {
       path: '/is/about',
       heading: 'Okkur langaði að taka Miles með.',
-      photoAlt: 'Vic heldur á Miles, síðhærðum dachshundi'
+      photoAlt: 'Vic heldur á Miles, síðhærðum dachshundi',
+      visitorHiddenTrustTerms: /staðfest|umsjónarfólk|heimildir?|sönnunargögn|síðast yfirfar/i
     }
   ] as const;
 
@@ -170,6 +172,9 @@ test('About story remains bilingual, responsive, and Axe-clean', async ({ page, 
     await page.goto(scenario.path);
     await expect(page.getByRole('heading', { name: scenario.heading })).toBeVisible();
     await expect(page.getByAltText(scenario.photoAlt)).toBeVisible();
+    await expect(page.locator('.trust-section')).not.toContainText(
+      scenario.visitorHiddenTrustTerms
+    );
     await expectNoHorizontalPageScroll(page);
     await expectNoSeriousAxeViolations(page, evidence);
   }

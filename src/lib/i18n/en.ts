@@ -58,7 +58,7 @@ export const enCatalogue = {
   'about.offerAccessCue': 'Access',
   'about.offerAccessTitle': 'Know before you leave',
   'about.offerAccessBody':
-    'See where dogs are allowed, whether a leash is required, whether you need to ask first and when the information was last checked.',
+    'See where dogs are allowed, whether a leash is required, whether you need to ask first and which other conditions apply.',
   'about.offerRememberCue': 'Remember',
   'about.offerRememberTitle': 'Keep the places you care about',
   'about.offerRememberBody':
@@ -68,18 +68,17 @@ export const enCatalogue = {
   'about.offerContributeBody':
     'Suggest somewhere missing, correct information that has changed or report a concern so another dog owner does not have to guess.',
   'about.trustEyebrow': 'How trust works',
-  'about.trustTitle': 'Shared and verified by dog people.',
+  'about.trustTitle': 'Clear access details, shaped by real visits.',
   'about.trustIntro':
-    'Anyone can suggest a place or flag information that looks wrong. A moderator reviews access information and its sources before it becomes verified public information. That distinction matters when you are standing outside with a dog and deciding whether it is okay to walk in.',
-  'about.verifiedStatus': 'Verified access',
+    'See the practical rules before you go, read how visits felt for other dog owners and let us know if anything looks wrong.',
   'about.accessTitle': 'Dog Access',
   'about.accessSubtitle': 'The factual part',
   'about.accessBody':
-    'This describes where dogs are allowed and which conditions apply. Hundavænt also shows when that information was verified.',
+    'This describes where dogs are allowed and which conditions apply, so you can decide whether a place fits before you leave.',
   'about.friendlinessTitle': 'Dog-Friendliness',
   'about.friendlinessSubtitle': 'The experience',
   'about.friendlinessBody':
-    "Ratings describe how welcome, clear, comfortable and thoughtful a visit felt. They never change a place's verified access rules.",
+    'Ratings come from visits and describe how welcome, clear, comfortable and thoughtful a place felt. They do not change the access details.',
   'about.visionEyebrow': 'Starting near home',
   'about.visionTitle': 'The capital region first. Maybe all of Iceland next?',
   'about.visionBodyOne':
