@@ -61,12 +61,13 @@ body::before {
   transform: rotate(-18deg);
 }
 
-body.north-star-place {
+/* The rendered header marks place mode for both SSR and hydrated navigation. */
+body:has(header[data-ui-mode='place']) {
   background: var(--hv-color-snow, #f2f5f1);
   color: var(--hv-color-basalt, #1e2d31);
 }
 
-body.north-star-place::before {
+body:has(header[data-ui-mode='place'])::before {
   content: none;
 }
 
