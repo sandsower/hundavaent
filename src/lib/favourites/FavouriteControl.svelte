@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Catalogue } from '$i18n';
   import { postHogAnalytics } from '$lib/analytics/posthog';
+  import { requestAuthentication } from '$lib/auth/controller';
   import { publishFavouriteInvalidation } from './sync';
 
   interface Props {
@@ -10,7 +11,6 @@
     favourite: boolean;
     copy: Catalogue;
     signInHref: string;
-    pendingConfirmation?: boolean;
     onChange?: (placeId: string, favourite: boolean, trigger: HTMLButtonElement) => void;
   }
 
@@ -21,19 +21,12 @@
     favourite,
     copy,
     signInHref,
-    pendingConfirmation = false,
     onChange = () => undefined
   }: Props = $props();
   let submitting = $state(false);
   let failed = $state(false);
 
-  const actionLabel = $derived(
-    pendingConfirmation && !favourite
-      ? copy['favourite.confirmSave']
-      : favourite
-        ? copy['favourite.remove']
-        : copy['favourite.save']
-  );
+  const actionLabel = $derived(favourite ? copy['favourite.remove'] : copy['favourite.save']);
   const accessibleLabel = $derived(actionLabel.replace('{name}', placeName));
 
   async function applyDesiredState(trigger: HTMLButtonElement): Promise<void> {
@@ -64,6 +57,14 @@
       submitting = false;
     }
   }
+
+  function openSignIn(event: MouseEvent): void {
+    event.preventDefault();
+    requestAuthentication({
+      origin: 'favourite',
+      intent: { action: 'favourite', placeId, placeName }
+    });
+  }
 </script>
 
 <div
@@ -72,11 +73,6 @@
   data-favourite-place={placeId}
   data-state={failed ? 'error' : submitting ? 'busy' : favourite ? 'selected' : 'idle'}
 >
-  {#if pendingConfirmation && signedIn && !favourite}
-    <p class="confirmation hv-status" data-status="info" role="status">
-      {copy['favourite.confirmationIntro']}
-    </p>
-  {/if}
   {#if signedIn}
     <button
       type="button"
@@ -89,8 +85,11 @@
       disabled={submitting}
       onclick={(event) => applyDesiredState(event.currentTarget)}
     >
-      <span aria-hidden="true">{favourite ? '♥' : '♡'}</span>
-      <span>{submitting ? copy['favourite.saving'] : actionLabel.replace(' {name}', '')}</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"
+        />
+      </svg>
     </button>
   {:else}
     <!-- Exact local return context is assembled by the discovery owner. -->
@@ -100,10 +99,14 @@
       data-intent="secondary"
       data-state="signed-out"
       href={signInHref}
+      onclick={openSignIn}
       aria-label={copy['favourite.signInToSave'].replace('{name}', placeName)}
     >
-      <span aria-hidden="true">♡</span>
-      <span>{copy['favourite.signIn']}</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"
+        />
+      </svg>
     </a>
     <!-- eslint-enable svelte/no-navigation-without-resolve -->
   {/if}
@@ -121,9 +124,32 @@
   }
 
   .hv-control {
-    gap: 0.35rem;
-    font-size: 0.82rem;
+    display: inline-grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0;
+    border-radius: 999px;
     cursor: pointer;
+    place-items: center;
+  }
+
+  .hv-control svg {
+    width: 1.2rem;
+    fill: transparent;
+    stroke: currentColor;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+  }
+
+  .hv-control[aria-pressed='true'] svg {
+    fill: currentColor;
+  }
+
+  .hv-control[data-state='selected'] {
+    border-color: var(--hv-color-danger);
+    background: var(--hv-color-danger-soft);
+    color: var(--hv-color-danger);
   }
 
   .hv-control:disabled {
@@ -133,10 +159,5 @@
 
   .error {
     max-width: 18rem;
-  }
-
-  .confirmation {
-    max-width: 24rem;
-    margin: 0;
   }
 </style>

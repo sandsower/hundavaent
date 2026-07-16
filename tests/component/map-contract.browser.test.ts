@@ -26,8 +26,7 @@ const places = [
         restraintCondition: 'leash_required' as const,
         permissionRequirement: 'standing_permission' as const
       }
-    ],
-    verifiedAt: '2026-07-09T11:00:00.000Z'
+    ]
   }
 ];
 const camera: MapCamera = { latitude: 64.1466, longitude: -21.9426, zoom: 11 };
@@ -193,7 +192,12 @@ describe('shared Map interface', () => {
       onCameraChange
     });
 
-    await waitFor(() => expect(adapter.setCamera).toHaveBeenCalledWith(camera));
+    await waitFor(() =>
+      expect(adapter.setCamera).toHaveBeenCalledWith(camera, {
+        duration: 0,
+        padding: { top: 0, right: 0, bottom: 0, left: 0 }
+      })
+    );
     expect(onCameraChange).not.toHaveBeenCalled();
   });
 

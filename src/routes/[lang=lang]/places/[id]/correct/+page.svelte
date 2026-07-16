@@ -45,6 +45,7 @@
   );
   let accessArea = $state<(typeof accessAreas)[number]>('indoors');
   let restraintCondition = $state<(typeof restraints)[number]>('leash_required');
+  let availabilityState = $state<'whenever_open' | 'limited' | 'not_stated'>('not_stated');
 
   const selectedCondition = $derived(
     data.place?.accessConditions.find((condition) => condition.id === accessConditionId) ?? null
@@ -54,6 +55,7 @@
     if (selectedCondition) {
       accessArea = selectedCondition.accessArea;
       restraintCondition = selectedCondition.restraintCondition;
+      availabilityState = selectedCondition.availabilityState ?? 'not_stated';
     }
   });
 
@@ -273,34 +275,44 @@
                 />
               </label>
             {/if}
-            <div class="hv-grid" data-columns="2">
-              <label class="hv-stack">
-                {data.copy['correction.availabilityStarts']}
-                <input
-                  class="hv-field"
-                  name="availabilityStartsAt"
-                  type="time"
-                  value={selectedCondition.availabilityWindow.startsAt ?? ''}
-                />
-              </label>
-              <label class="hv-stack">
-                {data.copy['correction.availabilityEnds']}
-                <input
-                  class="hv-field"
-                  name="availabilityEndsAt"
-                  type="time"
-                  value={selectedCondition.availabilityWindow.endsAt ?? ''}
-                />
-              </label>
-            </div>
             <label class="hv-stack">
-              {data.copy['correction.availabilityDays']}
-              <input
-                class="hv-field"
-                name="availabilityDays"
-                value={(selectedCondition.availabilityWindow.days ?? []).join(',')}
-              />
+              {data.copy['moderation.availabilityStateLabel']}
+              <select class="hv-field" name="availabilityState" bind:value={availabilityState}>
+                <option value="not_stated">{data.copy['accessSymbols.notStated']}</option>
+                <option value="whenever_open">{data.copy['accessSymbols.wheneverOpen']}</option>
+                <option value="limited">{data.copy['accessSymbols.limited']}</option>
+              </select>
             </label>
+            {#if availabilityState === 'limited'}
+              <div class="hv-grid" data-columns="2">
+                <label class="hv-stack">
+                  {data.copy['correction.availabilityStarts']}
+                  <input
+                    class="hv-field"
+                    name="availabilityStartsAt"
+                    type="time"
+                    value={selectedCondition.availabilityWindow.startsAt ?? ''}
+                  />
+                </label>
+                <label class="hv-stack">
+                  {data.copy['correction.availabilityEnds']}
+                  <input
+                    class="hv-field"
+                    name="availabilityEndsAt"
+                    type="time"
+                    value={selectedCondition.availabilityWindow.endsAt ?? ''}
+                  />
+                </label>
+              </div>
+              <label class="hv-stack">
+                {data.copy['correction.availabilityDays']}
+                <input
+                  class="hv-field"
+                  name="availabilityDays"
+                  value={(selectedCondition.availabilityWindow.days ?? []).join(',')}
+                />
+              </label>
+            {/if}
           </fieldset>
         {/if}
 
@@ -310,12 +322,15 @@
             <label class="hv-stack">
               {data.copy['evidenceField.kind']}
               <select class="hv-field" name="evidenceKind" required>
-                <option value="official_website">official_website</option>
-                <option value="venue_representative">venue_representative</option>
-                <option value="member_report">member_report</option>
-                <option value="direct_observation">direct_observation</option>
-                <option value="public_record">public_record</option>
-                <option value="other">other</option>
+                <option value="official_website">{data.copy['evidence.officialWebsite']}</option>
+                <option value="venue_representative"
+                  >{data.copy['evidence.venueRepresentative']}</option
+                >
+                <option value="member_report">{data.copy['evidence.memberReport']}</option>
+                <option value="direct_observation">{data.copy['evidence.directObservation']}</option
+                >
+                <option value="public_record">{data.copy['evidence.publicRecord']}</option>
+                <option value="other">{data.copy['evidence.other']}</option>
               </select>
             </label>
             <label class="hv-stack">

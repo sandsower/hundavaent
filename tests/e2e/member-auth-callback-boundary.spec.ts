@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Browser } from '@playwright/test';
+import { expect, test, type APIRequestContext } from '@playwright/test';
 import type { CookieOptions } from '@supabase/ssr';
 
 import { createAuthCallback } from '../../src/lib/server/auth/callback';
@@ -7,10 +7,9 @@ import {
   type RequestSupabaseClient
 } from '../../src/lib/server/db/clients';
 import type { MemberAuthConfigResolution } from '../../src/lib/server/auth/member';
+import type { MemberProviderPolicyResolution } from '../../src/lib/server/auth/provider-policy';
 import { createMemberActivationProof } from '../../src/lib/server/auth/member-activation-proof';
 import {
-  clearLocalEvaluationMailbox,
-  getLocalAuthPersistenceCounts,
   getLocalMemberIdentityState,
   getLocalSupabaseStatus,
   localMemberActivationSecret,
@@ -18,7 +17,6 @@ import {
 } from './support/local-supabase';
 
 const appOrigin = `http://127.0.0.1:${process.env.HUNDAVAENT_E2E_APP_PORT ?? '4173'}`;
-const providerPolicyOrigin = `http://127.0.0.1:${process.env.HUNDAVAENT_E2E_PROVIDER_PORT ?? '4175'}`;
 
 const emailConfig: MemberAuthConfigResolution = {
   status: 'ready',
@@ -28,6 +26,16 @@ const emailConfig: MemberAuthConfigResolution = {
     facebookEnabled: false
   }
 };
+
+const linkedProviderPolicy = (): MemberProviderPolicyResolution => ({
+  status: 'ready',
+  policy: {
+    emailEnabled: true,
+    facebookEnabled: true,
+    automaticLinkingVerifiedEmail: true,
+    version: 'member-linked-providers-v2'
+  }
+});
 
 class RequestCookieJar {
   readonly #cookies = new Map<string, { value: string; options: CookieOptions }>();
@@ -88,31 +96,8 @@ async function issueRealMagicLink(
 
   expect(error).toBeNull();
   const magicLink = await waitForLocalMagicLink(email);
-  const verification = await fetch(magicLink, { redirect: 'manual' });
-  const location = verification.headers.get('location');
 
-  expect(verification.status).toBeGreaterThanOrEqual(300);
-  expect(verification.status).toBeLessThan(400);
-  expect(location).toBeTruthy();
-
-  return { callbackUrl: new URL(location!), client, email, jar };
-}
-
-async function openCallbackWithRequestCookies(
-  browser: Browser,
-  callbackUrl: URL,
-  jar: RequestCookieJar
-) {
-  const context = await browser.newContext();
-  await context.addCookies(
-    jar.getAll().map(({ name, value }) => ({
-      name,
-      value,
-      url: callbackUrl.origin
-    }))
-  );
-
-  return { context, response: await context.request.get(callbackUrl.href, { maxRedirects: 0 }) };
+  return { callbackUrl: new URL(magicLink), client, email, jar };
 }
 
 function callbackEvent(callbackUrl: URL, client: RequestSupabaseClient, jar: RequestCookieJar) {
@@ -140,7 +125,7 @@ async function expectAnonymousAccount(
   expect(response.ok()).toBe(true);
   const html = await response.text();
   expect(html).not.toContain(email);
-  expect(html).toContain('Welcome to Hundavænt');
+  expect(html).toContain('Continue with Hundavænt');
 }
 
 test.describe('Member callback identity boundary', () => {
@@ -154,14 +139,16 @@ test.describe('Member callback identity boundary', () => {
           emailEnabled: false,
           facebookEnabled: false
         }
-      } satisfies MemberAuthConfigResolution
+      } satisfies MemberAuthConfigResolution,
+      providerPolicy: linkedProviderPolicy()
     },
     {
-      name: 'provider conflict',
+      name: 'provider policy unavailable',
       resolution: {
         status: 'unavailable',
-        reason: 'identity_linking_policy_required'
-      } satisfies MemberAuthConfigResolution
+        reason: 'missing_app_origin'
+      } satisfies MemberAuthConfigResolution,
+      providerPolicy: { status: 'unavailable' } satisfies MemberProviderPolicyResolution
     }
   ];
 
@@ -172,71 +159,49 @@ test.describe('Member callback identity boundary', () => {
       const { callbackUrl, client, email, jar } = await issueRealMagicLink();
       const callback = createAuthCallback({
         resolveMemberAuthConfig: () => testCase.resolution,
-        resolveMemberProviderPolicy: async () => ({
-          status: 'ready',
-          policy: { provider: 'email', version: 'member-single-provider-v1' }
-        })
+        resolveMemberProviderPolicy: async () => testCase.providerPolicy
       });
 
       await expect(
         callback(callbackEvent(callbackUrl, client, jar) as never)
       ).rejects.toMatchObject({
         status: 303,
-        location: '/en/account?returnTo=%2Fen&authStatus=unavailable'
+        location: '/en?auth=open&authStatus=unavailable'
       });
       await expectAnonymousAccount(client, email, jar, request);
     });
   }
 
-  test('a tampered method query cannot replace the actual server-returned email identity', async () => {
-    const { callbackUrl, client, jar } = await issueRealMagicLink();
+  test('a tampered method query cannot replace the actual server-returned email identity', async ({
+    request
+  }) => {
+    const { callbackUrl, client, email, jar } = await issueRealMagicLink();
     callbackUrl.searchParams.set('method', 'facebook');
     const callback = createAuthCallback({
       resolveMemberAuthConfig: () => emailConfig,
-      resolveMemberProviderPolicy: async () => ({
-        status: 'ready',
-        policy: { provider: 'email', version: 'member-single-provider-v1' }
-      }),
+      resolveMemberProviderPolicy: async () => linkedProviderPolicy(),
       createMemberActivationProof: (userId, requestId) =>
         createMemberActivationProof(localMemberActivationSecret, userId, requestId)
     });
 
     await expect(callback(callbackEvent(callbackUrl, client, jar) as never)).rejects.toMatchObject({
       status: 303,
-      location: '/en'
+      location: '/en?auth=open&authStatus=unavailable'
+    });
+    await expectAnonymousAccount(client, email, jar, request);
+
+    callbackUrl.searchParams.set('method', 'email');
+    await expect(callback(callbackEvent(callbackUrl, client, jar) as never)).rejects.toMatchObject({
+      status: 303,
+      location: '/en?authResult=success&authMethod=email'
     });
     const { data, error } = await client.auth.getUser();
     expect(error).toBeNull();
-    expect(data.user?.identities).toHaveLength(1);
-    expect(data.user?.identities?.[0]?.provider).toBe('email');
+    expect(data.user?.identities?.map((identity) => identity.provider)).toEqual(['email']);
     await client.auth.signOut({ scope: 'local' });
   });
 
-  test('a Facebook-configured deployment cannot start Auth against the email tenant policy', async ({
-    request
-  }) => {
-    const before = getLocalAuthPersistenceCounts();
-    const response = await request.post(`${providerPolicyOrigin}/en/account?/facebook`, {
-      form: { returnTo: '/en/places/action-policy-proof' },
-      maxRedirects: 0
-    });
-
-    expect(response.ok()).toBe(true);
-    const actionResult = (await response.json()) as {
-      type: string;
-      status: number;
-      data: string;
-    };
-    expect(actionResult).toMatchObject({ type: 'failure', status: 503 });
-    expect(actionResult.data).toContain('facebook');
-    expect(actionResult.data).toContain('unavailable');
-    expect(actionResult.data).toContain('/en/places/action-policy-proof');
-    expect(getLocalAuthPersistenceCounts()).toEqual(before);
-  });
-
-  test('a policy-rejected callback expires HTTP cookies without consuming the code', async ({
-    browser
-  }) => {
+  test('a policy-rejected token remains usable and creates only one Member', async () => {
     const initial = await issueRealMagicLink();
     const requestedOnly = await getLocalMemberIdentityState(initial.email);
 
@@ -248,17 +213,28 @@ test.describe('Member callback identity boundary', () => {
 
     const matchingCallback = createAuthCallback({
       resolveMemberAuthConfig: () => emailConfig,
-      resolveMemberProviderPolicy: async () => ({
-        status: 'ready',
-        policy: { provider: 'email', version: 'member-single-provider-v1' }
-      }),
+      resolveMemberProviderPolicy: async () => linkedProviderPolicy(),
       createMemberActivationProof: (userId, requestId) =>
         createMemberActivationProof(localMemberActivationSecret, userId, requestId)
     });
+
+    const rejectingCallback = createAuthCallback({
+      resolveMemberAuthConfig: () => emailConfig,
+      resolveMemberProviderPolicy: async () => ({ status: 'unavailable' })
+    });
+
+    await expect(
+      rejectingCallback(callbackEvent(initial.callbackUrl, initial.client, initial.jar) as never)
+    ).rejects.toMatchObject({ status: 303, location: '/en?auth=open&authStatus=unavailable' });
+
+    expect(await getLocalMemberIdentityState(initial.email)).toEqual(requestedOnly);
+
     await expect(
       matchingCallback(callbackEvent(initial.callbackUrl, initial.client, initial.jar) as never)
-    ).rejects.toMatchObject({ status: 303, location: '/en' });
-    await initial.client.auth.signOut({ scope: 'local' });
+    ).rejects.toMatchObject({
+      status: 303,
+      location: '/en?authResult=success&authMethod=email'
+    });
 
     const established = await getLocalMemberIdentityState(initial.email);
 
@@ -268,55 +244,15 @@ test.describe('Member callback identity boundary', () => {
       memberRoleCount: 1
     });
 
-    await clearLocalEvaluationMailbox();
     // Local GoTrue enforces a one-second resend interval for the same address.
     await new Promise((resolve) => setTimeout(resolve, 1_100));
-    const { callbackUrl, client, email, jar } = await issueRealMagicLink(
-      providerPolicyOrigin,
-      initial.email
-    );
-    const beforeAttempt = await getLocalMemberIdentityState(email);
-    const requestCookieNames = jar.authCookieNames();
-
-    expect(beforeAttempt).toEqual(established);
-    expect(requestCookieNames.length).toBeGreaterThan(0);
-
-    const { context, response } = await openCallbackWithRequestCookies(browser, callbackUrl, jar);
-
-    expect(response.status()).toBe(303);
-    expect(response.headers()['location']).toBe(
-      '/en/account?returnTo=%2Fen&authStatus=unavailable'
-    );
-    const expiryHeaders = response
-      .headersArray()
-      .filter(({ name }) => name.toLowerCase() === 'set-cookie')
-      .map(({ value }) => value);
-
-    for (const cookieName of requestCookieNames) {
-      expect(
-        expiryHeaders.some(
-          (header) =>
-            header.startsWith(`${cookieName}=`) &&
-            (/Max-Age=0/i.test(header) || /Expires=Thu, 01 Jan 1970/i.test(header))
-        )
-      ).toBe(true);
-    }
-    expect(
-      (await context.cookies()).filter(({ name }) => requestCookieNames.includes(name))
-    ).toEqual([]);
-
-    const account = await context.request.get(`${providerPolicyOrigin}/en/account`);
-    expect(account.ok()).toBe(true);
-    const accountHtml = await account.text();
-    expect(accountHtml).toContain('Welcome to Hundavænt');
-    expect(accountHtml).not.toContain(email);
-    await context.close();
-
-    // The original verifier and one-time code remain usable because policy rejection happened
-    // before exchange. Consuming them under the matching policy must return the same Member.
+    const { callbackUrl, client, email, jar } = await issueRealMagicLink(appOrigin, initial.email);
     await expect(
       matchingCallback(callbackEvent(callbackUrl, client, jar) as never)
-    ).rejects.toMatchObject({ status: 303, location: '/en' });
+    ).rejects.toMatchObject({
+      status: 303,
+      location: '/en?authResult=success&authMethod=email'
+    });
 
     const after = await getLocalMemberIdentityState(email);
     expect(after).toEqual(established);
@@ -333,7 +269,7 @@ test.describe('Member callback identity boundary', () => {
     }) => {
       const { callbackUrl, client: realClient, email, jar } = await issueRealMagicLink();
       const auth = {
-        exchangeCodeForSession: realClient.auth.exchangeCodeForSession.bind(realClient.auth),
+        verifyOtp: realClient.auth.verifyOtp.bind(realClient.auth),
         getUser: realClient.auth.getUser.bind(realClient.auth),
         signOut:
           cleanupMode === 'rejects'
@@ -346,10 +282,7 @@ test.describe('Member callback identity boundary', () => {
       } as unknown as RequestSupabaseClient;
       const callback = createAuthCallback({
         resolveMemberAuthConfig: () => emailConfig,
-        resolveMemberProviderPolicy: async () => ({
-          status: 'ready',
-          policy: { provider: 'email', version: 'member-single-provider-v1' }
-        }),
+        resolveMemberProviderPolicy: async () => linkedProviderPolicy(),
         createMemberActivationProof: (userId, requestId) =>
           createMemberActivationProof(localMemberActivationSecret, userId, requestId)
       });
@@ -358,7 +291,7 @@ test.describe('Member callback identity boundary', () => {
         callback(callbackEvent(callbackUrl, failingCleanupClient, jar) as never)
       ).rejects.toMatchObject({
         status: 303,
-        location: '/en/account?returnTo=%2Fen&authStatus=unavailable'
+        location: '/en?auth=open&authStatus=unavailable'
       });
 
       const anonymousClient = createRequestSupabaseClient(jar, {

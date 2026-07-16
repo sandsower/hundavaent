@@ -1,23 +1,35 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  resolveConfiguredMemberProvider,
+  resolveConfiguredMemberProviders,
   resolveMemberProviderPolicy,
   supportedMemberProviderPolicyVersion
 } from '../../../src/lib/server/auth/provider-policy';
 
 describe('Member provider policy', () => {
-  it('accepts the one supported persistent tenant policy', async () => {
+  it('accepts the approved linked-provider tenant policy', async () => {
     const client = {
       rpc: async () => ({
-        data: [{ provider: 'email', policy_version: supportedMemberProviderPolicyVersion }],
+        data: [
+          {
+            email_enabled: true,
+            facebook_enabled: true,
+            automatic_linking_verified_email: true,
+            policy_version: supportedMemberProviderPolicyVersion
+          }
+        ],
         error: null
       })
     };
 
     await expect(resolveMemberProviderPolicy(client as never)).resolves.toEqual({
       status: 'ready',
-      policy: { provider: 'email', version: supportedMemberProviderPolicyVersion }
+      policy: {
+        emailEnabled: true,
+        facebookEnabled: true,
+        automaticLinkingVerifiedEmail: true,
+        version: supportedMemberProviderPolicyVersion
+      }
     });
   });
 
@@ -29,9 +41,26 @@ describe('Member provider policy', () => {
         { provider: 'facebook', policy_version: supportedMemberProviderPolicyVersion }
       ]
     },
-    { data: [{ provider: 'unknown', policy_version: supportedMemberProviderPolicyVersion }] },
-    { data: [{ provider: 'facebook', policy_version: supportedMemberProviderPolicyVersion }] },
-    { data: [{ provider: 'email', policy_version: 'member-single-provider-v2' }] }
+    {
+      data: [
+        {
+          email_enabled: true,
+          facebook_enabled: true,
+          automatic_linking_verified_email: false,
+          policy_version: supportedMemberProviderPolicyVersion
+        }
+      ]
+    },
+    {
+      data: [
+        {
+          email_enabled: true,
+          facebook_enabled: true,
+          automatic_linking_verified_email: true,
+          policy_version: 'member-linked-providers-v1-stale'
+        }
+      ]
+    }
   ])(
     'fails closed for a missing, ambiguous, unsupported, or stale policy: $data',
     async ({ data }) => {
@@ -54,10 +83,17 @@ describe('Member provider policy', () => {
     });
   });
 
-  it('allows only the sole configured provider that matches the supported tuple', async () => {
+  it('allows each configured provider only when it is approved by the persistent policy', async () => {
     const emailPolicyClient = {
       rpc: async () => ({
-        data: [{ provider: 'email', policy_version: supportedMemberProviderPolicyVersion }],
+        data: [
+          {
+            email_enabled: true,
+            facebook_enabled: true,
+            automatic_linking_verified_email: true,
+            policy_version: supportedMemberProviderPolicyVersion
+          }
+        ],
         error: null
       })
     };
@@ -79,10 +115,10 @@ describe('Member provider policy', () => {
     };
 
     await expect(
-      resolveConfiguredMemberProvider(emailPolicyClient as never, emailConfig)
-    ).resolves.toBe('email');
+      resolveConfiguredMemberProviders(emailPolicyClient as never, emailConfig)
+    ).resolves.toEqual({ email: true, facebook: false });
     await expect(
-      resolveConfiguredMemberProvider(emailPolicyClient as never, facebookConfig)
-    ).resolves.toBeNull();
+      resolveConfiguredMemberProviders(emailPolicyClient as never, facebookConfig)
+    ).resolves.toEqual({ email: false, facebook: true });
   });
 });

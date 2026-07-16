@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { catalogues } from '$i18n';
-import SavedPlacesPage from '../../src/routes/[lang=lang]/saved/+page.svelte';
+import FavoritesPage from '../../src/routes/[lang=lang]/favorites/+page.svelte';
 
 const { invalidateAllMock } = vi.hoisted(() => ({
   invalidateAllMock: vi.fn<() => Promise<void>>(async () => undefined)
@@ -46,7 +46,7 @@ const places = [
   }
 ];
 
-describe('Saved Places page', () => {
+describe('Favorites page', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     invalidateAllMock.mockReset();
@@ -54,7 +54,7 @@ describe('Saved Places page', () => {
   });
 
   it('shows only caller-safe availability states and keeps unavailable Places removable', () => {
-    render(SavedPlacesPage, {
+    render(FavoritesPage, {
       params: { lang: 'en' },
       form: null,
       data: {
@@ -67,21 +67,13 @@ describe('Saved Places page', () => {
       }
     });
 
-    expect(screen.getByRole('heading', { name: 'Saved places' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Favorites' })).toBeTruthy();
     expect(screen.getByText('Available in place discovery')).toBeTruthy();
     expect(screen.getByText('Temporarily unavailable in place discovery')).toBeTruthy();
     expect(screen.getByText('This place is no longer active')).toBeTruthy();
-    expect(
-      screen.getByText(
-        'The information is being reviewed. Private moderation details are not shown.'
-      )
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        'The place has closed or is no longer represented here. Private moderation details are not shown.'
-      )
-    ).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: /Remove .* from saved places/ })).toHaveLength(3);
+    expect(screen.getByText('This place is not available in discovery right now.')).toBeTruthy();
+    expect(screen.getByText('This place is no longer available here.')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /Remove .* from favorites/ })).toHaveLength(3);
     expect(screen.getAllByRole('link', { name: 'View place' })).toHaveLength(1);
     expect(
       screen.getByText('This place is no longer active. It continued as Successor Place.')
@@ -90,7 +82,7 @@ describe('Saved Places page', () => {
   });
 
   it('renders the private empty state in Icelandic', () => {
-    render(SavedPlacesPage, {
+    render(FavoritesPage, {
       params: { lang: 'is' },
       form: null,
       data: {
@@ -103,12 +95,12 @@ describe('Saved Places page', () => {
       }
     });
 
-    expect(screen.getByRole('heading', { name: 'Engir vistaðir staðir enn' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Engir uppáhaldsstaðir enn' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Til baka í staðaleit' })).toBeTruthy();
   });
 
   it('uses distinct temporary and inactive help in Icelandic', () => {
-    render(SavedPlacesPage, {
+    render(FavoritesPage, {
       params: { lang: 'is' },
       form: null,
       data: {
@@ -121,20 +113,12 @@ describe('Saved Places page', () => {
       }
     });
 
-    expect(
-      screen.getByText(
-        'Upplýsingarnar eru í yfirferð. Einkaupplýsingar um umsýslu eru ekki birtar.'
-      )
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        'Staðurinn hefur lokað eða er ekki lengur skráður hér. Einkaupplýsingar um umsýslu eru ekki birtar.'
-      )
-    ).toBeTruthy();
+    expect(screen.getByText('Þessi staður er ekki tiltækur í leitinni eins og er.')).toBeTruthy();
+    expect(screen.getByText('Þessi staður er ekki lengur tiltækur hér.')).toBeTruthy();
   });
 
   it('distinguishes an empty later page from a globally empty saved list', () => {
-    render(SavedPlacesPage, {
+    render(FavoritesPage, {
       params: { lang: 'en' },
       form: null,
       data: {
@@ -147,34 +131,19 @@ describe('Saved Places page', () => {
       }
     });
 
-    expect(screen.getByRole('heading', { name: 'No saved places on this page' })).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'No saved places yet' })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'No favorites on this page' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'No favorites yet' })).toBeNull();
   });
 
   it.each([
-    [
-      'first',
-      0,
-      'Remove Available Place from saved places',
-      'Remove Reviewing Place from saved places'
-    ],
-    [
-      'middle',
-      1,
-      'Remove Reviewing Place from saved places',
-      'Remove Inactive Place from saved places'
-    ],
-    [
-      'final',
-      2,
-      'Remove Inactive Place from saved places',
-      'Remove Reviewing Place from saved places'
-    ]
+    ['first', 0, 'Remove Available Place from favorites', 'Remove Reviewing Place from favorites'],
+    ['middle', 1, 'Remove Reviewing Place from favorites', 'Remove Inactive Place from favorites'],
+    ['final', 2, 'Remove Inactive Place from favorites', 'Remove Reviewing Place from favorites']
   ] as const)(
     'announces keyboard removal and restores focus after removing the %s row',
     async (_, __, removeLabel, focusLabel) => {
       stubSuccessfulRemoval();
-      render(SavedPlacesPage, {
+      render(FavoritesPage, {
         params: { lang: 'en' },
         form: null,
         data: {
@@ -195,15 +164,13 @@ describe('Saved Places page', () => {
       await waitFor(() =>
         expect(document.activeElement).toBe(screen.getByRole('button', { name: focusLabel }))
       );
-      expect(screen.getByRole('status').textContent).toContain(
-        'was removed from your saved places'
-      );
+      expect(screen.getByRole('status').textContent).toContain('was removed from your favorites');
     }
   );
 
   it('focuses the global empty-state heading after removing the sole saved Place', async () => {
     stubSuccessfulRemoval();
-    render(SavedPlacesPage, {
+    render(FavoritesPage, {
       params: { lang: 'en' },
       form: null,
       data: {
@@ -217,19 +184,17 @@ describe('Saved Places page', () => {
     });
 
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Remove Available Place from saved places' })
+      screen.getByRole('button', { name: 'Remove Available Place from favorites' })
     );
 
     await waitFor(() =>
-      expect(document.activeElement).toBe(
-        screen.getByRole('heading', { name: 'No saved places yet' })
-      )
+      expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'No favorites yet' }))
     );
   });
 
   it('shows and focuses the later-page empty state after removing its final row', async () => {
     stubSuccessfulRemoval();
-    render(SavedPlacesPage, {
+    render(FavoritesPage, {
       params: { lang: 'en' },
       form: null,
       data: {
@@ -243,15 +208,15 @@ describe('Saved Places page', () => {
     });
 
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Remove Available Place from saved places' })
+      screen.getByRole('button', { name: 'Remove Available Place from favorites' })
     );
 
     await waitFor(() =>
       expect(document.activeElement).toBe(
-        screen.getByRole('heading', { name: 'No saved places on this page' })
+        screen.getByRole('heading', { name: 'No favorites on this page' })
       )
     );
-    expect(screen.queryByRole('heading', { name: 'No saved places yet' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'No favorites yet' })).toBeNull();
   });
 
   it('does not let an older external refresh overwrite a successful local removal', async () => {
@@ -262,7 +227,7 @@ describe('Saved Places page', () => {
       .mockImplementationOnce(() => staleRefresh.promise)
       .mockImplementationOnce(() => freshRefresh.promise);
     const external = new BroadcastChannel('hundavaent-favourites');
-    const view = render(SavedPlacesPage, {
+    const view = render(FavoritesPage, {
       params: { lang: 'en' },
       form: null,
       data: {
@@ -281,10 +246,10 @@ describe('Saved Places page', () => {
       await waitFor(() => expect(invalidateAllMock).toHaveBeenCalledTimes(1));
 
       await fireEvent.click(
-        screen.getByRole('button', { name: 'Remove Available Place from saved places' })
+        screen.getByRole('button', { name: 'Remove Available Place from favorites' })
       );
       await waitFor(() =>
-        expect(screen.getByRole('heading', { name: 'No saved places yet' })).toBeTruthy()
+        expect(screen.getByRole('heading', { name: 'No favorites yet' })).toBeTruthy()
       );
 
       await view.rerender({
@@ -318,7 +283,7 @@ describe('Saved Places page', () => {
       });
       freshRefresh.resolve();
       await waitFor(() =>
-        expect(screen.getByRole('heading', { name: 'No saved places yet' })).toBeTruthy()
+        expect(screen.getByRole('heading', { name: 'No favorites yet' })).toBeTruthy()
       );
     } finally {
       external.close();

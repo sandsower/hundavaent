@@ -21,7 +21,7 @@
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import type { PublishedPlaceProfile } from '$server/discovery/public-places';
   import MapSurface from '$lib/map/MapSurface.svelte';
-  import type { MapAdapter, MapCamera } from '$lib/map/types';
+  import type { MapAdapter, MapCamera, MapPadding } from '$lib/map/types';
 
   import DiscoveryControls from './DiscoveryControls.svelte';
   import DiscoveryResults from './DiscoveryResults.svelte';
@@ -61,8 +61,8 @@
     pushUrl?: (url: string) => void;
     loadPlace?: (placeId: string, lang: Locale) => Promise<PublishedPlaceProfile>;
     signedIn?: boolean;
+    favouritesAvailable?: boolean;
     initialFavouritePlaceIds?: string[];
-    pendingFavouritePlaceId?: string | null;
     proximityAssistEnabled?: boolean;
     fitPlacesOnMount?: boolean;
   }
@@ -78,13 +78,12 @@
     pushUrl = (url) => sveltePushState(resolve(url as `/${string}`), {}),
     loadPlace = loadPublishedPlace,
     signedIn = false,
+    favouritesAvailable = true,
     initialFavouritePlaceIds = [],
-    pendingFavouritePlaceId = null,
     proximityAssistEnabled = false,
     fitPlacesOnMount = false
   }: Props = $props();
   let favouritePlaceIds = $state<string[]>(untrack(() => [...initialFavouritePlaceIds]));
-  let pendingFavourite = $state<string | null>(untrack(() => pendingFavouritePlaceId));
   let favouriteRefreshVersion = 0;
   let discoveryState = $state<DiscoveryState>(
     untrack(() => ({
@@ -100,10 +99,17 @@
   let clusterPlaceIds = $state<readonly string[] | null>(null);
   const clusterHistoryKey = 'hundavaentClusterPlaceIds';
   let selectionFocusOrigin = $state<HTMLButtonElement | null>(null);
+  let openDetailsIntentPlaceId = $state<string | null>(null);
+  let responsiveBoundary = $state<HTMLElement>();
+  let directorySidebar = $state<HTMLElement>();
+  let directoryRailWidth = $state(0);
+  let wideDetailLayout = $state(false);
+  let persistentRailLayout = $state(false);
+  let reducedMotion = $state(false);
   let locationOrigin = $state<GeographicPoint | null>(null);
   let locationState = $state<'idle' | 'locating' | 'ready' | 'denied' | 'unavailable'>('idle');
   let filteredPlaces = $derived(
-    filterPublishedPlaces(places, discoveryState.filters, copy, locationOrigin)
+    filterPublishedPlaces(places, discoveryState.filters, copy, locationOrigin, favouritePlaceIds)
   );
   // Marker pins show the launch category glyph; places outside the launch
   // taxonomy fall back to the brand paw.
@@ -132,16 +138,23 @@
   let loadedProfiles = $state<Record<string, PublishedPlaceProfile>>({});
   let profileStates = $state<Record<string, { loading: boolean; error: boolean }>>({});
   const profileRequests = new SvelteMap<string, Promise<void>>();
+  let selectedProfileKey = $derived(selectedPlace ? profileKey(lang, selectedPlace.placeId) : null);
   let selectedProfile = $derived(
-    selectedPlace ? (loadedProfiles[selectedPlace.placeId] ?? null) : null
+    selectedProfileKey ? (loadedProfiles[selectedProfileKey] ?? null) : null
   );
   let selectedProfileState = $derived(
-    selectedPlace
-      ? (profileStates[selectedPlace.placeId] ?? { loading: false, error: false })
+    selectedProfileKey
+      ? (profileStates[selectedProfileKey] ?? { loading: false, error: false })
       : { loading: false, error: false }
   );
   let profileLoading = $derived(selectedProfileState.loading);
   let profileError = $derived(selectedProfileState.error);
+  let mapViewportPadding = $derived<MapPadding>(
+    selectedPlace && wideDetailLayout
+      ? { top: 12, right: directoryRailWidth + 24, bottom: 12, left: 12 }
+      : { top: 0, right: 0, bottom: 0, left: 0 }
+  );
+  let mapMotionDuration = $derived(reducedMotion ? 0 : 450);
   // Maps a Place ID to its most recent Check-in timestamp (or null once confirmed there is none
   // within the rolling window). Absence of the key means "not yet loaded".
   let checkInStatusByPlaceId = $state<Record<string, string | null>>({});
@@ -156,7 +169,8 @@
     const profile = selectedProfile;
     const { loading, error } = selectedProfileState;
     if (!placeId || profile || loading || error) return;
-    void untrack(() => loadSelectedProfile(placeId));
+    const requestedLang = lang;
+    void untrack(() => loadSelectedProfile(placeId, requestedLang));
   });
 
   $effect(() => {
@@ -167,6 +181,35 @@
   });
 
   onMount(() => {
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const syncResponsiveState = (
+      width = responsiveBoundary?.getBoundingClientRect().width ?? 0
+    ) => {
+      const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const rem = Number.isFinite(rootFontSize) ? rootFontSize : 16;
+      wideDetailLayout = width >= 76 * rem;
+      persistentRailLayout = width >= 58 * rem;
+      reducedMotion = reducedMotionQuery.matches;
+    };
+    const syncReducedMotion = () => syncResponsiveState();
+    syncResponsiveState();
+    reducedMotionQuery.addEventListener('change', syncReducedMotion);
+    const boundaryObserver = responsiveBoundary
+      ? new ResizeObserver(([entry]) => {
+          if (entry) syncResponsiveState(entry.contentRect.width);
+        })
+      : null;
+    if (responsiveBoundary) boundaryObserver?.observe(responsiveBoundary);
+    const railObserver = directorySidebar
+      ? new ResizeObserver(([entry]) => {
+          if (entry) directoryRailWidth = entry.contentRect.width;
+        })
+      : null;
+    if (directorySidebar) {
+      directoryRailWidth = directorySidebar.getBoundingClientRect().width;
+      railObserver?.observe(directorySidebar);
+    }
+
     locationOrigin = loadSessionLocation(sessionStorage);
     locationState = locationOrigin
       ? 'ready'
@@ -205,7 +248,13 @@
         new URL(window.location.href).searchParams,
         initialState.camera
       );
-      const nextFiltered = filterPublishedPlaces(places, next.filters, copy, locationOrigin);
+      const nextFiltered = filterPublishedPlaces(
+        places,
+        next.filters,
+        copy,
+        locationOrigin,
+        favouritePlaceIds
+      );
       discoveryState = {
         ...next,
         selectedPlaceId: reconcileSelectedPlace(next.selectedPlaceId, nextFiltered)
@@ -267,13 +316,24 @@
         }
       });
     };
+    const closeSelectedOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !discoveryState.selectedPlaceId || event.defaultPrevented)
+        return;
+      event.preventDefault();
+      clearSelectedPlace();
+    };
     window.addEventListener('popstate', syncHistory);
+    window.addEventListener('keydown', closeSelectedOnEscape);
     const unsubscribeFavourites = signedIn
       ? subscribeToFavouriteInvalidation(() => void refreshFavourites())
       : () => undefined;
     return () => {
       if (filterAnalyticsTimer) clearTimeout(filterAnalyticsTimer);
       window.removeEventListener('popstate', syncHistory);
+      window.removeEventListener('keydown', closeSelectedOnEscape);
+      reducedMotionQuery.removeEventListener('change', syncReducedMotion);
+      boundaryObserver?.disconnect();
+      railObserver?.disconnect();
       unsubscribeFavourites();
     };
   });
@@ -290,26 +350,100 @@
         Array.isArray(payload.placeIds) &&
         payload.placeIds.every((id) => typeof id === 'string')
       ) {
-        favouritePlaceIds = [...payload.placeIds];
+        const nextFavouritePlaceIds = [...payload.placeIds];
+        const focusRecovery = captureFavouriteFocusRecovery(nextFavouritePlaceIds);
+        favouritePlaceIds = nextFavouritePlaceIds;
+        const selectionRemoved = clearSelectionRemovedByFavoritesFilter(nextFavouritePlaceIds);
+        restoreFavouriteFocus(focusRecovery, selectionRemoved);
       }
     } catch {
       // The current server-rendered state remains usable while another tab retries.
     }
   }
 
-  function applyFavouriteState(placeId: string, favourite: boolean): void {
+  function applyFavouriteState(
+    placeId: string,
+    favourite: boolean,
+    trigger: HTMLButtonElement
+  ): void {
     favouriteRefreshVersion += 1;
     const next = new SvelteSet(favouritePlaceIds);
     if (favourite) next.add(placeId);
     else next.delete(placeId);
-    favouritePlaceIds = [...next];
+    const nextFavouritePlaceIds = [...next];
+    const focusRecovery = captureFavouriteFocusRecovery(nextFavouritePlaceIds, trigger);
+    favouritePlaceIds = nextFavouritePlaceIds;
 
-    if (favourite && pendingFavourite === placeId && typeof window !== 'undefined') {
-      pendingFavourite = null;
-      const url = new URL(window.location.href);
-      url.searchParams.delete('favourite');
-      replaceUrl(`${url.pathname}${url.search}${url.hash}`);
+    if (!favourite && discoveryState.filters.favoritesOnly) {
+      const selectionRemoved = clearSelectionRemovedByFavoritesFilter(nextFavouritePlaceIds);
+      restoreFavouriteFocus(focusRecovery, selectionRemoved);
     }
+  }
+
+  function clearSelectionRemovedByFavoritesFilter(
+    nextFavouritePlaceIds: readonly string[]
+  ): boolean {
+    const selectedPlaceId = discoveryState.selectedPlaceId;
+    if (
+      !discoveryState.filters.favoritesOnly ||
+      !selectedPlaceId ||
+      nextFavouritePlaceIds.includes(selectedPlaceId)
+    ) {
+      return false;
+    }
+
+    selectionFocusOrigin = null;
+    commitState({ ...discoveryState, selectedPlaceId: null }, 'replace');
+    announceResultCount(filteredPlaces.length);
+    return true;
+  }
+
+  interface FavouriteFocusRecovery {
+    nextPlaceId: string | null;
+  }
+
+  function captureFavouriteFocusRecovery(
+    nextFavouritePlaceIds: readonly string[],
+    trigger?: HTMLButtonElement
+  ): FavouriteFocusRecovery | null {
+    if (!discoveryState.filters.favoritesOnly) return null;
+    const active = trigger ?? document.activeElement;
+    if (!(active instanceof HTMLElement)) return null;
+    const owner = active.closest<HTMLElement>('[data-favourite-place]');
+    const removedPlaceId = owner?.dataset.favouritePlace;
+    if (!removedPlaceId || nextFavouritePlaceIds.includes(removedPlaceId)) return null;
+
+    const visiblePlaceIds = resultPlaces.map((place) => place.placeId);
+    const removedIndex = visiblePlaceIds.indexOf(removedPlaceId);
+    if (removedIndex < 0) return { nextPlaceId: null };
+    const later = visiblePlaceIds
+      .slice(removedIndex + 1)
+      .find((placeId) => nextFavouritePlaceIds.includes(placeId));
+    const earlier = visiblePlaceIds
+      .slice(0, removedIndex)
+      .reverse()
+      .find((placeId) => nextFavouritePlaceIds.includes(placeId));
+    return { nextPlaceId: later ?? earlier ?? null };
+  }
+
+  function restoreFavouriteFocus(
+    recovery: FavouriteFocusRecovery | null,
+    selectionRemoved: boolean
+  ): void {
+    if (!recovery) return;
+    void tick().then(() => {
+      if (!selectionRemoved && recovery.nextPlaceId) {
+        const owner = [...document.querySelectorAll<HTMLElement>('[data-favourite-place]')].find(
+          (candidate) => candidate.dataset.favouritePlace === recovery.nextPlaceId
+        );
+        const control = owner?.querySelector<HTMLElement>('button, a');
+        if (control) {
+          control.focus();
+          return;
+        }
+      }
+      document.querySelector<HTMLButtonElement>('.discovery-controls .filters-button')?.focus();
+    });
   }
 
   function favouriteSignInHref(placeId: string): string {
@@ -317,38 +451,24 @@
       typeof window === 'undefined'
         ? new URL(`https://hundavaent.local/${lang}`)
         : new URL(window.location.href);
-    url.searchParams.set('favourite', placeId);
+    url.searchParams.set('place', placeId);
     const returnTo = `${url.pathname}${url.search}${url.hash}`;
-    return `/${lang}/account?returnTo=${encodeURIComponent(returnTo)}`;
-  }
-
-  // Builds a Correction, Report, or Rating entry link for a specific Place field or Access
-  // Condition. Signed-out visitors are routed through sign-in with a return path that preserves
-  // the target, mirroring favouriteSignInHref's return-preserving redirect.
-  function correctionHref(
-    placeId: string,
-    kind: 'correct' | 'report' | 'rate',
-    target: { field?: string; conditionId?: string } = {}
-  ): string {
-    const params = new URLSearchParams();
-    if (target.field) params.set('field', target.field);
-    if (target.conditionId) params.set('conditionId', target.conditionId);
-    const query = params.toString();
-    const path = `/${lang}/places/${placeId}/${kind}${query ? `?${query}` : ''}`;
-    return signedIn ? path : `/${lang}/account?returnTo=${encodeURIComponent(path)}`;
+    return `/${lang}/account?returnTo=${encodeURIComponent(returnTo)}&intentAction=favourite&placeId=${encodeURIComponent(placeId)}`;
   }
 
   function selectPlace(
     placeId: string,
     focusOverlay = false,
     focusOrigin: HTMLButtonElement | null = null,
-    source: 'map' | 'list' | 'fallback' = 'map'
+    source: 'map' | 'list' | 'fallback' = 'map',
+    openDetails = false
   ): void {
     const place = filteredPlaces.find((candidate) => candidate.placeId === placeId);
     if (!place) return;
 
     clusterPlaceIds = null;
     filtersOpen = false;
+    openDetailsIntentPlaceId = openDetails ? placeId : null;
     commitState(
       {
         ...discoveryState,
@@ -360,7 +480,7 @@
           zoom: Math.max(discoveryState.camera.zoom, 13)
         }
       },
-      'push'
+      discoveryState.selectedPlaceId ? 'replace' : 'push'
     );
     announcement = `${copy['directory.selectedPlace']}: ${place.name}`;
     postHogAnalytics.capture('place viewed', {
@@ -379,7 +499,8 @@
 
   function clearSelectedPlace(): void {
     const previouslySelectedPlaceId = discoveryState.selectedPlaceId;
-    commitState({ ...discoveryState, selectedPlaceId: null, view: 'map' }, 'push');
+    commitState({ ...discoveryState, selectedPlaceId: null, view: 'map' }, 'replace');
+    openDetailsIntentPlaceId = null;
     announcement = '';
     if (previouslySelectedPlaceId) {
       const focusOrigin = selectionFocusOrigin;
@@ -403,25 +524,30 @@
     }
   }
 
-  function loadSelectedProfile(placeId: string): Promise<void> {
-    if (loadedProfiles[placeId]) return Promise.resolve();
-    const inFlight = profileRequests.get(placeId);
+  function loadSelectedProfile(placeId: string, requestedLang: Locale = lang): Promise<void> {
+    const key = profileKey(requestedLang, placeId);
+    if (loadedProfiles[key]) return Promise.resolve();
+    const inFlight = profileRequests.get(key);
     if (inFlight) return inFlight;
 
-    profileStates = { ...profileStates, [placeId]: { loading: true, error: false } };
-    const request = loadPlace(placeId, lang)
+    profileStates = { ...profileStates, [key]: { loading: true, error: false } };
+    const request = loadPlace(placeId, requestedLang)
       .then((profile) => {
-        loadedProfiles = { ...loadedProfiles, [placeId]: profile };
-        profileStates = { ...profileStates, [placeId]: { loading: false, error: false } };
+        loadedProfiles = { ...loadedProfiles, [key]: profile };
+        profileStates = { ...profileStates, [key]: { loading: false, error: false } };
       })
       .catch(() => {
-        profileStates = { ...profileStates, [placeId]: { loading: false, error: true } };
+        profileStates = { ...profileStates, [key]: { loading: false, error: true } };
       })
       .finally(() => {
-        if (profileRequests.get(placeId) === request) profileRequests.delete(placeId);
+        if (profileRequests.get(key) === request) profileRequests.delete(key);
       });
-    profileRequests.set(placeId, request);
+    profileRequests.set(key, request);
     return request;
+  }
+
+  function profileKey(locale: Locale, placeId: string): string {
+    return `${locale}:${placeId}`;
   }
 
   function loadCheckInStatus(placeId: string): Promise<void> {
@@ -484,7 +610,13 @@
     historyMode: 'push' | 'replace' = 'push'
   ): void {
     clusterPlaceIds = null;
-    const nextFiltered = filterPublishedPlaces(places, filters, copy, locationOrigin);
+    const nextFiltered = filterPublishedPlaces(
+      places,
+      filters,
+      copy,
+      locationOrigin,
+      favouritePlaceIds
+    );
     const selectedPlaceId = reconcileSelectedPlace(discoveryState.selectedPlaceId, nextFiltered);
     commitState({ ...discoveryState, filters, selectedPlaceId }, historyMode);
     announceResultCount(nextFiltered.length);
@@ -582,7 +714,13 @@
           ...discoveryState.filters,
           distanceKm: discoveryState.filters.distanceKm ?? (5 as const)
         };
-        const nextFiltered = filterPublishedPlaces(places, filters, copy, locationOrigin);
+        const nextFiltered = filterPublishedPlaces(
+          places,
+          filters,
+          copy,
+          locationOrigin,
+          favouritePlaceIds
+        );
         commitState(
           {
             ...discoveryState,
@@ -668,116 +806,146 @@
   }
 </script>
 
-<div
-  class="map-list-shell"
-  data-responsive-shell
-  data-map-failed={mapFailed}
-  data-selected-place={selectedPlace && discoveryState.view !== 'list' ? 'true' : undefined}
->
-  <aside
-    class="directory-sidebar"
-    data-directory-sidebar
-    data-rail-view={filtersOpen
-      ? 'filters'
-      : selectedPlace && discoveryState.view !== 'list'
-        ? 'selected'
-        : 'results'}
-    aria-label={copy['directory.listLabel']}
+<div class="map-list-boundary" bind:this={responsiveBoundary}>
+  <div
+    class="map-list-shell"
+    data-responsive-shell
+    data-map-failed={mapFailed}
+    data-reduced-motion={reducedMotion}
+    data-shell-layout={wideDetailLayout ? 'wide' : persistentRailLayout ? 'rail' : 'compact'}
+    data-detail-layout={selectedPlace && wideDetailLayout
+      ? 'floating'
+      : selectedPlace
+        ? 'rail'
+        : 'none'}
+    style:--detail-safe-right={`${mapViewportPadding.right}px`}
   >
-    <DiscoveryControls
-      filters={discoveryState.filters}
-      {areas}
-      resultCount={filteredPlaces.length}
-      {filtersOpen}
-      resultsOpen={discoveryState.view === 'list' && !mapFailed}
-      {copy}
-      {locationState}
-      {suggestHref}
-      showSuggest={filteredPlaces.length === 0}
-      onQueryChange={updateQuery}
-      onFiltersChange={updateFilters}
-      onClear={clearFilters}
-      onShowResults={showResults}
-      onUseLocation={() => requestLocation()}
-      onRetryLocation={retryLocation}
-      onToggleFilters={toggleFilters}
-    />
+    <aside
+      class="directory-sidebar"
+      bind:this={directorySidebar}
+      data-directory-sidebar
+      data-rail-view={filtersOpen
+        ? 'filters'
+        : selectedPlace && discoveryState.view !== 'list'
+          ? 'selected'
+          : 'results'}
+      aria-label={copy['directory.listLabel']}
+    >
+      <DiscoveryControls
+        filters={discoveryState.filters}
+        {areas}
+        resultCount={filteredPlaces.length}
+        {filtersOpen}
+        resultsOpen={discoveryState.view === 'list' && !mapFailed}
+        showResultsToggle={!persistentRailLayout}
+        {copy}
+        {locationState}
+        {suggestHref}
+        showSuggest={filteredPlaces.length === 0}
+        {signedIn}
+        {favouritesAvailable}
+        onQueryChange={updateQuery}
+        onFiltersChange={updateFilters}
+        onClear={clearFilters}
+        onShowResults={showResults}
+        onUseLocation={() => requestLocation()}
+        onRetryLocation={retryLocation}
+        onToggleFilters={toggleFilters}
+      />
 
-    {#if !filtersOpen}
-      {#if selectedPlace && discoveryState.view !== 'list'}
-        <div class="selected-place-overlay rail-content">
-          <!-- Keyed so selecting a different Place recreates the card: its internal
+      {#if !filtersOpen}
+        <div class="rail-stack">
+          {#if selectedPlace && discoveryState.view !== 'list'}
+            <div
+              class="selected-place-overlay rail-content"
+              data-selected-place-overlay
+              data-floating={wideDetailLayout}
+            >
+              <!-- Keyed so selecting a different Place recreates the card: its internal
                interaction state (for example a completed Check-in) must never carry over. -->
-          {#key selectedPlace.placeId}
-            <SelectedPlaceCard
-              place={selectedPlace}
-              profile={selectedProfile}
-              loading={profileLoading}
-              loadFailed={profileError}
-              {lang}
-              {copy}
-              onClose={clearSelectedPlace}
-              onRetry={() => loadSelectedProfile(selectedPlace.placeId)}
-              {signedIn}
-              favourite={favouritePlaceIds.includes(selectedPlace.placeId)}
-              signInHref={favouriteSignInHref(selectedPlace.placeId)}
-              pendingConfirmation={pendingFavourite === selectedPlace.placeId}
-              onFavouriteChange={applyFavouriteState}
-              {correctionHref}
-              checkInSignInHref={checkInSignInHref(selectedPlace.placeId)}
-              {proximityAssistEnabled}
-              initialCheckedInAt={selectedCheckInStatus}
-            />
-          {/key}
-        </div>
-      {:else if discoveryState.view === 'list' || mapFailed}
-        <div
-          class="results-overlay rail-content"
-          role={mapFailed ? 'region' : undefined}
-          aria-label={mapFailed ? copy['directory.listLabel'] : undefined}
-        >
-          <DiscoveryResults
-            places={resultPlaces}
-            selectedPlaceId={discoveryState.selectedPlaceId}
-            {copy}
-            onSelect={(placeId, trigger) =>
-              selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list')}
-            onClose={closeResults}
-            closable={discoveryState.view === 'list' && !mapFailed}
-            {signedIn}
-            {favouritePlaceIds}
-            pendingFavouritePlaceId={pendingFavourite}
-            signInHref={favouriteSignInHref}
-            onFavouriteChange={applyFavouriteState}
-          />
-        </div>
-      {:else if filteredPlaces.length === 0}
-        <div class="empty-state rail-content" role="status">
-          <strong>{copy['directory.noResultsTitle']}</strong>
-          <span>{copy['directory.noResultsBody']}</span>
-          <button type="button" onclick={clearFilters}>{copy['directory.clearFilters']}</button>
+              {#key `${lang}:${selectedPlace.placeId}`}
+                <SelectedPlaceCard
+                  place={selectedPlace}
+                  profile={selectedProfile}
+                  loading={profileLoading}
+                  loadFailed={profileError}
+                  {lang}
+                  {copy}
+                  onClose={clearSelectedPlace}
+                  onRetry={() => loadSelectedProfile(selectedPlace.placeId, lang)}
+                  {signedIn}
+                  favourite={favouritePlaceIds.includes(selectedPlace.placeId)}
+                  signInHref={favouriteSignInHref(selectedPlace.placeId)}
+                  onFavouriteChange={applyFavouriteState}
+                  checkInSignInHref={checkInSignInHref(selectedPlace.placeId)}
+                  {proximityAssistEnabled}
+                  initialCheckedInAt={selectedCheckInStatus}
+                  openDetails={openDetailsIntentPlaceId === selectedPlace.placeId}
+                  onDetailsOpened={() => {
+                    if (openDetailsIntentPlaceId === selectedPlace.placeId) {
+                      openDetailsIntentPlaceId = null;
+                    }
+                  }}
+                />
+              {/key}
+            </div>
+          {/if}
+
+          {#if filteredPlaces.length > 0}
+            <div
+              class="results-overlay rail-content"
+              data-results-visible={discoveryState.view === 'list' || mapFailed}
+              role={mapFailed ? 'region' : undefined}
+              aria-label={mapFailed ? copy['directory.listLabel'] : undefined}
+              aria-hidden={selectedPlace && !wideDetailLayout ? 'true' : undefined}
+              inert={selectedPlace && !wideDetailLayout ? true : undefined}
+            >
+              <DiscoveryResults
+                places={resultPlaces}
+                selectedPlaceId={discoveryState.selectedPlaceId}
+                {lang}
+                {copy}
+                onSelect={(placeId, trigger, openDetails) =>
+                  selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list', openDetails)}
+                onClose={closeResults}
+                closable={discoveryState.view === 'list' && !mapFailed && !persistentRailLayout}
+                {signedIn}
+                {favouritePlaceIds}
+                signInHref={favouriteSignInHref}
+                onFavouriteChange={applyFavouriteState}
+              />
+            </div>
+          {:else}
+            <div class="empty-state rail-content" role="status">
+              <strong>{copy['directory.noResultsTitle']}</strong>
+              <span>{copy['directory.noResultsBody']}</span>
+              <button type="button" onclick={clearFilters}>{copy['directory.clearFilters']}</button>
+            </div>
+          {/if}
         </div>
       {/if}
-    {/if}
-  </aside>
+    </aside>
 
-  <section class="map-panel" data-active="true" aria-labelledby="map-heading">
-    <h2 id="map-heading" class="visually-hidden">{copy['directory.mapLabel']}</h2>
-    <div class="map-stage">
-      <MapSurface
-        {adapter}
-        places={mapPlaces}
-        selectedPlaceId={discoveryState.selectedPlaceId}
-        camera={discoveryState.camera}
-        {copy}
-        onMarkerSelect={selectPlace}
-        onClusterSelect={showClusterResults}
-        onCameraChange={updateCamera}
-        onFailureChange={(failed) => (mapFailed = failed)}
-        {fitPlacesOnMount}
-      />
-    </div>
-  </section>
+    <section class="map-panel" data-active="true" aria-labelledby="map-heading">
+      <h2 id="map-heading" class="visually-hidden">{copy['directory.mapLabel']}</h2>
+      <div class="map-stage">
+        <MapSurface
+          {adapter}
+          places={mapPlaces}
+          selectedPlaceId={discoveryState.selectedPlaceId}
+          camera={discoveryState.camera}
+          {copy}
+          onMarkerSelect={selectPlace}
+          onClusterSelect={showClusterResults}
+          onCameraChange={updateCamera}
+          onFailureChange={(failed) => (mapFailed = failed)}
+          viewportPadding={mapViewportPadding}
+          motionDurationMs={mapMotionDuration}
+          {fitPlacesOnMount}
+        />
+      </div>
+    </section>
+  </div>
 </div>
 
 <noscript>
@@ -786,6 +954,7 @@
     <PlaceList
       places={filteredPlaces}
       selectedPlaceId={discoveryState.selectedPlaceId}
+      {lang}
       interactive={false}
       {copy}
     />
@@ -795,9 +964,20 @@
 <p class="visually-hidden" role="status" aria-live="polite">{announcement}</p>
 
 <style>
+  .map-list-boundary {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    isolation: isolate;
+    container: directory-shell / inline-size;
+  }
+
   .map-list-shell {
+    --directory-rail-width: clamp(20rem, 29cqw, 26rem);
+    --floating-card-inset: 0.75rem;
+    position: relative;
     display: grid;
-    grid-template-columns: minmax(19rem, 0.72fr) minmax(28rem, 1.28fr);
+    grid-template-columns: var(--directory-rail-width) minmax(0, 1fr);
     width: 100%;
     height: 100%;
     min-height: 0;
@@ -818,6 +998,14 @@
     background: var(--hv-color-snow-raised);
   }
 
+  .rail-stack {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+
   .rail-content {
     min-width: 0;
     min-height: 0;
@@ -828,8 +1016,11 @@
   }
 
   .map-panel {
+    position: relative;
+    z-index: 0;
     min-width: 0;
     min-height: 0;
+    isolation: isolate;
   }
 
   .map-stage {
@@ -840,9 +1031,14 @@
   }
 
   .selected-place-overlay {
+    position: absolute;
+    z-index: 4;
+    inset: 0;
     display: flex;
     width: 100%;
     overflow: hidden;
+    background: var(--hv-color-snow-raised);
+    animation: detail-card-enter 240ms ease-out both;
   }
 
   .selected-place-overlay :global(aside) {
@@ -853,6 +1049,17 @@
 
   .results-overlay {
     width: 100%;
+    height: 100%;
+  }
+
+  @keyframes detail-card-enter {
+    from {
+      transform: translateX(0.75rem);
+    }
+
+    to {
+      transform: translateX(0);
+    }
   }
 
   .empty-state {
@@ -909,7 +1116,37 @@
     padding: 0;
   }
 
-  @media (max-width: 58rem) {
+  @container directory-shell (min-width: 76rem) {
+    .directory-sidebar,
+    .rail-stack {
+      position: static;
+    }
+
+    .selected-place-overlay {
+      top: var(--floating-card-inset);
+      right: var(--floating-card-inset);
+      bottom: var(--floating-card-inset);
+      left: auto;
+      width: var(--directory-rail-width);
+      border: 1px solid var(--hv-border-strong);
+      border-radius: var(--hv-radius-shell);
+      box-shadow: var(--hv-shadow-floating);
+    }
+
+    .selected-place-overlay :global(aside) {
+      border-radius: inherit;
+    }
+
+    .map-list-shell[data-detail-layout='floating'] .map-stage :global(.maplibregl-ctrl-top-right),
+    .map-list-shell[data-detail-layout='floating']
+      .map-stage
+      :global(.maplibregl-ctrl-bottom-right) {
+      right: var(--detail-safe-right);
+      transition: right 240ms ease-out;
+    }
+  }
+
+  @container directory-shell (max-width: 57.999rem) {
     .map-list-shell {
       display: block;
       height: auto;
@@ -918,14 +1155,19 @@
       border-block-end: 0;
     }
 
-    .map-list-shell[data-selected-place='true'] .directory-sidebar {
-      z-index: 10;
-    }
-
     .directory-sidebar {
       overflow: visible;
       border-inline-end: 0;
       border-block-end: 1px solid var(--hv-border-subtle);
+    }
+
+    .map-list-shell[data-detail-layout='rail'] .directory-sidebar {
+      z-index: 10;
+    }
+
+    .rail-stack {
+      position: static;
+      overflow: visible;
     }
 
     .rail-content {
@@ -940,7 +1182,7 @@
       min-height: inherit;
     }
 
-    .map-list-shell[data-selected-place='true']
+    .map-list-shell[data-detail-layout='rail']
       .map-stage
       :global(.maplibregl-ctrl-top-right) {
       visibility: hidden;
@@ -960,6 +1202,10 @@
       box-shadow: var(--hv-shadow-floating);
     }
 
+    .results-overlay[data-results-visible='false'] {
+      display: none;
+    }
+
     .map-stage :global(.map-surface),
     .map-stage :global(.map-container),
     .map-stage :global(.map-failure) {
@@ -967,8 +1213,34 @@
     }
   }
 
-  @media (max-width: 58rem) and (max-height: 42rem) {
+  @media (prefers-reduced-motion: reduce) {
     .selected-place-overlay {
+      animation: none;
+    }
+
+    .map-list-shell[data-detail-layout='floating'] .map-stage :global(.maplibregl-ctrl-top-right),
+    .map-list-shell[data-detail-layout='floating']
+      .map-stage
+      :global(.maplibregl-ctrl-bottom-right) {
+      transition: none;
+    }
+  }
+
+  .map-list-shell[data-reduced-motion='true'] .selected-place-overlay {
+    animation: none;
+  }
+
+  .map-list-shell[data-reduced-motion='true'][data-detail-layout='floating']
+    .map-stage
+    :global(.maplibregl-ctrl-top-right),
+  .map-list-shell[data-reduced-motion='true'][data-detail-layout='floating']
+    .map-stage
+    :global(.maplibregl-ctrl-bottom-right) {
+    transition: none;
+  }
+
+  @media (max-height: 42rem) {
+    .map-list-shell[data-shell-layout='compact'] .selected-place-overlay {
       top: 5.5rem;
       right: 0.75rem;
       bottom: 0.75rem;

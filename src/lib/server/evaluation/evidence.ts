@@ -96,29 +96,143 @@ export interface TestEvidenceArtifact {
   timings: PerformanceMeasurement[];
 }
 
-export function validateTestEvidenceArtifact(input: TestEvidenceArtifact): string[] {
+export function validateTestEvidenceArtifact(input: unknown): string[] {
   const errors: string[] = [];
 
+  if (!isRecord(input)) {
+    return ['test evidence must be an object'];
+  }
   if (input.schemaVersion !== TEST_EVIDENCE_SCHEMA_VERSION) {
     errors.push(`schemaVersion must equal ${TEST_EVIDENCE_SCHEMA_VERSION}`);
   }
-  if (input.console.errors.length > 0) errors.push('unapproved console errors were captured');
-  if (input.network.failedRequests.length > 0)
-    errors.push('failed critical requests were captured');
-  if (input.required.includes('axe') && input.axe.length === 0) {
+
+  if (
+    !isRecord(input.test) ||
+    !isNonEmptyString(input.test.title) ||
+    !isNonEmptyString(input.test.file) ||
+    input.test.status !== 'passed' ||
+    typeof input.test.durationMs !== 'number' ||
+    !Number.isFinite(input.test.durationMs) ||
+    input.test.durationMs < 0
+  ) {
+    errors.push('test metadata is invalid');
+  }
+
+  const required = Array.isArray(input.required)
+    ? input.required.filter(isRequiredTestEvidence)
+    : [];
+  if (
+    !Array.isArray(input.required) ||
+    required.length !== input.required.length ||
+    new Set(required).size !== required.length
+  ) {
+    errors.push('required evidence categories are invalid');
+  }
+
+  if (
+    !isRecord(input.console) ||
+    !isStringArray(input.console.errors) ||
+    !isStringArray(input.console.warnings)
+  ) {
+    errors.push('console evidence is invalid');
+  } else if (input.console.errors.length > 0) {
+    errors.push('unapproved console errors were captured');
+  }
+
+  if (!isRecord(input.network) || !Array.isArray(input.network.failedRequests)) {
+    errors.push('network evidence is invalid');
+  } else {
+    const invalidRequest = input.network.failedRequests.some(
+      (request) =>
+        !isRecord(request) ||
+        !isNonEmptyString(request.method) ||
+        !isNonEmptyString(request.url) ||
+        !(
+          request.status === null ||
+          (typeof request.status === 'number' && Number.isFinite(request.status))
+        )
+    );
+    if (invalidRequest) errors.push('network evidence is invalid');
+    if (input.network.failedRequests.length > 0) {
+      errors.push('failed critical requests were captured');
+    }
+  }
+
+  const axe = Array.isArray(input.axe) ? input.axe : [];
+  if (
+    !Array.isArray(input.axe) ||
+    axe.some(
+      (result) =>
+        !isRecord(result) || !Number.isInteger(result.violations) || Number(result.violations) < 0
+    )
+  ) {
+    errors.push('Axe evidence is invalid');
+  }
+  if (required.includes('axe') && axe.length === 0) {
     errors.push('required Axe result is missing');
   }
-  if (input.required.includes('screenshot') && input.screenshots.length === 0) {
+  if (
+    isRecord(input.test) &&
+    isNonEmptyString(input.test.file) &&
+    input.test.file.endsWith('a11y.spec.ts') &&
+    (!required.includes('axe') || axe.length === 0)
+  ) {
+    errors.push('accessibility test evidence must declare and contain Axe proof');
+  }
+  if (
+    required.includes('axe') &&
+    axe.some((result) => isRecord(result) && Number(result.violations) > 0)
+  ) {
+    errors.push('Axe violations were captured');
+  }
+
+  const screenshots = Array.isArray(input.screenshots) ? input.screenshots : [];
+  if (
+    !Array.isArray(input.screenshots) ||
+    screenshots.some(
+      (screenshot) =>
+        !isRecord(screenshot) ||
+        !isNonEmptyString(screenshot.name) ||
+        !isNonEmptyString(screenshot.path)
+    )
+  ) {
+    errors.push('screenshot evidence is invalid');
+  }
+  if (required.includes('screenshot') && screenshots.length === 0) {
     errors.push('required screenshot evidence is missing');
   }
-  if (input.required.includes('timing') && input.timings.length === 0) {
+
+  const timings = Array.isArray(input.timings) ? input.timings : [];
+  if (
+    !Array.isArray(input.timings) ||
+    timings.some(
+      (timing) =>
+        !isRecord(timing) ||
+        !isNonEmptyString(timing.name) ||
+        typeof timing.value !== 'number' ||
+        !Number.isFinite(timing.value) ||
+        !isNonEmptyString(timing.unit) ||
+        typeof timing.budget !== 'number' ||
+        !Number.isFinite(timing.budget) ||
+        typeof timing.passed !== 'boolean'
+    )
+  ) {
+    errors.push('timing evidence is invalid');
+  }
+  if (required.includes('timing') && timings.length === 0) {
     errors.push('required timing evidence is missing');
   }
-  for (const timing of input.timings) {
-    if (!timing.passed) errors.push(`timing budget failed: ${timing.name}`);
+  for (const timing of timings) {
+    if (isRecord(timing) && timing.passed === false && isNonEmptyString(timing.name)) {
+      errors.push(`timing budget failed: ${timing.name}`);
+    }
   }
 
   return errors;
+}
+
+function isRequiredTestEvidence(value: unknown): value is RequiredTestEvidence {
+  return value === 'axe' || value === 'screenshot' || value === 'timing';
 }
 
 export type EvidenceValidationResult =
@@ -287,6 +401,8 @@ function validateAccessibility(value: unknown, errors: string[]): void {
 
   if (!Number.isInteger(value.axeViolations) || Number(value.axeViolations) < 0) {
     errors.push('accessibility.axeViolations must be a non-negative integer');
+  } else if (value.axeViolations !== 0) {
+    errors.push('accessibility.axeViolations must equal zero');
   }
 
   if (typeof value.keyboardPassed !== 'boolean') {
@@ -343,6 +459,8 @@ function validatePerformance(value: unknown, errors: string[]): void {
       typeof measurement.passed !== 'boolean'
     ) {
       errors.push(`performance.measurements[${index}] is invalid`);
+    } else if (measurement.passed !== true) {
+      errors.push(`performance.measurements[${index}] failed its budget`);
     }
   });
 }

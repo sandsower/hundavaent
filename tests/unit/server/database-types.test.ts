@@ -3,8 +3,10 @@ import { describe, expectTypeOf, it } from 'vitest';
 import type { Database, Json } from '$server/db/generated.types';
 
 type PublicFunctions = Database['public']['Functions'];
-type ListPublishedPlace = PublicFunctions['list_published_places']['Returns'][number];
-type PublishedPlaceProfile = PublicFunctions['get_published_place_profile']['Returns'][number];
+type ListPublishedPlace = PublicFunctions['list_published_places_v2']['Returns'][number];
+type PublishedPlaceProfile = PublicFunctions['get_published_place_profile_v2']['Returns'][number];
+type CurrentDogFriendlinessRating =
+  PublicFunctions['get_my_dog_friendliness_rating']['Returns'][number];
 
 describe('generated public database types', () => {
   it('types the reviewed list projection', () => {
@@ -21,27 +23,48 @@ describe('generated public database types', () => {
       | 'place_id'
       | 'restraint_condition'
       | 'simple_access_summary'
-      | 'verified_at'
     >();
     expectTypeOf<ListPublishedPlace>().toHaveProperty('place_id').toEqualTypeOf<string>();
     expectTypeOf<ListPublishedPlace>().toHaveProperty('name').toEqualTypeOf<string>();
-    expectTypeOf<ListPublishedPlace>().toHaveProperty('verified_at').toEqualTypeOf<string>();
   });
 
   it('types the reviewed profile projection', () => {
-    expectTypeOf<PublicFunctions['get_published_place_profile']['Args']>().toEqualTypeOf<{
+    expectTypeOf<PublicFunctions['get_published_place_profile_v2']['Args']>().toEqualTypeOf<{
       requested_locale: string;
       requested_place_id: string;
     }>();
     expectTypeOf<PublishedPlaceProfile>()
       .toHaveProperty('access_condition_id')
       .toEqualTypeOf<string>();
-    expectTypeOf<PublishedPlaceProfile>().toHaveProperty('evidence_sources').toEqualTypeOf<Json>();
+    expectTypeOf<PublishedPlaceProfile>()
+      .toHaveProperty('access_information_urls')
+      .toEqualTypeOf<Json>();
+    expectTypeOf<PublishedPlaceProfile>()
+      .toHaveProperty('availability_state')
+      .toEqualTypeOf<string>();
     expectTypeOf<PublishedPlaceProfile>().toHaveProperty('opening_hours').toEqualTypeOf<Json>();
   });
 
   it('contains no caller-visible table types', () => {
     expectTypeOf<keyof Database['public']['Tables']>().toEqualTypeOf<never>();
+  });
+
+  it('keeps nullable rating and pending-intent projections accurate', () => {
+    expectTypeOf<PublicFunctions['apply_pending_member_rating']['Returns'][number]>()
+      .toHaveProperty('overall_score')
+      .toEqualTypeOf<number | null>();
+    expectTypeOf<PublicFunctions['create_auth_pending_intent']['Args']>()
+      .toHaveProperty('requested_overall_rating')
+      .toEqualTypeOf<number | null>();
+    expectTypeOf<CurrentDogFriendlinessRating>()
+      .toHaveProperty('clarity_score')
+      .toEqualTypeOf<number | null>();
+    expectTypeOf<CurrentDogFriendlinessRating>()
+      .toHaveProperty('private_note')
+      .toEqualTypeOf<string | null>();
+    expectTypeOf<PublicFunctions['save_inline_dog_friendliness_rating']['Args']>()
+      .toHaveProperty('requested_clarity_score')
+      .toEqualTypeOf<number | null>();
   });
 
   it('types the Candidate creation command without exposing private tables', () => {

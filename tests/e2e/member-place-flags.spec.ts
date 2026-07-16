@@ -140,8 +140,11 @@ test('a Moderator can open an Access Dispute or retire a Place directly from a R
   expect(published?.some((place) => place.name === disputable.nameEn)).toBe(false);
   expect(published?.some((place) => place.name === retirable.nameEn)).toBe(false);
 
-  await page.goto(`/en/places/${retirable.placeId}`);
-  await expect(page.getByRole('heading', { name: 'This place is no longer active' })).toBeVisible();
+  const unavailableResponse = await page.goto(`/en/places/${retirable.placeId}`);
+  expect(unavailableResponse?.status()).toBe(404);
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.getByText(retirable.nameEn)).toHaveCount(0);
+  await expect(page.getByText(/inactive|review|verified|reconfirm|source/i)).toHaveCount(0);
 });
 
 test('a signed-in Member cannot open the Moderator Correction/Report queue', async ({ page }) => {
@@ -158,8 +161,8 @@ async function signInMember(page: Page, email: string): Promise<void> {
     `/en/account?returnTo=${encodeURIComponent(`/en/places/${correctable.placeId}/correct`)}`
   );
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(email);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(email);
   await page.goto(magicLink);
 }
@@ -170,8 +173,8 @@ async function signInModerator(page: Page): Promise<void> {
   await clearLocalEvaluationMailbox();
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fcorrections-and-reports');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
   await page.goto(magicLink);
   await expect(page).toHaveURL('/en/moderation/corrections-and-reports');
@@ -185,7 +188,7 @@ async function submitCorrection(
 ): Promise<void> {
   await page.goto(`/en/places/${placeId}/correct?field=${field}`);
   await page.getByLabel('New value').fill(newValue);
-  await fillEvidence(page, `Correction Evidence for ${field}`);
+  await fillEvidence(page, `Correction source for ${field}`);
   await page
     .getByLabel('Private explanation to the Moderator')
     .fill(`The ${field.replace('_', ' ')} changed.`);
@@ -204,17 +207,17 @@ async function submitAccessConditionReport(
   if (options.safetyConcern) {
     await page.getByLabel('This is a Safety Concern').check();
   }
-  await fillEvidence(page, 'Report Evidence');
+  await fillEvidence(page, 'Report source');
   await page.getByLabel('Private explanation to the Moderator').fill('Witnessed in person.');
   await page.getByRole('button', { name: 'Send private Report' }).click();
   await expect(page.getByText('Your submission has been received for review.')).toBeVisible();
 }
 
 async function fillEvidence(page: Page, label: string): Promise<void> {
-  await page.getByLabel('Evidence type').selectOption('direct_observation');
-  await page.getByLabel('Source label').fill(label);
-  await page.getByLabel('Source URL').fill('https://example.invalid/e2e-evidence');
-  await page.getByLabel('When was this source observed?').fill('2026-07-11T09:00');
+  await page.getByLabel('How did you find out?').selectOption('direct_observation');
+  await page.getByLabel('Short title').fill(label);
+  await page.getByLabel('Link, if you have one').fill('https://example.invalid/e2e-source');
+  await page.getByLabel('When did you find out?').fill('2026-07-11T09:00');
 }
 
 async function resolveLatestFlag(
@@ -248,7 +251,7 @@ async function resolveLatestFlag(
     await page
       .getByLabel('Reason for the dispute')
       .fill('A Member Report contradicts the currently posted policy.');
-    await fillEvidence(page, 'Dispute Evidence');
+    await fillEvidence(page, 'Dispute source');
   }
 
   if (outcome === 'place_inactivated') {

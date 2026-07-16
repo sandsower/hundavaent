@@ -1,6 +1,7 @@
 <script lang="ts">
   import '../../app.css';
 
+  import { afterNavigate, replaceState } from '$app/navigation';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
   import { env } from '$env/dynamic/public';
@@ -11,6 +12,8 @@
     postHogAnalytics,
     resolvePostHogConfig
   } from '$lib/analytics/posthog';
+  import AuthDialog from '$lib/auth/AuthDialog.svelte';
+  import { requestAuthentication } from '$lib/auth/controller';
   import { replaceLocaleInUrl } from '$i18n/url';
 
   import type { LayoutProps } from './$types';
@@ -30,6 +33,10 @@
     `${currentBrowserUrl.pathname}${currentBrowserUrl.search}${currentBrowserUrl.hash}`
   );
 
+  afterNavigate(() => {
+    setTimeout(captureAuthResult, 0);
+  });
+
   onMount(() => {
     const postHogEnvironment = {
       PUBLIC_POSTHOG_TOKEN: env.PUBLIC_POSTHOG_TOKEN,
@@ -38,6 +45,7 @@
 
     let stopBrowserErrorTracking: () => void = () => undefined;
     if (resolvePostHogConfig(postHogEnvironment)) {
+      postHogAnalytics.prepare();
       stopBrowserErrorTracking = postHogAnalytics.startBrowserErrorTracking(window);
       void import('posthog-js').then(
         ({ default: posthog }) => initializePostHog(postHogEnvironment, posthog),
@@ -58,6 +66,38 @@
     };
   });
 
+  function captureAuthResult(): void {
+    const url = new URL(window.location.href);
+    const result = url.searchParams.get('authResult');
+    const retryResolved = url.searchParams.get('pendingRetryResolved') === '1';
+    if (!result && !retryResolved) return;
+
+    if (result) {
+      postHogAnalytics.capture('auth completed', {
+        method: url.searchParams.get('authMethod') === 'facebook' ? 'facebook' : 'email',
+        outcome: result === 'success' ? 'success' : 'failed'
+      });
+    }
+    const pendingAction = url.searchParams.get('pendingAction');
+    const pendingResult = url.searchParams.get('pendingResult');
+    if (pendingAction === 'favourite' || pendingAction === 'rating') {
+      postHogAnalytics.capture('auth pending action completed', {
+        action: pendingAction,
+        outcome: pendingResult === 'completed' ? 'completed' : 'queued'
+      });
+    }
+
+    const namesToRemove = ['authResult', 'authMethod', 'pendingAction', 'pendingRetryResolved'];
+    if (pendingResult !== 'retryable') {
+      namesToRemove.push('pendingResult', 'pendingIntent');
+    }
+    for (const name of namesToRemove) {
+      url.searchParams.delete(name);
+    }
+    const cleanedUrl = `${url.pathname}${url.search}${url.hash}` as `/${string}`;
+    replaceState(resolve(cleanedUrl), page.state);
+  }
+
   function refreshLanguageHref(event: MouseEvent, targetLocale: 'is' | 'en'): void {
     if (!(event.currentTarget instanceof HTMLAnchorElement)) return;
     event.currentTarget.href = resolve(replaceLocaleInUrl(window.location.href, targetLocale));
@@ -73,6 +113,15 @@
     const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     event.currentTarget.href = `${resolve('/[lang=lang]/account', { lang: data.lang })}?returnTo=${encodeURIComponent(returnTo)}`;
   }
+
+  function openSignIn(event: MouseEvent): void {
+    if (data.signedIn) {
+      refreshAccountHref(event);
+      return;
+    }
+    event.preventDefault();
+    requestAuthentication({ origin: 'header' });
+  }
 </script>
 
 <svelte:head>
@@ -86,7 +135,11 @@
     href={resolve('/[lang=lang]', { lang: data.lang })}
     aria-label={data.copy['site.name']}
   >
-    <img src="/favicon.svg" alt="" width="42" height="42" />
+    <svg class="brand-mark" viewBox="0 0 256 256" aria-hidden="true">
+      <path
+        d="M240,108a28,28,0,1,1-28-28A28,28,0,0,1,240,108ZM72,108a28,28,0,1,0-28,28A28,28,0,0,0,72,108ZM92,88A28,28,0,1,0,64,60,28,28,0,0,0,92,88Zm72,0a28,28,0,1,0-28-28A28,28,0,0,0,164,88Zm23.12,60.86a35.3,35.3,0,0,1-16.87-21.14,44,44,0,0,0-84.5,0A35.25,35.25,0,0,1,69,148.82,40,40,0,0,0,88,224a39.48,39.48,0,0,0,15.52-3.13,64.09,64.09,0,0,1,48.87,0,40,40,0,0,0,34.73-72Z"
+      />
+    </svg>
     {#if isDiscovery}
       <h1>{data.copy['site.name']}</h1>
     {:else}
@@ -143,7 +196,7 @@
     <!-- eslint-disable svelte/no-navigation-without-resolve -->
     <a
       class="account-link"
-      onclick={refreshAccountHref}
+      onclick={openSignIn}
       href={page.route.id === '/[lang=lang]/account'
         ? resolve('/[lang=lang]/account', { lang: data.lang })
         : `${resolve('/[lang=lang]/account', { lang: data.lang })}?returnTo=${encodeURIComponent(accountReturnTo)}`}
@@ -155,6 +208,15 @@
 </header>
 
 {@render children()}
+
+{#if !data.signedIn}
+  <AuthDialog
+    lang={data.lang}
+    copy={data.copy}
+    providers={data.providers ?? { email: false, facebook: false }}
+    initialRequest={data.pendingAuthRequest ?? null}
+  />
+{/if}
 
 <style>
   .site-header {
@@ -189,8 +251,11 @@
     font: inherit;
   }
 
-  .brand img {
+  .brand-mark {
+    width: 1.45rem;
+    height: 1.45rem;
     flex: 0 0 auto;
+    fill: var(--hv-color-brand-paw);
   }
 
   nav {
@@ -227,8 +292,9 @@
   }
 
   a[aria-current='page'] {
-    border-color: var(--hv-color-basalt);
-    background: var(--hv-color-signal);
+    border-color: var(--hv-color-fjord);
+    background: var(--hv-color-fjord-soft);
+    box-shadow: inset 0 -2px 0 var(--hv-color-fjord);
     text-decoration: none;
   }
 

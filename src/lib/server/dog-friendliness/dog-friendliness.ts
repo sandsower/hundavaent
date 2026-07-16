@@ -4,7 +4,8 @@ import type {
   RatingExclusionKind,
   RatingNoteDispositionKind,
   RatingNoteInput,
-  RatingScores
+  RatingScores,
+  InlineRatingInput
 } from './dog-friendliness-input';
 
 interface RpcError {
@@ -29,18 +30,17 @@ export interface CurrentRating {
   id: string;
   placeId: string;
   scores: RatingScores;
+  overallScore?: number | null;
   ratedAt: string;
-  excluded: boolean;
   privateNote: string | null;
-  privateNoteClassification: PrivateRatingNoteClassification | null;
   privateNoteUpdatedAt: string | null;
-  linkedReportId: string | null;
 }
 
 export interface ModerationRating {
   id: string;
   memberId: string;
   scores: RatingScores;
+  overallScore?: number | null;
   ratedAt: string;
   excludedAt: string | null;
   excludedKind: RatingExclusionKind | null;
@@ -49,6 +49,55 @@ export interface ModerationRating {
   privateNoteClassification: PrivateRatingNoteClassification | null;
   privateNoteUpdatedAt: string | null;
   linkedReportId: string | null;
+}
+
+export async function saveInlineRating(
+  client: DogFriendlinessRpcClient,
+  placeId: string,
+  input: InlineRatingInput,
+  requestId: string
+): Promise<DogFriendlinessCommandResult<CurrentRating>> {
+  try {
+    const { data, error } = await client.rpc('save_inline_dog_friendliness_rating', {
+      requested_place_id: placeId,
+      requested_overall_score: input.overall,
+      requested_welcome_score: input.welcome,
+      requested_clarity_score: input.clarity,
+      requested_comfort_score: input.comfort,
+      requested_thoughtfulness_score: input.thoughtfulness,
+      command_request_id: requestId,
+      requested_update_private_note: input.noteUpdate,
+      requested_private_note: input.noteUpdate ? input.privateNote : null,
+      requested_private_note_classification: null
+    });
+    if (error) return { status: mapError(error.code) };
+    const row = Array.isArray(data) && data.length === 1 ? data[0] : null;
+    if (!isSubmitRow(row) || !isScoreOrNull(row.overall_score) || row.overall_score === null) {
+      return { status: 'infrastructure_error' };
+    }
+    return { status: 'success', value: toCurrentRating(row) };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+export async function applyPendingRating(
+  client: DogFriendlinessRpcClient,
+  placeId: string
+): Promise<DogFriendlinessCommandResult<boolean>> {
+  try {
+    const { data, error } = await client.rpc('apply_pending_member_rating', {
+      requested_place_id: placeId
+    });
+    if (error) return { status: mapError(error.code) };
+    const row = Array.isArray(data) && data.length === 1 ? data[0] : null;
+    if (!isRecord(row) || typeof row.applied !== 'boolean') {
+      return { status: 'infrastructure_error' };
+    }
+    return { status: 'success', value: row.applied };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
 }
 
 export interface PrivateRatingNotePolicy {
@@ -224,6 +273,7 @@ export async function listModerationRatings(
           comfort: row.comfort_score,
           thoughtfulness: row.thoughtfulness_score
         },
+        overallScore: row.overall_score,
         ratedAt: row.rated_at,
         excludedAt: row.excluded_at,
         excludedKind: row.excluded_kind,
@@ -403,16 +453,14 @@ function isClassificationOrNull(value: unknown): value is PrivateRatingNoteClass
 interface SubmitRow {
   id: string;
   place_id: string;
+  overall_score?: number | null;
   welcome_score: number | null;
   clarity_score: number | null;
   comfort_score: number | null;
   thoughtfulness_score: number | null;
   rated_at: string;
-  excluded: boolean;
   private_note: string | null;
-  private_note_classification: PrivateRatingNoteClassification | null;
   private_note_updated_at: string | null;
-  linked_report_id: string | null;
 }
 
 function isSubmitRow(value: unknown): value is SubmitRow {
@@ -420,16 +468,14 @@ function isSubmitRow(value: unknown): value is SubmitRow {
     isRecord(value) &&
     typeof value.id === 'string' &&
     typeof value.place_id === 'string' &&
+    (value.overall_score === undefined || isScoreOrNull(value.overall_score)) &&
     isScoreOrNull(value.welcome_score) &&
     isScoreOrNull(value.clarity_score) &&
     isScoreOrNull(value.comfort_score) &&
     isScoreOrNull(value.thoughtfulness_score) &&
     typeof value.rated_at === 'string' &&
-    typeof value.excluded === 'boolean' &&
     (value.private_note === null || typeof value.private_note === 'string') &&
-    isClassificationOrNull(value.private_note_classification) &&
-    (value.private_note_updated_at === null || typeof value.private_note_updated_at === 'string') &&
-    (value.linked_report_id === null || typeof value.linked_report_id === 'string')
+    (value.private_note_updated_at === null || typeof value.private_note_updated_at === 'string')
   );
 }
 
@@ -437,6 +483,7 @@ function toCurrentRating(row: SubmitRow): CurrentRating {
   return {
     id: row.id,
     placeId: row.place_id,
+    overallScore: row.overall_score ?? null,
     scores: {
       welcome: row.welcome_score,
       clarity: row.clarity_score,
@@ -444,17 +491,15 @@ function toCurrentRating(row: SubmitRow): CurrentRating {
       thoughtfulness: row.thoughtfulness_score
     },
     ratedAt: row.rated_at,
-    excluded: row.excluded,
     privateNote: row.private_note,
-    privateNoteClassification: row.private_note_classification,
-    privateNoteUpdatedAt: row.private_note_updated_at,
-    linkedReportId: row.linked_report_id
+    privateNoteUpdatedAt: row.private_note_updated_at
   };
 }
 
 interface ModerationRow {
   id: string;
   member_id: string;
+  overall_score?: number | null;
   welcome_score: number | null;
   clarity_score: number | null;
   comfort_score: number | null;
@@ -483,6 +528,7 @@ function isModerationRow(value: unknown): value is ModerationRow {
     isRecord(value) &&
     typeof value.id === 'string' &&
     typeof value.member_id === 'string' &&
+    (value.overall_score === undefined || isScoreOrNull(value.overall_score)) &&
     isScoreOrNull(value.welcome_score) &&
     isScoreOrNull(value.clarity_score) &&
     isScoreOrNull(value.comfort_score) &&

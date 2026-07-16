@@ -36,66 +36,36 @@ test.afterAll(async () => {
   retireLocalPrivateRatingNoteFixture();
 });
 
-test('a Member attaches a subjective note to a low Rating and is never offered a Report path', async ({
+test('a Member autosaves an optional note with a low inline Rating and is never offered a Report path', async ({
   page
 }) => {
   const memberEmail = `rating-note-subjective-${Date.now()}@example.invalid`;
   await signInMember(page, memberEmail);
 
-  await page.goto(`/en/places/${placeId}/rate`);
+  const note = 'The welcome felt lukewarm, purely a matter of taste.';
+  await saveInlineRatingWithNote(page, 2, note, { comfort: 3, thoughtfulness: 3 });
+  await expect(page.getByText('Send a formal Report?')).toHaveCount(0);
+
+  await page.reload();
   await waitForHydration(page);
-  await page.getByLabel('Welcome').selectOption('2');
-  await page.getByLabel('Clarity').selectOption('na');
-  await page.getByLabel('Comfort').selectOption('3');
-  await page.getByLabel('Thoughtfulness').selectOption('3');
-
-  await expect(page.getByText('Private context for a low Rating')).toBeVisible();
-  await expect(page.getByText('Only Hundavænt Moderators can read this')).toBeVisible();
-
-  await page.getByLabel('A subjective experience').check();
-  await page
-    .getByLabel('Your private explanation')
-    .fill('The welcome felt lukewarm, purely a matter of taste.');
-  await page.getByRole('button', { name: 'Save Rating' }).click();
-
-  // A subjective note never offers the explicit Report path, and the Member lands back on the
-  // Place profile exactly like a note-free save.
-  await expect(page).toHaveURL(`/en?place=${placeId}`);
-
-  await page.goto(`/en/places/${placeId}/rate`);
-  await waitForHydration(page);
+  const rating = page.locator('[data-inline-rating]');
+  await rating
+    .getByRole('radiogroup', { name: 'Overall rating' })
+    .getByRole('radio', { name: '2 stars' })
+    .click();
+  await expect(rating.getByRole('textbox')).toHaveValue(note);
   await expect(page.getByText('Send a formal Report?')).toHaveCount(0);
 });
 
-test('a Member attaches an inaccurate-information note and explicitly creates a linked Report', async ({
+test('a low-score inline note stays private and does not implicitly create a linked Report', async ({
   page,
   browser
 }) => {
   const memberEmail = `rating-note-inaccurate-${Date.now()}@example.invalid`;
   await signInMember(page, memberEmail);
 
-  await page.goto(`/en/places/${placeId}/rate`);
-  await waitForHydration(page);
-  await page.getByLabel('Welcome').selectOption('1');
-  await page.getByLabel('Clarity').selectOption('na');
-  await page.getByLabel('Comfort').selectOption('na');
-  await page.getByLabel('Thoughtfulness').selectOption('na');
-
-  await page.getByLabel('Possibly inaccurate access information').check();
-  await page
-    .getByLabel('Your private explanation')
-    .fill('The posted opening hours do not match what staff told me on arrival.');
-  await page.getByRole('button', { name: 'Save Rating' }).click();
-
-  // Saving a qualifying note pauses the usual redirect and offers the explicit, deliberate
-  // second action instead.
-  await expect(page.getByText('Send a formal Report?')).toBeVisible();
-  await page.getByRole('button', { name: 'Create a Report from this note' }).click();
-  await expect(page.getByText('The Report has been sent for review.')).toBeVisible();
-
-  // Revisiting the form no longer offers the prompt: at most one linked Report per Rating.
-  await page.goto(`/en/places/${placeId}/rate`);
-  await waitForHydration(page);
+  const note = 'The posted opening hours do not match what staff told me on arrival.';
+  await saveInlineRatingWithNote(page, 1, note);
   await expect(page.getByText('Send a formal Report?')).toHaveCount(0);
 
   const status = getLocalSupabaseStatus();
@@ -115,12 +85,9 @@ test('a Member attaches an inaccurate-information note and explicitly creates a 
   const memberRow = moderatorPage.locator('li[data-rating-id]', { hasText: memberId });
   await expect(memberRow.getByText('Private Rating Note')).toBeVisible();
   // Scoped to the current-note paragraph specifically: the note-history disclosure below also
-  // retains the same text in its "submitted" and "report_linked" snapshots, by design.
-  await expect(memberRow.locator('.note-text')).toHaveText(
-    'The posted opening hours do not match what staff told me on arrival.'
-  );
-  await expect(memberRow.getByText('Possibly inaccurate access information')).toBeVisible();
-  await expect(memberRow.getByRole('link', { name: 'View Report' })).toBeVisible();
+  // retains the same text in its submitted snapshot, by design.
+  await expect(memberRow.locator('.note-text')).toHaveText(note);
+  await expect(memberRow.getByRole('link', { name: 'View Report' })).toHaveCount(0);
 
   // A Moderator can record a feedback-use decision from the same note-augmented queue surface.
   await memberRow.getByLabel('Decision kind').selectOption('feedback_use_permitted');
@@ -142,18 +109,14 @@ test('a Moderator excludes a noted Rating for abuse, reusing the existing eligib
   const memberEmail = `rating-note-abuse-${Date.now()}@example.invalid`;
   await signInMember(page, memberEmail);
 
-  await page.goto(`/en/places/${placeId}/rate`);
-  await waitForHydration(page);
-  await page.getByLabel('Welcome').selectOption('1');
-  await page.getByLabel('Clarity').selectOption('1');
-  await page.getByLabel('Comfort').selectOption('1');
-  await page.getByLabel('Thoughtfulness').selectOption('1');
-  await page.getByLabel('A possible Safety Concern').check();
-  await page.getByLabel('Your private explanation').fill('A loose dog nearly reached the street.');
-  await page.getByRole('button', { name: 'Save Rating' }).click();
-  await expect(page.getByText('Send a formal Report?')).toBeVisible();
-  // Explicitly skip the Report path this time to prove the eligibility workflow is independent.
-  await page.getByRole('link', { name: 'Not now' }).click();
+  const note = 'A loose dog nearly reached the street.';
+  await saveInlineRatingWithNote(page, 1, note, {
+    welcome: 1,
+    clarity: 1,
+    comfort: 1,
+    thoughtfulness: 1
+  });
+  await expect(page.getByText('Send a formal Report?')).toHaveCount(0);
 
   const status = getLocalSupabaseStatus();
   const admin = createClient<Database>(status.apiUrl, status.secretKey, {
@@ -170,9 +133,7 @@ test('a Moderator excludes a noted Rating for abuse, reusing the existing eligib
   await waitForHydration(moderatorPage);
 
   const memberRow = moderatorPage.locator('li[data-rating-id]', { hasText: memberId });
-  await expect(memberRow.locator('.note-text')).toHaveText(
-    'A loose dog nearly reached the street.'
-  );
+  await expect(memberRow.locator('.note-text')).toHaveText(note);
 
   await memberRow.getByLabel('Exclusion reason').selectOption('abuse');
   await memberRow
@@ -182,9 +143,7 @@ test('a Moderator excludes a noted Rating for abuse, reusing the existing eligib
   await expect(memberRow.getByText('Excluded', { exact: true })).toBeVisible();
 
   // Eligibility exclusion never clears the note itself: low quality alone is not redaction.
-  await expect(memberRow.locator('.note-text')).toHaveText(
-    'A loose dog nearly reached the street.'
-  );
+  await expect(memberRow.locator('.note-text')).toHaveText(note);
 
   await moderatorContext.close();
 });
@@ -224,11 +183,39 @@ test('a Visitor cannot attach a Private Rating Note or read the Moderator note q
   );
 });
 
+async function saveInlineRatingWithNote(
+  page: Page,
+  overall: number,
+  note: string,
+  categories: Partial<Record<'welcome' | 'clarity' | 'comfort' | 'thoughtfulness', number>> = {}
+): Promise<void> {
+  await page.goto(`/en?place=${placeId}`);
+  await waitForHydration(page);
+  const rating = page.locator('[data-inline-rating]');
+  await rating
+    .getByRole('radiogroup', { name: 'Overall rating' })
+    .getByRole('radio', { name: `${overall} ${overall === 1 ? 'star' : 'stars'}` })
+    .click();
+  for (const [category, score] of Object.entries(categories)) {
+    const label = category[0]?.toUpperCase() + category.slice(1);
+    await rating
+      .getByRole('radiogroup', { name: label })
+      .getByRole('radio', { name: `${score} ${score === 1 ? 'star' : 'stars'}` })
+      .click();
+  }
+  const noteInput = rating.getByRole('textbox', { name: 'What could be better? (optional)' });
+  await expect(noteInput).toBeVisible();
+  await noteInput.fill(note);
+  await noteInput.blur();
+  await expect(rating.getByText('Saving Rating…')).toBeVisible();
+  await expect(rating.getByText('Saved')).toBeVisible();
+}
+
 async function signInMember(page: Page, email: string): Promise<void> {
   await page.goto('/en/account');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(email);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(email);
   await page.goto(magicLink);
 }
@@ -242,8 +229,8 @@ async function signInModerator(page: Page): Promise<void> {
     `/en/moderation/sign-in?returnTo=${encodeURIComponent(`/en/moderation/dog-friendliness/${placeId}`)}`
   );
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(evaluationModerator.email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
   await page.goto(magicLink);
 }

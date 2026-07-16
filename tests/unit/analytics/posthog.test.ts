@@ -124,6 +124,57 @@ describe('PostHog analytics configuration', () => {
     });
   });
 
+  it('queues a product event until initialization and flushes it exactly once', () => {
+    const analytics = createPostHogAnalytics();
+    const client = createClient();
+
+    expect(analytics.prepare()).toBe(true);
+    expect(
+      analytics.capture('auth completed', {
+        method: 'email',
+        outcome: 'success'
+      })
+    ).toBe(true);
+    expect(client.capture).not.toHaveBeenCalled();
+
+    expect(analytics.initialize(environment, client)).toBe(true);
+    expect(client.capture).toHaveBeenCalledTimes(1);
+    expect(client.capture).toHaveBeenCalledWith('auth completed', {
+      method: 'email',
+      outcome: 'success'
+    });
+
+    expect(analytics.initialize(environment, client)).toBe(false);
+    expect(client.capture).toHaveBeenCalledTimes(1);
+  });
+
+  it('captures acquisition steps without personal or provider-profile fields', () => {
+    const analytics = createPostHogAnalytics();
+    const client = createClient();
+    analytics.initialize(environment, client);
+
+    analytics.capture('auth method selected', {
+      method: 'facebook',
+      origin: 'favourite'
+    });
+    analytics.capture('auth pending action completed', {
+      action: 'favourite',
+      outcome: 'completed'
+    });
+
+    expect(client.capture).toHaveBeenNthCalledWith(1, 'auth method selected', {
+      method: 'facebook',
+      origin: 'favourite'
+    });
+    expect(client.capture).toHaveBeenNthCalledWith(2, 'auth pending action completed', {
+      action: 'favourite',
+      outcome: 'completed'
+    });
+    expect(JSON.stringify(client.capture.mock.calls)).not.toContain('@');
+    expect(JSON.stringify(client.capture.mock.calls)).not.toContain('profile');
+    expect(JSON.stringify(client.capture.mock.calls)).not.toContain('note');
+  });
+
   it('queues, sanitizes, and deduplicates browser exceptions until initialization', () => {
     const analytics = createPostHogAnalytics();
     const client = createClient();

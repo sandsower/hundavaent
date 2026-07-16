@@ -39,6 +39,7 @@ const proposal = {
     restraint_condition: 'leash_required' as const,
     restraint_note: null,
     dog_eligibility: { scope: 'all_dogs' as const },
+    availability_state: 'limited' as const,
     availability_window: { days: [1, 2], startsAt: '09:00', endsAt: '17:00' },
     permission_requirement: 'standing_permission' as const
   },
@@ -166,6 +167,44 @@ describe('Member Suggestion workflow', () => {
     expect(screen.getByRole('button', { name: submitLabel })).toBeTruthy();
   });
 
+  it('preserves every Member timing state when the optional schedule disclosure closes', async () => {
+    render(SuggestionPage, {
+      params: { lang: 'en' },
+      data: { lang: 'en', copy: catalogues.en, unavailable: false },
+      form: null
+    } as never);
+
+    const toggle = screen.getByRole('button', { name: 'Only welcome at certain times?' });
+    const form = screen.getByRole('button', { name: 'Send suggestion' }).closest('form')!;
+    await fireEvent.click(toggle);
+    const timing = screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement;
+    expect(timing.value).toBe('limited');
+    expect(Array.from(timing.options, (option) => option.value)).toEqual([
+      'not_stated',
+      'whenever_open',
+      'limited'
+    ]);
+    const days = screen.getByLabelText(
+      'Which weekdays? (1-7, separated by commas)'
+    ) as HTMLInputElement;
+    await fireEvent.input(days, { target: { value: '1,2' } });
+    await fireEvent.click(toggle);
+    expect(new FormData(form).get('availabilityState')).toBe('limited');
+    expect(new FormData(form).get('availabilityDays')).toBe('1,2');
+
+    await fireEvent.click(toggle);
+    await fireEvent.change(timing, { target: { value: 'whenever_open' } });
+    expect(screen.queryByLabelText('Which weekdays? (1-7, separated by commas)')).toBeNull();
+    await fireEvent.click(toggle);
+    expect(new FormData(form).get('availabilityState')).toBe('whenever_open');
+    expect(new FormData(form).get('availabilityDays')).toBeNull();
+
+    await fireEvent.click(toggle);
+    await fireEvent.change(timing, { target: { value: 'not_stated' } });
+    await fireEvent.click(toggle);
+    expect(new FormData(form).get('availabilityState')).toBe('not_stated');
+  });
+
   it('announces the fail-closed suggestion-abuse boundary without rendering a usable form', () => {
     render(SuggestionPage, {
       params: { lang: 'en' },
@@ -253,6 +292,12 @@ describe('Moderator Suggestion workflow', () => {
     ).toBeTruthy();
 
     expect((screen.getByLabelText('Outcome') as HTMLSelectElement).value).toBe('accepted');
+    const timing = screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement;
+    expect(timing.value).toBe('limited');
+    expect(screen.getByLabelText(catalogues.en['suggestion.availabilityDays'])).toBeTruthy();
+    await fireEvent.change(timing, { target: { value: 'whenever_open' } });
+    expect(screen.queryByLabelText(catalogues.en['suggestion.availabilityDays'])).toBeNull();
+    expect(screen.getAllByLabelText('Name')).toHaveLength(2);
     expect(
       (screen.getByLabelText('Member explanation in Icelandic') as HTMLTextAreaElement).value
     ).toBe('Yfirfarið.');

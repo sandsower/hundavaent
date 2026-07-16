@@ -49,13 +49,11 @@ describe('Dog-Friendliness RPC adapter', () => {
       value: {
         id: 'rating-1',
         placeId: 'place-1',
+        overallScore: null,
         scores: { welcome: 4, clarity: null, comfort: 5, thoughtfulness: 3 },
         ratedAt: '2026-07-12T09:00:00Z',
-        excluded: false,
         privateNote: null,
-        privateNoteClassification: null,
-        privateNoteUpdatedAt: null,
-        linkedReportId: null
+        privateNoteUpdatedAt: null
       }
     });
     expect(rpc).toHaveBeenCalledWith('submit_dog_friendliness_rating', {
@@ -98,13 +96,11 @@ describe('Dog-Friendliness RPC adapter', () => {
       value: {
         id: 'rating-1',
         placeId: 'place-1',
+        overallScore: null,
         scores: { welcome: 2, clarity: null, comfort: 5, thoughtfulness: 3 },
         ratedAt: '2026-07-12T09:00:00Z',
-        excluded: false,
         privateNote: 'The welcome felt cold.',
-        privateNoteClassification: 'subjective',
-        privateNoteUpdatedAt: '2026-07-12T10:00:00Z',
-        linkedReportId: null
+        privateNoteUpdatedAt: '2026-07-12T10:00:00Z'
       }
     });
     expect(rpc).toHaveBeenCalledWith(
@@ -144,7 +140,7 @@ describe('Dog-Friendliness RPC adapter', () => {
     ).resolves.toEqual({ status: 'success', value: null });
   });
 
-  it('reads the Member own current Rating including exclusion state and note', async () => {
+  it('reads the Member own current Rating without exposing Moderator state', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: [
         {
@@ -167,9 +163,10 @@ describe('Dog-Friendliness RPC adapter', () => {
 
     expect(result.status).toBe('success');
     if (result.status !== 'success') return;
-    expect(result.value?.excluded).toBe(true);
-    expect(result.value?.privateNoteClassification).toBe('inaccurate_info');
-    expect(result.value?.linkedReportId).toBe('flag-1');
+    expect(result.value?.privateNote).toBe('Access rules were confusing.');
+    expect(result.value).not.toHaveProperty('excluded');
+    expect(result.value).not.toHaveProperty('privateNoteClassification');
+    expect(result.value).not.toHaveProperty('linkedReportId');
   });
 
   it('reads a hidden public Summary with no leaked counts or values', async () => {

@@ -1,11 +1,11 @@
 import type {
   AccessArea,
+  AvailabilityState,
   AvailabilityWindow,
   DogEligibility,
   PermissionRequirement,
   RestraintCondition
 } from '$domain/access';
-import type { EvidenceKind } from '$domain/evidence';
 import { parseAvailabilityWindow, parseDogEligibility } from '$domain/access-schema';
 import type { PlaceCategory } from '$domain/place';
 import type { Locale } from '$i18n';
@@ -16,12 +16,17 @@ import {
   type DogFriendlinessRpcClient,
   type DogFriendlinessSummary
 } from '$server/dog-friendliness/dog-friendliness';
-import { listPublishedPlacePhotos, signPlaceMediaUrl } from '$server/place-media/place-media';
+import {
+  listPublishedPlacePhotos,
+  signPlaceMediaUrl,
+  signPlaceMediaUrls
+} from '$server/place-media/place-media';
 import type { PlacePhotoRightsBasis } from '$server/place-media/place-media-input';
 
-type ListRow = Database['public']['Functions']['list_published_places']['Returns'][number];
-type ProfileRow = Database['public']['Functions']['get_published_place_profile']['Returns'][number];
-type StatusRow = Database['public']['Functions']['get_public_place_status']['Returns'][number];
+type ListRow = Database['public']['Functions']['list_published_places_v2']['Returns'][number];
+type ProfileRow =
+  Database['public']['Functions']['get_published_place_profile_v2']['Returns'][number];
+const publishedPhotoUrlTtlSeconds = 300;
 
 export interface PublishedPlaceSummary {
   placeId: string;
@@ -36,13 +41,31 @@ export interface PublishedPlaceSummary {
   restraintCondition: RestraintCondition | null;
   permissionRequirement: PermissionRequirement | null;
   accessConditions: PublishedAccessConditionSummary[];
-  verifiedAt: string;
+  primaryPhoto: PublishedPlacePrimaryPhoto | null;
+}
+
+export interface PublishedPlacePrimaryPhoto {
+  mediaId: string;
+  url: string;
+  widthPx: number;
+  heightPx: number;
+  altTextIs: string;
+  altTextEn: string;
+  rightsBasis: PlacePhotoRightsBasis;
+  sourceUrl: string | null;
+  licenseReference: string;
+  licenseUrl: string | null;
+  attributionText: string;
+  attributionUrl: string | null;
+  urlExpiresAt: string;
 }
 
 export interface PublishedAccessConditionSummary {
   accessArea: AccessArea;
   restraintCondition: RestraintCondition;
   permissionRequirement: PermissionRequirement;
+  dogEligibilityState?: 'all_dogs' | 'small_dogs_only' | 'special' | 'not_stated';
+  availabilityState?: AvailabilityState;
 }
 
 export interface PublishedAccessFacts {
@@ -53,18 +76,9 @@ export interface PublishedAccessFacts {
   restraintNote: string | null;
   dogEligibility: DogEligibility;
   availabilityWindow: AvailabilityWindow;
+  availabilityState?: AvailabilityState;
   permissionRequirement: PermissionRequirement;
-  evidenceSources: PublishedEvidenceSource[];
-  verifiedAt: string;
-  freshnessUntil: string;
-}
-
-export interface PublishedEvidenceSource {
-  kind: EvidenceKind;
-  sourceUrl: string | null;
-  sourceCitation: string | null;
-  sourceLabel: string;
-  observedAt: string;
+  accessInformationUrls?: string[];
 }
 
 export interface PublishedPlacePhoto {
@@ -81,6 +95,7 @@ export interface PublishedPlacePhoto {
   attributionText: string;
   attributionUrl: string | null;
   isPrimary: boolean;
+  urlExpiresAt: string;
 }
 
 export interface PublishedPlaceProfile {
@@ -99,6 +114,7 @@ export interface PublishedPlaceProfile {
   phone: string | null;
   openingHours: Readonly<Record<string, Json>>;
   dogAmenities: string[];
+  accessInformationUrls?: string[];
   accessConditions: PublishedAccessFacts[];
   dogFriendlinessSummary: DogFriendlinessSummary;
   photos: PublishedPlacePhoto[];
@@ -115,16 +131,9 @@ export type PublicProfileResult =
   | { status: 'invalid_response' }
   | { status: 'infrastructure_error' };
 
-export interface PublicPlaceStatus {
-  placeId: string;
-  name: string;
-  publicStatus: 'access_under_review' | 'inactive';
-}
-
-export type PublicPlaceStatusResult =
-  | { status: 'success'; value: PublicPlaceStatus }
+export type PublicPhotoDeliveryResult =
+  | { status: 'success'; value: { url: string; urlExpiresAt: string } }
   | { status: 'not_found' }
-  | { status: 'invalid_response' }
   | { status: 'infrastructure_error' };
 
 export async function listPublished(
@@ -132,7 +141,7 @@ export async function listPublished(
   locale: Locale
 ): Promise<PublicListResult> {
   try {
-    const { data, error } = await client.rpc('list_published_places', {
+    const { data, error } = await client.rpc('list_published_places_v2', {
       requested_locale: locale
     });
 
@@ -144,13 +153,69 @@ export async function listPublished(
       return { status: 'invalid_response' };
     }
 
+    const summaries = data.filter(hasValidCoordinates).map(mapListRow);
+    const primaryPhotos = await resolvePublishedPlacePrimaryPhotos(
+      client,
+      summaries.map((place) => place.placeId)
+    );
+
     return {
       status: 'success',
-      value: data.filter(hasValidCoordinates).map(mapListRow)
+      value: summaries.map((place) => ({
+        ...place,
+        primaryPhoto: primaryPhotos.get(place.placeId) ?? null
+      }))
     };
   } catch {
     return { status: 'infrastructure_error' };
   }
+}
+
+async function resolvePublishedPlacePrimaryPhotos(
+  client: RequestSupabaseClient,
+  placeIds: string[]
+): Promise<Map<string, PublishedPlacePrimaryPhoto>> {
+  const photos = new Map<string, PublishedPlacePrimaryPhoto>();
+  if (placeIds.length === 0) return photos;
+  try {
+    const { data, error } = await client.rpc('list_published_place_primary_photos', {
+      requested_place_ids: placeIds
+    });
+    if (error || !Array.isArray(data) || !data.every(isPrimaryPhotoRow)) return photos;
+
+    const requestedIds = new Set(placeIds);
+    const requestedRows = data.filter((row) => requestedIds.has(row.place_id));
+    const urlExpiresAt = new Date(Date.now() + publishedPhotoUrlTtlSeconds * 1_000).toISOString();
+    const signedUrls = await signPlaceMediaUrls(
+      client,
+      'place-photos',
+      requestedRows.map((row) => row.storage_object_path),
+      publishedPhotoUrlTtlSeconds
+    );
+
+    for (const row of requestedRows) {
+      const url = signedUrls.get(row.storage_object_path);
+      if (!url || photos.has(row.place_id)) continue;
+      photos.set(row.place_id, {
+        mediaId: row.media_id,
+        url,
+        widthPx: row.width_px,
+        heightPx: row.height_px,
+        altTextIs: row.alt_text_is,
+        altTextEn: row.alt_text_en,
+        rightsBasis: row.rights_basis as PlacePhotoRightsBasis,
+        sourceUrl: row.source_url,
+        licenseReference: row.license_reference,
+        licenseUrl: row.license_url,
+        attributionText: row.attribution_text,
+        attributionUrl: row.attribution_url,
+        urlExpiresAt
+      });
+    }
+  } catch {
+    // Photography is supplementary. Keep the compact directory usable when media lookup fails.
+  }
+  return photos;
 }
 
 export async function getPublishedProfile(
@@ -159,7 +224,7 @@ export async function getPublishedProfile(
   locale: Locale
 ): Promise<PublicProfileResult> {
   try {
-    const { data, error } = await client.rpc('get_published_place_profile', {
+    const { data, error } = await client.rpc('get_published_place_profile_v2', {
       requested_place_id: placeId,
       requested_locale: locale
     });
@@ -213,10 +278,44 @@ export async function getPublishedProfile(
         openingHours: first.opening_hours as Readonly<Record<string, Json>>,
         dogAmenities: first.dog_amenities as string[],
         accessConditions: data.map(mapAccessFacts),
+        // Evidence URLs are moderator provenance, not visitor-facing place links. The public card
+        // exposes only the Place's clearly labelled website when one exists.
+        accessInformationUrls: [],
         dogFriendlinessSummary,
         photos
       }
     };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+export async function refreshPublishedPhotoUrl(
+  client: RequestSupabaseClient,
+  placeId: string,
+  mediaId: string
+): Promise<PublicPhotoDeliveryResult> {
+  const photosResult = await listPublishedPlacePhotos(client, placeId);
+  if (photosResult.status !== 'success') return { status: 'infrastructure_error' };
+
+  const photo = photosResult.value.find((candidate) => candidate.mediaId === mediaId);
+  if (!photo) return { status: 'not_found' };
+
+  const bucket = photo.storageBucket as 'place-evidence' | 'place-photos';
+  try {
+    const urlExpiresAt = new Date(Date.now() + publishedPhotoUrlTtlSeconds * 1_000).toISOString();
+    const url = await signPlaceMediaUrl(
+      client,
+      bucket,
+      photo.storageObjectPath,
+      publishedPhotoUrlTtlSeconds
+    );
+    return url
+      ? {
+          status: 'success',
+          value: { url, urlExpiresAt }
+        }
+      : { status: 'not_found' };
   } catch {
     return { status: 'infrastructure_error' };
   }
@@ -233,33 +332,44 @@ async function resolvePublishedPlacePhotos(
     return [];
   }
 
-  const resolved = await Promise.all(
-    photosResult.value.map(async (photo) => {
-      const url = await signPlaceMediaUrl(
-        client,
-        photo.storageBucket as 'place-evidence' | 'place-photos',
-        photo.storageObjectPath
+  const urlExpiresAt = new Date(Date.now() + publishedPhotoUrlTtlSeconds * 1_000).toISOString();
+  const signedByBucket = new Map<'place-evidence' | 'place-photos', Map<string, string>>();
+  for (const bucket of ['place-evidence', 'place-photos'] as const) {
+    const paths = photosResult.value
+      .filter((photo) => photo.storageBucket === bucket)
+      .map((photo) => photo.storageObjectPath);
+    if (paths.length > 0) {
+      signedByBucket.set(
+        bucket,
+        await signPlaceMediaUrls(client, bucket, paths, publishedPhotoUrlTtlSeconds)
       );
-      if (!url) return null;
-      return {
-        mediaId: photo.mediaId,
-        url,
-        widthPx: photo.widthPx,
-        heightPx: photo.heightPx,
-        altTextIs: photo.altTextIs,
-        altTextEn: photo.altTextEn,
-        rightsBasis: photo.rightsBasis,
-        sourceUrl: photo.sourceUrl,
-        licenseReference: photo.licenseReference,
-        licenseUrl: photo.licenseUrl,
-        attributionText: photo.attributionText,
-        attributionUrl: photo.attributionUrl,
-        isPrimary: photo.isPrimary
-      };
-    })
-  );
+    }
+  }
 
-  return resolved.filter((photo): photo is PublishedPlacePhoto => photo !== null);
+  return photosResult.value.flatMap((photo) => {
+    const bucket = photo.storageBucket as 'place-evidence' | 'place-photos';
+    const url = signedByBucket.get(bucket)?.get(photo.storageObjectPath);
+    return url
+      ? [
+          {
+            mediaId: photo.mediaId,
+            url,
+            widthPx: photo.widthPx,
+            heightPx: photo.heightPx,
+            altTextIs: photo.altTextIs,
+            altTextEn: photo.altTextEn,
+            rightsBasis: photo.rightsBasis,
+            sourceUrl: photo.sourceUrl,
+            licenseReference: photo.licenseReference,
+            licenseUrl: photo.licenseUrl,
+            attributionText: photo.attributionText,
+            attributionUrl: photo.attributionUrl,
+            isPrimary: photo.isPrimary,
+            urlExpiresAt
+          }
+        ]
+      : [];
+  });
 }
 
 function hiddenDogFriendlinessSummary(placeId: string): DogFriendlinessSummary {
@@ -272,35 +382,6 @@ function hiddenDogFriendlinessSummary(placeId: string): DogFriendlinessSummary {
     overallMean: null,
     overallVisible: false
   };
-}
-
-export async function getPublicPlaceStatus(
-  client: RequestSupabaseClient,
-  placeId: string,
-  locale: Locale
-): Promise<PublicPlaceStatusResult> {
-  try {
-    const { data, error } = await client.rpc('get_public_place_status', {
-      requested_place_id: placeId,
-      requested_locale: locale
-    });
-    if (error) return { status: 'infrastructure_error' };
-    if (!Array.isArray(data)) return { status: 'invalid_response' };
-    if (data.length === 0) return { status: 'not_found' };
-    if (data.length !== 1 || !isStatusRow(data[0], placeId)) {
-      return { status: 'invalid_response' };
-    }
-    return {
-      status: 'success',
-      value: {
-        placeId: data[0].place_id,
-        name: data[0].name,
-        publicStatus: data[0].public_status
-      }
-    };
-  } catch {
-    return { status: 'infrastructure_error' };
-  }
 }
 
 function mapListRow(row: ListRow): PublishedPlaceSummary {
@@ -319,30 +400,67 @@ function mapListRow(row: ListRow): PublishedPlaceSummary {
     restraintCondition: row.restraint_condition as RestraintCondition | null,
     permissionRequirement: row.permission_requirement as PermissionRequirement | null,
     accessConditions,
-    verifiedAt: row.verified_at
+    primaryPhoto: null
   };
+}
+
+function isPrimaryPhotoRow(
+  row: Database['public']['Functions']['list_published_place_primary_photos']['Returns'][number]
+): boolean {
+  return (
+    hasText(row.place_id) &&
+    hasText(row.media_id) &&
+    row.storage_bucket === 'place-photos' &&
+    hasText(row.storage_object_path) &&
+    Number.isInteger(row.width_px) &&
+    row.width_px > 0 &&
+    Number.isInteger(row.height_px) &&
+    row.height_px > 0 &&
+    hasText(row.alt_text_is) &&
+    hasText(row.alt_text_en) &&
+    photoRightsBases.has(row.rights_basis) &&
+    hasText(row.license_reference) &&
+    hasText(row.attribution_text) &&
+    isOptionalHttpUrl(row.source_url) &&
+    isOptionalHttpUrl(row.license_url) &&
+    isOptionalHttpUrl(row.attribution_url)
+  );
 }
 
 function mapAccessFacts(row: ProfileRow): PublishedAccessFacts {
   const dogEligibility = parseDogEligibility(row.dog_eligibility);
   const availabilityWindow = parseAvailabilityWindow(row.availability_window);
-  const evidenceSources = parseEvidenceSources(row.evidence_sources);
-  if (!dogEligibility || !availabilityWindow || !evidenceSources) {
+  const accessInformationUrls = parseUrlList(row.access_information_urls);
+  if (!dogEligibility || !availabilityWindow || !accessInformationUrls) {
     throw new Error('Invalid access facts reached mapper');
   }
   return {
     id: row.access_condition_id,
     accessArea: row.access_area as AccessArea,
-    accessAreaNote: row.access_area_note,
+    accessAreaNote: publicVisitorNote(row.access_area_note),
     restraintCondition: row.restraint_condition as RestraintCondition,
-    restraintNote: row.restraint_note,
+    restraintNote: publicVisitorNote(row.restraint_note),
     dogEligibility,
     availabilityWindow,
+    availabilityState: row.availability_state as AvailabilityState,
     permissionRequirement: row.permission_requirement as PermissionRequirement,
-    evidenceSources,
-    verifiedAt: row.verified_at,
-    freshnessUntil: row.freshness_until
+    accessInformationUrls: []
   };
+}
+
+function publicVisitorNote(value: string | null): string | null {
+  if (value === null) return null;
+  const note = value.trim();
+  if (note.length === 0) return null;
+  if (
+    /https?:\/\//i.test(note) ||
+    /\b(?:arcgis|moderator|reconfirm(?:ation)?|evidence source|postal code|verification (?:due|state|status))\b/i.test(
+      note
+    )
+  ) {
+    return null;
+  }
+  return note;
 }
 
 function isListRowWithoutCoordinates(row: ListRow): boolean {
@@ -367,7 +485,7 @@ function isListRowWithoutCoordinates(row: ListRow): boolean {
       : row.access_area === null &&
         row.restraint_condition === null &&
         row.permission_requirement === null) &&
-    isDate(row.verified_at)
+    true
   );
 }
 
@@ -386,7 +504,11 @@ function parsePublishedAccessConditionSummaries(
       typeof condition.restraintCondition !== 'string' ||
       !restraintConditions.has(condition.restraintCondition) ||
       typeof condition.permissionRequirement !== 'string' ||
-      !permissionRequirements.has(condition.permissionRequirement)
+      !permissionRequirements.has(condition.permissionRequirement) ||
+      typeof condition.dogEligibilityState !== 'string' ||
+      !dogEligibilitySummaryStates.has(condition.dogEligibilityState) ||
+      typeof condition.availabilityState !== 'string' ||
+      !availabilityStates.has(condition.availabilityState)
     ) {
       return null;
     }
@@ -394,7 +516,10 @@ function parsePublishedAccessConditionSummaries(
     parsed.push({
       accessArea: condition.accessArea as AccessArea,
       restraintCondition: condition.restraintCondition as RestraintCondition,
-      permissionRequirement: condition.permissionRequirement as PermissionRequirement
+      permissionRequirement: condition.permissionRequirement as PermissionRequirement,
+      dogEligibilityState:
+        condition.dogEligibilityState as PublishedAccessConditionSummary['dogEligibilityState'],
+      availabilityState: condition.availabilityState as AvailabilityState
     });
   }
   return parsed;
@@ -402,17 +527,6 @@ function parsePublishedAccessConditionSummaries(
 
 function hasValidCoordinates(row: ListRow): boolean {
   return isLatitude(row.latitude) && isLongitude(row.longitude);
-}
-
-function isStatusRow(
-  row: StatusRow,
-  placeId: string
-): row is StatusRow & { public_status: PublicPlaceStatus['publicStatus'] } {
-  return (
-    row.place_id === placeId &&
-    hasText(row.name) &&
-    (row.public_status === 'access_under_review' || row.public_status === 'inactive')
-  );
 }
 
 function isProfileRow(row: ProfileRow): boolean {
@@ -437,10 +551,9 @@ function isProfileRow(row: ProfileRow): boolean {
     isOptionalText(row.restraint_note) &&
     parseDogEligibility(row.dog_eligibility) !== null &&
     parseAvailabilityWindow(row.availability_window) !== null &&
+    availabilityStates.has(row.availability_state) &&
     permissionRequirements.has(row.permission_requirement) &&
-    parseEvidenceSources(row.evidence_sources) !== null &&
-    isDate(row.verified_at) &&
-    isDate(row.freshness_until)
+    parseUrlList(row.access_information_urls) !== null
   );
 }
 
@@ -470,16 +583,23 @@ function isOptionalText(value: unknown): value is string | null {
   return value === null || hasText(value);
 }
 
+function isOptionalHttpUrl(value: unknown): value is string | null {
+  if (value === null) return true;
+  if (!hasText(value)) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function isLatitude(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= -90 && value <= 90;
 }
 
 function isLongitude(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= -180 && value <= 180;
-}
-
-function isDate(value: unknown): value is string {
-  return typeof value === 'string' && Number.isFinite(Date.parse(value));
 }
 
 function isJsonObject(value: Json): value is { [key: string]: Json | undefined } {
@@ -490,34 +610,25 @@ function isStringArray(value: Json): value is string[] {
   return Array.isArray(value) && value.every(hasText);
 }
 
-function parseEvidenceSources(value: Json): PublishedEvidenceSource[] | null {
-  if (!Array.isArray(value) || value.length === 0) return null;
-
-  const parsed: PublishedEvidenceSource[] = [];
-  for (const source of value) {
-    if (
-      !isJsonObject(source) ||
-      !hasOnlyKeys(source, evidenceSourceKeys) ||
-      typeof source.kind !== 'string' ||
-      !evidenceKinds.has(source.kind) ||
-      !hasText(source.sourceLabel) ||
-      !isOptionalText(source.sourceUrl) ||
-      !isOptionalText(source.sourceCitation) ||
-      !isDate(source.observedAt) ||
-      (!hasText(source.sourceUrl) && !hasText(source.sourceCitation))
-    ) {
-      return null;
-    }
-
-    parsed.push({
-      kind: source.kind as EvidenceKind,
-      sourceUrl: source.sourceUrl,
-      sourceCitation: source.sourceCitation,
-      sourceLabel: source.sourceLabel,
-      observedAt: source.observedAt
-    });
+function parseUrlList(value: Json): string[] | null {
+  if (!Array.isArray(value)) {
+    return null;
   }
-  return parsed;
+  const urls: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string' || !isUrl(item)) return null;
+    urls.push(item);
+  }
+  return [...new Set(urls)];
+}
+
+function isUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
 }
 
 function hasOnlyKeys(
@@ -552,23 +663,25 @@ const permissionRequirements = new Set<string>([
   'ask_on_arrival',
   'advance_approval'
 ]);
-const evidenceKinds = new Set<string>([
-  'official_website',
-  'venue_representative',
-  'member_report',
-  'direct_observation',
-  'public_record',
-  'other'
+const photoRightsBases = new Set<string>([
+  'explicit_permission',
+  'cc0',
+  'public_domain',
+  'cc_by',
+  'cc_by_sa',
+  'official_reuse'
 ]);
-const evidenceSourceKeys = new Set([
-  'kind',
-  'sourceUrl',
-  'sourceCitation',
-  'sourceLabel',
-  'observedAt'
+const availabilityStates = new Set<string>(['whenever_open', 'limited', 'not_stated']);
+const dogEligibilitySummaryStates = new Set<string>([
+  'all_dogs',
+  'small_dogs_only',
+  'special',
+  'not_stated'
 ]);
 const publishedAccessConditionSummaryKeys = new Set([
   'accessArea',
   'restraintCondition',
-  'permissionRequirement'
+  'permissionRequirement',
+  'dogEligibilityState',
+  'availabilityState'
 ]);

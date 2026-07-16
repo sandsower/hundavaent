@@ -1,26 +1,18 @@
-<script module lang="ts">
-  function isReconfirmationDue(freshnessUntil: string): boolean {
-    return Date.parse(freshnessUntil) <= Date.now();
-  }
-</script>
-
 <script lang="ts">
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import type { PlaceCategory } from '$domain/place';
-  import {
-    accessAreaMessageKeys,
-    formatDogAmenities,
-    formatOpeningHours,
-    permissionMessageKeys,
-    restraintMessageKeys
-  } from '$i18n/structured-place';
+  import { formatDogAmenities, formatOpeningHours } from '$i18n/structured-place';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import type { PublishedPlaceProfile } from '$server/discovery/public-places';
   import { explainAccessCondition } from '$domain/access-explanation';
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
   import CheckInControl from '$lib/check-ins/CheckInControl.svelte';
-  import RatingSummary from '$lib/discovery/RatingSummary.svelte';
+  import InlineRating from '$lib/discovery/InlineRating.svelte';
   import PlacePhotos from '$lib/discovery/PlacePhotos.svelte';
+  import AccessSymbols from '$lib/discovery/AccessSymbols.svelte';
+  import PhotoCredit from '$lib/discovery/PhotoCredit.svelte';
+  import RefreshablePlaceImage from '$lib/discovery/RefreshablePlaceImage.svelte';
+  import SharePlaceControl from '$lib/discovery/SharePlaceControl.svelte';
 
   interface Props {
     place: PublishedPlaceSummary;
@@ -34,16 +26,12 @@
     signedIn?: boolean;
     favourite?: boolean;
     signInHref?: string;
-    pendingConfirmation?: boolean;
-    onFavouriteChange?: (placeId: string, favourite: boolean) => void;
-    correctionHref?: (
-      placeId: string,
-      kind: 'correct' | 'report' | 'rate',
-      target?: { field?: string; conditionId?: string }
-    ) => string;
+    onFavouriteChange?: (placeId: string, favourite: boolean, trigger: HTMLButtonElement) => void;
     checkInSignInHref?: string;
     proximityAssistEnabled?: boolean;
     initialCheckedInAt?: string | null;
+    openDetails?: boolean;
+    onDetailsOpened?: () => void;
   }
 
   let {
@@ -58,12 +46,12 @@
     signedIn = false,
     favourite = false,
     signInHref = '',
-    pendingConfirmation = false,
     onFavouriteChange = () => undefined,
-    correctionHref,
     checkInSignInHref = '',
     proximityAssistEnabled = false,
-    initialCheckedInAt = null
+    initialCheckedInAt = null,
+    openDetails = false,
+    onDetailsOpened = () => undefined
   }: Props = $props();
   const categoryKeys: Record<PlaceCategory, MessageKey> = {
     restaurant: 'category.restaurant',
@@ -78,22 +66,17 @@
     service: 'category.service',
     other: 'category.other'
   };
-  const reconfirmationDue = $derived(
-    profile?.accessConditions.some((condition) => isReconfirmationDue(condition.freshnessUntil)) ??
-      false
-  );
-  const summaryVerified = $derived(
-    profile !== null &&
-      !reconfirmationDue &&
-      place.simpleAccessSummary &&
-      place.permissionRequirement === 'standing_permission'
-  );
-  const welcomeTone = $derived(
-    reconfirmationDue ? 'attention' : summaryVerified ? 'verified' : 'info'
-  );
-  const welcomeAccessState = $derived(
-    reconfirmationDue ? 'attention' : summaryVerified ? 'verified' : 'conditional'
-  );
+  let completeDetails = $state<HTMLDetailsElement>();
+
+  function openCompleteDetails(): void {
+    if (completeDetails) completeDetails.open = true;
+  }
+
+  $effect(() => {
+    if (!openDetails || !profile || !completeDetails || completeDetails.open) return;
+    completeDetails.open = true;
+    queueMicrotask(onDetailsOpened);
+  });
 </script>
 
 <aside
@@ -106,66 +89,76 @@
       <h2>{place.name}</h2>
       <span>{copy[categoryKeys[place.category]]} · {place.locality}</span>
     </div>
-    <button
-      data-selected-place-close
-      class="hv-control close"
-      type="button"
-      aria-label={copy['directory.closeSelectedPlace']}
-      onclick={onClose}
-    >
-      <span aria-hidden="true">×</span>
-    </button>
+    <div class="heading-actions">
+      <FavouriteControl
+        placeId={place.placeId}
+        placeName={place.name}
+        {signedIn}
+        {favourite}
+        {copy}
+        {signInHref}
+        onChange={onFavouriteChange}
+      />
+      <SharePlaceControl placeId={place.placeId} placeName={place.name} {lang} {copy} />
+      <button
+        data-selected-place-close
+        class="hv-control close"
+        type="button"
+        aria-label={copy['directory.closeSelectedPlace']}
+        onclick={onClose}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      </button>
+    </div>
   </div>
 
   <div class="card-body" data-card-scroll-body>
-    {#if profile}
-      <PlacePhotos photos={profile.photos} placeName={place.name} {lang} {copy} featured />
+    {#if profile?.photos.length}
+      <PlacePhotos
+        photos={profile.photos}
+        placeId={profile.placeId}
+        placeName={place.name}
+        {lang}
+        {copy}
+        featured
+      />
+    {:else if place.primaryPhoto}
+      <figure class="summary-photo" data-summary-photo>
+        <RefreshablePlaceImage
+          placeId={place.placeId}
+          mediaId={place.primaryPhoto.mediaId}
+          url={place.primaryPhoto.url}
+          urlExpiresAt={place.primaryPhoto.urlExpiresAt}
+          alt={lang === 'is' ? place.primaryPhoto.altTextIs : place.primaryPhoto.altTextEn}
+          width={place.primaryPhoto.widthPx}
+          height={place.primaryPhoto.heightPx}
+        />
+        <figcaption>
+          <PhotoCredit
+            attributionText={place.primaryPhoto.attributionText}
+            attributionUrl={place.primaryPhoto.attributionUrl}
+            sourceUrl={place.primaryPhoto.sourceUrl}
+            licenseReference={place.primaryPhoto.licenseReference}
+            licenseUrl={place.primaryPhoto.licenseUrl}
+          />
+        </figcaption>
+      </figure>
     {/if}
 
-    <section
-      class="hv-notice welcome-answer"
-      data-tone={welcomeTone}
-      data-access-state={welcomeAccessState}
-      aria-labelledby={`welcome-${place.placeId}`}
-    >
+    <section class="welcome-answer" aria-labelledby={`welcome-${place.placeId}`}>
       <h3 id={`welcome-${place.placeId}`}>{copy['place.welcomeQuestion']}</h3>
-      {#if place.accessConditionCount > 1}
-        <p class="complex-summary">
-          {copy['place.multipleConditions'].replace('{count}', String(place.accessConditionCount))}
-        </p>
-      {:else if place.simpleAccessSummary && place.accessArea && place.restraintCondition && place.permissionRequirement}
-        <p class="welcome-verdict">
-          {place.permissionRequirement === 'standing_permission'
-            ? copy['place.welcomeYes']
-            : copy[permissionMessageKeys[place.permissionRequirement]]}
-        </p>
-        <ul class="access-facts" aria-label={copy['place.welcomeQuestion']}>
-          <li>{copy[accessAreaMessageKeys[place.accessArea]]}</li>
-          <li>{copy[restraintMessageKeys[place.restraintCondition]]}</li>
-        </ul>
-      {:else}
-        <p class="complex-summary">{copy['place.restrictedCondition']}</p>
-      {/if}
+      <AccessSymbols
+        placeName={place.name}
+        conditions={profile?.accessConditions ?? place.accessConditions}
+        {copy}
+        onOpenDetails={openCompleteDetails}
+      />
     </section>
 
-    {#if reconfirmationDue}
-      <p class="stale-warning hv-status" data-status="attention">
-        {copy['status.reconfirmationDue']}
-      </p>
-    {/if}
-
-    {#if signedIn}
-      <div class="member-actions">
-        <FavouriteControl
-          placeId={place.placeId}
-          placeName={place.name}
-          {signedIn}
-          {favourite}
-          {copy}
-          {signInHref}
-          {pendingConfirmation}
-          onChange={onFavouriteChange}
-        />
+    <div class="member-actions">
+      {#if signedIn}
         <CheckInControl
           placeId={place.placeId}
           placeName={place.name}
@@ -180,8 +173,16 @@
           {proximityAssistEnabled}
           {initialCheckedInAt}
         />
-      </div>
-    {/if}
+      {/if}
+    </div>
+
+    <InlineRating
+      placeId={place.placeId}
+      placeName={place.name}
+      {copy}
+      {signedIn}
+      summary={profile?.dogFriendlinessSummary ?? null}
+    />
 
     {#if loading && !profile}
       <p class="hv-notice details-status" data-tone="info" role="status">
@@ -193,21 +194,12 @@
         <button class="hv-control" type="button" onclick={onRetry}>{copy['common.retry']}</button>
       </div>
     {:else if profile}
-      <details class="hv-disclosure practical-details">
+      <details class="hv-disclosure" bind:this={completeDetails}>
         <summary>{copy['place.showPracticalDetails']}</summary>
-        <div class="practical-details-content">
-          {#if profile.dogFriendlinessSummary.visible && correctionHref}
-            <RatingSummary
-              summary={profile.dogFriendlinessSummary}
-              {copy}
-              {signedIn}
-              rateHref={correctionHref(place.placeId, 'rate')}
-            />
-          {/if}
-
+        <div class="complete-details">
           <section aria-labelledby={`access-${place.placeId}`}>
             <h3 id={`access-${place.placeId}`}>{copy['place.accessHeading']}</h3>
-            <ol class="conditions" class:single={profile.accessConditions.length === 1}>
+            <ol class:single={profile.accessConditions.length === 1} class="conditions">
               {#each profile.accessConditions as condition, index (condition.id)}
                 <li class="condition-card">
                   {#if profile.accessConditions.length > 1}
@@ -227,6 +219,7 @@
                         restraintNote: condition.restraintNote ?? undefined,
                         dogEligibility: condition.dogEligibility,
                         availabilityWindow: condition.availabilityWindow,
+                        availabilityState: condition.availabilityState,
                         permissionRequirement: condition.permissionRequirement,
                         supersededAt: null
                       },
@@ -250,6 +243,12 @@
                 : copy['place.amenitiesUnknown']}
             </p>
           </section>
+          {#if profile.websiteUrl}
+            <nav class="place-links" aria-label={copy['place.usefulLinks']}>
+              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external place URL -->
+              <a href={profile.websiteUrl} rel="noreferrer">{copy['place.website']}</a>
+            </nav>
+          {/if}
         </div>
       </details>
     {/if}
@@ -275,7 +274,20 @@
     padding: 0 var(--hv-space-panel) var(--hv-space-panel);
   }
 
-  .complex-summary,
+  .card-body > * {
+    animation: detail-content-enter 180ms ease-out both;
+  }
+
+  @keyframes detail-content-enter {
+    from {
+      transform: translateY(0.25rem);
+    }
+
+    to {
+      transform: translateY(0);
+    }
+  }
+
   .details-status {
     margin: 0.45rem 0 0;
     font-weight: 700;
@@ -291,6 +303,25 @@
     margin-block: 0 0.8rem;
     border: 1px solid var(--hv-border-subtle);
     border-radius: var(--hv-radius-panel);
+  }
+
+  .summary-photo {
+    margin: 0 0 0.8rem;
+    overflow: hidden;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-fjord-soft);
+  }
+
+  .summary-photo :global(img) {
+    display: block;
+    width: 100%;
+    height: 5.2rem;
+    object-fit: cover;
+  }
+
+  .summary-photo figcaption {
+    padding: 0.35rem 0.5rem;
   }
 
   .member-actions :global(.check-in) {
@@ -309,56 +340,18 @@
   }
 
   .welcome-answer {
-    border-color: var(--hv-color-basalt);
-    border-inline-start: 0.35rem solid var(--hv-color-fjord);
-    border-radius: var(--hv-radius-control);
-  }
-
-  .welcome-answer[data-access-state='verified'] {
-    border-inline-start-color: var(--hv-color-signal);
+    display: grid;
+    gap: 0.55rem;
+    padding-block: 0.35rem;
   }
 
   .welcome-answer h3,
-  .welcome-verdict {
-    margin: 0;
-  }
-
   .welcome-answer h3 {
     color: var(--hv-color-basalt);
     font-size: 0.78rem;
     font-weight: 850;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-  }
-
-  .welcome-verdict {
-    margin-top: 0.3rem;
-    font-family: var(--hv-font-display);
-    font-size: 1.5rem;
-    font-weight: 650;
-  }
-
-  .access-facts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    margin: 0.55rem 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .access-facts li {
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    padding: 0.25rem 0.55rem;
-    font-size: 0.78rem;
-    font-weight: 750;
-  }
-
-  .stale-warning {
-    width: fit-content;
-    margin: 0.65rem 0 0;
   }
 
   details {
@@ -369,13 +362,13 @@
     padding: 0.85rem 0 0.35rem;
   }
 
-  .practical-details-content {
+  .complete-details {
     display: grid;
-    gap: 1rem;
-    padding: 0.75rem 0 0.25rem;
+    gap: 0.8rem;
+    padding: 0.6rem 0 0.2rem;
   }
 
-  .practical-details-content h3 {
+  .complete-details h3 {
     margin: 0;
     color: var(--hv-color-basalt);
     font-family: var(--hv-font-display);
@@ -409,6 +402,25 @@
     line-height: 1.4;
   }
 
+  .place-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .place-links a {
+    color: var(--hv-color-fjord);
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+
+  .place-links a:focus-visible {
+    border-radius: var(--hv-radius-control);
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
+  }
+
   .card-heading {
     position: sticky;
     z-index: 1;
@@ -420,6 +432,12 @@
     padding: var(--hv-space-panel);
     border-bottom: 1px solid var(--hv-border-subtle);
     background: var(--hv-color-snow-raised);
+  }
+
+  .heading-actions {
+    display: flex;
+    gap: 0.4rem;
+    align-items: start;
   }
 
   .summary {
@@ -443,17 +461,29 @@
 
   .close {
     display: grid;
-    width: 2.25rem;
-    height: 2.25rem;
-    min-height: 2.25rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    min-height: 2.5rem;
     padding: 0;
-    font-size: 1.5rem;
-    font-weight: 750;
-    line-height: 1;
+    border-radius: 999px;
     place-items: center;
+  }
+
+  .close svg {
+    width: 1.15rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 1.9;
   }
 
   .details-status p {
     margin-block: 0 0.65rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card-body > * {
+      animation: none;
+    }
   }
 </style>

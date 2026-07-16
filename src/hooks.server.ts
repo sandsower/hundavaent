@@ -164,9 +164,18 @@ function cacheControlFor(event: Parameters<Handle>[0]['event'], response: Respon
     event.url.pathname.includes('/account') ||
     event.url.pathname.includes('/auth/');
   const hasCallerState = event.request.headers.has('cookie') || response.headers.has('set-cookie');
+  const hasAuthQueryState = [...event.url.searchParams.keys()].some(
+    (name) => name.toLowerCase().startsWith('auth') || name.toLowerCase().startsWith('pending')
+  );
   const cacheableMethod = event.request.method === 'GET' || event.request.method === 'HEAD';
 
-  if (sensitiveRoute || hasCallerState || !cacheableMethod || response.status !== 200) {
+  if (
+    sensitiveRoute ||
+    hasCallerState ||
+    hasAuthQueryState ||
+    !cacheableMethod ||
+    response.status !== 200
+  ) {
     return 'private, no-store';
   }
 

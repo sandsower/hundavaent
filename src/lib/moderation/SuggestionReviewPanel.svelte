@@ -108,6 +108,7 @@
   const availability = $derived(
     proposal.access_condition.availability_window as Record<string, unknown>
   );
+  let availabilityState = $derived(proposal.access_condition.availability_state);
   const lifecycleKey = (lifecycle: string): MessageKey =>
     `suggestion.lifecycle.${lifecycle}` as MessageKey;
   const enhanceForm: SubmitFunction = () => {
@@ -633,27 +634,39 @@
                 value={proposal.access_condition.restraint_note ?? ''}
               /></label
             >
-            <label
-              >{data.copy['suggestion.availabilityDays']}<input
-                name="availabilityDays"
-                value={Array.isArray(availability.days) ? availability.days.join(',') : ''}
-              /></label
-            >
-            <label
-              >{data.copy['suggestion.availabilityStarts']}<input
-                name="availabilityStartsAt"
-                type="time"
-                value={typeof availability.startsAt === 'string' ? availability.startsAt : ''}
-              /></label
-            >
-            <label
-              >{data.copy['suggestion.availabilityEnds']}<input
-                name="availabilityEndsAt"
-                type="time"
-                value={typeof availability.endsAt === 'string' ? availability.endsAt : ''}
-              /></label
-            >
           </div>
+          <label
+            >{data.copy['moderation.availabilityStateLabel']}
+            <select name="availabilityState" bind:value={availabilityState}>
+              <option value="not_stated">{data.copy['accessSymbols.notStated']}</option>
+              <option value="whenever_open">{data.copy['accessSymbols.wheneverOpen']}</option>
+              <option value="limited">{data.copy['accessSymbols.limited']}</option>
+            </select>
+          </label>
+          {#if availabilityState === 'limited'}
+            <div class="two">
+              <label
+                >{data.copy['suggestion.availabilityDays']}<input
+                  name="availabilityDays"
+                  value={Array.isArray(availability.days) ? availability.days.join(',') : ''}
+                /></label
+              >
+              <label
+                >{data.copy['suggestion.availabilityStarts']}<input
+                  name="availabilityStartsAt"
+                  type="time"
+                  value={typeof availability.startsAt === 'string' ? availability.startsAt : ''}
+                /></label
+              >
+              <label
+                >{data.copy['suggestion.availabilityEnds']}<input
+                  name="availabilityEndsAt"
+                  type="time"
+                  value={typeof availability.endsAt === 'string' ? availability.endsAt : ''}
+                /></label
+              >
+            </div>
+          {/if}
           <div class="two">
             <label
               >{data.copy['suggestion.evidenceKind']}

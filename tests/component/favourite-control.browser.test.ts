@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { catalogues } from '$i18n';
 import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
+import { authRequestEventName } from '$lib/auth/controller';
 
 const { captureAnalytics } = vi.hoisted(() => ({ captureAnalytics: vi.fn() }));
 
@@ -30,7 +31,7 @@ describe('FavouriteControl', () => {
     });
 
     const button = screen.getByRole('button', {
-      name: 'Remove Published Place from saved places'
+      name: 'Remove Published Place from favorites'
     });
     const controlRoot = button.closest('[data-favourite-place]');
     expect(controlRoot?.getAttribute('data-ui-mode')).toBe('place');
@@ -38,27 +39,37 @@ describe('FavouriteControl', () => {
   });
 
   it.each([
-    ['en', catalogues.en, 'Sign in to save Published Place'],
-    ['is', catalogues.is, 'Skrá inn til að vista Published Place']
-  ] as const)('offers a private signed-out invitation in %s', (_, copy, label) => {
+    ['en', catalogues.en, 'Sign in to add Published Place to favorites'],
+    ['is', catalogues.is, 'Skrá inn til að bæta Published Place í uppáhald']
+  ] as const)('offers a private signed-out invitation in %s', async (_, copy, label) => {
+    const receiveRequest = vi.fn();
+    window.addEventListener(authRequestEventName, receiveRequest);
     render(FavouriteControl, {
       placeId,
       placeName,
       signedIn: false,
       favourite: false,
       copy,
-      signInHref: `/en/account?returnTo=${encodeURIComponent(`/en?place=${placeId}&favourite=${placeId}`)}`
+      signInHref: `/en/account?returnTo=${encodeURIComponent(`/en?place=${placeId}`)}`
     });
 
     const link = screen.getByRole('link', { name: label });
-    expect(link.getAttribute('href')).toContain(`favourite%3D${placeId}`);
+    expect(link.getAttribute('href')).not.toContain('favourite');
+    expect(link.getAttribute('href')).toContain(`place%3D${placeId}`);
     expect(link.classList.contains('hv-control')).toBe(true);
     expect(link.getAttribute('data-intent')).toBe('secondary');
+    await fireEvent.click(link);
+    expect(receiveRequest).toHaveBeenCalledOnce();
+    expect((receiveRequest.mock.calls[0][0] as CustomEvent).detail).toEqual({
+      origin: 'favourite',
+      intent: { action: 'favourite', placeId, placeName }
+    });
+    window.removeEventListener(authRequestEventName, receiveRequest);
   });
 
   it.each([
-    [false, 'Save Published Place', 'secondary', 'idle'],
-    [true, 'Remove Published Place from saved places', 'selected', 'selected']
+    [false, 'Add Published Place to favorites', 'secondary', 'idle'],
+    [true, 'Remove Published Place from favorites', 'selected', 'selected']
   ] as const)(
     'exposes the saved state semantically when favourite is %s',
     (favourite, label, intent, state) => {
@@ -79,7 +90,7 @@ describe('FavouriteControl', () => {
     }
   );
 
-  it('requires explicit confirmation after authentication before saving', async () => {
+  it('applies the Favorite immediately for an authenticated Member', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(JSON.stringify({ placeId, isFavourite: true }), {
@@ -97,12 +108,11 @@ describe('FavouriteControl', () => {
       favourite: false,
       copy: catalogues.en,
       signInHref: '',
-      pendingConfirmation: true,
       onChange
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
-    await fireEvent.click(screen.getByRole('button', { name: 'Confirm saving Published Place' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Add Published Place to favorites' }));
 
     await waitFor(() =>
       expect(onChange).toHaveBeenCalledWith(placeId, true, expect.any(HTMLButtonElement))
@@ -142,7 +152,7 @@ describe('FavouriteControl', () => {
     });
 
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Remove Published Place from saved places' })
+      screen.getByRole('button', { name: 'Remove Published Place from favorites' })
     );
     await waitFor(() =>
       expect(onChange).toHaveBeenCalledWith(placeId, false, expect.any(HTMLButtonElement))
@@ -170,12 +180,12 @@ describe('FavouriteControl', () => {
       onChange
     });
 
-    const button = screen.getByRole('button', { name: 'Save Published Place' });
+    const button = screen.getByRole('button', { name: 'Add Published Place to favorites' });
     await fireEvent.click(button);
 
     await waitFor(() =>
       expect(screen.getByRole('alert').textContent).toContain(
-        'We could not update this saved place. Please try again.'
+        'We could not update your favorites. Please try again.'
       )
     );
     expect(screen.getByRole('alert').classList.contains('hv-status')).toBe(true);

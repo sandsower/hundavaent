@@ -13,9 +13,17 @@ export function normalizeMemberReturnTo(value: unknown, locale: Locale): string 
   const localePath =
     parsed.pathname === discoveryRoot || parsed.pathname.startsWith(`${discoveryRoot}/`);
   const isAuthLoop = parsed.pathname.startsWith(`${discoveryRoot}/auth/`);
+  const accountRoot = `${discoveryRoot}/account`;
+  const allowedPrivateAccountPaths = new Set([
+    `${accountRoot}/achievements`,
+    `${accountRoot}/corrections-and-reports`,
+    `${accountRoot}/suggestions`,
+    `${accountRoot}/contributor-status`
+  ]);
   const isAccountLoop =
-    parsed.pathname === `${discoveryRoot}/account` ||
-    parsed.pathname.startsWith(`${discoveryRoot}/account/`);
+    parsed.pathname === accountRoot ||
+    (parsed.pathname.startsWith(`${accountRoot}/`) &&
+      !allowedPrivateAccountPaths.has(parsed.pathname));
   const isModerationPath =
     parsed.pathname === `${discoveryRoot}/moderation` ||
     parsed.pathname.startsWith(`${discoveryRoot}/moderation/`);

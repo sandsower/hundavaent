@@ -42,6 +42,27 @@
     'other_sourced'
   ] as const;
   const permissions = ['standing_permission', 'ask_on_arrival', 'advance_approval'] as const;
+  const replacementCondition = $derived(
+    data.flag.targetKind === 'access_condition' && data.flag.proposedValue
+      ? (data.flag.proposedValue as Record<string, unknown>)
+      : null
+  );
+  const replacementWindow = $derived(
+    replacementCondition?.availability_window &&
+      typeof replacementCondition.availability_window === 'object'
+      ? (replacementCondition.availability_window as Record<string, unknown>)
+      : {}
+  );
+  let availabilityState = $state<'whenever_open' | 'limited' | 'not_stated'>('not_stated');
+  $effect(() => {
+    const state = replacementCondition?.availability_state;
+    availabilityState =
+      state === 'whenever_open' || state === 'limited' || state === 'not_stated'
+        ? state
+        : Object.keys(replacementWindow).length > 0
+          ? 'limited'
+          : 'not_stated';
+  });
 
   let submitting = $state(false);
   const isOpen = $derived(
@@ -345,20 +366,47 @@
             {data.copy['correction.restraintNote']}
             <input name="restraintNote" />
           </label>
-          <div class="grid two">
-            <label>
-              {data.copy['correction.availabilityStarts']}
-              <input name="availabilityStartsAt" type="time" />
-            </label>
-            <label>
-              {data.copy['correction.availabilityEnds']}
-              <input name="availabilityEndsAt" type="time" />
-            </label>
-          </div>
           <label>
-            {data.copy['correction.availabilityDays']}
-            <input name="availabilityDays" />
+            {data.copy['moderation.availabilityStateLabel']}
+            <select name="availabilityState" bind:value={availabilityState}>
+              <option value="not_stated">{data.copy['accessSymbols.notStated']}</option>
+              <option value="whenever_open">{data.copy['accessSymbols.wheneverOpen']}</option>
+              <option value="limited">{data.copy['accessSymbols.limited']}</option>
+            </select>
           </label>
+          {#if availabilityState === 'limited'}
+            <div class="grid two">
+              <label>
+                {data.copy['correction.availabilityStarts']}
+                <input
+                  name="availabilityStartsAt"
+                  type="time"
+                  value={typeof replacementWindow.startsAt === 'string'
+                    ? replacementWindow.startsAt
+                    : ''}
+                />
+              </label>
+              <label>
+                {data.copy['correction.availabilityEnds']}
+                <input
+                  name="availabilityEndsAt"
+                  type="time"
+                  value={typeof replacementWindow.endsAt === 'string'
+                    ? replacementWindow.endsAt
+                    : ''}
+                />
+              </label>
+            </div>
+            <label>
+              {data.copy['correction.availabilityDays']}
+              <input
+                name="availabilityDays"
+                value={Array.isArray(replacementWindow.days)
+                  ? replacementWindow.days.join(',')
+                  : ''}
+              />
+            </label>
+          {/if}
           <div class="grid two">
             <label>
               {data.copy['evidenceField.kind']}

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { catalogues } from '$i18n';
 import PlacePhotos from '$lib/discovery/PlacePhotos.svelte';
 
+const placeId = '79300000-0000-4000-8000-000000000001';
 const photo = {
   mediaId: 'media-photo-approved',
   url: 'https://example.invalid/signed/photo-approved.jpg',
@@ -17,13 +18,15 @@ const photo = {
   licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
   attributionText: 'Published Place by A. Photographer, CC BY 4.0',
   attributionUrl: 'https://commons.wikimedia.org/wiki/User:Photographer',
-  isPrimary: true
+  isPrimary: true,
+  urlExpiresAt: '2099-01-01T00:00:00.000Z'
 };
 
 describe('PlacePhotos', () => {
   it('renders nothing when there are no approved photos', () => {
     const { container } = render(PlacePhotos, {
       photos: [],
+      placeId,
       placeName: 'Published Place',
       lang: 'en',
       copy: catalogues.en
@@ -35,6 +38,7 @@ describe('PlacePhotos', () => {
   it('renders an image with dimensions, lazy loading, and bilingual alt text', () => {
     render(PlacePhotos, {
       photos: [photo],
+      placeId,
       placeName: 'Published Place',
       lang: 'en',
       copy: catalogues.en
@@ -60,6 +64,7 @@ describe('PlacePhotos', () => {
   it('exposes an image-led media surface using the shared panel vocabulary', () => {
     const { container } = render(PlacePhotos, {
       photos: [photo],
+      placeId,
       placeName: 'Published Place',
       lang: 'en',
       copy: catalogues.en
@@ -80,6 +85,7 @@ describe('PlacePhotos', () => {
     };
     const { container } = render(PlacePhotos, {
       photos: [secondaryPhoto, photo],
+      placeId,
       placeName: 'Published Place',
       lang: 'en',
       copy: catalogues.en,
@@ -95,6 +101,7 @@ describe('PlacePhotos', () => {
   it('uses the Icelandic alt text when rendered in Icelandic', () => {
     render(PlacePhotos, {
       photos: [photo],
+      placeId,
       placeName: 'Útgefinn staður',
       lang: 'is',
       copy: catalogues.is
@@ -106,6 +113,7 @@ describe('PlacePhotos', () => {
   it('falls back to a generated alt text when a localized description is blank', () => {
     render(PlacePhotos, {
       photos: [{ ...photo, altTextEn: '' }],
+      placeId,
       placeName: 'Published Place',
       lang: 'en',
       copy: catalogues.en

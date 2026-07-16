@@ -49,7 +49,7 @@ describe('Member account', () => {
       form: null
     } as never);
 
-    expect(screen.getByRole('heading', { name: 'Saved places' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Favorites' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Visits' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Contributions' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Moderation workspace' })).toBeNull();

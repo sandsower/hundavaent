@@ -24,7 +24,7 @@ const places = [
         permissionRequirement: 'standing_permission' as const
       }
     ],
-    verifiedAt: '2026-07-09T11:00:00.000Z'
+    primaryPhoto: null
   },
   {
     placeId: '30000000-0000-4000-8000-000000000004',
@@ -45,7 +45,7 @@ const places = [
         permissionRequirement: 'ask_on_arrival' as const
       }
     ],
-    verifiedAt: '2026-07-09T12:00:00.000Z'
+    primaryPhoto: null
   }
 ];
 
@@ -54,6 +54,7 @@ describe('PlaceList', () => {
     render(PlaceList, {
       places,
       selectedPlaceId: null,
+      lang: 'en',
       copy: catalogues.en,
       onSelect: vi.fn(),
       signInHref: (placeId) => `/en/account?returnTo=%2Fen%3Ffavourite%3D${placeId}`
@@ -61,9 +62,13 @@ describe('PlaceList', () => {
 
     expect(screen.getByRole('list', { name: 'List' })).toBeTruthy();
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
-    expect(screen.getByText(/Park or outdoor area/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Sign in to save Published Place' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Sign in to save Second Place' })).toBeTruthy();
+    expect(screen.getByText('Outdoor place · Park', { exact: true })).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: 'Sign in to add Published Place to favorites' })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: 'Sign in to add Second Place to favorites' })
+    ).toBeTruthy();
   });
 
   it('exposes selected state and activates through keyboard semantics', async () => {
@@ -71,6 +76,7 @@ describe('PlaceList', () => {
     render(PlaceList, {
       places,
       selectedPlaceId: places[0].placeId,
+      lang: 'en',
       copy: catalogues.en,
       onSelect
     });
@@ -90,6 +96,7 @@ describe('PlaceList', () => {
     render(PlaceList, {
       places,
       selectedPlaceId: places[1].placeId,
+      lang: 'en',
       focusSelected: true,
       copy: catalogues.en,
       onSelect: vi.fn()
@@ -97,5 +104,70 @@ describe('PlaceList', () => {
 
     const selected = screen.getByRole('button', { name: 'Select Second Place' });
     await waitFor(() => expect(document.activeElement).toBe(selected));
+  });
+
+  it('refreshes an expired lazy photo URL through the revalidating delivery endpoint', async () => {
+    const photoPlace = {
+      ...places[0],
+      primaryPhoto: {
+        mediaId: '79400000-0000-4000-8000-000000000001',
+        url: 'https://example.invalid/signed/expired.jpg',
+        widthPx: 800,
+        heightPx: 600,
+        altTextIs: 'Hundur í garði',
+        altTextEn: 'A dog in a park',
+        rightsBasis: 'cc_by' as const,
+        sourceUrl: 'https://photos.example.invalid/park',
+        licenseReference: 'CC BY 4.0',
+        licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+        attributionText: 'A. Photographer',
+        attributionUrl: null,
+        urlExpiresAt: '2020-01-01T00:00:00.000Z'
+      }
+    };
+    const fetchMock = vi
+      .fn<() => Promise<Response>>()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ url: 'https://example.invalid/signed/incomplete.jpg' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      )
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            url: 'https://example.invalid/signed/refreshed.jpg',
+            urlExpiresAt: '2099-01-01T00:00:00.000Z'
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      render(PlaceList, {
+        places: [photoPlace],
+        selectedPlaceId: null,
+        lang: 'en',
+        copy: catalogues.en,
+        onSelect: vi.fn()
+      });
+
+      const image = screen.getByAltText('A dog in a park');
+      await waitFor(
+        () =>
+          expect(image.getAttribute('src')).toBe('https://example.invalid/signed/refreshed.jpg'),
+        { timeout: 2_500 }
+      );
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        `/api/places/${photoPlace.placeId}/photos/${photoPlace.primaryPhoto.mediaId}`,
+        { headers: { accept: 'application/json' } }
+      );
+      expect(screen.getByRole('link', { name: 'A. Photographer' })).toBeTruthy();
+      expect(screen.getByRole('link', { name: 'CC BY 4.0' })).toBeTruthy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

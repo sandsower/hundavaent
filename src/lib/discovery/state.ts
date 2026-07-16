@@ -13,6 +13,7 @@ export interface DiscoveryFilters {
   restraintCondition: RestraintCondition | null;
   permissionRequirement: PermissionRequirement | null;
   distanceKm: DiscoveryDistanceKm | null;
+  favoritesOnly: boolean;
 }
 
 export interface DiscoveryCamera {
@@ -40,7 +41,8 @@ export const defaultDiscoveryFilters: DiscoveryFilters = {
   accessArea: null,
   restraintCondition: null,
   permissionRequirement: null,
-  distanceKm: null
+  distanceKm: null,
+  favoritesOnly: false
 };
 
 export const defaultDiscoveryState: DiscoveryState = {
@@ -100,7 +102,8 @@ export function parseDiscoveryState(
       accessArea: parseEnum(params.get('access'), accessAreas),
       restraintCondition: parseEnum(params.get('restraint'), restraintConditions),
       permissionRequirement: parseEnum(params.get('permission'), permissionRequirements),
-      distanceKm: parseDistance(params.get('distance'))
+      distanceKm: parseDistance(params.get('distance')),
+      favoritesOnly: params.get('favorites') === '1'
     }
   };
 }
@@ -141,6 +144,7 @@ export function serializeDiscoveryState(state: DiscoveryState): URLSearchParams 
   if (state.filters.distanceKm && discoveryDistances.includes(state.filters.distanceKm)) {
     params.set('distance', String(state.filters.distanceKm));
   }
+  if (state.filters.favoritesOnly) params.set('favorites', '1');
 
   return params;
 }
@@ -153,7 +157,8 @@ export function activeFilterCount(filters: DiscoveryFilters): number {
     filters.accessArea,
     filters.restraintCondition,
     filters.permissionRequirement,
-    filters.distanceKm
+    filters.distanceKm,
+    filters.favoritesOnly
   ].filter(Boolean).length;
 }
 

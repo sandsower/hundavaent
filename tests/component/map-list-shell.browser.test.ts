@@ -33,11 +33,34 @@ const places = [
       {
         accessArea: 'outdoors' as const,
         restraintCondition: 'leash_required' as const,
-        permissionRequirement: 'standing_permission' as const
+        permissionRequirement: 'standing_permission' as const,
+        dogEligibility: { scope: 'all_dogs' as const },
+        availabilityState: 'not_stated' as const,
+        availabilityWindow: {}
       }
     ],
-    verifiedAt: '2026-07-09T11:00:00.000Z'
+    primaryPhoto: {
+      mediaId: 'summary-photo',
+      url: 'https://example.invalid/signed/summary.jpg',
+      widthPx: 800,
+      heightPx: 600,
+      altTextIs: 'Hundur í almenningsgarði',
+      altTextEn: 'A dog in a public park',
+      rightsBasis: 'cc_by' as const,
+      sourceUrl: 'https://photos.example.invalid/park',
+      licenseReference: 'CC BY 4.0',
+      licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+      attributionText: 'A. Photographer',
+      attributionUrl: null,
+      urlExpiresAt: '2099-01-01T00:00:00.000Z'
+    }
   }
+];
+
+const focusPlaces = [
+  places[0],
+  { ...places[0], placeId: '30000000-0000-4000-8000-000000000004', name: 'Second Place' },
+  { ...places[0], placeId: '30000000-0000-4000-8000-000000000005', name: 'Third Place' }
 ];
 
 const complexProfile = {
@@ -59,6 +82,7 @@ const complexProfile = {
     seasonal_note: 'Call ahead on holidays'
   },
   dogAmenities: ['water_bowl', 'covered patio hook'],
+  accessInformationUrls: ['https://example.invalid/rules'],
   accessConditions: [
     {
       id: 'condition-complex',
@@ -68,6 +92,7 @@ const complexProfile = {
       restraintNote: null,
       dogEligibility: { scope: 'restricted' as const, maximumWeightKg: 10 },
       availabilityWindow: { endsAt: '17:00' },
+      availabilityState: 'limited' as const,
       permissionRequirement: 'standing_permission' as const,
       evidenceSources: [
         {
@@ -89,6 +114,7 @@ const complexProfile = {
       restraintNote: null,
       dogEligibility: { scope: 'all_dogs' as const },
       availabilityWindow: {},
+      availabilityState: 'not_stated' as const,
       permissionRequirement: 'ask_on_arrival' as const,
       evidenceSources: [
         {
@@ -115,6 +141,29 @@ const complexProfile = {
   photos: []
 };
 
+const multiConditionPlaces = [
+  {
+    ...places[0],
+    accessConditionCount: 2,
+    simpleAccessSummary: false,
+    accessArea: null,
+    restraintCondition: null,
+    permissionRequirement: null,
+    accessConditions: [
+      {
+        accessArea: 'indoors' as const,
+        restraintCondition: 'carrier_required' as const,
+        permissionRequirement: 'standing_permission' as const
+      },
+      {
+        accessArea: 'outdoors' as const,
+        restraintCondition: 'leash_required' as const,
+        permissionRequirement: 'ask_on_arrival' as const
+      }
+    ]
+  }
+];
+
 const replaceUrl = (url: string) => history.replaceState(history.state, '', url);
 const pushUrl = replaceUrl;
 
@@ -129,7 +178,7 @@ function deferred<T>() {
 }
 
 describe('MapListShell synchronization', () => {
-  it('preserves the exact signed-out result view while adding only a save intent', async () => {
+  it('preserves the exact signed-out result view without a legacy Favorite marker', async () => {
     const origin = `/en?place=${places[0].placeId}&lat=64.12&lng=-21.91&z=11&view=list&q=Published&category=outdoors&area=Reykjav%C3%ADk#saved-origin`;
     history.replaceState(null, '', origin);
     render(MapListShell, {
@@ -144,7 +193,7 @@ describe('MapListShell synchronization', () => {
     });
 
     const invitation = await screen.findByRole('link', {
-      name: 'Sign in to save Published Place'
+      name: 'Sign in to add Published Place to favorites'
     });
     const accountUrl = new URL(invitation.getAttribute('href') ?? '', window.location.origin);
     const returnTo = new URL(
@@ -153,9 +202,11 @@ describe('MapListShell synchronization', () => {
     );
 
     expect(accountUrl.pathname).toBe('/en/account');
+    expect(accountUrl.searchParams.get('intentAction')).toBe('favourite');
+    expect(accountUrl.searchParams.get('placeId')).toBe(places[0].placeId);
     expect(returnTo.pathname).toBe('/en');
     expect(returnTo.searchParams.get('place')).toBe(places[0].placeId);
-    expect(returnTo.searchParams.get('favourite')).toBe(places[0].placeId);
+    expect(returnTo.searchParams.has('favourite')).toBe(false);
     expect(returnTo.searchParams.get('view')).toBe('list');
     expect(returnTo.searchParams.get('q')).toBe('Published');
     expect(returnTo.searchParams.get('category')).toBe('outdoors');
@@ -166,8 +217,8 @@ describe('MapListShell synchronization', () => {
     expect(returnTo.hash).toBe('#saved-origin');
   });
 
-  it('shows explicit post-auth confirmation on the originating result surface', () => {
-    history.replaceState(null, '', `/en?favourite=${places[0].placeId}&view=list#saved-origin`);
+  it('renders the Favorite completed by the cross-device auth intent without reconfirmation', () => {
+    history.replaceState(null, '', `/en?place=${places[0].placeId}&view=list#favorite-origin`);
     render(MapListShell, {
       places,
       lang: 'en',
@@ -178,13 +229,13 @@ describe('MapListShell synchronization', () => {
       pushUrl,
       loadPlace: vi.fn(async () => complexProfile),
       signedIn: true,
-      pendingFavouritePlaceId: places[0].placeId
+      initialFavouritePlaceIds: [places[0].placeId]
     });
 
-    expect(screen.getByRole('button', { name: 'Confirm saving Published Place' })).toBeTruthy();
     expect(
-      screen.getByText('You are signed in again. Confirm that you want to save this place.')
+      screen.getByRole('button', { name: 'Remove Published Place from favorites' })
     ).toBeTruthy();
+    expect(screen.queryByText(/confirm/i)).toBeNull();
     expect(screen.queryByLabelText('Selected place')).toBeNull();
   });
 
@@ -224,10 +275,12 @@ describe('MapListShell synchronization', () => {
         })
       );
 
-      await fireEvent.click(screen.getByRole('button', { name: 'Save Published Place' }));
+      await fireEvent.click(
+        screen.getByRole('button', { name: 'Add Published Place to favorites' })
+      );
       await waitFor(() =>
         expect(
-          screen.getByRole('button', { name: 'Remove Published Place from saved places' })
+          screen.getByRole('button', { name: 'Remove Published Place from favorites' })
         ).toBeTruthy()
       );
 
@@ -240,10 +293,200 @@ describe('MapListShell synchronization', () => {
       await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
 
       expect(
-        screen.getByRole('button', { name: 'Remove Published Place from saved places' })
+        screen.getByRole('button', { name: 'Remove Published Place from favorites' })
       ).toBeTruthy();
     } finally {
       external.close();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('exposes a signed-in Favorites-only filter and serializes it canonically', async () => {
+    history.replaceState(null, '', '/en?view=list');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: { ...defaultDiscoveryState, view: 'list' },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile),
+      signedIn: true,
+      initialFavouritePlaceIds: []
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
+    await fireEvent.click(screen.getByRole('checkbox', { name: 'Favorites only' }));
+
+    expect(window.location.search).toContain('favorites=1');
+    expect(screen.getByRole('button', { name: 'Show 0 results' })).toBeTruthy();
+  });
+
+  it('does not expose Favorites-only when the private projection is unavailable', async () => {
+    history.replaceState(null, '', '/en?view=list');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: { ...defaultDiscoveryState, view: 'list' },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile),
+      signedIn: true,
+      favouritesAvailable: false
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
+
+    expect(screen.queryByRole('checkbox', { name: 'Favorites only' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Show 1 result' })).toBeTruthy();
+  });
+
+  it.each([
+    ['first', 0, 'Second Place'],
+    ['middle', 1, 'Third Place'],
+    ['final', 2, 'Second Place']
+  ])(
+    'restores focus after removing the focused %s Favorite result',
+    async (_position, index, expectedName) => {
+      history.replaceState(null, '', '/en?view=list&favorites=1');
+      const removed = focusPlaces[index];
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+          if (init?.method !== 'PUT') throw new Error('Unexpected request');
+          return new Response(JSON.stringify({ placeId: removed.placeId, isFavourite: false }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          });
+        })
+      );
+
+      try {
+        render(MapListShell, {
+          places: focusPlaces,
+          lang: 'en',
+          copy: catalogues.en,
+          initialState: {
+            ...defaultDiscoveryState,
+            view: 'list',
+            filters: { ...defaultDiscoveryState.filters, favoritesOnly: true }
+          },
+          adapter: createDomTestMapAdapter(),
+          replaceUrl,
+          pushUrl,
+          signedIn: true,
+          initialFavouritePlaceIds: focusPlaces.map((place) => place.placeId)
+        });
+        const trigger = screen.getByRole('button', {
+          name: `Remove ${removed.name} from favorites`
+        });
+        trigger.focus();
+
+        await fireEvent.click(trigger);
+
+        await waitFor(() =>
+          expect(
+            screen.getByRole('button', { name: `Remove ${expectedName} from favorites` })
+          ).toHaveFocus()
+        );
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    }
+  );
+
+  it('restores focus when cross-tab invalidation removes the focused Favorite result', async () => {
+    history.replaceState(null, '', '/en?view=list&favorites=1');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ placeIds: [focusPlaces[0].placeId, focusPlaces[2].placeId] }),
+            { status: 200, headers: { 'content-type': 'application/json' } }
+          )
+      )
+    );
+    const external = new BroadcastChannel('hundavaent-favourites');
+
+    try {
+      render(MapListShell, {
+        places: focusPlaces,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: {
+          ...defaultDiscoveryState,
+          view: 'list',
+          filters: { ...defaultDiscoveryState.filters, favoritesOnly: true }
+        },
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        signedIn: true,
+        initialFavouritePlaceIds: focusPlaces.map((place) => place.placeId)
+      });
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 0));
+      screen.getByRole('button', { name: 'Remove Second Place from favorites' }).focus();
+
+      external.postMessage({ type: 'invalidate', sourceId: 'external-tab' });
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: 'Remove Third Place from favorites' })
+        ).toHaveFocus()
+      );
+    } finally {
+      external.close();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('clears a selected Place and restores stable focus when it leaves Favorites-only results', async () => {
+    history.replaceState(null, '', `/en?place=${places[0].placeId}&favorites=1`);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'PUT') {
+          return new Response(JSON.stringify({ placeId: places[0].placeId, isFavourite: false }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          });
+        }
+        return new Response(JSON.stringify(complexProfile), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        });
+      })
+    );
+
+    try {
+      render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: {
+          ...defaultDiscoveryState,
+          selectedPlaceId: places[0].placeId,
+          filters: { ...defaultDiscoveryState.filters, favoritesOnly: true }
+        },
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        signedIn: true,
+        initialFavouritePlaceIds: [places[0].placeId]
+      });
+
+      await fireEvent.click(
+        screen.getByRole('button', { name: 'Remove Published Place from favorites' })
+      );
+
+      await waitFor(() => expect(screen.queryByLabelText('Selected place')).toBeNull());
+      expect(window.location.search).not.toContain('place=');
+      expect(screen.getByRole('button', { name: 'More filters' })).toHaveFocus();
+    } finally {
       vi.unstubAllGlobals();
     }
   });
@@ -318,6 +561,520 @@ describe('MapListShell synchronization', () => {
     expect(document.activeElement).toBe(marker);
   });
 
+  it('keeps the desktop result rail visible while a matching-width detail card floats over the map', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1280, 800);
+    history.replaceState(null, '', '/en');
+
+    try {
+      const { container } = render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: defaultDiscoveryState,
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+
+      const sidebar = container.querySelector<HTMLElement>('[data-directory-sidebar]');
+      const results = screen.getByRole('region', { name: 'Places found' });
+      expect(sidebar?.contains(results)).toBe(true);
+      expect(within(sidebar!).getByText('Capital region · 1 place')).toBeTruthy();
+      expect(
+        within(sidebar!).getByRole('heading', { name: 'Find somewhere to go together' })
+      ).toBeTruthy();
+      expect(within(sidebar!).getByRole('button', { name: 'All' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      expect(within(sidebar!).getByRole('button', { name: 'Food' })).toBeTruthy();
+      expect(within(sidebar!).getByRole('button', { name: 'Shops' })).toBeTruthy();
+      expect(within(sidebar!).getByRole('button', { name: 'Outdoors' })).toBeTruthy();
+      expect(within(sidebar!).getByRole('button', { name: 'More filters' })).toBeTruthy();
+      const accessibleResultsHeading = screen.getByRole('heading', { name: 'Places found' });
+      const visuallyHiddenHeading = accessibleResultsHeading.closest<HTMLElement>('.tray-heading');
+      expect(visuallyHiddenHeading).toBeTruthy();
+      expect(visuallyHiddenHeading!.getBoundingClientRect().width).toBe(1);
+      expect(visuallyHiddenHeading!.getBoundingClientRect().height).toBe(1);
+      expect(getComputedStyle(visuallyHiddenHeading!).overflow).toBe('hidden');
+      expect(screen.queryByRole('button', { name: 'Show 1 result' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Close results' })).toBeNull();
+
+      const resultCard = within(sidebar!).getByLabelText('Published Place');
+      const photo = within(resultCard).getByAltText('A dog in a public park');
+      const photoRect = photo.getBoundingClientRect();
+      const mediaRect = resultCard
+        .querySelector<HTMLElement>('[data-place-card-media="photo"]')!
+        .getBoundingClientRect();
+      expect(photoRect.width).toBeCloseTo(mediaRect.width, 0);
+      expect(photoRect.height).toBeCloseTo(68.8, 0);
+      expect(within(resultCard).getByText('Outdoor place · Park', { exact: true })).toBeTruthy();
+      expect(resultCard.querySelector('[data-place-card-media="photo"]')).toBeTruthy();
+
+      await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+      expect(resultCard.classList.contains('selected')).toBe(true);
+      expect(
+        within(resultCard).getByRole('button', { name: 'Select Published Place' })
+      ).toHaveAttribute('aria-pressed', 'true');
+      expect(getComputedStyle(resultCard).boxShadow).toContain('rgb(242, 201, 76)');
+      const cardOverlay = container.querySelector<HTMLElement>('[data-selected-place-overlay]');
+      expect(cardOverlay).toBeTruthy();
+      if (!sidebar || !cardOverlay) throw new Error('Expected desktop rail and detail card');
+      expect(
+        within(cardOverlay).getByAltText('A dog in a public park').getBoundingClientRect().height
+      ).toBeCloseTo(83.2, 0);
+      expect(screen.getByRole('region', { name: 'Places found' })).toBeTruthy();
+
+      const sidebarWidth = sidebar.getBoundingClientRect().width;
+      expect(sidebarWidth).toBeLessThanOrEqual(416.5);
+      await waitFor(() =>
+        expect(window.innerWidth - cardOverlay.getBoundingClientRect().right).toBeGreaterThan(0)
+      );
+      const cardRect = cardOverlay.getBoundingClientRect();
+      expect(cardRect.width).toBeCloseTo(sidebarWidth, 0);
+      expect(cardRect.top).toBeGreaterThan(0);
+      expect(window.innerWidth - cardRect.right).toBeGreaterThan(0);
+      expect(window.innerHeight - cardRect.bottom).toBeGreaterThan(0);
+      const mapRoot = container.querySelector<HTMLElement>('[data-map-adapter="dom-test"]');
+      await waitFor(() =>
+        expect(Number(mapRoot?.dataset.paddingRight ?? 0)).toBeGreaterThan(sidebarWidth)
+      );
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+
+  it('uses an intentionally non-photographic category band when a result has no photo', async () => {
+    const noPhoto = {
+      ...places[0],
+      placeId: '30000000-0000-4000-8000-000000000099',
+      name: 'No Photo Café',
+      category: 'cafe' as const,
+      primaryPhoto: null
+    };
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places: [noPhoto],
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    const card = screen.getByLabelText('No Photo Café');
+    const band = card.querySelector<HTMLElement>('[data-place-card-media="category-band"]');
+    expect(band).toBeTruthy();
+    expect(band?.querySelector('img')).toBeNull();
+    expect(Number.parseFloat(getComputedStyle(band!).minHeight)).toBeCloseTo(33.6, 0);
+    expect(within(card).getByText('Outdoor place · Café', { exact: true })).toBeTruthy();
+  });
+
+  it('does not turn mixed access conditions into a categorical area promise', () => {
+    const mixedPlace = {
+      ...multiConditionPlaces[0],
+      placeId: '30000000-0000-4000-8000-000000000098',
+      name: 'Mixed Access Café',
+      category: 'cafe' as const,
+      primaryPhoto: null
+    };
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places: [mixedPlace],
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    const card = screen.getByLabelText('Mixed Access Café');
+    expect(within(card).getByText('Café', { exact: true })).toBeTruthy();
+    expect(within(card).queryByText(/Indoor place|Outdoor place/)).toBeNull();
+    expect(card.querySelector('[data-access-icon="question"]')).toBeTruthy();
+  });
+
+  it('keeps category shortcuts URL-driven and preserves unrelated filters', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1280, 800);
+    history.replaceState(null, '', '/en?area=K%C3%B3pavogur');
+    const kopavogurPlace = { ...places[0], locality: 'Kópavogur' };
+
+    try {
+      render(MapListShell, {
+        places: [kopavogurPlace],
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: {
+          ...defaultDiscoveryState,
+          filters: { ...defaultDiscoveryState.filters, area: 'Kópavogur' }
+        },
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+
+      const shortcuts = screen.getByRole('group', { name: 'Place type' });
+      const all = within(shortcuts).getByRole('button', { name: 'All' });
+      const food = within(shortcuts).getByRole('button', { name: 'Food' });
+      const moreFilters = screen.getByRole('button', { name: 'More filters' });
+      expect(screen.getByText('Kópavogur · 1 place')).toBeTruthy();
+      expect(all).toHaveAttribute('aria-pressed', 'true');
+      expect(moreFilters.closest('.shortcut-row')).toContainElement(shortcuts);
+      expect(moreFilters.getBoundingClientRect().top).toBeCloseTo(
+        food.getBoundingClientRect().top,
+        0
+      );
+      expect(moreFilters.getBoundingClientRect().height).toBeCloseTo(
+        food.getBoundingClientRect().height,
+        0
+      );
+
+      await fireEvent.click(food);
+      expect(food).toHaveAttribute('aria-pressed', 'true');
+      expect(window.location.search).toContain('category=food_drink');
+      expect(window.location.search).toContain('area=K%C3%B3pavogur');
+
+      await fireEvent.click(all);
+      expect(all).toHaveAttribute('aria-pressed', 'true');
+      expect(window.location.search).not.toContain('category=');
+      expect(window.location.search).toContain('area=K%C3%B3pavogur');
+
+      await fireEvent.click(moreFilters);
+      await fireEvent.change(screen.getByRole('combobox', { name: 'Place type' }), {
+        target: { value: 'accommodation' }
+      });
+      expect(window.location.search).toContain('category=accommodation');
+      expect(
+        within(shortcuts)
+          .getAllByRole('button')
+          .every((button) => button.getAttribute('aria-pressed') === 'false')
+      ).toBe(true);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+
+  it('replaces the left result surface with details at the intermediate breakpoint', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1100, 800);
+    history.replaceState(null, '', '/en');
+
+    try {
+      const { container } = render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: defaultDiscoveryState,
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+
+      await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+      const sidebar = container.querySelector<HTMLElement>('[data-directory-sidebar]');
+      const cardOverlay = container.querySelector<HTMLElement>('[data-selected-place-overlay]');
+      expect(sidebar).toBeTruthy();
+      expect(cardOverlay).toBeTruthy();
+      if (!sidebar || !cardOverlay) throw new Error('Expected intermediate detail surface');
+      expect(cardOverlay.getBoundingClientRect().width).toBeCloseTo(
+        sidebar.getBoundingClientRect().width,
+        0
+      );
+      expect(getComputedStyle(cardOverlay).position).toBe('absolute');
+      await waitFor(() =>
+        expect(cardOverlay.getBoundingClientRect().left).toBeCloseTo(
+          sidebar.getBoundingClientRect().left,
+          0
+        )
+      );
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+
+  it('seeds loading details from the compact result and preserves the primary photo', async () => {
+    history.replaceState(null, '', `/en?place=${places[0].placeId}`);
+    const profileRequest = deferred<typeof complexProfile>();
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(() => profileRequest.promise)
+    });
+
+    const selectedPlace = screen.getByLabelText('Selected place');
+    expect(within(selectedPlace).getByRole('heading', { name: 'Published Place' })).toBeTruthy();
+    expect(within(selectedPlace).getByAltText('A dog in a public park')).toBeTruthy();
+    expect(within(selectedPlace).getByRole('link', { name: 'A. Photographer' })).toBeTruthy();
+    expect(within(selectedPlace).getByRole('link', { name: 'CC BY 4.0' })).toBeTruthy();
+    expect(within(selectedPlace).getByText('Loading every access condition…')).toBeTruthy();
+
+    profileRequest.resolve(complexProfile);
+    await waitFor(() =>
+      expect(within(selectedPlace).queryByText('Loading every access condition…')).toBeNull()
+    );
+  });
+
+  it('keeps selected-place text fully opaque throughout the approved entry motion', async () => {
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+    const selectedPlace = await screen.findByRole('complementary', { name: 'Selected place' });
+    const welcomeAnswer = within(selectedPlace)
+      .getByRole('heading', { name: 'Are dogs welcome?' })
+      .closest<HTMLElement>('.welcome-answer');
+    const disclosure = (await within(selectedPlace).findByText('Place details')).closest<HTMLElement>(
+      '.hv-disclosure'
+    );
+    expect(welcomeAnswer).toBeTruthy();
+    expect(disclosure).toBeTruthy();
+    if (!welcomeAnswer || !disclosure) throw new Error('Expected animated selected-place content');
+
+    for (const element of [welcomeAnswer, disclosure]) {
+      const animation = element
+        .getAnimations()
+        .find(
+          (candidate) =>
+            'animationName' in candidate &&
+            typeof candidate.animationName === 'string' &&
+            candidate.animationName.includes('detail-content-enter')
+        );
+      expect(animation).toBeTruthy();
+      if (!animation) throw new Error('Expected the selected-place entry animation');
+      animation.pause();
+      animation.currentTime = 0;
+      expect(getComputedStyle(element).opacity).toBe('1');
+      expect(getComputedStyle(element).transform).not.toBe('none');
+    }
+  });
+
+  it('isolates cached and late profile responses by locale and Place', async () => {
+    history.replaceState(null, '', `/en?place=${places[0].placeId}`);
+    const englishRequest = deferred<typeof complexProfile>();
+    const icelandicRequest = deferred<typeof complexProfile>();
+    const loadPlace = vi.fn((_placeId: string, locale: 'en' | 'is') =>
+      locale === 'en' ? englishRequest.promise : icelandicRequest.promise
+    );
+    const { rerender } = render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace
+    });
+    await waitFor(() => expect(loadPlace).toHaveBeenCalledWith(places[0].placeId, 'en'));
+
+    history.replaceState(null, '', `/is?place=${places[0].placeId}`);
+    await rerender({
+      places,
+      lang: 'is',
+      copy: catalogues.is,
+      initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace
+    } as never);
+    await waitFor(() => expect(loadPlace).toHaveBeenCalledWith(places[0].placeId, 'is'));
+
+    englishRequest.resolve({ ...complexProfile, dogAmenities: ['english only amenity'] });
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 0));
+    expect(screen.getByText('Hleð öllum aðgangsskilyrðum…')).toBeTruthy();
+    expect(screen.queryByText('english only amenity')).toBeNull();
+
+    icelandicRequest.resolve({ ...complexProfile, dogAmenities: ['icelandic only amenity'] });
+    await waitFor(() => expect(screen.queryByText('Hleð öllum aðgangsskilyrðum…')).toBeNull());
+    expect(screen.getByText('icelandic only amenity')).toBeTruthy();
+  });
+
+  it('uses zero-duration map motion when reduced motion is requested', async () => {
+    history.replaceState(null, '', '/en');
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query) =>
+        ({
+          matches: query.includes('prefers-reduced-motion'),
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn()
+        }) satisfies MediaQueryList
+    );
+    const adapter = createDomTestMapAdapter();
+    const setCamera = vi.spyOn(adapter, 'setCamera');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter,
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+    await waitFor(() => expect(setCamera.mock.calls.at(-1)?.[1]?.duration).toBe(0));
+    const shell = document.querySelector<HTMLElement>('[data-responsive-shell]');
+    const overlay = document.querySelector<HTMLElement>('[data-selected-place-overlay]');
+    expect(shell?.dataset.reducedMotion).toBe('true');
+    expect(overlay).toBeTruthy();
+    if (!overlay) throw new Error('Expected a selected Place overlay');
+    expect(getComputedStyle(overlay).animationName).toBe('none');
+    expect(getComputedStyle(overlay).animationDuration).toBe('0s');
+  });
+
+  it('uses its container for one non-overlapping 58rem responsive boundary', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    const breakpointPx = Math.round(
+      Number.parseFloat(getComputedStyle(document.documentElement).fontSize) * 58
+    );
+    await browserPage.viewport(1280, 800);
+
+    try {
+      for (const scenario of [
+        { width: breakpointPx - 1, layout: 'compact', display: 'block', controls: true },
+        { width: breakpointPx, layout: 'rail', display: 'grid', controls: false },
+        { width: breakpointPx + 1, layout: 'rail', display: 'grid', controls: false },
+        // A 640 CSS-pixel container is a 1280px host's effective width at 200% zoom.
+        { width: 640, layout: 'compact', display: 'block', controls: true }
+      ] as const) {
+        history.replaceState(null, '', '/en?view=list');
+        const target = document.createElement('div');
+        target.style.width = `${scenario.width}px`;
+        document.body.append(target);
+        const { container, unmount } = render(MapListShell, {
+          target,
+          props: {
+            places,
+            lang: 'en',
+            copy: catalogues.en,
+            initialState: { ...defaultDiscoveryState, view: 'list' },
+            adapter: createDomTestMapAdapter(),
+            replaceUrl,
+            pushUrl,
+            loadPlace: vi.fn(async () => complexProfile)
+          }
+        });
+        const shell = container.querySelector<HTMLElement>('[data-responsive-shell]');
+        expect(shell).toBeTruthy();
+        if (!shell) throw new Error('Expected the responsive discovery shell');
+
+        await waitFor(() => expect(shell.dataset.shellLayout).toBe(scenario.layout));
+        expect(window.innerWidth).toBe(1280);
+        expect(getComputedStyle(shell).display).toBe(scenario.display);
+        expect(within(container).queryByRole('button', { name: 'Show 1 result' }) !== null).toBe(
+          scenario.controls
+        );
+        expect(within(container).queryByRole('button', { name: 'Close results' }) !== null).toBe(
+          scenario.controls
+        );
+        if (scenario.layout === 'rail') {
+          const shortcutNames = ['All', 'Food', 'Shops', 'Outdoors', 'More filters'];
+          const shortcutButtons = shortcutNames.map((name) =>
+            within(container).getByRole('button', { name })
+          );
+          const shortcutTop = shortcutButtons[0].getBoundingClientRect().top;
+          expect(
+            shortcutButtons.every(
+              (button) => Math.abs(button.getBoundingClientRect().top - shortcutTop) < 0.5
+            )
+          ).toBe(true);
+          const shortcutRow = shortcutButtons[0].closest<HTMLElement>('.shortcut-row')!;
+          expect(shortcutRow.scrollWidth).toBeLessThanOrEqual(shortcutRow.clientWidth);
+        }
+
+        unmount();
+        target.remove();
+      }
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+
+  it('closes details with Escape and restores focus to the exact selection trigger', async () => {
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    const marker = await screen.findByRole('button', { name: /^Published Place$/ });
+    marker.focus();
+    await fireEvent.click(marker);
+    await fireEvent.keyDown(window, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByLabelText('Selected place')).toBeNull());
+    expect(document.activeElement).toBe(marker);
+  });
+
+  it('pushes the first selection and replaces subsequent selected places', async () => {
+    const secondPlace = {
+      ...places[0],
+      placeId: '30000000-0000-4000-8000-000000000004',
+      name: 'Second Place',
+      latitude: 64.15
+    };
+    const replace = vi.fn(replaceUrl);
+    const push = vi.fn((url: string) => history.pushState(null, '', url));
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places: [...places, secondPlace],
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl: replace,
+      pushUrl: push,
+      loadPlace: vi.fn(async (placeId) => ({
+        ...complexProfile,
+        placeId,
+        name: placeId === secondPlace.placeId ? secondPlace.name : places[0].name
+      }))
+    });
+
+    await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Second Place$/ }));
+
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(window.location.search).toContain(`place=${secondPlace.placeId}`);
+  });
+
   it('renders concise localized access facts for a URL-selected Place', async () => {
     history.replaceState(null, '', '/en?place=30000000-0000-4000-8000-000000000003');
     const adapter = createDomTestMapAdapter();
@@ -337,14 +1094,16 @@ describe('MapListShell synchronization', () => {
 
     const selectedPlace = screen.getByLabelText('Selected place');
     expect(within(selectedPlace).getByRole('heading', { name: 'Are dogs welcome?' })).toBeTruthy();
-    expect(within(selectedPlace).getByText('Yes')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Outdoors')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Leash required')).toBeTruthy();
-    expect(within(selectedPlace).queryByText('Dogs are generally allowed')).toBeNull();
+    expect(within(selectedPlace).getByRole('button', { name: 'Special conditions' })).toBeTruthy();
+    expect(within(selectedPlace).getByRole('button', { name: 'Leash required' })).toBeTruthy();
+    expect(within(selectedPlace).getByRole('button', { name: 'Generally welcome' })).toBeTruthy();
     expect(within(selectedPlace).queryByText('Last verified')).toBeNull();
-    expect(await within(selectedPlace).findByText('Place details')).toBeTruthy();
     expect(within(selectedPlace).queryByText('Not yet rated')).toBeNull();
-    expect(within(selectedPlace).queryByText('Sign in to save')).toBeNull();
+    expect(
+      within(selectedPlace).getByRole('link', {
+        name: 'Sign in to add Published Place to favorites'
+      })
+    ).toBeTruthy();
     expect(within(selectedPlace).queryByText('Sign in to check in')).toBeNull();
     expect(within(selectedPlace).queryByText('Sign in to rate this place')).toBeNull();
     await waitFor(() =>
@@ -357,27 +1116,55 @@ describe('MapListShell synchronization', () => {
     );
   });
 
-  it('answers the welcome question before showing signed-in actions', () => {
+  it('keeps Favorite and Share together in the selected Place header', async () => {
     history.replaceState(null, '', '/en?place=30000000-0000-4000-8000-000000000003');
-    render(MapListShell, {
-      places,
-      lang: 'en',
-      copy: catalogues.en,
-      initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
-      adapter: createDomTestMapAdapter(),
-      replaceUrl,
-      pushUrl,
-      loadPlace: vi.fn(async () => complexProfile),
-      signedIn: true
-    });
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ hasRecentCheckIn: false, checkedInAt: null, proximityConfirmed: null }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: { ...defaultDiscoveryState, selectedPlaceId: places[0].placeId },
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile),
+        signedIn: true
+      });
 
-    const card = screen.getByLabelText('Selected place');
-    const question = within(card).getByRole('heading', { name: 'Are dogs welcome?' });
-    const save = within(card).getByRole('button', { name: 'Save Published Place' });
-    expect(question.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      const card = screen.getByLabelText('Selected place');
+      const favorite = within(card).getByRole('button', {
+        name: 'Add Published Place to favorites'
+      });
+      const share = within(card).getByRole('button', { name: 'Share Published Place' });
+      const close = within(card).getByRole('button', { name: 'Close selected place' });
+      expect(
+        favorite.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+      expect(share.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      for (const control of [favorite, share, close]) {
+        const bounds = control.getBoundingClientRect();
+        expect(bounds.width).toBeCloseTo(bounds.height, 0);
+        expect(Number.parseFloat(getComputedStyle(control).borderRadius)).toBeGreaterThan(
+          bounds.width / 3
+        );
+      }
+      expect(close.querySelector('svg')).toBeTruthy();
+      expect(close.textContent?.trim()).toBe('');
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
-  it('asks the friendly welcome question in Icelandic without trust metadata', async () => {
+  it('asks the friendly welcome question in Icelandic with localized symbols', () => {
     history.replaceState(null, '', '/is?place=30000000-0000-4000-8000-000000000003');
     render(MapListShell, {
       places,
@@ -397,13 +1184,12 @@ describe('MapListShell synchronization', () => {
     expect(
       within(selectedPlace).getByRole('heading', { name: 'Eru hundar velkomnir?' })
     ).toBeTruthy();
-    expect(within(selectedPlace).getByText('Já')).toBeTruthy();
-    expect(await within(selectedPlace).findByText('Upplýsingar um staðinn')).toBeTruthy();
+    expect(within(selectedPlace).getByRole('button', { name: 'Sérstök skilyrði' })).toBeTruthy();
+    expect(within(selectedPlace).getByRole('button', { name: 'Taumur áskilinn' })).toBeTruthy();
     expect(within(selectedPlace).queryByText('Síðast staðfest')).toBeNull();
-    expect(within(selectedPlace).queryByText('9. júlí 2026')).toBeNull();
   });
 
-  it('withdraws the verified welcome signal when loaded access evidence is stale', async () => {
+  it('keeps internal freshness state out of the public card', async () => {
     history.replaceState(null, '', `/en?place=${places[0].placeId}`);
     const profileRequest = deferred<typeof complexProfile>();
     render(MapListShell, {
@@ -418,10 +1204,6 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Selected place');
-    const welcome = selectedPlace.querySelector<HTMLElement>('.welcome-answer');
-    expect(welcome?.getAttribute('data-tone')).toBe('info');
-    expect(welcome?.getAttribute('data-access-state')).toBe('conditional');
-
     profileRequest.resolve({
       ...complexProfile,
       accessConditions: [
@@ -432,11 +1214,9 @@ describe('MapListShell synchronization', () => {
       ]
     });
 
-    await waitFor(() => expect(welcome?.getAttribute('data-tone')).toBe('attention'));
-    expect(welcome?.getAttribute('data-access-state')).toBe('attention');
-    expect(welcome?.getAttribute('data-tone')).not.toBe('verified');
-    expect(welcome?.getAttribute('data-access-state')).not.toBe('verified');
-    expect(within(selectedPlace).getAllByText('Reconfirmation due')).toHaveLength(1);
+    await within(selectedPlace).findByText('Place details');
+    expect(within(selectedPlace).queryByText('Reconfirmation due')).toBeNull();
+    expect(within(selectedPlace).queryByText('Last verified')).toBeNull();
   });
 
   it('never promotes summary access to verified when complete details fail to load', async () => {
@@ -455,42 +1235,17 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Selected place');
-    const welcome = selectedPlace.querySelector<HTMLElement>('.welcome-answer');
     await waitFor(() =>
       expect(
         within(selectedPlace).getByText('The complete access information could not be loaded.')
       ).toBeTruthy()
     );
-    expect(welcome?.getAttribute('data-tone')).toBe('info');
-    expect(welcome?.getAttribute('data-access-state')).toBe('conditional');
-    expect(welcome?.getAttribute('data-tone')).not.toBe('verified');
-    expect(selectedPlace.querySelector('.trust-summary [data-status="verified"]')).toBeNull();
+    expect(within(selectedPlace).getByRole('button', { name: 'Special conditions' })).toBeTruthy();
+    expect(within(selectedPlace).queryByText('Verified')).toBeNull();
   });
 
-  it('reveals every practical restriction without exposing provenance', async () => {
+  it('reveals every visitor restriction without exposing moderator provenance', async () => {
     history.replaceState(null, '', `/en?place=${places[0].placeId}`);
-    const multiConditionPlaces = [
-      {
-        ...places[0],
-        accessConditionCount: 2,
-        simpleAccessSummary: false,
-        accessArea: null,
-        restraintCondition: null,
-        permissionRequirement: null,
-        accessConditions: [
-          {
-            accessArea: 'indoors' as const,
-            restraintCondition: 'carrier_required' as const,
-            permissionRequirement: 'standing_permission' as const
-          },
-          {
-            accessArea: 'outdoors' as const,
-            restraintCondition: 'leash_required' as const,
-            permissionRequirement: 'ask_on_arrival' as const
-          }
-        ]
-      }
-    ];
     render(MapListShell, {
       places: multiConditionPlaces,
       lang: 'en',
@@ -504,13 +1259,9 @@ describe('MapListShell synchronization', () => {
 
     const selectedPlace = screen.getByLabelText('Selected place');
     expect(selectedPlace.classList.contains('hv-panel')).toBe(true);
-    expect(selectedPlace.querySelector('[data-access-state="conditional"]')).not.toBeNull();
-    expect(
-      within(selectedPlace).getByText(
-        '2 different access conditions apply. Review every restriction.'
-      )
-    ).toBeTruthy();
-    await fireEvent.click(await within(selectedPlace).findByText('Place details'));
+    await fireEvent.click(
+      within(selectedPlace).getByRole('button', { name: 'Different conditions apply' })
+    );
     expect(
       within(selectedPlace).getByText(
         'Dogs weighing up to and including 10 kg are allowed indoors before 17:00 when carried.'
@@ -519,22 +1270,62 @@ describe('MapListShell synchronization', () => {
     expect(
       within(selectedPlace).getByText(/may be allowed after asking on arrival outdoors on a leash/)
     ).toBeTruthy();
+    expect(within(selectedPlace).queryByRole('link', { name: 'Access information' })).toBeNull();
     expect(within(selectedPlace).queryByText('Official rules')).toBeNull();
-    expect(within(selectedPlace).queryByText('Municipal rule')).toBeNull();
-    expect(within(selectedPlace).queryByText('https://example.invalid/rules')).toBeNull();
-    expect(within(selectedPlace).queryByText('Rule 4')).toBeNull();
-    expect(within(selectedPlace).queryByText('8 July 2026')).toBeNull();
-    expect(within(selectedPlace).getAllByText('Reconfirmation due')).toHaveLength(1);
+    expect(within(selectedPlace).queryByText('Reconfirmation due')).toBeNull();
     expect(within(selectedPlace).getByText(/Monday: 09:00-17:00/)).toBeTruthy();
     expect(within(selectedPlace).getByText(/seasonal_note: Call ahead on holidays/)).toBeTruthy();
     expect(within(selectedPlace).getByText('Water bowl, covered patio hook')).toBeTruthy();
     expect(selectedPlace.querySelector('details.hv-disclosure')).not.toBeNull();
-    expect(selectedPlace.querySelector('[data-status="attention"]')).not.toBeNull();
+    expect(selectedPlace.querySelector('[data-status="attention"]')).toBeNull();
     expect(selectedPlace.querySelector('[data-status="verified"]')).toBeNull();
     expect(window.location.pathname).toBe('/en');
   });
 
-  it('localizes practical details in Icelandic without exposing sourced metadata', async () => {
+  it.each([
+    ['mobile list', 390],
+    ['persistent desktop rail', 1000]
+  ])(
+    'opens complete details from one compact complex-symbol click in the %s',
+    async (_layout, width) => {
+      const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+      const profileRequest = deferred<typeof complexProfile>();
+      await browserPage.viewport(width, 800);
+      history.replaceState(null, '', '/en?view=list');
+
+      try {
+        render(MapListShell, {
+          places: multiConditionPlaces,
+          lang: 'en',
+          copy: catalogues.en,
+          initialState: { ...defaultDiscoveryState, view: 'list' },
+          adapter: createDomTestMapAdapter(),
+          replaceUrl,
+          pushUrl,
+          loadPlace: vi.fn(() => profileRequest.promise)
+        });
+
+        const compactCard = screen.getByLabelText('Published Place');
+        await fireEvent.click(
+          within(compactCard).getByRole('button', { name: 'Different conditions apply' })
+        );
+
+        const selectedPlace = screen.getByLabelText('Selected place');
+        expect(within(selectedPlace).getByText('Loading every access condition…')).toBeTruthy();
+        profileRequest.resolve(complexProfile);
+        await waitFor(() =>
+          expect(
+            selectedPlace.querySelector<HTMLDetailsElement>('details.hv-disclosure')?.open
+          ).toBe(true)
+        );
+        expect(within(selectedPlace).getByRole('heading', { name: 'Dog access' })).toBeTruthy();
+      } finally {
+        await browserPage.viewport(initialViewport.width, initialViewport.height);
+      }
+    }
+  );
+
+  it('localizes known structured labels in Icelandic without exposing source links', async () => {
     history.replaceState(null, '', `/is?place=${places[0].placeId}`);
     render(MapListShell, {
       places: [
@@ -570,17 +1361,13 @@ describe('MapListShell synchronization', () => {
 
     const selectedPlace = screen.getByLabelText('Valinn staður');
     await fireEvent.click(await within(selectedPlace).findByText('Upplýsingar um staðinn'));
-    expect(within(selectedPlace).queryByText('Rule 4')).toBeNull();
-    expect(within(selectedPlace).queryByText('Opinber skrá')).toBeNull();
-    expect(within(selectedPlace).queryByText('Opinber vefsíða')).toBeNull();
-    expect(within(selectedPlace).queryByText('https://example.invalid/rules')).toBeNull();
-    expect(within(selectedPlace).queryByText('8. júlí 2026')).toBeNull();
+    expect(within(selectedPlace).queryByRole('link', { name: 'Upplýsingar um aðgang' })).toBeNull();
     expect(within(selectedPlace).getByText(/Mánudagur: 09:00-17:00/)).toBeTruthy();
     expect(within(selectedPlace).getByText(/seasonal_note: Call ahead on holidays/)).toBeTruthy();
     expect(within(selectedPlace).getByText('Vatnsskál, covered patio hook')).toBeTruthy();
   });
 
-  it('keeps Evidence provenance out of the practical Place panel', async () => {
+  it('does not render internal provenance records supplied by an obsolete fixture', async () => {
     history.replaceState(null, '', `/en?place=${places[0].placeId}`);
     const duplicateLabelProfile = {
       ...complexProfile,
@@ -613,8 +1400,6 @@ describe('MapListShell synchronization', () => {
     const selectedPlace = screen.getByLabelText('Selected place');
     await fireEvent.click(await within(selectedPlace).findByText('Place details'));
     expect(within(selectedPlace).queryByText('Official rules')).toBeNull();
-    expect(within(selectedPlace).queryByText('https://example.invalid/rules')).toBeNull();
-    expect(within(selectedPlace).queryByText('https://example.invalid/rules/archive')).toBeNull();
     expect(within(selectedPlace).queryByText('Archived rule 2')).toBeNull();
   });
 
@@ -653,7 +1438,7 @@ describe('MapListShell synchronization', () => {
 
     const selectedPlace = screen.getByLabelText(cardLabel);
     await fireEvent.click(await within(selectedPlace).findByText(expandLabel));
-    const explanation = within(selectedPlace).getByText(/rear room only/).textContent ?? '';
+    const explanation = selectedPlace.querySelector('.condition-card p')?.textContent ?? '';
     expect(explanation).toContain(lang === 'en' ? '10.5 kg' : '10,5 kg');
     expect(explanation).toContain('2');
     expect(explanation).toContain('calm dogs only');
@@ -747,9 +1532,8 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Selected place');
-    expect(
-      within(selectedPlace).getByText('Specific restrictions apply. Review the complete condition.')
-    ).toBeTruthy();
+    expect(selectedPlace.querySelectorAll('.access-presentation button.symbol')).toHaveLength(5);
+    expect(within(selectedPlace).getByRole('button', { name: 'Special conditions' })).toBeTruthy();
     expect(within(selectedPlace).queryByText('Dogs are generally allowed')).toBeNull();
   });
 
@@ -776,7 +1560,7 @@ describe('MapListShell synchronization', () => {
     expect(unavailable.getAttribute('data-tone')).toBe('error');
     await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(loadPlace).toHaveBeenCalledTimes(2));
-    expect(screen.getByText('Outdoors')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Special conditions' })).toBeTruthy();
   });
 
   it('reveals the complete Place list only when the map is unavailable', async () => {
@@ -810,7 +1594,9 @@ describe('MapListShell synchronization', () => {
       within(fallbackList).getByRole('button', { name: 'Select Published Place' })
     ).toBeTruthy();
     expect(
-      within(fallbackList).getByRole('link', { name: 'Sign in to save Published Place' })
+      within(fallbackList).getByRole('link', {
+        name: 'Sign in to add Published Place to favorites'
+      })
     ).toBeTruthy();
 
     const fallbackResult = within(fallbackList).getByRole('button', {
@@ -839,7 +1625,7 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     const category = screen.getByRole('combobox', { name: 'Place type' });
     await waitFor(() => expect(document.activeElement).toBe(category));
     expect(
@@ -847,7 +1633,11 @@ describe('MapListShell synchronization', () => {
         name: 'Other stated bounded area'
       })
     ).toBeTruthy();
-    expect(screen.getByText('More filters')).toBeTruthy();
+    expect(
+      within(screen.getByRole('combobox', { name: 'Leash and restraint' })).getByRole('option', {
+        name: 'Other stated control rule'
+      })
+    ).toBeTruthy();
     await fireEvent.change(category, { target: { value: 'outdoors' } });
     expect(captureAnalytics).toHaveBeenCalledWith('discovery filtered', {
       filter_count: 1,
@@ -855,20 +1645,14 @@ describe('MapListShell synchronization', () => {
       has_query: false,
       uses_distance: false
     });
-    expect(screen.queryByRole('combobox', { name: 'Leash and restraint' })).toBeNull();
-    await fireEvent.click(screen.getByText('More filters'));
-    expect(
-      within(screen.getByRole('combobox', { name: 'Leash and restraint' })).getByRole('option', {
-        name: 'Other stated control rule'
-      })
-    ).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Leash and restraint' })).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
     expect(screen.queryByRole('combobox', { name: 'Place type' })).toBeNull();
     const closeResults = screen.getByRole('button', { name: 'Close results' });
     await waitFor(() => expect(document.activeElement).toBe(closeResults));
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     expect(screen.queryByRole('heading', { name: 'Places found' })).toBeNull();
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Place type' }))
@@ -876,7 +1660,7 @@ describe('MapListShell synchronization', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Hide filters' }));
     await waitFor(() =>
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show filters' }))
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'More filters' }))
     );
 
     await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
@@ -928,12 +1712,12 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Published Place' }));
     expect(screen.queryByRole('combobox', { name: 'Place type' })).toBeNull();
     expect(screen.getByLabelText('Selected place')).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     expect(screen.queryByLabelText('Selected place')).toBeNull();
     expect(screen.getByRole('combobox', { name: 'Place type' })).toBeTruthy();
 
@@ -1021,6 +1805,11 @@ describe('MapListShell synchronization', () => {
     expect(sidebar).toBeTruthy();
     expect(mapPanel).toBeTruthy();
     if (!sidebar || !mapPanel) throw new Error('Expected the discovery sidebar and map panel');
+    expect(getComputedStyle(mapPanel).isolation).toBe('isolate');
+    expect(getComputedStyle(mapPanel).zIndex).toBe('0');
+    expect(Number.parseInt(getComputedStyle(sidebar).zIndex, 10)).toBeGreaterThan(
+      Number.parseInt(getComputedStyle(mapPanel).zIndex, 10)
+    );
     expect(
       Boolean(sidebar.compareDocumentPosition(mapPanel) & Node.DOCUMENT_POSITION_FOLLOWING)
     ).toBe(true);
@@ -1076,7 +1865,9 @@ describe('MapListShell synchronization', () => {
       const desktopColumns = shellStyle.gridTemplateColumns.split(' ').map(Number.parseFloat);
       expect(shellStyle.display).toBe('grid');
       expect(desktopColumns).toHaveLength(2);
-      expect(desktopColumns[0] / desktopColumns[1]).toBeCloseTo(0.72 / 1.28, 1);
+      expect(desktopColumns[0]).toBeGreaterThanOrEqual(320);
+      expect(desktopColumns[0]).toBeLessThanOrEqual(416);
+      expect(desktopColumns[1]).toBeGreaterThan(desktopColumns[0]);
     } finally {
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }
@@ -1197,7 +1988,7 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Use my location' }));
     await waitFor(() =>
       expect(screen.getByText('Location is blocked in this browser.')).toBeTruthy()
@@ -1257,7 +2048,7 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Use my location' }));
     await waitFor(() => expect(screen.getByText('Nearby search is ready.')).toBeTruthy());
     expect(window.location.search).toContain('distance=5');
@@ -1274,7 +2065,6 @@ describe('MapListShell synchronization', () => {
       expect(screen.queryByRole('button', { name: 'Hafnarfjörður Park' })).toBeNull()
     );
 
-    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     await fireEvent.change(screen.getByRole('combobox', { name: 'Distance' }), {
       target: { value: '25' }
     });

@@ -21,7 +21,8 @@ describe('discovery URL state', () => {
       access: 'indoors',
       restraint: 'leash_required',
       permission: 'ask_on_arrival',
-      distance: '5'
+      distance: '5',
+      favorites: '1'
     });
 
     expect(parseDiscoveryState(params)).toEqual({
@@ -35,7 +36,8 @@ describe('discovery URL state', () => {
         accessArea: 'indoors',
         restraintCondition: 'leash_required',
         permissionRequirement: 'ask_on_arrival',
-        distanceKm: 5
+        distanceKm: 5,
+        favoritesOnly: true
       }
     });
   });
@@ -51,7 +53,8 @@ describe('discovery URL state', () => {
       access: 'everywhere',
       restraint: 'none',
       permission: 'always',
-      distance: '500'
+      distance: '500',
+      favorites: 'yes'
     });
 
     expect(parseDiscoveryState(params)).toEqual(defaultDiscoveryState);
@@ -101,12 +104,13 @@ describe('discovery URL state', () => {
         accessArea: 'indoors' as const,
         restraintCondition: 'leash_required' as const,
         permissionRequirement: 'standing_permission' as const,
-        distanceKm: 3 as const
+        distanceKm: 3 as const,
+        favoritesOnly: true
       }
     };
 
     expect(serializeDiscoveryState(state).toString()).toBe(
-      'place=30000000-0000-4000-8000-000000000003&lat=64.14235&lng=-21.95554&z=13.46&view=map&q=Caf%C3%A9&category=food_drink&area=Reykjav%C3%ADk&access=indoors&restraint=leash_required&permission=standing_permission&distance=3'
+      'place=30000000-0000-4000-8000-000000000003&lat=64.14235&lng=-21.95554&z=13.46&view=map&q=Caf%C3%A9&category=food_drink&area=Reykjav%C3%ADk&access=indoors&restraint=leash_required&permission=standing_permission&distance=3&favorites=1'
     );
   });
 

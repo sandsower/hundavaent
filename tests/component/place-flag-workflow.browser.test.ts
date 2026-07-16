@@ -35,18 +35,9 @@ const place: PublishedPlaceProfile = {
       restraintNote: null,
       dogEligibility: { scope: 'all_dogs' },
       availabilityWindow: {},
+      availabilityState: 'not_stated',
       permissionRequirement: 'standing_permission',
-      evidenceSources: [
-        {
-          kind: 'official_website',
-          sourceUrl: 'https://example.invalid/flag-cafe',
-          sourceCitation: null,
-          sourceLabel: 'Original policy',
-          observedAt: '2026-01-01T00:00:00Z'
-        }
-      ],
-      verifiedAt: '2026-01-01T00:00:00Z',
-      freshnessUntil: '2030-01-01T00:00:00Z'
+      accessInformationUrls: []
     }
   ],
   dogFriendlinessSummary: {
@@ -137,6 +128,17 @@ const reportFlag: ModerationPlaceFlag = {
   privateNote: 'Escalated informally; venue contacted.'
 };
 
+function evidenceKindLabels(lang: 'is' | 'en'): string[] {
+  return [
+    catalogues[lang]['evidence.officialWebsite'],
+    catalogues[lang]['evidence.venueRepresentative'],
+    catalogues[lang]['evidence.memberReport'],
+    catalogues[lang]['evidence.directObservation'],
+    catalogues[lang]['evidence.publicRecord'],
+    catalogues[lang]['evidence.other']
+  ];
+}
+
 describe('Member Correction and Report submission', () => {
   it.each([
     ['is', 'Leggja til leiðréttingu', 'Senda einkaleiðréttingu'],
@@ -164,6 +166,29 @@ describe('Member Correction and Report submission', () => {
     }
   );
 
+  it.each(['is', 'en'] as const)('localizes the %s Correction source choices', (lang) => {
+    render(CorrectionPage, {
+      params: { lang, id: place.placeId },
+      data: {
+        lang,
+        copy: catalogues[lang],
+        signInUrl: null,
+        place,
+        presetField: 'phone',
+        presetConditionId: null
+      },
+      form: null
+    } as never);
+
+    const source = screen.getByLabelText(
+      catalogues[lang]['evidenceField.kind']
+    ) as HTMLSelectElement;
+    expect(Array.from(source.options, (option) => option.textContent)).toEqual(
+      evidenceKindLabels(lang)
+    );
+    expect(source.textContent).not.toContain('official_website');
+  });
+
   it('preselects an Access Condition target from the query preset', () => {
     render(CorrectionPage, {
       params: { lang: 'en', id: place.placeId },
@@ -182,6 +207,35 @@ describe('Member Correction and Report submission', () => {
       'access_condition'
     );
     expect(screen.getAllByText('Dogs are generally allowed').length).toBeGreaterThan(0);
+    expect((screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement).value).toBe(
+      'not_stated'
+    );
+  });
+
+  it('preserves whenever-open timing when correcting another Access Condition field', () => {
+    const wheneverOpenPlace = {
+      ...place,
+      accessConditions: [
+        { ...place.accessConditions[0], availabilityState: 'whenever_open' as const }
+      ]
+    };
+    render(CorrectionPage, {
+      params: { lang: 'en', id: place.placeId },
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        signInUrl: null,
+        place: wheneverOpenPlace,
+        presetField: null,
+        presetConditionId: place.accessConditions[0].id
+      },
+      form: null
+    } as never);
+
+    expect((screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement).value).toBe(
+      'whenever_open'
+    );
+    expect(screen.queryByLabelText('Dog access starts at')).toBeNull();
   });
 
   it('announces the fail-closed abuse boundary without rendering a usable Correction form', () => {
@@ -225,6 +279,29 @@ describe('Member Correction and Report submission', () => {
     expect(screen.getByLabelText('This is a Safety Concern')).toBeTruthy();
     expect(screen.getByRole('note').textContent).toContain('112');
     expect(screen.getByLabelText('What kind of problem is this?')).toBeTruthy();
+  });
+
+  it.each(['is', 'en'] as const)('localizes the %s Report source choices', (lang) => {
+    render(ReportPage, {
+      params: { lang, id: place.placeId },
+      data: {
+        lang,
+        copy: catalogues[lang],
+        signInUrl: null,
+        place,
+        presetField: null,
+        presetConditionId: null
+      },
+      form: null
+    } as never);
+
+    const source = screen.getByLabelText(
+      catalogues[lang]['evidenceField.kind']
+    ) as HTMLSelectElement;
+    expect(Array.from(source.options, (option) => option.textContent)).toEqual(
+      evidenceKindLabels(lang)
+    );
+    expect(source.textContent).not.toContain('venue_representative');
   });
 });
 
@@ -322,6 +399,47 @@ describe('Moderator Correction and Report queue', () => {
 });
 
 describe('Moderator Correction and Report detail', () => {
+  it('preserves the proposed whenever-open state when applying an Access Condition Correction', () => {
+    const accessCorrection = {
+      ...correctionFlag,
+      targetKind: 'access_condition' as const,
+      targetField: null,
+      accessConditionId: place.accessConditions[0].id,
+      currentVerificationId: '76600000-0000-4000-8000-000000000001',
+      currentVerificationStatus: 'verified',
+      currentVerificationVerifiedAt: '2026-01-01T00:00:00Z',
+      currentVerificationFreshnessUntil: '2030-01-01T00:00:00Z',
+      currentVerificationEvidence: [],
+      proposedValue: {
+        access_area: 'indoors',
+        access_area_note: null,
+        restraint_condition: 'off_leash_permitted',
+        restraint_note: null,
+        dog_eligibility: { scope: 'all_dogs' },
+        availability_state: 'whenever_open',
+        availability_window: {},
+        permission_requirement: 'standing_permission'
+      }
+    } as ModerationPlaceFlag;
+    render(FlagReviewPage, {
+      params: { lang: 'en', id: accessCorrection.flagId },
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        flag: accessCorrection,
+        related: [],
+        resolved: false,
+        contributionConfirmed: false
+      },
+      form: null
+    } as never);
+
+    expect((screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement).value).toBe(
+      'whenever_open'
+    );
+    expect(screen.queryByLabelText('Dog access starts at')).toBeNull();
+  });
+
   it('compares the live value, snapshot, and proposed Correction, and offers the applied outcome', () => {
     render(FlagReviewPage, {
       params: { lang: 'en', id: correctionFlag.flagId },

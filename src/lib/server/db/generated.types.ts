@@ -19,6 +19,13 @@ export type Database = {
         Args: { activation_proof: string; activation_request_id: string }
         Returns: string
       }
+      apply_pending_member_rating: {
+        Args: { requested_place_id: string }
+        Returns: {
+          applied: boolean
+          overall_score: number | null
+        }[]
+      }
       approve_place_media: {
         Args: { command_payload: Json; command_request_id: string }
         Returns: {
@@ -48,6 +55,15 @@ export type Database = {
         Returns: {
           cleared_at: string
           flag_id: string
+        }[]
+      }
+      complete_auth_pending_intent: {
+        Args: { command_request_id: string; pending_token: string }
+        Returns: {
+          action: string
+          completion_status: string
+          overall_rating: number | null
+          place_id: string
         }[]
       }
       configure_achievement_policy: {
@@ -132,6 +148,17 @@ export type Database = {
           contribution_id: string
         }[]
       }
+      create_auth_pending_intent: {
+        Args: {
+          creation_proof: string
+          creation_request_id: string
+          creation_subject: string
+          requested_action: string
+          requested_overall_rating: number | null
+          requested_place_id: string
+        }
+        Returns: string
+      }
       create_candidate_place: {
         Args: { command_payload: Json; command_request_id: string }
         Returns: {
@@ -164,6 +191,15 @@ export type Database = {
         Args: never
         Returns: {
           enabled: boolean
+        }[]
+      }
+      get_auth_pending_intent: {
+        Args: { pending_token: string; requested_locale: string }
+        Returns: {
+          action: string
+          overall_rating: number | null
+          place_id: string
+          place_name: string
         }[]
       }
       get_check_in_policy: {
@@ -205,8 +241,10 @@ export type Database = {
       get_member_provider_policy: {
         Args: never
         Returns: {
+          automatic_linking_verified_email: boolean
+          email_enabled: boolean
+          facebook_enabled: boolean
           policy_version: string
-          provider: string
         }[]
       }
       get_moderation_contributor_status: {
@@ -383,18 +421,16 @@ export type Database = {
       get_my_dog_friendliness_rating: {
         Args: { requested_place_id: string }
         Returns: {
-          clarity_score: number
-          comfort_score: number
-          excluded: boolean
+          clarity_score: number | null
+          comfort_score: number | null
           id: string
-          linked_report_id: string
+          overall_score: number
           place_id: string
-          private_note: string
-          private_note_classification: string
-          private_note_updated_at: string
+          private_note: string | null
+          private_note_updated_at: string | null
           rated_at: string
-          thoughtfulness_score: number
-          welcome_score: number
+          thoughtfulness_score: number | null
+          welcome_score: number | null
         }[]
       }
       get_photo_acquisition_inventory: {
@@ -416,14 +452,6 @@ export type Database = {
         Returns: {
           enabled: boolean
           low_score_threshold: number
-        }[]
-      }
-      get_public_place_status: {
-        Args: { requested_locale: string; requested_place_id: string }
-        Returns: {
-          name: string
-          place_id: string
-          public_status: string
         }[]
       }
       get_published_place_profile: {
@@ -452,6 +480,34 @@ export type Database = {
           restraint_condition: string
           restraint_note: string
           verified_at: string
+          website_url: string
+        }[]
+      }
+      get_published_place_profile_v2: {
+        Args: { requested_locale: string; requested_place_id: string }
+        Returns: {
+          access_area: string
+          access_area_note: string
+          access_condition_id: string
+          access_information_urls: Json
+          address_line: string
+          availability_state: string
+          availability_window: Json
+          category: string
+          description: string
+          dog_amenities: Json
+          dog_eligibility: Json
+          latitude: number
+          locality: string
+          longitude: number
+          name: string
+          opening_hours: Json
+          permission_requirement: string
+          phone: string
+          place_id: string
+          postal_code: string
+          restraint_condition: string
+          restraint_note: string
           website_url: string
         }[]
       }
@@ -556,6 +612,7 @@ export type Database = {
           id: string
           linked_report_id: string
           member_id: string
+          overall_score: number
           private_note: string
           private_note_classification: string
           private_note_updated_at: string
@@ -609,6 +666,13 @@ export type Database = {
           submitted_at: string
           suggestion_id: string
           updated_at: string
+        }[]
+      }
+      list_moderation_queue_summary: {
+        Args: never
+        Returns: {
+          actionable_count: number
+          queue_id: string
         }[]
       }
       list_moderation_rating_note_dispositions: {
@@ -731,6 +795,25 @@ export type Database = {
           width_px: number
         }[]
       }
+      list_published_place_primary_photos: {
+        Args: { requested_place_ids: string[] }
+        Returns: {
+          alt_text_en: string
+          alt_text_is: string
+          attribution_text: string
+          attribution_url: string
+          height_px: number
+          license_reference: string
+          license_url: string
+          media_id: string
+          place_id: string
+          rights_basis: string
+          source_url: string
+          storage_bucket: string
+          storage_object_path: string
+          width_px: number
+        }[]
+      }
       list_published_places: {
         Args: { requested_locale: string }
         Returns: {
@@ -747,6 +830,23 @@ export type Database = {
           restraint_condition: string
           simple_access_summary: boolean
           verified_at: string
+        }[]
+      }
+      list_published_places_v2: {
+        Args: { requested_locale: string }
+        Returns: {
+          access_area: string
+          access_condition_count: number
+          access_conditions: Json
+          category: string
+          latitude: number
+          locality: string
+          longitude: number
+          name: string
+          permission_requirement: string
+          place_id: string
+          restraint_condition: string
+          simple_access_summary: boolean
         }[]
       }
       list_related_place_flags: {
@@ -975,6 +1075,32 @@ export type Database = {
           revoked_at: string
         }[]
       }
+      save_inline_dog_friendliness_rating: {
+        Args: {
+          command_request_id: string
+          requested_clarity_score: number | null
+          requested_comfort_score: number | null
+          requested_overall_score: number
+          requested_place_id: string
+          requested_private_note?: string | null
+          requested_private_note_classification?: string | null
+          requested_thoughtfulness_score: number | null
+          requested_update_private_note?: boolean
+          requested_welcome_score: number | null
+        }
+        Returns: {
+          clarity_score: number | null
+          comfort_score: number | null
+          id: string
+          overall_score: number
+          place_id: string
+          private_note: string | null
+          private_note_updated_at: string | null
+          rated_at: string
+          thoughtfulness_score: number | null
+          welcome_score: number | null
+        }[]
+      }
       schedule_reconfirmation_due: {
         Args: { command_request_id: string; requested_as_of: string }
         Returns: {
@@ -1004,18 +1130,15 @@ export type Database = {
           requested_welcome_score: number
         }
         Returns: {
-          clarity_score: number
-          comfort_score: number
-          excluded: boolean
+          clarity_score: number | null
+          comfort_score: number | null
           id: string
-          linked_report_id: string
           place_id: string
-          private_note: string
-          private_note_classification: string
-          private_note_updated_at: string
+          private_note: string | null
+          private_note_updated_at: string | null
           rated_at: string
-          thoughtfulness_score: number
-          welcome_score: number
+          thoughtfulness_score: number | null
+          welcome_score: number | null
         }[]
       }
       submit_place_correction: {

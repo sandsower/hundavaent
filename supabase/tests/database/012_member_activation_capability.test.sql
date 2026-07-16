@@ -2,21 +2,24 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(16);
 
 insert into private.member_activation_capabilities (secret)
 values ('local-member-activation-capability-secret-v1')
 on conflict (singleton)
 do update set secret = excluded.secret;
 
-insert into auth.users (id, email)
+insert into auth.users (id, email, email_confirmed_at)
 values
-  ('74200000-0000-4000-8000-000000000001', 'zero@example.invalid'),
-  ('74200000-0000-4000-8000-000000000002', 'facebook@example.invalid'),
-  ('74200000-0000-4000-8000-000000000003', 'multiple@example.invalid'),
-  ('74200000-0000-4000-8000-000000000004', 'policy@example.invalid'),
-  ('74200000-0000-4000-8000-000000000005', 'valid@example.invalid'),
-  ('74200000-0000-4000-8000-000000000006', 'rollback@example.invalid');
+  ('74200000-0000-4000-8000-000000000001', 'zero@example.invalid', now()),
+  ('74200000-0000-4000-8000-000000000002', 'facebook@example.invalid', now()),
+  ('74200000-0000-4000-8000-000000000003', 'multiple@example.invalid', now()),
+  ('74200000-0000-4000-8000-000000000004', 'policy@example.invalid', now()),
+  ('74200000-0000-4000-8000-000000000005', ' Valid@Example.Invalid ', now()),
+  ('74200000-0000-4000-8000-000000000006', 'rollback@example.invalid', now()),
+  ('74200000-0000-4000-8000-000000000007', 'missing@example.invalid', now()),
+  ('74200000-0000-4000-8000-000000000008', 'blank@example.invalid', now()),
+  ('74200000-0000-4000-8000-000000000009', 'canonical@example.invalid', now());
 
 insert into auth.identities (
   id,
@@ -88,6 +91,36 @@ values
     now(),
     now(),
     now()
+  ),
+  (
+    '74210000-0000-4000-8000-000000000007',
+    'missing-email-provider',
+    '74200000-0000-4000-8000-000000000007',
+    '{}'::jsonb,
+    'email',
+    now(),
+    now(),
+    now()
+  ),
+  (
+    '74210000-0000-4000-8000-000000000008',
+    'blank-email-provider',
+    '74200000-0000-4000-8000-000000000008',
+    '{"email":"   "}'::jsonb,
+    'email',
+    now(),
+    now(),
+    now()
+  ),
+  (
+    '74210000-0000-4000-8000-000000000009',
+    'mismatched-email-provider',
+    '74200000-0000-4000-8000-000000000009',
+    '{"email":"different@example.invalid"}'::jsonb,
+    'email',
+    now(),
+    now(),
+    now()
   );
 
 select set_config('request.jwt.claim.sub', '74200000-0000-4000-8000-000000000001', true);
@@ -96,8 +129,38 @@ set local role authenticated;
 select throws_ok(
   $$select public.activate_current_member(repeat('0', 64), 'zero-identity')$$,
   '42501',
-  'Exactly one approved email identity required',
+  'Approved verified identities required',
   'A direct authenticated RPC call with zero identities is denied'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '74200000-0000-4000-8000-000000000007', true);
+set local role authenticated;
+select throws_ok(
+  $$select public.activate_current_member(repeat('0', 64), 'missing-identity-email')$$,
+  '42501',
+  'Approved verified identities required',
+  'An approved identity without an email is denied'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '74200000-0000-4000-8000-000000000008', true);
+set local role authenticated;
+select throws_ok(
+  $$select public.activate_current_member(repeat('0', 64), 'blank-identity-email')$$,
+  '42501',
+  'Approved verified identities required',
+  'An approved identity with a blank email is denied'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub', '74200000-0000-4000-8000-000000000009', true);
+set local role authenticated;
+select throws_ok(
+  $$select public.activate_current_member(repeat('0', 64), 'mismatched-identity-email')$$,
+  '42501',
+  'Approved verified identities required',
+  'An approved identity with a different email is denied'
 );
 
 reset role;
@@ -107,8 +170,8 @@ set local role authenticated;
 select throws_ok(
   $$select public.activate_current_member(repeat('0', 64), 'facebook-identity')$$,
   '42501',
-  'Exactly one approved email identity required',
-  'A direct authenticated RPC call with one Facebook identity is denied'
+  'Valid callback capability required',
+  'A supported Facebook identity still requires the callback capability'
 );
 
 reset role;
@@ -118,8 +181,8 @@ set local role authenticated;
 select throws_ok(
   $$select public.activate_current_member(repeat('0', 64), 'multiple-identities')$$,
   '42501',
-  'Exactly one approved email identity required',
-  'A direct authenticated RPC call with multiple identities is denied'
+  'Valid callback capability required',
+  'Linked email and Facebook identities still require the callback capability'
 );
 
 reset role;
@@ -135,8 +198,13 @@ select throws_ok(
 );
 
 reset role;
-insert into private.member_provider_policy (provider, policy_version)
-values ('email', 'member-single-provider-v1');
+insert into private.member_provider_policy (
+  policy_version,
+  email_enabled,
+  facebook_enabled,
+  automatic_linking_verified_email
+)
+values ('member-linked-providers-v2', true, true, true);
 
 select set_config('request.jwt.claim.sub', '74200000-0000-4000-8000-000000000005', true);
 set local role authenticated;
@@ -153,7 +221,7 @@ select set_config(
   'test.activation_proof',
   encode(
     extensions.hmac(
-      '74200000-0000-4000-8000-000000000005:valid-callback:member-single-provider-v1',
+      '74200000-0000-4000-8000-000000000005:valid-callback:member-linked-providers-v2',
       'local-member-activation-capability-secret-v1',
       'sha256'
     ),
@@ -228,7 +296,7 @@ select set_config(
   'test.activation_proof',
   encode(
     extensions.hmac(
-      '74200000-0000-4000-8000-000000000006:forced-audit-failure:member-single-provider-v1',
+      '74200000-0000-4000-8000-000000000006:forced-audit-failure:member-linked-providers-v2',
       'local-member-activation-capability-secret-v1',
       'sha256'
     ),

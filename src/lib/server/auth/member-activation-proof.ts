@@ -1,4 +1,5 @@
-export const memberActivationPolicyVersion = 'member-single-provider-v1';
+export const memberActivationPolicyVersion = 'member-linked-providers-v2';
+export const authPendingIntentPolicyVersion = 'auth-pending-intent-v1';
 
 const minimumCapabilityLength = 32;
 const encoder = new TextEncoder();
@@ -18,6 +19,51 @@ export async function createMemberActivationProof(
     return null;
   }
 
+  return sign(secret, `${userId}:${requestId}:${memberActivationPolicyVersion}`);
+}
+
+export async function createAuthPendingIntentSubject(
+  secret: string | undefined,
+  clientAddress: string
+): Promise<string | null> {
+  if (!secret || secret.length < minimumCapabilityLength || !clientAddress.trim()) return null;
+  return sign(secret, `client:${clientAddress.trim()}:${authPendingIntentPolicyVersion}`);
+}
+
+export async function createAuthPendingIntentProof(
+  secret: string | undefined,
+  creationSubject: string,
+  action: 'favourite' | 'rating',
+  placeId: string,
+  overallRating: number | null,
+  requestId: string
+): Promise<string | null> {
+  if (
+    !secret ||
+    secret.length < minimumCapabilityLength ||
+    !/^[0-9a-f]{64}$/.test(creationSubject) ||
+    !placeId ||
+    !requestId ||
+    requestId.length > 128
+  ) {
+    return null;
+  }
+
+  return sign(
+    secret,
+    [
+      'pending',
+      creationSubject,
+      action,
+      placeId,
+      overallRating === null ? '' : String(overallRating),
+      requestId,
+      authPendingIntentPolicyVersion
+    ].join(':')
+  );
+}
+
+async function sign(secret: string, payload: string): Promise<string | null> {
   try {
     const key = await crypto.subtle.importKey(
       'raw',
@@ -26,7 +72,6 @@ export async function createMemberActivationProof(
       false,
       ['sign']
     );
-    const payload = `${userId}:${requestId}:${memberActivationPolicyVersion}`;
     const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
 
     return [...new Uint8Array(signature)]

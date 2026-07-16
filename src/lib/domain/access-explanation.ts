@@ -95,7 +95,7 @@ function restraintEnglish(condition: AccessCondition): string {
         ? ' off leash'
         : condition.restraintCondition === 'carrier_required'
           ? ' when carried'
-          : ' under the sourced control rule';
+          : ' under the stated control rule';
   return condition.restraintNote ? `${restraint} (${condition.restraintNote})` : restraint;
 }
 
@@ -156,7 +156,7 @@ function availabilityIcelandic(condition: AccessCondition): string {
 }
 
 function hasKnownAvailability(condition: AccessCondition): boolean {
-  return Object.keys(condition.availabilityWindow).length > 0;
+  return condition.availabilityState !== undefined && condition.availabilityState !== 'not_stated';
 }
 
 function formatNumber(value: number, locale: Locale): string {

@@ -1,14 +1,12 @@
 import type { MemberAuthConfigResolution, MemberProvider } from './member';
 import type { RequestSupabaseClient } from '$server/db/clients';
 
-export const supportedMemberProviderPolicyVersion = 'member-single-provider-v1';
-export const supportedMemberProviderPolicy = {
-  provider: 'email',
-  version: supportedMemberProviderPolicyVersion
-} as const;
+export const supportedMemberProviderPolicyVersion = 'member-linked-providers-v2';
 
 export interface MemberProviderPolicy {
-  provider: Exclude<MemberProvider, 'unknown'>;
+  emailEnabled: boolean;
+  facebookEnabled: boolean;
+  automaticLinkingVerifiedEmail: boolean;
   version: string;
 }
 
@@ -26,7 +24,9 @@ export async function resolveMemberProviderPolicy(
       error ||
       data.length !== 1 ||
       !row ||
-      row.provider !== supportedMemberProviderPolicy.provider ||
+      row.email_enabled !== true ||
+      row.facebook_enabled !== true ||
+      row.automatic_linking_verified_email !== true ||
       row.policy_version !== supportedMemberProviderPolicyVersion
     ) {
       return { status: 'unavailable' };
@@ -34,29 +34,40 @@ export async function resolveMemberProviderPolicy(
 
     return {
       status: 'ready',
-      policy: { provider: row.provider, version: row.policy_version }
+      policy: {
+        emailEnabled: row.email_enabled,
+        facebookEnabled: row.facebook_enabled,
+        automaticLinkingVerifiedEmail: row.automatic_linking_verified_email,
+        version: row.policy_version
+      }
     };
   } catch {
     return { status: 'unavailable' };
   }
 }
 
-export async function resolveConfiguredMemberProvider(
+export async function resolveConfiguredMemberProviders(
   client: RequestSupabaseClient,
   configResolution: MemberAuthConfigResolution
-): Promise<Exclude<MemberProvider, 'unknown'> | null> {
+): Promise<{ email: boolean; facebook: boolean } | null> {
   if (configResolution.status !== 'ready') return null;
 
   const { emailEnabled, facebookEnabled } = configResolution.config;
 
-  if (emailEnabled === facebookEnabled) return null;
-
-  const configuredProvider = emailEnabled ? 'email' : 'facebook';
   const policyResolution = await resolveMemberProviderPolicy(client);
+  if (policyResolution.status !== 'ready') return null;
 
-  return policyResolution.status === 'ready' &&
-    policyResolution.policy.provider === configuredProvider &&
-    policyResolution.policy.version === supportedMemberProviderPolicyVersion
-    ? configuredProvider
-    : null;
+  return {
+    email: emailEnabled && policyResolution.policy.emailEnabled,
+    facebook: facebookEnabled && policyResolution.policy.facebookEnabled
+  };
+}
+
+export async function resolveConfiguredMemberProvider(
+  client: RequestSupabaseClient,
+  configResolution: MemberAuthConfigResolution
+): Promise<Exclude<MemberProvider, 'unknown'> | null> {
+  const providers = await resolveConfiguredMemberProviders(client, configResolution);
+  if (!providers || providers.email === providers.facebook) return null;
+  return providers.email ? 'email' : 'facebook';
 }

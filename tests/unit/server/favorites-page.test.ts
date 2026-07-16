@@ -1,10 +1,25 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { load } from '../../../src/routes/[lang=lang]/saved/+page.server';
+import { load } from '../../../src/routes/[lang=lang]/favorites/+page.server';
 
 const placeId = '30000000-0000-4000-8000-000000000003';
 
-describe('Saved Places page boundary', () => {
+describe('Favorites page boundary', () => {
+  it('opens the contextual sign-in dialog and preserves the Favorites destination', async () => {
+    await expect(
+      load({
+        locals: { requestId: 'request-signed-out' },
+        params: { lang: 'en' },
+        parent: vi.fn(async () => ({ signedIn: false })),
+        setHeaders: vi.fn(),
+        url: new URL('http://localhost/en/favorites')
+      } as never)
+    ).rejects.toMatchObject({
+      status: 303,
+      location: `/en?auth=open&authReturnTo=${encodeURIComponent('/en/favorites')}`
+    });
+  });
+
   it('requests one lookahead row and exposes a cursor only when one exists', async () => {
     const rows = Array.from({ length: 25 }, (_, index) => ({
       place_id: `30000000-0000-4000-8000-${String(999999999999 - index).padStart(12, '0')}`,
@@ -24,7 +39,7 @@ describe('Saved Places page boundary', () => {
       params: { lang: 'en' },
       parent: vi.fn(async () => ({ signedIn: true })),
       setHeaders: vi.fn(),
-      url: new URL('http://localhost/en/saved')
+      url: new URL('http://localhost/en/favorites')
     } as never);
     if (!result) throw new Error('Saved page load returned no data');
 
@@ -48,11 +63,11 @@ describe('Saved Places page boundary', () => {
   });
 
   it.each([
-    `http://localhost/en/saved?before=not-a-date&beforePlace=${placeId}`,
-    `http://localhost/en/saved?before=1&beforePlace=${placeId}`,
-    'http://localhost/en/saved?before=2026-07-11T10%3A00%3A00Z&beforePlace=not-a-place',
-    'http://localhost/en/saved?before=2026-07-11T10%3A00%3A00Z',
-    'http://localhost/en/saved?beforePlace=not-a-place'
+    `http://localhost/en/favorites?before=not-a-date&beforePlace=${placeId}`,
+    `http://localhost/en/favorites?before=1&beforePlace=${placeId}`,
+    'http://localhost/en/favorites?before=2026-07-11T10%3A00%3A00Z&beforePlace=not-a-place',
+    'http://localhost/en/favorites?before=2026-07-11T10%3A00%3A00Z',
+    'http://localhost/en/favorites?beforePlace=not-a-place'
   ])('rejects a malformed or incomplete cursor: %s', async (url) => {
     await expect(
       load({

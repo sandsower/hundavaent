@@ -23,6 +23,7 @@ export interface ReplacementAccessConditionInput {
     'leash_required' | 'off_leash_permitted' | 'carrier_required' | 'other_sourced';
   restraint_note?: string | null;
   dog_eligibility: Readonly<Record<string, Json>>;
+  availability_state: 'whenever_open' | 'limited' | 'not_stated';
   availability_window: Readonly<Record<string, Json>>;
   permission_requirement: 'standing_permission' | 'ask_on_arrival' | 'advance_approval';
 }

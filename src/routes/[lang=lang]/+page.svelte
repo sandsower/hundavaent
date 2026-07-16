@@ -34,8 +34,8 @@
     initialState={data.discoveryState}
     adapter={mapAdapter}
     signedIn={data.signedIn === true}
+    favouritesAvailable={data.favouritesAvailable === true}
     initialFavouritePlaceIds={data.favouritePlaceIds ?? []}
-    pendingFavouritePlaceId={data.pendingFavourite ?? null}
     proximityAssistEnabled={data.proximityAssistEnabled === true}
     fitPlacesOnMount={data.fitPlacesOnMount === true}
   />
@@ -67,7 +67,7 @@
     }
   }
 
-  @media (max-width: 58rem) {
+  @media (max-width: 57.999rem) {
     .directory-shell {
       height: auto;
       min-height: calc(100dvh - var(--hv-app-header-height, 7.5rem));

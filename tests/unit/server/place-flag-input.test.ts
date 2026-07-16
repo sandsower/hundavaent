@@ -77,7 +77,9 @@ describe('Correction input', () => {
   });
 
   it('parses an Access Condition Correction', () => {
-    const result = parseCorrectionFormData(accessConditionForm());
+    const result = parseCorrectionFormData(
+      accessConditionForm({ availabilityState: 'limited', availabilityDays: '1,2' })
+    );
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -89,9 +91,20 @@ describe('Correction input', () => {
         access_area: 'outdoors',
         restraint_condition: 'leash_required',
         permission_requirement: 'standing_permission',
-        dog_eligibility: { scope: 'all_dogs' }
+        dog_eligibility: { scope: 'all_dogs' },
+        availability_state: 'limited',
+        availability_window: { days: [1, 2] }
       }
     });
+  });
+
+  it('rejects timing states that conflict with their window', () => {
+    const form = accessConditionForm({
+      availabilityState: 'not_stated',
+      availabilityDays: '1,2'
+    });
+
+    expect(parseCorrectionFormData(form)).toEqual({ ok: false, error: 'invalid' });
   });
 
   it('requires a note when the Access Area is other_bounded', () => {

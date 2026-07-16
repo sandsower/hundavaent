@@ -66,7 +66,7 @@
         <section class="account-destination hv-panel hv-list-card" aria-labelledby="saved-heading">
           <h2 id="saved-heading">{data.copy['account.savedHeading']}</h2>
           <p>{data.copy['account.savedIntro']}</p>
-          <a class="hv-control" href={resolve('/[lang=lang]/saved', { lang: data.lang })}>
+          <a class="hv-control" href={resolve('/[lang=lang]/favorites', { lang: data.lang })}>
             {data.copy['favourite.savedLink']}
           </a>
         </section>

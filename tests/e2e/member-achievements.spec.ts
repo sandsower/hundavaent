@@ -47,9 +47,9 @@ test('a real Favourite moves the private catalogue from locked to newly earned t
   // 2. Saving a Favourite through the real discovery UI unlocks First Favourite.
   await page.goto('/en?view=list&q=Published');
   await waitForHydration(page);
-  await page.getByRole('button', { name: 'Save Published Place' }).click();
+  await page.getByRole('button', { name: 'Add Published Place to favorites' }).click();
   await expect(
-    page.getByRole('button', { name: 'Remove Published Place from saved places' })
+    page.getByRole('button', { name: 'Remove Published Place from favorites' })
   ).toBeVisible();
 
   // 3. The next catalogue view shows the one-time newly-earned marker with an earned date.
@@ -75,8 +75,10 @@ test('a real Favourite moves the private catalogue from locked to newly earned t
   // Retire this member's Favourite of the shared published fixture Place.
   await page.goto('/en?view=list&q=Published');
   await waitForHydration(page);
-  await page.getByRole('button', { name: 'Remove Published Place from saved places' }).click();
-  await expect(page.getByRole('button', { name: 'Save Published Place' })).toBeVisible();
+  await page.getByRole('button', { name: 'Remove Published Place from favorites' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Add Published Place to favorites' })
+  ).toBeVisible();
 });
 
 test('unauthenticated requests cannot reach or discover any Achievement state', async ({
@@ -86,8 +88,10 @@ test('unauthenticated requests cannot reach or discover any Achievement state', 
   // The private route denies and redirects an unauthenticated request; it never renders.
   const achievementsPath = '/en/account/achievements';
   await page.goto(achievementsPath);
-  await expect(page).toHaveURL(`/en/account?returnTo=${encodeURIComponent(achievementsPath)}`);
-  await expect(page.getByLabel('Email address')).toBeVisible();
+  await expect(page).toHaveURL(
+    `/en?auth=open&authReturnTo=${encodeURIComponent(achievementsPath)}`
+  );
+  await expect(page.getByRole('dialog').getByLabel('Email address')).toBeVisible();
   await expect(page.getByText('First Favourite')).toHaveCount(0);
   await expect(page.getByText('Not earned yet')).toHaveCount(0);
 
@@ -142,8 +146,8 @@ test('the surface fails closed while the policy is dark', async ({ page }) => {
 async function signInMember(page: Page, email: string): Promise<void> {
   await page.goto('/en/account');
   await waitForHydration(page);
-  await page.getByLabel('Email address').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in link' }).click();
+  await page.getByRole('dialog').getByLabel('Email address').fill(email);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(email);
   await page.goto(magicLink);
   await waitForHydration(page);
