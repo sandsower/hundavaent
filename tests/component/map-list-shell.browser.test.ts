@@ -609,7 +609,7 @@ describe('MapListShell synchronization', () => {
         .querySelector<HTMLElement>('[data-place-card-media="photo"]')!
         .getBoundingClientRect();
       expect(photoRect.width).toBeCloseTo(mediaRect.width, 0);
-      expect(photoRect.height).toBeCloseTo(68.8, 0);
+      expect(photoRect.height).toBeCloseTo(83.2, 0);
       expect(within(resultCard).getByText('Outdoor place · Park', { exact: true })).toBeTruthy();
       expect(resultCard.querySelector('[data-place-card-media="photo"]')).toBeTruthy();
 
@@ -670,7 +670,8 @@ describe('MapListShell synchronization', () => {
     const band = card.querySelector<HTMLElement>('[data-place-card-media="category-band"]');
     expect(band).toBeTruthy();
     expect(band?.querySelector('img')).toBeNull();
-    expect(Number.parseFloat(getComputedStyle(band!).minHeight)).toBeCloseTo(33.6, 0);
+    expect(Number.parseFloat(getComputedStyle(band!).minHeight)).toBeCloseTo(83.2, 0);
+    expect(getComputedStyle(band!).backgroundImage).toContain('linear-gradient');
     expect(within(card).getByText('Outdoor place · Café', { exact: true })).toBeTruthy();
   });
 

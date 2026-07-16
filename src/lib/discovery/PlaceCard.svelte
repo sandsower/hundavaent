@@ -37,6 +37,7 @@
     onFavouriteChange = () => undefined
   }: Props = $props();
   let selectButton = $state<HTMLButtonElement>();
+  let photoUnavailable = $state(false);
 
   $effect(() => {
     if (selected && focusSelected && selectButton) {
@@ -72,33 +73,37 @@
   const categoryBadge = $derived(
     accessContext ? `${accessContext} · ${categoryLabel}` : categoryLabel
   );
+  const displayPhoto = $derived(
+    place.primaryPhoto && !photoUnavailable ? place.primaryPhoto : null
+  );
 </script>
 
 <article data-place-card class:selected aria-label={place.name}>
   <div
-    class:photo={place.primaryPhoto !== null}
-    class:category-band={place.primaryPhoto === null}
+    class:photo={displayPhoto !== null}
+    class:category-band={displayPhoto === null}
     class="card-media"
-    data-place-card-media={place.primaryPhoto ? 'photo' : 'category-band'}
+    data-place-card-media={displayPhoto ? 'photo' : 'category-band'}
   >
-    {#if place.primaryPhoto}
+    {#if displayPhoto}
       <figure class="primary-photo">
         <RefreshablePlaceImage
           placeId={place.placeId}
-          mediaId={place.primaryPhoto.mediaId}
-          url={place.primaryPhoto.url}
-          urlExpiresAt={place.primaryPhoto.urlExpiresAt}
-          alt={lang === 'is' ? place.primaryPhoto.altTextIs : place.primaryPhoto.altTextEn}
-          width={place.primaryPhoto.widthPx}
-          height={place.primaryPhoto.heightPx}
+          mediaId={displayPhoto.mediaId}
+          url={displayPhoto.url}
+          urlExpiresAt={displayPhoto.urlExpiresAt}
+          alt={lang === 'is' ? displayPhoto.altTextIs : displayPhoto.altTextEn}
+          width={displayPhoto.widthPx}
+          height={displayPhoto.heightPx}
+          onUnavailable={() => (photoUnavailable = true)}
         />
         <figcaption>
           <PhotoCredit
-            attributionText={place.primaryPhoto.attributionText}
-            attributionUrl={place.primaryPhoto.attributionUrl}
-            sourceUrl={place.primaryPhoto.sourceUrl}
-            licenseReference={place.primaryPhoto.licenseReference}
-            licenseUrl={place.primaryPhoto.licenseUrl}
+            attributionText={displayPhoto.attributionText}
+            attributionUrl={displayPhoto.attributionUrl}
+            sourceUrl={displayPhoto.sourceUrl}
+            licenseReference={displayPhoto.licenseReference}
+            licenseUrl={displayPhoto.licenseUrl}
           />
         </figcaption>
       </figure>
@@ -159,7 +164,7 @@
   .card-media {
     position: relative;
     width: 100%;
-    background: var(--hv-color-moss-soft);
+    min-height: 5.2rem;
   }
 
   .primary-photo {
@@ -170,14 +175,14 @@
   .primary-photo :global(img) {
     display: block;
     width: 100%;
-    height: 4.3rem;
+    height: 5.2rem;
     object-fit: cover;
   }
 
   .primary-photo figcaption {
     position: absolute;
-    right: 0.35rem;
-    bottom: 0.35rem;
+    top: 0.4rem;
+    right: 0.4rem;
     max-width: 58%;
     overflow: hidden;
     padding: 0.18rem 0.35rem;
@@ -189,28 +194,24 @@
   }
 
   .category-band {
-    min-height: 2.1rem;
-    background: var(--hv-color-moss-soft);
+    background:
+      linear-gradient(90deg, rgb(30 45 49 / 28%), transparent 70%),
+      linear-gradient(145deg, #8ba9a0 0 36%, #b6cbc4 36% 62%, #d9e2dd 62%);
   }
 
   .category-badge {
     position: absolute;
-    bottom: 0.55rem;
-    left: 0.55rem;
+    bottom: 0.65rem;
+    left: 0.65rem;
     padding: 0.25rem 0.45rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
+    border-radius: 0.2rem;
     background: var(--hv-color-snow-raised);
     color: var(--hv-color-basalt);
-    font-size: 0.65rem;
-    font-weight: 900;
-    letter-spacing: 0.035em;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
     line-height: 1;
     text-transform: uppercase;
-  }
-
-  .photo .category-badge {
-    bottom: 0.35rem;
   }
 
   article.selected {
