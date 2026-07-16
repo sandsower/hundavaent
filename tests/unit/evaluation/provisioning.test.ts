@@ -90,7 +90,7 @@ describe('deterministic evaluation provisioning', () => {
     );
     expect(workflow).toContain('app_fingerprint');
     expect(workflow).toContain('db_fingerprint');
-    expect(workflow).toContain('test "$(git rev-parse HEAD)" = "${{ inputs.sha }}"');
+    expect(workflow).toContain('test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"');
   });
 });
 import { readFileSync } from 'node:fs';

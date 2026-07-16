@@ -162,8 +162,12 @@ The preview workflow is then the external evidence source for visual and health 
 
 ## Protected production release
 
-The manual `Hundavaent production` workflow accepts one reviewed, full 40-character commit SHA.
-Run the manual clean evaluation successfully for that exact SHA before starting the protected production workflow.
+Every successful `CI` workflow for a push to `main` automatically starts the protected `Hundavaent production` workflow.
+Pull request CI runs, failed CI runs, and successful CI runs for any other branch do not deploy.
+The production workflow uses the completed CI run's full head SHA and verifies that exact commit independently before touching production.
+Automatic runs always create a recovery point, apply migrations, and deploy to Cloudflare Pages.
+The manual workflow dispatch remains available as an emergency and recovery-only path for one reviewed, full 40-character commit SHA.
+Manual clean evaluation remains the canonical deeper release proof, but it does not block the pre-launch automatic deployment path.
 The workflow always creates and restore-tests one consistent recovery point for the `public`, `private`, `security`, and Storage schemas before any requested migration or deployment.
 Managed Supabase Auth identities and tables that are hard-owned through required Auth foreign keys are intentionally excluded while the site has only disposable pre-launch test users.
 Tables reached only through nullable identity attribution remain in the recovery point, and those attribution columns are deterministically set to `NULL` in the restored data.
@@ -175,7 +179,7 @@ Both production provider variables must be exactly `false`, and the workflow rej
 Provider activation therefore requires upgrading the workflow to full Auth-capable recovery or replacing this temporary guard before either provider variable can be enabled.
 After the scratch restore passes, the workflow creates a deterministic `tar.gz` archive, records its SHA-256 checksum, encrypts it with AES-256-CBC and PBKDF2, records the ciphertext checksum, and deletes every plaintext recovery file.
 One artifact containing only the encrypted archive and its manifest is retained for 90 days.
-The `migrate` and `deploy` dispatch inputs can apply the exact reviewed migration set and deploy that same SHA after recovery succeeds.
+For manual runs, the `migrate` and `deploy` dispatch inputs can apply the exact reviewed migration set and deploy that same SHA after recovery succeeds.
 
 Configure these additional GitHub `production` environment values before dispatching the workflow:
 
@@ -186,7 +190,7 @@ Configure these additional GitHub `production` environment values before dispatc
 - Secret `HUNDAVAENT_PRODUCTION_BACKUP_PASSPHRASE` containing a dedicated high-entropy recovery passphrase.
 
 The workflow also uses the existing production Supabase URL, project ref, database password, publishable key, MapTiler style URL, and application URL bindings.
-Leave `migrate` or `deploy` disabled when an operator wants only the encrypted recovery point.
+On manual runs, leave `migrate` or `deploy` disabled when an operator wants only the encrypted recovery point.
 
 The logical recovery artifact protects independent application data and Storage schemas but does not currently protect managed Auth identities, hard identity-owned application rows, or the original values of neutralized identity-attribution columns, and it is not a substitute for managed point-in-time recovery.
 Until managed physical backups or PITR are enabled, recovery can restore only to the timestamp captured by the most recent successful workflow run.
