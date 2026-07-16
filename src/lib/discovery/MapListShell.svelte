@@ -1194,7 +1194,7 @@
       bottom: max(0.75rem, env(safe-area-inset-bottom));
       left: 0.75rem;
       width: auto;
-      max-height: calc(100dvh - 6.5rem);
+      max-height: min(34rem, calc(100dvh - 6.5rem));
       flex: none;
       border: 1px solid var(--hv-border-strong);
       box-shadow: var(--hv-shadow-floating);

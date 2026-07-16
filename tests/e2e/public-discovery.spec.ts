@@ -163,6 +163,9 @@ test.describe('public discovery locale routes', () => {
     await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
     await expect(page.locator('.selected-place-overlay')).toHaveCSS('position', 'fixed');
     await expect(page.locator('.maplibregl-ctrl-top-right')).toHaveCSS('visibility', 'hidden');
+    expect(
+      (await page.locator('.selected-place-overlay').boundingBox())?.height
+    ).toBeLessThanOrEqual(550);
     await expect(page).toHaveURL(/view=map/);
 
     await page.goto(
