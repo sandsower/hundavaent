@@ -36,6 +36,7 @@ const places = [
         permissionRequirement: 'standing_permission' as const
       }
     ],
+    primaryPhoto: null,
     verifiedAt: '2026-07-09T11:00:00.000Z'
   }
 ];

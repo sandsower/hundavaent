@@ -734,6 +734,7 @@
           <DiscoveryResults
             places={resultPlaces}
             selectedPlaceId={discoveryState.selectedPlaceId}
+            {lang}
             {copy}
             onSelect={(placeId, trigger) =>
               selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list')}
@@ -781,6 +782,7 @@
     <PlaceList
       places={filteredPlaces}
       selectedPlaceId={discoveryState.selectedPlaceId}
+      {lang}
       interactive={false}
       {copy}
     />

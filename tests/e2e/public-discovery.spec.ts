@@ -59,6 +59,24 @@ test.describe('public discovery locale routes', () => {
     await expect(selected.getByText('Official Place website')).toBeVisible();
   });
 
+  test('renders the north-star media header when a result has no approved photo', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/en?view=list');
+    await waitForHydration(page);
+
+    const card = page.locator('[data-place-card]').filter({ hasText: 'Published Place' });
+    const media = card.locator('[data-place-card-media="category-band"]');
+
+    await expect(card).toBeVisible();
+    await expect(media).toBeVisible();
+    await expect(media).toHaveCSS('min-height', '83.2px');
+    await expect(media).toHaveCSS('background-image', /linear-gradient/);
+    await expect(card.getByText('Outdoor place · Park')).toBeVisible();
+    await expect(card.getByRole('img')).toHaveCount(0);
+  });
+
   test('provides localized About and Member account entry points', async ({ page }) => {
     await page.goto('/en/about');
     await expect(page.getByRole('heading', { name: 'About Hundavænt' })).toBeVisible();

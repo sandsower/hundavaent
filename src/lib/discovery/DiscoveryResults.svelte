@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Catalogue } from '$i18n';
+  import type { Catalogue, Locale } from '$i18n';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
 
   import PlaceList from './PlaceList.svelte';
@@ -7,6 +7,7 @@
   interface Props {
     places: PublishedPlaceSummary[];
     selectedPlaceId: string | null;
+    lang: Locale;
     copy: Catalogue;
     onSelect: (placeId: string, trigger: HTMLButtonElement) => void;
     onClose?: () => void;
@@ -21,6 +22,7 @@
   let {
     places,
     selectedPlaceId,
+    lang,
     copy,
     onSelect,
     onClose = () => undefined,
@@ -61,6 +63,7 @@
     <PlaceList
       {places}
       {selectedPlaceId}
+      {lang}
       {copy}
       {onSelect}
       {signedIn}

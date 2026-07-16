@@ -121,7 +121,14 @@
 
   <div class="card-body" data-card-scroll-body>
     {#if profile}
-      <PlacePhotos photos={profile.photos} placeName={place.name} {lang} {copy} featured />
+      <PlacePhotos
+        photos={profile.photos}
+        placeId={place.placeId}
+        placeName={place.name}
+        {lang}
+        {copy}
+        featured
+      />
     {/if}
 
     <section

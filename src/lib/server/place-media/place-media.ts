@@ -405,6 +405,36 @@ export async function signPlaceMediaUrl(
   return data.signedUrl;
 }
 
+/**
+ * Signs several objects from one bucket through Storage's batch boundary.
+ * Missing or rejected paths are omitted so one unavailable photo does not suppress its siblings.
+ */
+export async function signPlaceMediaUrls(
+  client: RequestSupabaseClient,
+  bucket: 'place-evidence' | 'place-photos',
+  objectPaths: readonly string[],
+  expiresInSeconds = 300
+): Promise<Map<string, string>> {
+  const signedUrls = new Map<string, string>();
+  if (objectPaths.length === 0) return signedUrls;
+
+  try {
+    const { data, error } = await client.storage
+      .from(bucket)
+      .createSignedUrls([...objectPaths], expiresInSeconds);
+    if (error || !Array.isArray(data)) return signedUrls;
+
+    for (const result of data) {
+      if (typeof result.path === 'string' && typeof result.signedUrl === 'string') {
+        signedUrls.set(result.path, result.signedUrl);
+      }
+    }
+  } catch {
+    // Media is supplementary. Callers receive an empty set and retain their core content.
+  }
+  return signedUrls;
+}
+
 function mapCommandError(code: string): CommandResult<never> {
   if (code === '42501') {
     return { status: 'forbidden' };
