@@ -668,7 +668,12 @@
   }
 </script>
 
-<div class="map-list-shell" data-responsive-shell data-map-failed={mapFailed}>
+<div
+  class="map-list-shell"
+  data-responsive-shell
+  data-map-failed={mapFailed}
+  data-selected-place={selectedPlace && discoveryState.view !== 'list' ? 'true' : undefined}
+>
   <aside
     class="directory-sidebar"
     data-directory-sidebar
@@ -913,6 +918,10 @@
       border-block-end: 0;
     }
 
+    .map-list-shell[data-selected-place='true'] .directory-sidebar {
+      z-index: 10;
+    }
+
     .directory-sidebar {
       overflow: visible;
       border-inline-end: 0;
@@ -931,15 +940,22 @@
       min-height: inherit;
     }
 
+    .map-list-shell[data-selected-place='true']
+      .map-stage
+      :global(.maplibregl-ctrl-top-right) {
+      visibility: hidden;
+    }
+
     .selected-place-overlay {
       position: fixed;
       z-index: 9;
-      top: min(18.5rem, 40dvh);
+      top: auto;
       right: 0.75rem;
       bottom: max(0.75rem, env(safe-area-inset-bottom));
       left: 0.75rem;
       width: auto;
-      max-height: none;
+      max-height: calc(100dvh - 6.5rem);
+      flex: none;
       border: 1px solid var(--hv-border-strong);
       box-shadow: var(--hv-shadow-floating);
     }

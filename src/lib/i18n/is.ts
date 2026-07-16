@@ -296,10 +296,6 @@ export const isCatalogue = {
   'place.eligibility': 'Hvaða hundar mega koma',
   'place.availability': 'Hvenær aðgangurinn gildir',
   'place.permission': 'Leyfi',
-  'place.lastVerified': 'Síðast staðfest',
-  'place.evidenceSource': 'Heimild',
-  'place.accessExplanation':
-    'Þessar upplýsingar lýsa staðfestum aðgangi hunda en eru ekki einkunn á hundvænleika.',
   'place.validUntil': 'Staðfesting gildir til',
   'place.noRestriction': 'Engin sérstök takmörkun',
   'place.multipleConditions':
@@ -307,7 +303,7 @@ export const isCatalogue = {
   'place.restrictedCondition': 'Sérstakar takmarkanir gilda. Skoðaðu allt skilyrðið.',
   'place.loadingDetails': 'Hleð öllum aðgangsskilyrðum…',
   'place.detailsUnavailable': 'Ekki tókst að hlaða öllum upplýsingum um aðgang.',
-  'place.showCompleteAccess': 'Nánar og heimildir',
+  'place.showPracticalDetails': 'Upplýsingar um staðinn',
   'place.conditionLabel': 'Skilyrði {number}',
   'place.amenities': 'Aðstaða fyrir hunda',
   'place.amenitiesUnknown': 'Engar upplýsingar um aðstöðu',

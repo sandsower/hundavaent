@@ -6,11 +6,9 @@
 
 <script lang="ts">
   import type { Catalogue, Locale, MessageKey } from '$i18n';
-  import { formatLocalizedDate } from '$i18n/date';
   import type { PlaceCategory } from '$domain/place';
   import {
     accessAreaMessageKeys,
-    evidenceMessageKeys,
     formatDogAmenities,
     formatOpeningHours,
     permissionMessageKeys,
@@ -150,17 +148,11 @@
       {/if}
     </section>
 
-    <div class="trust-summary">
-      {#if reconfirmationDue || summaryVerified}
-        <span class="hv-status" data-status={reconfirmationDue ? 'attention' : 'verified'}>
-          {reconfirmationDue ? copy['status.reconfirmationDue'] : copy['status.verified']}
-        </span>
-      {/if}
-      <span>
-        {copy['place.lastVerified']}
-        <time datetime={place.verifiedAt}>{formatLocalizedDate(place.verifiedAt, lang)}</time>
-      </span>
-    </div>
+    {#if reconfirmationDue}
+      <p class="stale-warning hv-status" data-status="attention">
+        {copy['status.reconfirmationDue']}
+      </p>
+    {/if}
 
     {#if signedIn}
       <div class="member-actions">
@@ -201,9 +193,9 @@
         <button class="hv-control" type="button" onclick={onRetry}>{copy['common.retry']}</button>
       </div>
     {:else if profile}
-      <details class="hv-disclosure">
-        <summary>{copy['place.showCompleteAccess']}</summary>
-        <div class="complete-details">
+      <details class="hv-disclosure practical-details">
+        <summary>{copy['place.showPracticalDetails']}</summary>
+        <div class="practical-details-content">
           {#if profile.dogFriendlinessSummary.visible && correctionHref}
             <RatingSummary
               summary={profile.dogFriendlinessSummary}
@@ -215,12 +207,14 @@
 
           <section aria-labelledby={`access-${place.placeId}`}>
             <h3 id={`access-${place.placeId}`}>{copy['place.accessHeading']}</h3>
-            <ol class="conditions">
+            <ol class="conditions" class:single={profile.accessConditions.length === 1}>
               {#each profile.accessConditions as condition, index (condition.id)}
                 <li class="condition-card">
-                  <strong
-                    >{copy['place.conditionLabel'].replace('{number}', String(index + 1))}</strong
-                  >
+                  {#if profile.accessConditions.length > 1}
+                    <strong
+                      >{copy['place.conditionLabel'].replace('{number}', String(index + 1))}</strong
+                    >
+                  {/if}
                   <p>
                     {explainAccessCondition(
                       {
@@ -239,64 +233,6 @@
                       lang
                     )}
                   </p>
-                  <div class="trust-row">
-                    <span
-                      class="hv-status"
-                      data-status={isReconfirmationDue(condition.freshnessUntil)
-                        ? 'attention'
-                        : 'verified'}
-                      >{isReconfirmationDue(condition.freshnessUntil)
-                        ? copy['status.reconfirmationDue']
-                        : copy['status.verified']}</span
-                    >
-                    <span
-                      >{copy['place.lastVerified']}
-                      <time datetime={condition.verifiedAt}
-                        >{formatLocalizedDate(condition.verifiedAt, lang)}</time
-                      ></span
-                    >
-                  </div>
-                  <ul class="sources" aria-label={copy['place.evidenceSource']}>
-                    {#each condition.evidenceSources as source, sourceIndex (`${source.kind}-${source.sourceLabel}-${source.sourceUrl ?? ''}-${source.sourceCitation ?? ''}-${source.observedAt}-${sourceIndex}`)}
-                      <li class="evidence-card">
-                        {#if source.sourceUrl}
-                          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external Evidence URL -->
-                          <a href={source.sourceUrl} rel="noreferrer">{source.sourceLabel}</a>
-                        {:else}
-                          <span>{source.sourceLabel}</span>
-                        {/if}
-                        <span class="source-meta">
-                          <small>{copy[evidenceMessageKeys[source.kind]]}</small>
-                          <time datetime={source.observedAt}
-                            >{formatLocalizedDate(source.observedAt, lang)}</time
-                          >
-                        </span>
-                        {#if source.sourceUrl}
-                          <small class="source-reference">{source.sourceUrl}</small>
-                        {/if}
-                        {#if source.sourceCitation}
-                          <small class="source-reference">{source.sourceCitation}</small>
-                        {/if}
-                      </li>
-                    {/each}
-                  </ul>
-                  {#if correctionHref}
-                    <!-- Exact local return context is assembled by the discovery owner. -->
-                    <!-- eslint-disable svelte/no-navigation-without-resolve -->
-                    <div class="condition-actions">
-                      <a
-                        href={correctionHref(profile.placeId, 'correct', {
-                          conditionId: condition.id
-                        })}>{copy['correction.startLink']}</a
-                      >
-                      <a
-                        href={correctionHref(profile.placeId, 'report', {
-                          conditionId: condition.id
-                        })}>{copy['report.startLink']}</a
-                      >
-                    </div>
-                    <!-- eslint-enable svelte/no-navigation-without-resolve -->
-                  {/if}
                 </li>
               {/each}
             </ol>
@@ -314,14 +250,6 @@
                 : copy['place.amenitiesUnknown']}
             </p>
           </section>
-          <p class="access-note">{copy['place.accessExplanation']}</p>
-          {#if correctionHref}
-            <p class="report-link">
-              <!-- Exact local return context is assembled by the discovery owner. -->
-              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-              <a href={correctionHref(place.placeId, 'report')}>{copy['report.startLink']}</a>
-            </p>
-          {/if}
         </div>
       </details>
     {/if}
@@ -428,18 +356,9 @@
     font-weight: 750;
   }
 
-  .trust-summary {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem 0.75rem;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 0.6rem;
-    padding-top: 0.6rem;
-    border-top: 1px dashed var(--hv-border-subtle);
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.75rem;
-    font-weight: 750;
+  .stale-warning {
+    width: fit-content;
+    margin: 0.65rem 0 0;
   }
 
   details {
@@ -450,13 +369,13 @@
     padding: 0.85rem 0 0.35rem;
   }
 
-  .complete-details {
+  .practical-details-content {
     display: grid;
-    gap: 0.8rem;
-    padding: 0.6rem 0 0.2rem;
+    gap: 1rem;
+    padding: 0.75rem 0 0.25rem;
   }
 
-  .complete-details h3 {
+  .practical-details-content h3 {
     margin: 0;
     color: var(--hv-color-basalt);
     font-family: var(--hv-font-display);
@@ -464,8 +383,7 @@
     font-weight: 650;
   }
 
-  .conditions,
-  .sources {
+  .conditions {
     display: grid;
     gap: 0.55rem;
     margin: 0.45rem 0 0;
@@ -480,84 +398,15 @@
     background: var(--hv-color-snow-raised);
   }
 
+  .conditions.single > li {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
   .conditions p {
     margin: 0.3rem 0;
     line-height: 1.4;
-  }
-
-  .trust-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem 0.75rem;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 0.75rem;
-    font-weight: 750;
-  }
-
-  .sources li {
-    display: grid;
-    gap: 0.2rem;
-    padding: 0.65rem;
-    border-inline-start: 0.2rem solid var(--hv-color-fjord);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-fjord-soft);
-    font-size: 0.8rem;
-  }
-
-  .sources a {
-    color: var(--hv-color-basalt);
-    font-weight: 800;
-  }
-
-  .source-reference {
-    overflow-wrap: anywhere;
-    color: var(--hv-color-basalt);
-  }
-
-  .source-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 0.55rem;
-    color: var(--hv-color-basalt);
-    font-size: 0.75rem;
-  }
-
-  .access-note {
-    margin: 0;
-    font-size: 0.78rem;
-    color: var(--hv-color-basalt-muted);
-  }
-
-  .report-link {
-    margin: 0.5rem 0 0;
-  }
-
-  .report-link a {
-    color: var(--hv-color-fjord);
-    font-size: 0.82rem;
-    font-weight: 800;
-  }
-
-  .condition-actions {
-    display: flex;
-    gap: 0.75rem;
-    margin-top: 0.4rem;
-  }
-
-  .condition-actions a {
-    color: var(--hv-color-fjord);
-    font-size: 0.75rem;
-    font-weight: 800;
-  }
-
-  .report-link a:focus-visible,
-  .sources a:focus-visible,
-  .condition-actions a:focus-visible {
-    border-radius: var(--hv-radius-control);
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   .card-heading {
@@ -602,11 +451,6 @@
     font-weight: 750;
     line-height: 1;
     place-items: center;
-  }
-
-  time {
-    font-size: 0.82rem;
-    font-weight: 800;
   }
 
   .details-status p {

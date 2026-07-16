@@ -341,8 +341,8 @@ describe('MapListShell synchronization', () => {
     expect(within(selectedPlace).getByText('Outdoors')).toBeTruthy();
     expect(within(selectedPlace).getByText('Leash required')).toBeTruthy();
     expect(within(selectedPlace).queryByText('Dogs are generally allowed')).toBeNull();
-    expect(within(selectedPlace).getByText('Last verified')).toBeTruthy();
-    expect(within(selectedPlace).getByText('9 July 2026')).toBeTruthy();
+    expect(within(selectedPlace).queryByText('Last verified')).toBeNull();
+    expect(await within(selectedPlace).findByText('Place details')).toBeTruthy();
     expect(within(selectedPlace).queryByText('Not yet rated')).toBeNull();
     expect(within(selectedPlace).queryByText('Sign in to save')).toBeNull();
     expect(within(selectedPlace).queryByText('Sign in to check in')).toBeNull();
@@ -377,7 +377,7 @@ describe('MapListShell synchronization', () => {
     expect(question.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('asks the friendly welcome question in Icelandic with concise trust metadata', () => {
+  it('asks the friendly welcome question in Icelandic without trust metadata', async () => {
     history.replaceState(null, '', '/is?place=30000000-0000-4000-8000-000000000003');
     render(MapListShell, {
       places,
@@ -398,7 +398,9 @@ describe('MapListShell synchronization', () => {
       within(selectedPlace).getByRole('heading', { name: 'Eru hundar velkomnir?' })
     ).toBeTruthy();
     expect(within(selectedPlace).getByText('Já')).toBeTruthy();
-    expect(within(selectedPlace).getByText('9. júlí 2026')).toBeTruthy();
+    expect(await within(selectedPlace).findByText('Upplýsingar um staðinn')).toBeTruthy();
+    expect(within(selectedPlace).queryByText('Síðast staðfest')).toBeNull();
+    expect(within(selectedPlace).queryByText('9. júlí 2026')).toBeNull();
   });
 
   it('withdraws the verified welcome signal when loaded access evidence is stale', async () => {
@@ -434,7 +436,7 @@ describe('MapListShell synchronization', () => {
     expect(welcome?.getAttribute('data-access-state')).toBe('attention');
     expect(welcome?.getAttribute('data-tone')).not.toBe('verified');
     expect(welcome?.getAttribute('data-access-state')).not.toBe('verified');
-    expect(within(selectedPlace).getAllByText('Reconfirmation due')).toHaveLength(2);
+    expect(within(selectedPlace).getAllByText('Reconfirmation due')).toHaveLength(1);
   });
 
   it('never promotes summary access to verified when complete details fail to load', async () => {
@@ -465,7 +467,7 @@ describe('MapListShell synchronization', () => {
     expect(selectedPlace.querySelector('.trust-summary [data-status="verified"]')).toBeNull();
   });
 
-  it('reveals every restriction and provenance inside the rail card without navigating away', async () => {
+  it('reveals every practical restriction without exposing provenance', async () => {
     history.replaceState(null, '', `/en?place=${places[0].placeId}`);
     const multiConditionPlaces = [
       {
@@ -508,7 +510,7 @@ describe('MapListShell synchronization', () => {
         '2 different access conditions apply. Review every restriction.'
       )
     ).toBeTruthy();
-    await fireEvent.click(await within(selectedPlace).findByText('Details and sources'));
+    await fireEvent.click(await within(selectedPlace).findByText('Place details'));
     expect(
       within(selectedPlace).getByText(
         'Dogs weighing up to and including 10 kg are allowed indoors before 17:00 when carried.'
@@ -517,24 +519,22 @@ describe('MapListShell synchronization', () => {
     expect(
       within(selectedPlace).getByText(/may be allowed after asking on arrival outdoors on a leash/)
     ).toBeTruthy();
-    expect(within(selectedPlace).getByText('Official rules')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Municipal rule')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Official website')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Public record')).toBeTruthy();
-    expect(within(selectedPlace).getByText('https://example.invalid/rules')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Rule 4')).toBeTruthy();
-    expect(within(selectedPlace).getByText('8 July 2026')).toBeTruthy();
-    expect(within(selectedPlace).getAllByText('Reconfirmation due')).toHaveLength(2);
+    expect(within(selectedPlace).queryByText('Official rules')).toBeNull();
+    expect(within(selectedPlace).queryByText('Municipal rule')).toBeNull();
+    expect(within(selectedPlace).queryByText('https://example.invalid/rules')).toBeNull();
+    expect(within(selectedPlace).queryByText('Rule 4')).toBeNull();
+    expect(within(selectedPlace).queryByText('8 July 2026')).toBeNull();
+    expect(within(selectedPlace).getAllByText('Reconfirmation due')).toHaveLength(1);
     expect(within(selectedPlace).getByText(/Monday: 09:00-17:00/)).toBeTruthy();
     expect(within(selectedPlace).getByText(/seasonal_note: Call ahead on holidays/)).toBeTruthy();
     expect(within(selectedPlace).getByText('Water bowl, covered patio hook')).toBeTruthy();
     expect(selectedPlace.querySelector('details.hv-disclosure')).not.toBeNull();
     expect(selectedPlace.querySelector('[data-status="attention"]')).not.toBeNull();
-    expect(selectedPlace.querySelector('[data-status="verified"]')).not.toBeNull();
+    expect(selectedPlace.querySelector('[data-status="verified"]')).toBeNull();
     expect(window.location.pathname).toBe('/en');
   });
 
-  it('localizes known structured labels in Icelandic and preserves sourced free text', async () => {
+  it('localizes practical details in Icelandic without exposing sourced metadata', async () => {
     history.replaceState(null, '', `/is?place=${places[0].placeId}`);
     render(MapListShell, {
       places: [
@@ -569,18 +569,18 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Valinn staður');
-    await fireEvent.click(await within(selectedPlace).findByText('Nánar og heimildir'));
-    expect(within(selectedPlace).getByText('Rule 4')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Opinber skrá')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Opinber vefsíða')).toBeTruthy();
-    expect(within(selectedPlace).getByText('https://example.invalid/rules')).toBeTruthy();
-    expect(within(selectedPlace).getByText('8. júlí 2026')).toBeTruthy();
+    await fireEvent.click(await within(selectedPlace).findByText('Upplýsingar um staðinn'));
+    expect(within(selectedPlace).queryByText('Rule 4')).toBeNull();
+    expect(within(selectedPlace).queryByText('Opinber skrá')).toBeNull();
+    expect(within(selectedPlace).queryByText('Opinber vefsíða')).toBeNull();
+    expect(within(selectedPlace).queryByText('https://example.invalid/rules')).toBeNull();
+    expect(within(selectedPlace).queryByText('8. júlí 2026')).toBeNull();
     expect(within(selectedPlace).getByText(/Mánudagur: 09:00-17:00/)).toBeTruthy();
     expect(within(selectedPlace).getByText(/seasonal_note: Call ahead on holidays/)).toBeTruthy();
     expect(within(selectedPlace).getByText('Vatnsskál, covered patio hook')).toBeTruthy();
   });
 
-  it('renders distinct provenance when Evidence sources share a kind and label', async () => {
+  it('keeps Evidence provenance out of the practical Place panel', async () => {
     history.replaceState(null, '', `/en?place=${places[0].placeId}`);
     const duplicateLabelProfile = {
       ...complexProfile,
@@ -611,16 +611,16 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Selected place');
-    await fireEvent.click(await within(selectedPlace).findByText('Details and sources'));
-    expect(within(selectedPlace).getAllByText('Official rules')).toHaveLength(2);
-    expect(within(selectedPlace).getByText('https://example.invalid/rules')).toBeTruthy();
-    expect(within(selectedPlace).getByText('https://example.invalid/rules/archive')).toBeTruthy();
-    expect(within(selectedPlace).getByText('Archived rule 2')).toBeTruthy();
+    await fireEvent.click(await within(selectedPlace).findByText('Place details'));
+    expect(within(selectedPlace).queryByText('Official rules')).toBeNull();
+    expect(within(selectedPlace).queryByText('https://example.invalid/rules')).toBeNull();
+    expect(within(selectedPlace).queryByText('https://example.invalid/rules/archive')).toBeNull();
+    expect(within(selectedPlace).queryByText('Archived rule 2')).toBeNull();
   });
 
   it.each([
-    ['en', 'Selected place', 'Details and sources'],
-    ['is', 'Valinn staður', 'Nánar og heimildir']
+    ['en', 'Selected place', 'Place details'],
+    ['is', 'Valinn staður', 'Upplýsingar um staðinn']
   ] as const)('renders every populated restriction in %s', async (lang, cardLabel, expandLabel) => {
     history.replaceState(null, '', `/${lang}?place=${places[0].placeId}`);
     const fullyRestricted = {
@@ -719,7 +719,7 @@ describe('MapListShell synchronization', () => {
       placeId: secondPlace.placeId,
       name: 'Second Place'
     });
-    await screen.findByText('Details and sources');
+    await screen.findByText('Place details');
     firstRequest.reject(new Error('late failure'));
     await Promise.resolve();
 
@@ -1044,7 +1044,7 @@ describe('MapListShell synchronization', () => {
     const selectedPlace = screen.getByLabelText('Selected place');
     expect(selectedPlace).toBeTruthy();
     expect(sidebar.contains(selectedPlace)).toBe(true);
-    expect(selectedPlace.querySelector('.trust-summary')?.textContent).toContain('Last verified');
+    expect(selectedPlace.querySelector('.trust-summary')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Places found' })).toBeNull();
     await waitFor(() =>
       expect(document.activeElement).toBe(

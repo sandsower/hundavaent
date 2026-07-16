@@ -295,10 +295,6 @@ export const enCatalogue = {
   'place.eligibility': 'Which dogs are allowed',
   'place.availability': 'When access applies',
   'place.permission': 'Permission',
-  'place.lastVerified': 'Last verified',
-  'place.evidenceSource': 'Source',
-  'place.accessExplanation':
-    'These facts describe verified dog access and are not a Dog-Friendliness rating.',
   'place.validUntil': 'Verification valid until',
   'place.noRestriction': 'No specific restriction',
   'place.multipleConditions':
@@ -306,7 +302,7 @@ export const enCatalogue = {
   'place.restrictedCondition': 'Specific restrictions apply. Review the complete condition.',
   'place.loadingDetails': 'Loading every access condition…',
   'place.detailsUnavailable': 'The complete access information could not be loaded.',
-  'place.showCompleteAccess': 'Details and sources',
+  'place.showPracticalDetails': 'Place details',
   'place.conditionLabel': 'Condition {number}',
   'place.amenities': 'Dog amenities',
   'place.amenitiesUnknown': 'No amenity information available',

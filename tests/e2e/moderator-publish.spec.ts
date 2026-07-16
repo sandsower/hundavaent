@@ -119,6 +119,38 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   const verifiedProfileResponse = await page.request.get(`/api/places/${candidateId}?lang=en`);
   expect(verifiedProfileResponse.status()).toBe(200);
   expect(verifiedProfileResponse.headers()['cache-control']).toBe('no-store');
+  const verifiedProfile = (await verifiedProfileResponse.json()) as {
+    accessConditions: Array<{
+      evidenceSources: Array<{
+        sourceLabel: string;
+        sourceUrl: string | null;
+        sourceCitation: string | null;
+        kind: string;
+      }>;
+    }>;
+  };
+  expect(verifiedProfile.accessConditions).toHaveLength(2);
+  expect(verifiedProfile.accessConditions.map((condition) => condition.evidenceSources)).toEqual([
+    expect.arrayContaining([
+      expect.objectContaining({
+        sourceLabel: candidate.evidenceSourceLabel,
+        sourceUrl: candidate.evidenceUrl,
+        kind: 'official_website'
+      }),
+      expect.objectContaining({
+        sourceLabel: 'Supporting public record',
+        sourceCitation: 'Municipal rule 4',
+        kind: 'public_record'
+      })
+    ]),
+    [
+      expect.objectContaining({
+        sourceLabel: 'Supporting public record',
+        sourceCitation: 'Municipal rule 4',
+        kind: 'public_record'
+      })
+    ]
+  ]);
 
   await expect(proveLocalReconfirmationSchedulerSerialization(candidateId!)).resolves.toEqual({
     displacedVerificationTaskCount: 0,
@@ -136,15 +168,11 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   await page.goto(`/en?place=${candidateId}`);
   const englishCard = page.getByRole('complementary', { name: 'Selected place' });
   await expect(englishCard).toBeVisible();
-  await englishCard.getByText('Details and sources').click();
-  await expect(englishCard.getByText(candidate.evidenceSourceLabel)).toBeVisible();
-  await expect(englishCard.getByText('Supporting public record')).toHaveCount(2);
-  await expect(englishCard.getByText(candidate.evidenceUrl)).toBeVisible();
-  await expect(englishCard.getByText('Municipal rule 4')).toHaveCount(2);
-  await expect(englishCard.locator('small').filter({ hasText: /^Official website$/ })).toHaveCount(
-    2
-  );
-  await expect(englishCard.locator('small').filter({ hasText: /^Public record$/ })).toHaveCount(2);
+  await englishCard.getByText('Place details').click();
+  await expect(englishCard.getByText(candidate.evidenceSourceLabel)).toHaveCount(0);
+  await expect(englishCard.getByText('Supporting public record')).toHaveCount(0);
+  await expect(englishCard.getByText(candidate.evidenceUrl)).toHaveCount(0);
+  await expect(englishCard.getByText('Municipal rule 4')).toHaveCount(0);
   await expect(englishCard.getByText('Contradictory member report')).toHaveCount(0);
   await expect(
     englishCard.getByText(
@@ -158,13 +186,10 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
     'Hundar sem eru allt að og með 10 kg mega vera innandyra fyrir kl. 17:00 í burðartösku.'
   );
   if (!(await icelandicExplanation.isVisible())) {
-    await icelandicCard.getByText('Nánar og heimildir').click();
+    await icelandicCard.getByText('Upplýsingar um staðinn').click();
   }
   await expect(icelandicExplanation).toBeVisible();
-  await expect(icelandicCard.locator('small').filter({ hasText: /^Opinber vefsíða$/ })).toHaveCount(
-    2
-  );
-  await expect(icelandicCard.getByText('Municipal rule 4')).toHaveCount(2);
+  await expect(icelandicCard.getByText('Municipal rule 4')).toHaveCount(0);
 
   const audit = getLocalPublicationAudit(candidateId!);
   expect(audit.map((event) => event.action)).toEqual(['place.published', 'place.verified']);

@@ -54,9 +54,15 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL('/en?place=30000000-0000-4000-8000-000000000003');
     const selected = page.getByLabel('Selected place');
     await expect(selected.getByText('Published Place')).toBeVisible();
-    await selected.getByText('Details and sources').click();
+    await expect(selected.getByText('Place details')).toBeVisible();
+    await expect(selected.getByRole('heading', { name: 'Dog access' })).toHaveCount(0);
+    await expect(selected.getByText('Official Place website')).toHaveCount(0);
+
+    await selected.getByText('Place details').click();
     await expect(selected.getByRole('heading', { name: 'Dog access' })).toBeVisible();
-    await expect(selected.getByText('Official Place website')).toBeVisible();
+    await expect(selected.getByRole('heading', { name: 'Opening hours' })).toBeVisible();
+    await expect(selected.getByRole('heading', { name: 'Dog amenities' })).toBeVisible();
+    await expect(selected.getByText('Official Place website')).toHaveCount(0);
   });
 
   test('tells the localized About story and links into discovery and contribution', async ({
@@ -70,7 +76,7 @@ test.describe('public discovery locale routes', () => {
     await expect(page.getByAltText('Vic holding Miles, a long-haired dachshund')).toBeVisible();
     await expect(
       page.getByRole('heading', {
-        name: 'Most of the useful information travelled by word of mouth.'
+        name: 'Most of the useful information travels only by word of mouth.'
       })
     ).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Dog Access' })).toBeVisible();
@@ -145,6 +151,7 @@ test.describe('public discovery locale routes', () => {
     await page.getByRole('button', { name: 'Published Place', exact: true }).click();
     await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
     await expect(page.locator('.selected-place-overlay')).toHaveCSS('position', 'fixed');
+    await expect(page.locator('.maplibregl-ctrl-top-right')).toHaveCSS('visibility', 'hidden');
     await expect(page).toHaveURL(/view=map/);
 
     await page.goto(
@@ -298,7 +305,7 @@ test.describe('public discovery locale routes', () => {
     expect(bounds?.height).toBeGreaterThanOrEqual(250);
     expect(bounds?.width).toBeLessThanOrEqual(330);
 
-    await page.getByText('Details and sources').click();
+    await page.getByText('Place details').click();
     const accessHeading = page.getByRole('heading', { name: 'Dog access' });
     await accessHeading.scrollIntoViewIfNeeded();
     await expect(accessHeading).toBeVisible();
