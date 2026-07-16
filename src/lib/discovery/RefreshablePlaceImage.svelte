@@ -11,6 +11,7 @@
     height: number;
     className?: string;
     loading?: 'eager' | 'lazy';
+    onUnavailable?: () => void;
   }
 
   let {
@@ -22,7 +23,8 @@
     width,
     height,
     className,
-    loading = 'lazy'
+    loading = 'lazy',
+    onUnavailable = () => undefined
   }: Props = $props();
   const stablePlaceId = untrack(() => placeId);
   const stableMediaId = untrack(() => mediaId);
@@ -76,7 +78,11 @@
   }
 
   function scheduleRetry(): void {
-    if (retryTimer || retryIndex >= retryDelaysMs.length) return;
+    if (retryTimer) return;
+    if (retryIndex >= retryDelaysMs.length) {
+      onUnavailable();
+      return;
+    }
     const delay = retryDelaysMs[retryIndex++];
     retryTimer = setTimeout(() => {
       retryTimer = undefined;
@@ -94,7 +100,10 @@
   }
 
   function recoverExpiredUrl(): void {
-    if (Date.parse(currentExpiry) > Date.now()) return;
+    if (Date.parse(currentExpiry) > Date.now()) {
+      onUnavailable();
+      return;
+    }
     if (lastFailedUrl === currentUrl) return;
     lastFailedUrl = currentUrl;
     void refreshUrl();

@@ -170,4 +170,38 @@ describe('PlaceList', () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it('replaces an unavailable approved photo with the north-star fallback band', async () => {
+    const photoPlace = {
+      ...places[1],
+      primaryPhoto: {
+        mediaId: '79400000-0000-4000-8000-000000000002',
+        url: 'https://example.invalid/signed/unavailable.jpg',
+        widthPx: 800,
+        heightPx: 600,
+        altTextIs: 'Hundur á kaffihúsi',
+        altTextEn: 'A dog at a cafe',
+        rightsBasis: 'cc_by' as const,
+        sourceUrl: 'https://photos.example.invalid/cafe',
+        licenseReference: 'CC BY 4.0',
+        licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+        attributionText: 'A. Photographer',
+        attributionUrl: null,
+        urlExpiresAt: '2099-01-01T00:00:00.000Z'
+      }
+    };
+    const { container } = render(PlaceList, {
+      places: [photoPlace],
+      selectedPlaceId: null,
+      lang: 'en',
+      copy: catalogues.en,
+      onSelect: vi.fn()
+    });
+
+    await fireEvent.error(screen.getByAltText('A dog at a cafe'));
+
+    expect(container.querySelector('[data-place-card-media="photo"]')).toBeNull();
+    expect(container.querySelector('[data-place-card-media="category-band"]')).toBeTruthy();
+    expect(screen.getByText('Indoor place · Café', { exact: true })).toBeTruthy();
+  });
 });
