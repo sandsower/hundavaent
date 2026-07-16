@@ -313,21 +313,27 @@
 
   @media (max-width: 42rem) {
     .site-header {
-      display: grid;
       height: var(--hv-app-header-height);
-      padding-block: 0.7rem;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 0.55rem;
+      min-height: var(--hv-app-header-height);
+      gap: clamp(0.35rem, 2vw, 0.6rem);
+      padding-inline: clamp(0.7rem, 3vw, 1rem);
     }
 
     .header-actions {
-      display: contents;
+      flex: 0 0 auto;
+      gap: clamp(0.2rem, 1.5vw, 0.4rem);
     }
 
     .brand {
-      grid-row: 1;
-      grid-column: 1;
-      justify-self: start;
+      min-width: 0;
+      gap: clamp(0.3rem, 1.5vw, 0.5rem);
+      font-size: clamp(1rem, 5vw, 1.25rem);
+      white-space: nowrap;
+    }
+
+    .brand-mark {
+      width: clamp(1.15rem, 5vw, 1.35rem);
+      height: clamp(1.15rem, 5vw, 1.35rem);
     }
 
     .about-link {
@@ -341,17 +347,17 @@
     .mobile-menu {
       position: relative;
       display: block;
-      grid-row: 2;
-      grid-column: 1 / -1;
-      justify-self: end;
     }
 
     .mobile-menu summary {
       border: 1px solid var(--hv-color-basalt);
       border-radius: var(--hv-radius-control);
       background: var(--hv-color-snow-raised);
-      padding: 0.4rem 0.8rem;
+      padding: 0.35rem clamp(0.45rem, 2vw, 0.7rem);
+      font-size: clamp(0.8rem, 4vw, 0.95rem);
       font-weight: 850;
+      line-height: 1.05;
+      white-space: nowrap;
       cursor: pointer;
       list-style: none;
     }
@@ -380,11 +386,12 @@
     }
 
     .account-link {
-      grid-row: 1;
-      grid-column: 2;
       max-width: 9.5rem;
+      padding: 0.35rem clamp(0.45rem, 2vw, 0.7rem);
+      font-size: clamp(0.8rem, 4vw, 0.95rem);
       line-height: 1.05;
       text-align: center;
+      white-space: nowrap;
     }
   }
 </style>

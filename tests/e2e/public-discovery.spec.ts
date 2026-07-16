@@ -72,6 +72,59 @@ test.describe('public discovery locale routes', () => {
     await expect(selected.getByText('Official Place website')).toHaveCount(0);
   });
 
+  test('keeps the mobile brand, menu, and account action on one unclipped row', async ({
+    page
+  }) => {
+    for (const { lang, width } of [
+      { lang: 'en', width: 390 },
+      { lang: 'is', width: 320 }
+    ] as const) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto(`/${lang}`);
+      await waitForHydration(page);
+
+      const header = page.locator('.site-header');
+      const controls = [
+        header.locator('.brand'),
+        header.locator('.mobile-menu > summary'),
+        header.locator('.account-link')
+      ];
+      const boxes = await Promise.all(controls.map((control) => control.boundingBox()));
+      expect(boxes.every(Boolean)).toBe(true);
+      const centreLines = boxes.map((box) => box!.y + box!.height / 2);
+
+      expect(Math.max(...centreLines) - Math.min(...centreLines)).toBeLessThanOrEqual(2);
+      expect((await header.boundingBox())!.height).toBeLessThanOrEqual(72);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width
+      );
+    }
+  });
+
+  test('keeps every mobile place detail reachable inside the compact sheet', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.goto(
+      '/is?place=30000000-0000-4000-8000-000000000003&lat=64.1423&lng=-21.9555&z=13&view=map'
+    );
+
+    const selectedPlace = page.getByRole('complementary', { name: 'Valinn staður' });
+    await selectedPlace.getByText('Upplýsingar um staðinn', { exact: true }).click();
+    const scrollBody = selectedPlace.locator('[data-card-scroll-body]');
+    const geometry = await scrollBody.evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight
+    }));
+
+    expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight);
+    const finalDetail = selectedPlace.locator('.place-links a');
+    await finalDetail.scrollIntoViewIfNeeded();
+    await expect(finalDetail).toBeInViewport();
+    expect(await scrollBody.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await expect(
+      selectedPlace.getByRole('button', { name: 'Loka upplýsingum um valinn stað' })
+    ).toBeVisible();
+  });
+
   test('tells the localized About story and links into discovery and contribution', async ({
     page
   }) => {
@@ -171,8 +224,14 @@ test.describe('public discovery locale routes', () => {
     await page.goto(
       '/en?place=30000000-0000-4000-8000-000000000003&lat=64.1423&lng=-21.9555&z=13&view=map'
     );
-    await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
+    const mobilePlace = page.getByRole('complementary', { name: 'Selected place' });
+    await expect(mobilePlace).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Are dogs welcome?' })).toBeVisible();
+    await mobilePlace.getByText('Place details', { exact: true }).click();
+    const finalDetail = mobilePlace.getByRole('link', { name: 'Website' });
+    await finalDetail.scrollIntoViewIfNeeded();
+    await expect(finalDetail).toBeInViewport();
+    await expect(mobilePlace.getByRole('button', { name: 'Close selected place' })).toBeVisible();
   });
 
   test('shares combined discovery filters and selection across languages', async ({ page }) => {

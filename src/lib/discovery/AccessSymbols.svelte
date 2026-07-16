@@ -484,14 +484,23 @@
             {/if}
           </span>
         </button>
-        {#if activeDimension === symbol.dimension}
-          <p id={detailId} class="persistent-detail symbol-detail" role="status">
-            <strong>{label(symbol)}</strong>
-            {fullExplanation(symbol)}
-          </p>
-        {/if}
       {/each}
     </div>
+    {#if activeDimension}
+      {@const activeSymbol = presentation.symbols.find(
+        (symbol) => symbol.dimension === activeDimension
+      )}
+      {#if activeSymbol}
+        <p
+          id={`${componentId}-${activeSymbol.dimension}-detail`}
+          class="persistent-detail"
+          role="status"
+        >
+          <strong>{label(activeSymbol)}</strong>
+          {fullExplanation(activeSymbol)}
+        </p>
+      {/if}
+    {/if}
   {/if}
 </div>
 
@@ -525,10 +534,6 @@
     grid-template-columns: repeat(5, 2.75rem);
     gap: 0.45rem;
     justify-content: start;
-  }
-
-  .symbol-detail {
-    grid-column: 1 / -1;
   }
 
   .symbol {

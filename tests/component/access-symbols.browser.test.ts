@@ -58,6 +58,29 @@ describe('AccessSymbols', () => {
     expect(Number.parseFloat(detailStyle.borderLeftWidth)).toBeGreaterThanOrEqual(4);
   });
 
+  it('keeps every access symbol in place when an explanation opens', async () => {
+    const { container } = render(AccessSymbols, {
+      placeName: 'Brikk',
+      conditions: [simpleCondition],
+      copy: catalogues.en
+    });
+    const symbols = [...container.querySelectorAll<HTMLButtonElement>('.symbols > .symbol')];
+    const initialPositions = symbols.map((symbol) => ({
+      left: symbol.offsetLeft,
+      top: symbol.offsetTop
+    }));
+
+    await fireEvent.click(symbols[0]);
+
+    expect(symbols.map((symbol) => ({ left: symbol.offsetLeft, top: symbol.offsetTop }))).toEqual(
+      initialPositions
+    );
+    const detail = screen.getByRole('status');
+    expect(detail.offsetTop).toBeGreaterThanOrEqual(
+      Math.max(...symbols.map((symbol) => symbol.offsetTop + symbol.offsetHeight))
+    );
+  });
+
   it('uses the approved circular controls and exact pictograms', () => {
     const { container } = render(AccessSymbols, {
       placeName: 'Brikk',
