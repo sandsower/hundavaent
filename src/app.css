@@ -160,12 +160,6 @@ a {
   box-shadow: 0 0 0 2px var(--hv-focus-offset, #fbfcf9);
 }
 
-@media (max-width: 42rem) {
-  :root {
-    --hv-app-header-height: 7.5rem;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

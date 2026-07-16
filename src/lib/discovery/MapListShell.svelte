@@ -1175,7 +1175,7 @@
     }
 
     .map-panel {
-      min-height: max(26rem, calc(100dvh - var(--hv-app-header-height, 7.5rem)));
+      min-height: max(26rem, calc(100dvh - var(--hv-app-header-height, 4.4rem)));
     }
 
     .map-stage {
@@ -1198,6 +1198,12 @@
       flex: none;
       border: 1px solid var(--hv-border-strong);
       box-shadow: var(--hv-shadow-floating);
+    }
+
+    .selected-place-overlay :global(aside) {
+      height: auto;
+      min-height: 0;
+      max-height: min(34rem, calc(100dvh - 6.5rem));
     }
 
     .results-overlay[data-results-visible='false'] {

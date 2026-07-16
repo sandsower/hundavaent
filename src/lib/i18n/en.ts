@@ -91,6 +91,7 @@ export const enCatalogue = {
   'about.sourceBus': 'Strætó pet rules',
   'about.sourceMall': 'Kringlan dog policy',
   'account.navSignedIn': 'My account',
+  'account.navSignedInCompact': 'Account',
   'account.title': 'Welcome to Hundavænt',
   'account.intro':
     'Keep favorite places, remember visits, and share useful tips with other dog people.',

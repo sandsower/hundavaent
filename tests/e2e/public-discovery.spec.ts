@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { waitForHydration } from './support/hydration';
+import { waitForLocalMagicLink } from './support/local-supabase';
 
 test.describe('public discovery locale routes', () => {
   test('redirects the root route to the Icelandic directory', async ({ page, request }) => {
@@ -70,6 +71,88 @@ test.describe('public discovery locale routes', () => {
     await expect(selected.getByRole('link', { name: 'Report a problem' })).toHaveCount(0);
     await expect(selected.getByRole('link', { name: 'Access information' })).toHaveCount(0);
     await expect(selected.getByText('Official Place website')).toHaveCount(0);
+  });
+
+  test('keeps the mobile brand, menu, and account action on one unclipped row', async ({
+    page
+  }) => {
+    test.setTimeout(30_000);
+
+    const expectHeaderControlsToFit = async () => {
+      const header = page.locator('.site-header');
+      const controls = [
+        header.locator('.brand h1'),
+        header.locator('.mobile-menu > summary'),
+        header.locator('.account-link')
+      ];
+      const boxes = await Promise.all(controls.map((control) => control.boundingBox()));
+      expect(boxes.every(Boolean)).toBe(true);
+      const visibleBoxes = boxes.map((box) => box!);
+      const centreLines = visibleBoxes.map((box) => box.y + box.height / 2);
+      const headerBox = (await header.boundingBox())!;
+
+      expect(Math.max(...centreLines) - Math.min(...centreLines)).toBeLessThanOrEqual(2);
+      expect(headerBox.height).toBeLessThanOrEqual(72);
+      for (let index = 0; index < visibleBoxes.length - 1; index += 1) {
+        expect(visibleBoxes[index].x + visibleBoxes[index].width).toBeLessThanOrEqual(
+          visibleBoxes[index + 1].x
+        );
+      }
+      expect(visibleBoxes.at(-1)!.x + visibleBoxes.at(-1)!.width).toBeLessThanOrEqual(
+        headerBox.x + headerBox.width
+      );
+    };
+
+    for (const { lang, width } of [
+      { lang: 'en', width: 390 },
+      { lang: 'is', width: 320 }
+    ] as const) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto(`/${lang}`);
+      await waitForHydration(page);
+
+      await expectHeaderControlsToFit();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width
+      );
+    }
+
+    const email = `mobile-header-${Date.now()}@example.invalid`;
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.goto('/is');
+    await waitForHydration(page);
+    await page.getByRole('link', { name: 'Skrá inn', exact: true }).click();
+    const authDialog = page.getByRole('dialog');
+    await authDialog.getByLabel('Netfang').fill(email);
+    await authDialog.getByRole('button', { name: 'Senda mér innskráningartengil' }).click();
+    await page.goto(await waitForLocalMagicLink(email));
+    await waitForHydration(page);
+    await expect(page.getByRole('link', { name: 'Reikningurinn minn' })).toBeVisible();
+    await expectHeaderControlsToFit();
+  });
+
+  test('keeps every mobile place detail reachable inside the compact sheet', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.goto(
+      '/is?place=30000000-0000-4000-8000-000000000003&lat=64.1423&lng=-21.9555&z=13&view=map'
+    );
+
+    const selectedPlace = page.getByRole('complementary', { name: 'Valinn staður' });
+    await selectedPlace.getByText('Upplýsingar um staðinn', { exact: true }).click();
+    const scrollBody = selectedPlace.locator('[data-card-scroll-body]');
+    const geometry = await scrollBody.evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight
+    }));
+
+    expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight);
+    const finalDetail = selectedPlace.locator('.place-links a');
+    await finalDetail.scrollIntoViewIfNeeded();
+    await expect(finalDetail).toBeInViewport();
+    expect(await scrollBody.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await expect(
+      selectedPlace.getByRole('button', { name: 'Loka upplýsingum um valinn stað' })
+    ).toBeVisible();
   });
 
   test('renders the full north-star media header when a result has no approved photo', async ({
@@ -189,8 +272,14 @@ test.describe('public discovery locale routes', () => {
     await page.goto(
       '/en?place=30000000-0000-4000-8000-000000000003&lat=64.1423&lng=-21.9555&z=13&view=map'
     );
-    await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
+    const mobilePlace = page.getByRole('complementary', { name: 'Selected place' });
+    await expect(mobilePlace).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Are dogs welcome?' })).toBeVisible();
+    await mobilePlace.getByText('Place details', { exact: true }).click();
+    const finalDetail = mobilePlace.getByRole('link', { name: 'Website' });
+    await finalDetail.scrollIntoViewIfNeeded();
+    await expect(finalDetail).toBeInViewport();
+    await expect(mobilePlace.getByRole('button', { name: 'Close selected place' })).toBeVisible();
   });
 
   test('shares combined discovery filters and selection across languages', async ({ page }) => {
