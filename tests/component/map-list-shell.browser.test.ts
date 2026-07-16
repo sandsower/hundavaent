@@ -846,9 +846,9 @@ describe('MapListShell synchronization', () => {
     const welcomeAnswer = within(selectedPlace)
       .getByRole('heading', { name: 'Are dogs welcome?' })
       .closest<HTMLElement>('.welcome-answer');
-    const disclosure = (await within(selectedPlace).findByText('Details')).closest<HTMLElement>(
-      '.hv-disclosure'
-    );
+    const disclosure = (
+      await within(selectedPlace).findByText('Place details')
+    ).closest<HTMLElement>('.hv-disclosure');
     expect(welcomeAnswer).toBeTruthy();
     expect(disclosure).toBeTruthy();
     if (!welcomeAnswer || !disclosure) throw new Error('Expected animated selected-place content');
@@ -1214,7 +1214,7 @@ describe('MapListShell synchronization', () => {
       ]
     });
 
-    await within(selectedPlace).findByText('Details');
+    await within(selectedPlace).findByText('Place details');
     expect(within(selectedPlace).queryByText('Reconfirmation due')).toBeNull();
     expect(within(selectedPlace).queryByText('Last verified')).toBeNull();
   });
@@ -1360,7 +1360,7 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Valinn staður');
-    await fireEvent.click(await within(selectedPlace).findByText('Nánari upplýsingar'));
+    await fireEvent.click(await within(selectedPlace).findByText('Upplýsingar um staðinn'));
     expect(within(selectedPlace).queryByRole('link', { name: 'Upplýsingar um aðgang' })).toBeNull();
     expect(within(selectedPlace).getByText(/Mánudagur: 09:00-17:00/)).toBeTruthy();
     expect(within(selectedPlace).getByText(/seasonal_note: Call ahead on holidays/)).toBeTruthy();
@@ -1398,14 +1398,14 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Selected place');
-    await fireEvent.click(await within(selectedPlace).findByText('Details'));
+    await fireEvent.click(await within(selectedPlace).findByText('Place details'));
     expect(within(selectedPlace).queryByText('Official rules')).toBeNull();
     expect(within(selectedPlace).queryByText('Archived rule 2')).toBeNull();
   });
 
   it.each([
-    ['en', 'Selected place', 'Details'],
-    ['is', 'Valinn staður', 'Nánari upplýsingar']
+    ['en', 'Selected place', 'Place details'],
+    ['is', 'Valinn staður', 'Upplýsingar um staðinn']
   ] as const)('renders every populated restriction in %s', async (lang, cardLabel, expandLabel) => {
     history.replaceState(null, '', `/${lang}?place=${places[0].placeId}`);
     const fullyRestricted = {
@@ -1504,7 +1504,7 @@ describe('MapListShell synchronization', () => {
       placeId: secondPlace.placeId,
       name: 'Second Place'
     });
-    await screen.findByText('Details');
+    await screen.findByText('Place details');
     firstRequest.reject(new Error('late failure'));
     await Promise.resolve();
 

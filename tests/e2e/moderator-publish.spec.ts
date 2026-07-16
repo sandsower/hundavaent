@@ -141,7 +141,7 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   await page.goto(`/en?place=${candidateId}`);
   const englishCard = page.getByRole('complementary', { name: 'Selected place' });
   await expect(englishCard).toBeVisible();
-  await englishCard.getByText('Details', { exact: true }).click();
+  await englishCard.getByText('Place details', { exact: true }).click();
   await expect(englishCard.getByRole('link', { name: 'Website' })).toHaveAttribute(
     'href',
     placeWebsite
@@ -169,7 +169,7 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
     'Hundar sem eru allt að og með 10 kg mega vera innandyra fyrir kl. 17:00 í burðartösku.'
   );
   if (!(await icelandicExplanation.isVisible())) {
-    await icelandicCard.getByText('Nánari upplýsingar').click();
+    await icelandicCard.getByText('Upplýsingar um staðinn').click();
   }
   await expect(icelandicExplanation).toBeVisible();
   await expect(icelandicCard.getByRole('link', { name: 'Vefsíða' })).toHaveAttribute(

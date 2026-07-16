@@ -27,11 +27,6 @@
     favourite?: boolean;
     signInHref?: string;
     onFavouriteChange?: (placeId: string, favourite: boolean, trigger: HTMLButtonElement) => void;
-    correctionHref?: (
-      placeId: string,
-      kind: 'correct' | 'report' | 'rate',
-      target?: { field?: string; conditionId?: string }
-    ) => string;
     checkInSignInHref?: string;
     proximityAssistEnabled?: boolean;
     initialCheckedInAt?: string | null;
@@ -52,7 +47,6 @@
     favourite = false,
     signInHref = '',
     onFavouriteChange = () => undefined,
-    correctionHref,
     checkInSignInHref = '',
     proximityAssistEnabled = false,
     initialCheckedInAt = null,
@@ -201,16 +195,18 @@
       </div>
     {:else if profile}
       <details class="hv-disclosure" bind:this={completeDetails}>
-        <summary>{copy['place.showCompleteAccess']}</summary>
+        <summary>{copy['place.showPracticalDetails']}</summary>
         <div class="complete-details">
           <section aria-labelledby={`access-${place.placeId}`}>
             <h3 id={`access-${place.placeId}`}>{copy['place.accessHeading']}</h3>
-            <ol class="conditions">
+            <ol class:single={profile.accessConditions.length === 1} class="conditions">
               {#each profile.accessConditions as condition, index (condition.id)}
                 <li class="condition-card">
-                  <strong
-                    >{copy['place.conditionLabel'].replace('{number}', String(index + 1))}</strong
-                  >
+                  {#if profile.accessConditions.length > 1}
+                    <strong
+                      >{copy['place.conditionLabel'].replace('{number}', String(index + 1))}</strong
+                    >
+                  {/if}
                   <p>
                     {explainAccessCondition(
                       {
@@ -252,18 +248,6 @@
               <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external place URL -->
               <a href={profile.websiteUrl} rel="noreferrer">{copy['place.website']}</a>
             </nav>
-          {/if}
-          {#if correctionHref}
-            <details class="correction-links">
-              <summary>{copy['place.somethingWrong']}</summary>
-              <div>
-                <!-- Exact local return context is assembled by the discovery owner. -->
-                <!-- eslint-disable svelte/no-navigation-without-resolve -->
-                <a href={correctionHref(place.placeId, 'correct')}>{copy['correction.startLink']}</a
-                >
-                <a href={correctionHref(place.placeId, 'report')}>{copy['report.startLink']}</a>
-              </div>
-            </details>
           {/if}
         </div>
       </details>
@@ -407,27 +391,30 @@
     background: var(--hv-color-snow-raised);
   }
 
+  .conditions.single > li {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
   .conditions p {
     margin: 0.3rem 0;
     line-height: 1.4;
   }
 
-  .place-links,
-  .correction-links div {
+  .place-links {
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem;
   }
 
-  .place-links a,
-  .correction-links a {
+  .place-links a {
     color: var(--hv-color-fjord);
     font-size: 0.82rem;
     font-weight: 800;
   }
 
-  .place-links a:focus-visible,
-  .correction-links a:focus-visible {
+  .place-links a:focus-visible {
     border-radius: var(--hv-radius-control);
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;

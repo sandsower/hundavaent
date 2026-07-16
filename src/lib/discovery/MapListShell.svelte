@@ -456,22 +456,6 @@
     return `/${lang}/account?returnTo=${encodeURIComponent(returnTo)}&intentAction=favourite&placeId=${encodeURIComponent(placeId)}`;
   }
 
-  // Builds a Correction, Report, or Rating entry link for a specific Place field or Access
-  // Condition. Signed-out visitors are routed through sign-in with a return path that preserves
-  // the target.
-  function correctionHref(
-    placeId: string,
-    kind: 'correct' | 'report' | 'rate',
-    target: { field?: string; conditionId?: string } = {}
-  ): string {
-    const params = new URLSearchParams();
-    if (target.field) params.set('field', target.field);
-    if (target.conditionId) params.set('conditionId', target.conditionId);
-    const query = params.toString();
-    const path = `/${lang}/places/${placeId}/${kind}${query ? `?${query}` : ''}`;
-    return signedIn ? path : `/${lang}/account?returnTo=${encodeURIComponent(path)}`;
-  }
-
   function selectPlace(
     placeId: string,
     focusOverlay = false,
@@ -893,7 +877,6 @@
                   favourite={favouritePlaceIds.includes(selectedPlace.placeId)}
                   signInHref={favouriteSignInHref(selectedPlace.placeId)}
                   onFavouriteChange={applyFavouriteState}
-                  {correctionHref}
                   checkInSignInHref={checkInSignInHref(selectedPlace.placeId)}
                   {proximityAssistEnabled}
                   initialCheckedInAt={selectedCheckInStatus}
@@ -1178,6 +1161,10 @@
       border-block-end: 1px solid var(--hv-border-subtle);
     }
 
+    .map-list-shell[data-detail-layout='rail'] .directory-sidebar {
+      z-index: 10;
+    }
+
     .rail-stack {
       position: static;
       overflow: visible;
@@ -1195,15 +1182,20 @@
       min-height: inherit;
     }
 
+    .map-list-shell[data-detail-layout='rail'] .map-stage :global(.maplibregl-ctrl-top-right) {
+      visibility: hidden;
+    }
+
     .selected-place-overlay {
       position: fixed;
       z-index: 9;
-      top: min(18.5rem, 40dvh);
+      top: auto;
       right: 0.75rem;
       bottom: max(0.75rem, env(safe-area-inset-bottom));
       left: 0.75rem;
       width: auto;
-      max-height: none;
+      max-height: min(34rem, calc(100dvh - 6.5rem));
+      flex: none;
       border: 1px solid var(--hv-border-strong);
       box-shadow: var(--hv-shadow-floating);
     }
