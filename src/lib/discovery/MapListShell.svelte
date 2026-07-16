@@ -1182,9 +1182,7 @@
       min-height: inherit;
     }
 
-    .map-list-shell[data-detail-layout='rail']
-      .map-stage
-      :global(.maplibregl-ctrl-top-right) {
+    .map-list-shell[data-detail-layout='rail'] .map-stage :global(.maplibregl-ctrl-top-right) {
       visibility: hidden;
     }
 

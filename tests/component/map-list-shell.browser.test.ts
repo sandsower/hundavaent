@@ -846,9 +846,9 @@ describe('MapListShell synchronization', () => {
     const welcomeAnswer = within(selectedPlace)
       .getByRole('heading', { name: 'Are dogs welcome?' })
       .closest<HTMLElement>('.welcome-answer');
-    const disclosure = (await within(selectedPlace).findByText('Place details')).closest<HTMLElement>(
-      '.hv-disclosure'
-    );
+    const disclosure = (
+      await within(selectedPlace).findByText('Place details')
+    ).closest<HTMLElement>('.hv-disclosure');
     expect(welcomeAnswer).toBeTruthy();
     expect(disclosure).toBeTruthy();
     if (!welcomeAnswer || !disclosure) throw new Error('Expected animated selected-place content');
