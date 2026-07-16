@@ -1,6 +1,10 @@
 name: Hundavaent production
 
 on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       sha:
@@ -18,6 +22,9 @@ on:
         type: boolean
         default: false
 
+env:
+  RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.sha }}
+
 concurrency:
   group: hundavaent-production
   cancel-in-progress: false
@@ -28,6 +35,16 @@ permissions:
 jobs:
   recovery-point:
     name: Dump production and prove restore
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'workflow_run' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main'
+        )
+      }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
@@ -56,17 +73,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.sha }}
+          ref: ${{ env.RELEASE_SHA }}
           fetch-depth: 0
       - name: Require a full commit SHA
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! "${{ inputs.sha }}" =~ ^[0-9a-f]{40}$ ]]; then
+          if [[ ! "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
             echo "Input sha must be a full 40-character commit SHA." >&2
             exit 1
           fi
-          if [[ "$(git rev-parse HEAD)" != "${{ inputs.sha }}" ]]; then
+          if [[ "$(git rev-parse HEAD)" != "${RELEASE_SHA}" ]]; then
             echo "Checked-out HEAD does not match the requested SHA." >&2
             exit 1
           fi
@@ -569,7 +586,7 @@ jobs:
           {
             echo "### Recovery point"
             echo
-            echo "- Commit: ${{ inputs.sha }}"
+            echo "- Commit: ${RELEASE_SHA}"
             echo "- Tables: ${tables}"
             echo "- Rows: ${rows}"
             echo "- Storage schema/data: preserved and restore-tested"
@@ -582,8 +599,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          plaintext_archive="${RUNNER_TEMP}/hundavaent-recovery-${{ inputs.sha }}.tar.gz"
-          ciphertext="retained-recovery/hundavaent-recovery-${{ inputs.sha }}.tar.gz.enc"
+          plaintext_archive="${RUNNER_TEMP}/hundavaent-recovery-${RELEASE_SHA}.tar.gz"
+          ciphertext="retained-recovery/hundavaent-recovery-${RELEASE_SHA}.tar.gz.enc"
           manifest="retained-recovery/recovery-manifest.json"
           rm -rf retained-recovery
           mkdir -p retained-recovery
@@ -616,7 +633,7 @@ jobs:
             -out "${ciphertext}"
           ciphertext_sha256="$(sha256sum "${ciphertext}" | cut -d' ' -f1)"
           jq -n \
-            --arg release_sha "${{ inputs.sha }}" \
+            --arg release_sha "${RELEASE_SHA}" \
             --arg plaintext_archive_sha256 "${plaintext_archive_sha256}" \
             --arg ciphertext_sha256 "${ciphertext_sha256}" \
             --argjson hard_excluded_auth_tables "${hard_excluded_auth_tables}" \
@@ -646,10 +663,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          plaintext_archive="${RUNNER_TEMP}/hundavaent-recovery-${{ inputs.sha }}.tar.gz"
+          plaintext_archive="${RUNNER_TEMP}/hundavaent-recovery-${RELEASE_SHA}.tar.gz"
           test ! -e recovery
           test ! -e "${plaintext_archive}"
-          test -s "retained-recovery/hundavaent-recovery-${{ inputs.sha }}.tar.gz.enc"
+          test -s "retained-recovery/hundavaent-recovery-${RELEASE_SHA}.tar.gz.enc"
           test -s retained-recovery/recovery-manifest.json
           test "$(find retained-recovery -type f | wc -l)" -eq 2
           if find retained-recovery -type f \
@@ -659,13 +676,13 @@ jobs:
             exit 1
           fi
           if find retained-recovery -type f \
-              ! -name 'hundavaent-recovery-${{ inputs.sha }}.tar.gz.enc' \
+              ! -name "hundavaent-recovery-${RELEASE_SHA}.tar.gz.enc" \
               ! -name 'recovery-manifest.json' | grep -q .; then
             echo "Unexpected file reached the retained artifact directory." >&2
             exit 1
           fi
           jq -e \
-            --arg release_sha "${{ inputs.sha }}" \
+            --arg release_sha "${RELEASE_SHA}" \
             '.release_sha == $release_sha and
              .format == "tar.gz" and
              .encryption.algorithm == "AES-256-CBC" and
@@ -690,7 +707,7 @@ jobs:
       - name: Retain the tested recovery point
         uses: actions/upload-artifact@v7
         with:
-          name: recovery-point-${{ inputs.sha }}
+          name: recovery-point-${{ env.RELEASE_SHA }}
           path: retained-recovery/
           if-no-files-found: error
           retention-days: 90
@@ -698,7 +715,7 @@ jobs:
   migrate:
     name: Apply migrations to production
     needs: recovery-point
-    if: ${{ inputs.migrate }}
+    if: ${{ github.event_name == 'workflow_run' || inputs.migrate }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
@@ -710,14 +727,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.sha }}
+          ref: ${{ env.RELEASE_SHA }}
           fetch-depth: 0
       - name: Verify the exact migration SHA
         shell: bash
         run: |
           set -euo pipefail
-          [[ "${{ inputs.sha }}" =~ ^[0-9a-f]{40}$ ]]
-          test "$(git rev-parse HEAD)" = "${{ inputs.sha }}"
+          [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"
       - uses: pnpm/action-setup@v6
         with:
           version: 11.7.0
@@ -747,7 +764,7 @@ jobs:
           {
             echo "### Production migrations"
             echo
-            echo "- Commit: ${{ inputs.sha }}"
+            echo "- Commit: ${RELEASE_SHA}"
             echo "- Migrations applied after tested recovery point"
             echo "- Member activation capability fingerprint: ${app_fingerprint}"
           } >> "${GITHUB_STEP_SUMMARY}"
@@ -755,7 +772,7 @@ jobs:
   deploy:
     name: Deploy production
     needs: migrate
-    if: ${{ inputs.deploy }}
+    if: ${{ github.event_name == 'workflow_run' || inputs.deploy }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
@@ -774,7 +791,6 @@ jobs:
       POSTHOG_PROJECT_ID: ${{ vars.HUNDAVAENT_PRODUCTION_POSTHOG_PROJECT_ID }}
       POSTHOG_HOST: https://eu.i.posthog.com
       APP_ENVIRONMENT: production
-      APP_RELEASE: ${{ inputs.sha }}
       SITE_GATE_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SITE_GATE_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_PROJECT_REF }}
       EVALUATION_ENABLED: 'false'
@@ -784,14 +800,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.sha }}
+          ref: ${{ env.RELEASE_SHA }}
           fetch-depth: 0
       - name: Verify the exact deploy SHA
         shell: bash
         run: |
           set -euo pipefail
-          [[ "${{ inputs.sha }}" =~ ^[0-9a-f]{40}$ ]]
-          test "$(git rev-parse HEAD)" = "${{ inputs.sha }}"
+          [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"
+          echo "APP_RELEASE=${RELEASE_SHA}" >> "${GITHUB_ENV}"
       - uses: pnpm/action-setup@v6
         with:
           version: 11.7.0
@@ -835,7 +852,7 @@ jobs:
             echo "The production application URL must be the canonical domain." >&2
             exit 1
           fi
-          if [[ "${APP_RELEASE}" != "${{ inputs.sha }}" ]]; then
+          if [[ "${APP_RELEASE}" != "${RELEASE_SHA}" ]]; then
             echo "APP_RELEASE must be the exact requested SHA." >&2
             exit 1
           fi
@@ -902,8 +919,8 @@ jobs:
           pnpm exec wrangler pages deploy .svelte-kit/cloudflare \
             --project-name "${CLOUDFLARE_PAGES_PROJECT}" \
             --branch main \
-            --commit-hash "${{ inputs.sha }}" \
-            --commit-message "Deploy ${{ inputs.sha }}" \
+            --commit-hash "${RELEASE_SHA}" \
+            --commit-message "Deploy ${RELEASE_SHA}" \
             --upload-source-maps
 
       - name: Verify production health and password gate
@@ -928,5 +945,5 @@ jobs:
             echo "- URL: ${PRODUCTION_URL}"
             echo "- Health: ready"
             echo "- Gate: active"
-            echo "- Commit: ${{ inputs.sha }}"
+            echo "- Commit: ${RELEASE_SHA}"
           } >> "${GITHUB_STEP_SUMMARY}"

@@ -52,3 +52,14 @@ Every concurrently active worktree must use its own:
 
 Run local Playwright with `CI=1` or otherwise disable reuse of an existing server so a test cannot silently attach to another worktree's process.
 Do not run mutating builds, Svelte checks, database resets, end-to-end tests, accessibility tests, or visual tests concurrently against shared resources.
+
+## UI change evidence
+
+Any change that affects rendered UI must include screenshot proof in its pull request.
+
+- Verify the changed state in an end-user browser at a representative viewport.
+- Capture one or more screenshots that clearly show the finished UI.
+- Upload the image files directly to the pull request description or a pull request comment before requesting review.
+- Local filesystem paths and GitHub Actions artifacts alone do not count as pull request screenshot proof.
+- For visual bug fixes, include before-and-after screenshots when a representative before state is available.
+- Inspect every screenshot for secrets, personal data, broken layout, and unrelated visual regressions before uploading it.

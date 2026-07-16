@@ -29,6 +29,30 @@ import {
 import { verifyRecoveryCopyDump } from '../../../scripts/verify-recovery-copy-dump';
 
 describe('release evaluation orchestration', () => {
+  it('deploys successful main CI commits automatically while retaining manual recovery dispatch', () => {
+    const workflow = readFileSync(
+      new URL('../../../.github/workflows/production.yml', import.meta.url),
+      'utf8'
+    );
+
+    expect(workflow).toContain('workflow_run:');
+    expect(workflow).toContain("workflows: ['CI']");
+    expect(workflow).toContain('types: [completed]');
+    expect(workflow).toContain('branches: [main]');
+    expect(workflow).toContain('workflow_dispatch:');
+    expect(workflow).toContain(
+      "RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.sha }}"
+    );
+    expect(workflow).toContain("github.event.workflow_run.conclusion == 'success'");
+    expect(workflow).toContain("github.event.workflow_run.event == 'push'");
+    expect(workflow).toContain("github.event.workflow_run.head_branch == 'main'");
+    expect(workflow).toContain("if: ${{ github.event_name == 'workflow_run' || inputs.migrate }}");
+    expect(workflow).toContain("if: ${{ github.event_name == 'workflow_run' || inputs.deploy }}");
+    expect(workflow.match(/inputs\.sha/g)).toHaveLength(1);
+    expect(workflow).toContain('ref: ${{ env.RELEASE_SHA }}');
+    expect(workflow).toContain('test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"');
+  });
+
   it('excludes hard identity rows while preserving and neutralizing core application data', () => {
     const workflow = readFileSync(
       new URL('../../../.github/workflows/production.yml', import.meta.url),
