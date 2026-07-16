@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { waitForHydration } from './support/hydration';
+import { waitForLocalMagicLink } from './support/local-supabase';
 
 test.describe('public discovery locale routes', () => {
   test('redirects the root route to the Icelandic directory', async ({ page, request }) => {
@@ -75,6 +76,33 @@ test.describe('public discovery locale routes', () => {
   test('keeps the mobile brand, menu, and account action on one unclipped row', async ({
     page
   }) => {
+    test.setTimeout(30_000);
+
+    const expectHeaderControlsToFit = async () => {
+      const header = page.locator('.site-header');
+      const controls = [
+        header.locator('.brand h1'),
+        header.locator('.mobile-menu > summary'),
+        header.locator('.account-link')
+      ];
+      const boxes = await Promise.all(controls.map((control) => control.boundingBox()));
+      expect(boxes.every(Boolean)).toBe(true);
+      const visibleBoxes = boxes.map((box) => box!);
+      const centreLines = visibleBoxes.map((box) => box.y + box.height / 2);
+      const headerBox = (await header.boundingBox())!;
+
+      expect(Math.max(...centreLines) - Math.min(...centreLines)).toBeLessThanOrEqual(2);
+      expect(headerBox.height).toBeLessThanOrEqual(72);
+      for (let index = 0; index < visibleBoxes.length - 1; index += 1) {
+        expect(visibleBoxes[index].x + visibleBoxes[index].width).toBeLessThanOrEqual(
+          visibleBoxes[index + 1].x
+        );
+      }
+      expect(visibleBoxes.at(-1)!.x + visibleBoxes.at(-1)!.width).toBeLessThanOrEqual(
+        headerBox.x + headerBox.width
+      );
+    };
+
     for (const { lang, width } of [
       { lang: 'en', width: 390 },
       { lang: 'is', width: 320 }
@@ -83,22 +111,24 @@ test.describe('public discovery locale routes', () => {
       await page.goto(`/${lang}`);
       await waitForHydration(page);
 
-      const header = page.locator('.site-header');
-      const controls = [
-        header.locator('.brand'),
-        header.locator('.mobile-menu > summary'),
-        header.locator('.account-link')
-      ];
-      const boxes = await Promise.all(controls.map((control) => control.boundingBox()));
-      expect(boxes.every(Boolean)).toBe(true);
-      const centreLines = boxes.map((box) => box!.y + box!.height / 2);
-
-      expect(Math.max(...centreLines) - Math.min(...centreLines)).toBeLessThanOrEqual(2);
-      expect((await header.boundingBox())!.height).toBeLessThanOrEqual(72);
+      await expectHeaderControlsToFit();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
         width
       );
     }
+
+    const email = `mobile-header-${Date.now()}@example.invalid`;
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.goto('/is');
+    await waitForHydration(page);
+    await page.getByRole('link', { name: 'Skrá inn', exact: true }).click();
+    const authDialog = page.getByRole('dialog');
+    await authDialog.getByLabel('Netfang').fill(email);
+    await authDialog.getByRole('button', { name: 'Senda mér innskráningartengil' }).click();
+    await page.goto(await waitForLocalMagicLink(email));
+    await waitForHydration(page);
+    await expect(page.getByRole('link', { name: 'Reikningurinn minn' })).toBeVisible();
+    await expectHeaderControlsToFit();
   });
 
   test('keeps every mobile place detail reachable inside the compact sheet', async ({ page }) => {

@@ -88,6 +88,7 @@ export const isCatalogue = {
   'about.sourceBus': 'Reglur Strætó um gæludýr',
   'about.sourceMall': 'Reglur Kringlunnar um hunda',
   'account.navSignedIn': 'Reikningurinn minn',
+  'account.navSignedInCompact': 'Reikningur',
   'account.title': 'Velkomin á Hundavænt',
   'account.intro':
     'Vistaðu staði, mundu heimsóknir og deildu góðum ábendingum með öðru hundafólki.',

@@ -196,12 +196,21 @@
     <!-- eslint-disable svelte/no-navigation-without-resolve -->
     <a
       class="account-link"
+      data-signed-in={data.signedIn}
+      aria-label={data.signedIn ? data.copy['account.navSignedIn'] : data.copy['nav.account']}
       onclick={openSignIn}
       href={page.route.id === '/[lang=lang]/account'
         ? resolve('/[lang=lang]/account', { lang: data.lang })
         : `${resolve('/[lang=lang]/account', { lang: data.lang })}?returnTo=${encodeURIComponent(accountReturnTo)}`}
     >
-      {data.signedIn ? data.copy['account.navSignedIn'] : data.copy['nav.account']}
+      <span class="account-label-default">
+        {data.signedIn ? data.copy['account.navSignedIn'] : data.copy['nav.account']}
+      </span>
+      {#if data.signedIn}
+        <span class="account-label-compact" aria-hidden="true">
+          {data.copy['account.navSignedInCompact']}
+        </span>
+      {/if}
     </a>
     <!-- eslint-enable svelte/no-navigation-without-resolve -->
   </div>
@@ -305,6 +314,10 @@
     text-decoration: none;
   }
 
+  .account-label-compact {
+    display: none;
+  }
+
   a:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
@@ -392,6 +405,14 @@
       line-height: 1.05;
       text-align: center;
       white-space: nowrap;
+    }
+
+    .account-link[data-signed-in='true'] .account-label-default {
+      display: none;
+    }
+
+    .account-link[data-signed-in='true'] .account-label-compact {
+      display: inline;
     }
   }
 </style>
