@@ -56,7 +56,8 @@ test('health reports only redacted readiness with a correlated request ID', asyn
   expect(body).toEqual({
     service: 'hundavaent',
     status: 'ok',
-    checks: { database: 'ready', map: 'fallback' },
+    release: null,
+    checks: { database: 'ready', map: 'fallback', translations: 'fallback' },
     requestId: 'health-test-123'
   });
   const serialized = JSON.stringify(body);
@@ -86,10 +87,8 @@ test('public and Moderator responses use hardened origin and cache policies', as
   expect(publicHeaders['x-frame-options']).toBe('DENY');
   expect(publicHeaders['referrer-policy']).toBe('strict-origin-when-cross-origin');
   expect(publicHeaders['permissions-policy']).toBe('camera=(), microphone=(), geolocation=(self)');
-  expect(publicHeaders['cache-control']).toBe(
-    'public, max-age=0, s-maxage=60, stale-while-revalidate=300'
-  );
-  expect(publicHeaders['vary']).toContain('Cookie');
+  expect(publicHeaders['cache-control']).toBe('private, no-store');
+  expect(publicHeaders['cache-control']).not.toContain('s-maxage');
   expect(publicHeaders['strict-transport-security']).toBeUndefined();
 
   const moderatorResponse = await request.get('/en/moderation/sign-in');

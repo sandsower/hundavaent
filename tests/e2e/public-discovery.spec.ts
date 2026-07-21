@@ -47,7 +47,11 @@ test.describe('public discovery locale routes', () => {
     await expect(
       desktopResults.getByRole('button', { name: 'Select Published Place' })
     ).toBeVisible();
-    await expect(desktopResults.getByText('Accessibility unknown')).toBeVisible();
+    await expect(
+      desktopResults
+        .getByLabel('Published Place', { exact: true })
+        .getByText('Accessibility unknown')
+    ).toBeVisible();
     await expect(page.getByText('Candidate Place')).toHaveCount(0);
     await expect(page.getByText('Unverified Place')).toHaveCount(0);
 
