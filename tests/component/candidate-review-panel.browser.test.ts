@@ -1,5 +1,6 @@
-import { render, screen, within } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
+import { page as browserPage } from 'vitest/browser';
 
 import { catalogues } from '$i18n';
 import CandidateReviewPanel from '$lib/moderation/CandidateReviewPanel.svelte';
@@ -62,7 +63,7 @@ const data = {
         sourceCitation: null,
         sourceLabel: 'Official website',
         observedAt: '2026-07-13T09:00:00Z',
-        sourceMetadata: {}
+        sourceMetadata: { method: 'crawl' }
       }
     ],
     checks: {
@@ -91,7 +92,7 @@ describe('CandidateReviewPanel', () => {
     expect(document.querySelector('#candidate-publication')).toBeTruthy();
     expect(document.querySelector('#candidate-media')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Verify and publish' })).toBeNull();
-    expect(screen.getByText('Place overview').closest('details')?.open).toBe(false);
+    expect(screen.getByText('Place identity').closest('details')?.open).toBe(false);
     expect(screen.getByText('Names and descriptions').closest('details')?.open).toBe(false);
 
     const forms = [...document.querySelectorAll('form')];
@@ -127,7 +128,7 @@ describe('CandidateReviewPanel', () => {
       within(readiness).getByRole('link', { name: 'Add English translation' }).getAttribute('href')
     ).toBe('#translations');
     expect(screen.getByText('Names and descriptions').closest('details')?.open).toBe(true);
-    expect(screen.getByText('Place overview').closest('details')?.open).toBe(false);
+    expect(screen.getByText('Place identity').closest('details')?.open).toBe(false);
     expect(screen.getByRole('button', { name: 'Verify and publish' })).toBeDisabled();
   });
 
@@ -195,4 +196,197 @@ describe('CandidateReviewPanel', () => {
       (screen.getByRole('button', { name: 'Verify and publish' }) as HTMLButtonElement).disabled
     ).toBe(true);
   });
+
+  it('edits one concise section at a time and posts only its strict draft patch', async () => {
+    const { container } = render(CandidateReviewPanel, { data, form: null });
+
+    await beginEditing('Place identity');
+    const identityForm = container.querySelector<HTMLFormElement>(
+      'form[data-section-form="identity"]'
+    );
+    expect(identityForm).toBeTruthy();
+    expect(hiddenValue(identityForm, 'sectionId')).toBe('identity');
+    expect(hiddenValue(identityForm, 'expectedItemVersion')).toBe('2');
+    expect(hiddenValue(identityForm, 'expectedDraftVersion')).toBe('0');
+    expect(identityForm?.querySelector('[name="currentDraftPayload"]')).toBeNull();
+    expect(JSON.parse(hiddenValue(identityForm, 'sectionPayload'))).toEqual({
+      operator: { name: 'Candidate operator' },
+      category: 'cafe'
+    });
+
+    await fireEvent.input(within(identityForm!).getByLabelText('Operator'), {
+      target: { value: 'Updated operator' }
+    });
+    expect(JSON.parse(hiddenValue(identityForm, 'sectionPayload')).operator.name).toBe(
+      'Updated operator'
+    );
+
+    await beginEditing('Contact, hours and amenities');
+    expect(container.querySelector('form[data-section-form="identity"]')).toBeNull();
+    expect(container.querySelector('form[data-section-form="details"]')).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(container.querySelector('form[data-section-form="details"]')).toBeNull();
+  });
+
+  it('posts exact Details, Location and Translation section contracts', async () => {
+    const detailedData = {
+      ...data,
+      review: {
+        ...data.review,
+        websiteUrl: 'https://example.invalid',
+        phone: '+354 555 0100',
+        openingHours: { monday: '09:00-17:00', note: 'Call ahead' },
+        dogAmenities: ['water_bowl']
+      }
+    };
+    const { container } = render(CandidateReviewPanel, { data: detailedData, form: null });
+
+    await beginEditing('Contact, hours and amenities');
+    const detailsForm = sectionForm(container, 'details');
+    expect(JSON.parse(hiddenValue(detailsForm, 'sectionPayload'))).toEqual({
+      website_url: 'https://example.invalid',
+      phone: '+354 555 0100',
+      opening_hours: { monday: '09:00-17:00', note: 'Call ahead' },
+      dog_amenities: ['water_bowl']
+    });
+    await fireEvent.input(within(detailsForm).getByLabelText('Monday'), {
+      target: { value: '10:00-18:00' }
+    });
+    expect(JSON.parse(hiddenValue(detailsForm, 'sectionPayload')).opening_hours.monday).toBe(
+      '10:00-18:00'
+    );
+
+    await beginEditing('Location');
+    const locationForm = sectionForm(container, 'location');
+    expect(locationForm.querySelector('[name="sectionPayload"]')).toBeNull();
+    expect(hiddenValue(locationForm, 'sectionId')).toBe('location');
+    expect(
+      (within(locationForm).getByLabelText('Address or area description') as HTMLInputElement).value
+    ).toBe('Candidate street 1');
+
+    await beginEditing('Names and descriptions');
+    const translationsForm = sectionForm(container, 'translations');
+    expect(JSON.parse(hiddenValue(translationsForm, 'sectionPayload'))).toEqual({
+      translations: {
+        is: { name: 'Tillogustadur', description: 'Lysing' },
+        en: { name: 'Candidate Place', description: 'Description' }
+      }
+    });
+  });
+
+  it('normalizes Access Conditions into the strict snake-case patch', async () => {
+    const { container } = render(CandidateReviewPanel, { data, form: null });
+
+    await beginEditing('Current Access Condition');
+    const form = sectionForm(container, 'access_conditions');
+    expect(JSON.parse(hiddenValue(form, 'sectionPayload'))).toEqual({
+      access_conditions: [
+        {
+          id: '70000000-0000-4000-8000-000000000002',
+          access_area: 'outdoors',
+          access_area_note: null,
+          restraint_condition: 'leash_required',
+          restraint_note: null,
+          dog_eligibility: { scope: 'all_dogs' },
+          availability_state: 'not_stated',
+          availability_window: {},
+          permission_requirement: 'standing_permission'
+        }
+      ]
+    });
+
+    await fireEvent.click(within(form).getByRole('button', { name: 'Add another condition' }));
+    const addedConditions = JSON.parse(hiddenValue(form, 'sectionPayload')).access_conditions;
+    expect(addedConditions).toHaveLength(2);
+    expect(addedConditions[1]).not.toHaveProperty('id');
+    expect(addedConditions[1]).toMatchObject({
+      dog_eligibility: { scope: 'all_dogs' },
+      availability_state: 'not_stated',
+      availability_window: {}
+    });
+
+    await fireEvent.click(within(form).getAllByRole('button', { name: 'Remove condition' })[0]);
+    expect(JSON.parse(hiddenValue(form, 'sectionPayload')).access_conditions).toHaveLength(1);
+  });
+
+  it('normalizes Evidence into the strict snake-case patch and keeps metadata editable', async () => {
+    const { container } = render(CandidateReviewPanel, { data, form: null });
+
+    await beginEditing('Supporting Evidence');
+    const form = sectionForm(container, 'evidence_records');
+    expect(JSON.parse(hiddenValue(form, 'sectionPayload'))).toEqual({
+      evidence_records: [
+        {
+          id: '70000000-0000-4000-8000-000000000003',
+          kind: 'official_website',
+          source_url: 'https://example.invalid/source',
+          source_citation: null,
+          source_label: 'Official website',
+          observed_at: '2026-07-13T09:00:00.000Z',
+          source_metadata: { method: 'crawl' }
+        }
+      ]
+    });
+    await fireEvent.click(within(form).getByText('Additional details', { selector: 'summary' }));
+    expect(within(form).getByRole('textbox', { name: 'Additional details' })).toBeTruthy();
+
+    await fireEvent.click(
+      within(form).getByRole('button', { name: 'Add another Evidence source' })
+    );
+    const sourceTitles = within(form).getAllByLabelText('Evidence source title');
+    const sourceUrls = within(form).getAllByLabelText('Evidence URL');
+    await fireEvent.input(sourceTitles[1], { target: { value: 'New official source' } });
+    await fireEvent.input(sourceUrls[1], { target: { value: 'https://example.invalid/new' } });
+    const addedEvidence = JSON.parse(hiddenValue(form, 'sectionPayload')).evidence_records;
+    expect(addedEvidence).toHaveLength(2);
+    expect(addedEvidence[1]).not.toHaveProperty('id');
+    expect(addedEvidence[1]).toMatchObject({
+      source_url: 'https://example.invalid/new',
+      source_label: 'New official source',
+      source_metadata: {}
+    });
+
+    await fireEvent.click(
+      within(form).getAllByRole('button', { name: 'Remove Evidence source' })[0]
+    );
+    expect(JSON.parse(hiddenValue(form, 'sectionPayload')).evidence_records).toHaveLength(1);
+  });
+
+  it('keeps the densest section editor inside a mobile viewport', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(390, 844);
+
+    try {
+      const { container } = render(CandidateReviewPanel, { data, form: null });
+      await beginEditing('Current Access Condition');
+      const form = sectionForm(container, 'access_conditions');
+      const formBox = form.getBoundingClientRect();
+
+      expect(formBox.left).toBeGreaterThanOrEqual(0);
+      expect(formBox.right).toBeLessThanOrEqual(window.innerWidth);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
 });
+
+async function beginEditing(sectionTitle: string): Promise<void> {
+  const section = screen.getByText(sectionTitle).closest('details');
+  if (!section) throw new Error(`Missing section: ${sectionTitle}`);
+  if (!section.open) await fireEvent.click(section.querySelector('summary')!);
+  await fireEvent.click(within(section).getByRole('button', { name: `Edit ${sectionTitle}` }));
+}
+
+function sectionForm(container: HTMLElement, sectionId: string): HTMLFormElement {
+  const form = container.querySelector<HTMLFormElement>(`form[data-section-form="${sectionId}"]`);
+  if (!form) throw new Error(`Missing section form: ${sectionId}`);
+  return form;
+}
+
+function hiddenValue(form: HTMLFormElement | null, name: string): string {
+  const input = form?.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+  if (!input) throw new Error(`Missing hidden input: ${name}`);
+  return input.value;
+}

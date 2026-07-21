@@ -6,20 +6,30 @@
 
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import { explainAccessCondition } from '$domain/access-explanation';
+  import type { PlaceCategory } from '$domain/place';
   import { formatLocalizedDate } from '$i18n/date';
-  import { localizeEvidenceKind } from '$i18n/structured-place';
+  import {
+    formatDogAmenities,
+    formatOpeningHours,
+    localizeEvidenceKind,
+    localizePlaceCategory
+  } from '$i18n/structured-place';
   import MapSurface from '$lib/map/MapSurface.svelte';
   import { createMapLibreAdapter, emptyMapLibreStyle } from '$lib/map/maplibre-adapter';
   import type { MapAdapter } from '$lib/map/types';
   import { downscaleImageFile, readImageDimensions } from '$lib/place-media/downscale-image';
+  import AccessConditionsEditor from './AccessConditionsEditor.svelte';
+  import EvidenceRecordsEditor from './EvidenceRecordsEditor.svelte';
   import ModerationActionBar from './ModerationActionBar.svelte';
   import ModerationConfirmDialog from './ModerationConfirmDialog.svelte';
   import ModerationReadinessSummary from './ModerationReadinessSummary.svelte';
   import ModerationReviewSection from './ModerationReviewSection.svelte';
+  import OpeningHoursEditor from './OpeningHoursEditor.svelte';
   import type { ModerationReviewIssue } from './types';
 
   import type { CandidatePublicationReview } from '$server/moderation/place-moderation';
   import type { ModerationPlaceMediaView } from '$server/moderation/candidate-workspace';
+  import type { Json } from '$server/db/generated.types';
 
   interface CandidateReviewData {
     lang: Locale;
@@ -44,8 +54,12 @@
   }
 
   let { data, form = null, standalone = false }: Props = $props();
+  type EditableSectionId =
+    'identity' | 'details' | 'location' | 'translations' | 'access_conditions' | 'evidence_records';
+
   let submitting = $state(false);
-  let correctingLocation = $state(false);
+  let editingSection = $state<EditableSectionId | null>(null);
+  let savingSection = $state<EditableSectionId | null>(null);
   let confirmingPublish = $state(false);
   let alertElement = $state<HTMLElement>();
   let publishError = $derived(
@@ -56,12 +70,12 @@
       form && 'action' in form && form.action === 'publish' && 'success' in form && form.success
     )
   );
-  let locationError = $derived(
+  let draftError = $derived(
     form && 'action' in form && form.action === 'saveCandidateSection' && 'error' in form
       ? form.error
       : null
   );
-  let locationSucceeded = $derived(
+  let draftSucceeded = $derived(
     Boolean(
       form &&
       'action' in form &&
@@ -69,6 +83,37 @@
       'success' in form &&
       form.success
     )
+  );
+
+  let identityOperatorName = $state('');
+  let identityCategory = $state('');
+  let detailsWebsiteUrl = $state('');
+  let detailsPhone = $state('');
+  let detailsOpeningHours = $state<Record<string, Json>>({});
+  let detailsDogAmenities = $state<string[]>([]);
+  let translationNameIs = $state('');
+  let translationDescriptionIs = $state('');
+  let translationNameEn = $state('');
+  let translationDescriptionEn = $state('');
+
+  const identitySectionPayload = $derived(
+    JSON.stringify({ operator: { name: identityOperatorName }, category: identityCategory })
+  );
+  const detailsSectionPayload = $derived(
+    JSON.stringify({
+      website_url: detailsWebsiteUrl.trim() || null,
+      phone: detailsPhone.trim() || null,
+      opening_hours: detailsOpeningHours,
+      dog_amenities: [...new Set(detailsDogAmenities.map((item) => item.trim()).filter(Boolean))]
+    })
+  );
+  const translationsSectionPayload = $derived(
+    JSON.stringify({
+      translations: {
+        is: { name: translationNameIs, description: translationDescriptionIs },
+        en: { name: translationNameEn, description: translationDescriptionEn }
+      }
+    })
   );
 
   let mediaError = $derived(
@@ -221,13 +266,67 @@
     };
   };
 
-  const enhanceLocation: SubmitFunction = () => {
-    correctingLocation = true;
-    return async ({ update }) => {
-      await update();
-      correctingLocation = false;
+  function enhanceSection(sectionId: EditableSectionId): SubmitFunction {
+    return () => {
+      savingSection = sectionId;
+      return async ({ result, update }) => {
+        await update();
+        savingSection = null;
+        if (result.type === 'success') editingSection = null;
+      };
     };
-  };
+  }
+
+  function beginEditing(sectionId: EditableSectionId): void {
+    if (sectionId === 'identity') {
+      identityOperatorName = data.review.operatorName;
+      identityCategory = data.review.category;
+    } else if (sectionId === 'details') {
+      detailsWebsiteUrl = data.review.websiteUrl ?? '';
+      detailsPhone = data.review.phone ?? '';
+      detailsOpeningHours = { ...data.review.openingHours };
+      detailsDogAmenities = [...data.review.dogAmenities];
+    } else if (sectionId === 'translations') {
+      translationNameIs = data.review.nameIs ?? '';
+      translationDescriptionIs = data.review.descriptionIs ?? '';
+      translationNameEn = data.review.nameEn ?? '';
+      translationDescriptionEn = data.review.descriptionEn ?? '';
+    }
+    editingSection = sectionId;
+  }
+
+  function editLabel(sectionTitle: string): string {
+    return data.copy['moderation.workbench.editSection'].replace('{section}', sectionTitle);
+  }
+
+  function removeAmenity(index: number): void {
+    detailsDogAmenities.splice(index, 1);
+  }
+
+  function addAmenity(): void {
+    detailsDogAmenities.push('');
+  }
+
+  function cancelEditing(): void {
+    editingSection = null;
+  }
+
+  function detailsSummary(): string {
+    const contact =
+      data.review.websiteUrl || data.review.phone
+        ? data.copy['moderation.workbench.section.contactAvailable']
+        : data.copy['moderation.workbench.section.contactMissing'];
+    return `${contact} · ${data.copy['moderation.workbench.section.amenityCount'].replace(
+      '{count}',
+      String(data.review.dogAmenities.length)
+    )}`;
+  }
+
+  function saveLabel(sectionId: EditableSectionId): string {
+    return savingSection === sectionId
+      ? data.copy['moderation.workbench.section.saving']
+      : data.copy['common.save'];
+  }
 
   function geometryPrecisionLabel(): string {
     const labels: Record<typeof data.review.geometryPrecision, MessageKey> = {
@@ -356,6 +455,11 @@
     issues={readinessIssues}
   />
 
+  {#if draftError}<p class="message error" role="alert">{draftError}</p>{/if}
+  {#if draftSucceeded}
+    <p class="message success" role="status">{data.copy['moderation.workbench.draftSaved']}</p>
+  {/if}
+
   {#if standalone}<div class="candidate-actions">
       <ModerationActionBar label={data.copy['moderation.workbench.candidateActions']}>
         <div class="action-buttons">
@@ -377,30 +481,183 @@
   <div class="review-sections">
     <ModerationReviewSection
       id="candidate-overview"
-      title={data.copy['moderation.workbench.section.overview']}
-      summary={`${data.review.operatorName} · ${data.review.category}`}
+      title={data.copy['moderation.identityHeading']}
+      summary={`${data.review.operatorName} · ${localizePlaceCategory(data.review.category as PlaceCategory, data.copy)}`}
       state={data.review.checks.candidate && data.review.checks.operatorAndCategory
         ? 'complete'
         : 'blocking'}
     >
-      <section class="place-card" aria-labelledby="place-name">
-        <span class="state">{data.copy[`status.${data.review.lifecycle}` as MessageKey]}</span>
-        <h2 id="place-name">
-          {data.lang === 'is'
-            ? (data.review.nameIs ?? data.review.nameEn ?? data.review.placeId)
-            : (data.review.nameEn ?? data.review.nameIs ?? data.review.placeId)}
-        </h2>
-        <p>{data.review.operatorName} · {data.review.category}</p>
-        <p>
-          {data.review.addressLine}, {data.review.postalCode}
-          {data.review.locality}
-        </p>
-      </section>
+      {#if editingSection === 'identity'}
+        <form
+          class="section-form"
+          data-section-form="identity"
+          method="POST"
+          action="?/saveCandidateSection"
+          use:enhance={enhanceSection('identity')}
+          aria-busy={savingSection === 'identity'}
+        >
+          <input type="hidden" name="placeId" value={data.review.placeId} />
+          <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
+          <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
+          <input type="hidden" name="sectionId" value="identity" />
+          <input type="hidden" name="sectionPayload" value={identitySectionPayload} />
+          <label>
+            {data.copy['moderation.operatorLabel']}
+            <input required bind:value={identityOperatorName} />
+          </label>
+          <label>
+            {data.copy['place.category']}
+            <select required bind:value={identityCategory}>
+              <option value="restaurant">{data.copy['category.restaurant']}</option>
+              <option value="cafe">{data.copy['category.cafe']}</option>
+              <option value="bar">{data.copy['category.bar']}</option>
+              <option value="shop">{data.copy['category.shop']}</option>
+              <option value="shopping_centre">{data.copy['category.shoppingCentre']}</option>
+              <option value="accommodation">{data.copy['category.accommodation']}</option>
+              <option value="park">{data.copy['category.park']}</option>
+              <option value="recreation">{data.copy['category.recreation']}</option>
+              <option value="culture">{data.copy['category.culture']}</option>
+              <option value="service">{data.copy['category.service']}</option>
+              <option value="other">{data.copy['category.other']}</option>
+            </select>
+          </label>
+          <div class="section-form-actions">
+            <button type="button" class="quiet" onclick={cancelEditing}
+              >{data.copy['common.cancel']}</button
+            >
+            <button type="submit" disabled={savingSection === 'identity'}
+              >{saveLabel('identity')}</button
+            >
+          </div>
+        </form>
+      {:else}
+        <div class="section-view">
+          <section class="place-card" aria-labelledby="place-name">
+            <span class="state">{data.copy[`status.${data.review.lifecycle}` as MessageKey]}</span>
+            <h2 id="place-name">
+              {data.lang === 'is'
+                ? (data.review.nameIs ?? data.review.nameEn ?? data.review.placeId)
+                : (data.review.nameEn ?? data.review.nameIs ?? data.review.placeId)}
+            </h2>
+            <p>
+              {data.review.operatorName} · {localizePlaceCategory(
+                data.review.category as PlaceCategory,
+                data.copy
+              )}
+            </p>
+          </section>
+          <button
+            type="button"
+            class="edit-section"
+            aria-label={editLabel(data.copy['moderation.identityHeading'])}
+            onclick={() => beginEditing('identity')}
+            >{editLabel(data.copy['moderation.identityHeading'])}</button
+          >
+        </div>
+      {/if}
+    </ModerationReviewSection>
+
+    <ModerationReviewSection
+      id="candidate-details"
+      title={data.copy['moderation.workbench.section.details']}
+      summary={detailsSummary()}
+    >
+      {#if editingSection === 'details'}
+        <form
+          class="section-form section-form-wide"
+          data-section-form="details"
+          method="POST"
+          action="?/saveCandidateSection"
+          use:enhance={enhanceSection('details')}
+          aria-busy={savingSection === 'details'}
+        >
+          <input type="hidden" name="placeId" value={data.review.placeId} />
+          <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
+          <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
+          <input type="hidden" name="sectionId" value="details" />
+          <input type="hidden" name="sectionPayload" value={detailsSectionPayload} />
+          <label>
+            {data.copy['moderation.websiteLabel']}
+            <input type="url" bind:value={detailsWebsiteUrl} />
+          </label>
+          <label>
+            {data.copy['moderation.phoneLabel']}
+            <input type="tel" bind:value={detailsPhone} />
+          </label>
+          <div class="wide editor-group">
+            <h3>{data.copy['place.openingHours']}</h3>
+            <OpeningHoursEditor copy={data.copy} bind:value={detailsOpeningHours} />
+          </div>
+          <fieldset class="wide amenities-editor">
+            <legend>{data.copy['place.amenities']}</legend>
+            {#each detailsDogAmenities as amenity, index (index)}
+              <div class="repeated-row">
+                <label>
+                  {data.copy['moderation.amenityLabel'].replace('{number}', String(index + 1))}
+                  <input bind:value={detailsDogAmenities[index]} />
+                </label>
+                <button type="button" class="quiet" onclick={() => removeAmenity(index)}>
+                  {data.copy['moderation.removeAmenity']}
+                </button>
+              </div>
+            {/each}
+            <button type="button" class="quiet add-row" onclick={addAmenity}>
+              {data.copy['moderation.addAmenity']}
+            </button>
+          </fieldset>
+          <div class="section-form-actions">
+            <button type="button" class="quiet" onclick={cancelEditing}
+              >{data.copy['common.cancel']}</button
+            >
+            <button type="submit" disabled={savingSection === 'details'}
+              >{saveLabel('details')}</button
+            >
+          </div>
+        </form>
+      {:else}
+        <div class="section-view detail-facts">
+          <dl>
+            <div>
+              <dt>{data.copy['moderation.websiteLabel']}</dt>
+              <dd>{data.review.websiteUrl ?? data.copy['common.notAvailable']}</dd>
+            </div>
+            <div>
+              <dt>{data.copy['moderation.phoneLabel']}</dt>
+              <dd>{data.review.phone ?? data.copy['common.notAvailable']}</dd>
+            </div>
+            <div>
+              <dt>{data.copy['place.openingHours']}</dt>
+              <dd>
+                {formatOpeningHours(
+                  data.review.openingHours,
+                  data.copy,
+                  data.copy['common.notAvailable']
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>{data.copy['place.amenities']}</dt>
+              <dd>
+                {data.review.dogAmenities.length
+                  ? formatDogAmenities(data.review.dogAmenities, data.copy)
+                  : data.copy['common.notAvailable']}
+              </dd>
+            </div>
+          </dl>
+          <button
+            type="button"
+            class="edit-section"
+            aria-label={editLabel(data.copy['moderation.workbench.section.details'])}
+            onclick={() => beginEditing('details')}
+            >{editLabel(data.copy['moderation.workbench.section.details'])}</button
+          >
+        </div>
+      {/if}
     </ModerationReviewSection>
 
     <ModerationReviewSection
       id="location"
-      title={data.copy['moderation.checkLocation']}
+      title={data.copy['moderation.locationHeading']}
       summary={`${data.review.addressLine}, ${data.review.locality}`}
       state={data.review.checks.capitalRegionLocation && data.review.checks.geometryQuality
         ? 'complete'
@@ -424,116 +681,126 @@
           onCameraChange={() => undefined}
           compact
         />
-        {#if locationError}<p class="message error" role="alert">{locationError}</p>{/if}
-        {#if locationSucceeded}
-          <p class="message success" role="status">{data.copy['moderation.geometryCorrected']}</p>
+        {#if editingSection === 'location'}
+          <form
+            class="location-correction section-form"
+            data-section-form="location"
+            method="POST"
+            action="?/saveCandidateSection"
+            use:enhance={enhanceSection('location')}
+            aria-busy={savingSection === 'location'}
+          >
+            <input type="hidden" name="placeId" value={data.review.placeId} />
+            <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
+            <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
+            <input type="hidden" name="sectionId" value="location" />
+            <label>
+              {data.copy['moderation.addressLabel']}
+              <input name="addressLine" required value={data.review.addressLine} />
+            </label>
+            <label>
+              {data.copy['moderation.localityLabel']}
+              <input name="locality" required value={data.review.locality} />
+            </label>
+            <label>
+              {data.copy['moderation.postalCodeLabel']}
+              <input
+                name="postalCode"
+                required
+                pattern="[0-9][0-9][0-9]"
+                value={data.review.postalCode}
+              />
+            </label>
+            <label>
+              {data.copy['moderation.municipalityLabel']}
+              <select
+                name="municipality"
+                required
+                value={data.review.municipality}
+                aria-label={data.copy['moderation.municipalityLabel']}
+              >
+                <option value="reykjavik">Reykjavík</option>
+                <option value="kopavogur">Kópavogur</option>
+                <option value="seltjarnarnes">Seltjarnarnes</option>
+                <option value="gardabaer">Garðabær</option>
+                <option value="hafnarfjordur">Hafnarfjörður</option>
+                <option value="mosfellsbaer">Mosfellsbær</option>
+                <option value="kjosarhreppur">Kjósarhreppur</option>
+              </select>
+            </label>
+            <label>
+              {data.copy['moderation.latitudeLabel']}
+              <input
+                name="latitude"
+                type="number"
+                min="-90"
+                max="90"
+                step="any"
+                required
+                value={data.review.latitude}
+              />
+            </label>
+            <label>
+              {data.copy['moderation.longitudeLabel']}
+              <input
+                name="longitude"
+                type="number"
+                min="-180"
+                max="180"
+                step="any"
+                required
+                value={data.review.longitude}
+              />
+            </label>
+            <label>
+              {data.copy['moderation.geometryPrecisionLabel']}
+              <select
+                name="geometryPrecision"
+                required
+                value={data.review.geometryPrecision}
+                aria-label={data.copy['moderation.geometryPrecisionLabel']}
+              >
+                <option value="moderator_confirmed_point"
+                  >{data.copy['moderation.geometryPrecision.moderatorConfirmed']}</option
+                >
+                <option value="official_address_point"
+                  >{data.copy['moderation.geometryPrecision.officialAddress']}</option
+                >
+                <option value="official_representative_centroid"
+                  >{data.copy['moderation.geometryPrecision.officialCentroid']}</option
+                >
+                <option value="municipality_anchor_pending_geocode"
+                  >{data.copy['moderation.geometryPrecision.pending']}</option
+                >
+              </select>
+            </label>
+            <label class="wide">
+              {data.copy['moderation.geometrySourceLabel']}
+              <input
+                name="geometrySource"
+                required
+                value={data.review.geometrySource}
+                aria-label={data.copy['moderation.geometrySourceLabel']}
+              />
+            </label>
+            <div class="section-form-actions wide">
+              <button type="button" class="quiet" onclick={cancelEditing}
+                >{data.copy['common.cancel']}</button
+              >
+              <button type="submit" disabled={savingSection === 'location'}
+                >{saveLabel('location')}</button
+              >
+            </div>
+          </form>
+        {:else}
+          <button
+            type="button"
+            class="edit-section"
+            aria-label={editLabel(data.copy['moderation.locationHeading'])}
+            onclick={() => beginEditing('location')}
+            >{editLabel(data.copy['moderation.locationHeading'])}</button
+          >
         {/if}
-        <form
-          class="location-correction"
-          method="POST"
-          action="?/saveCandidateSection"
-          use:enhance={enhanceLocation}
-          aria-busy={correctingLocation}
-        >
-          <input type="hidden" name="placeId" value={data.review.placeId} />
-          <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
-          <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
-          <input type="hidden" name="sectionId" value="location" />
-          <label>
-            {data.copy['moderation.addressLabel']}
-            <input name="addressLine" required value={data.review.addressLine} />
-          </label>
-          <label>
-            {data.copy['moderation.localityLabel']}
-            <input name="locality" required value={data.review.locality} />
-          </label>
-          <label>
-            {data.copy['moderation.postalCodeLabel']}
-            <input
-              name="postalCode"
-              required
-              pattern="[0-9][0-9][0-9]"
-              value={data.review.postalCode}
-            />
-          </label>
-          <label>
-            {data.copy['moderation.municipalityLabel']}
-            <select
-              name="municipality"
-              required
-              value={data.review.municipality}
-              aria-label={data.copy['moderation.municipalityLabel']}
-            >
-              <option value="reykjavik">Reykjavík</option>
-              <option value="kopavogur">Kópavogur</option>
-              <option value="seltjarnarnes">Seltjarnarnes</option>
-              <option value="gardabaer">Garðabær</option>
-              <option value="hafnarfjordur">Hafnarfjörður</option>
-              <option value="mosfellsbaer">Mosfellsbær</option>
-              <option value="kjosarhreppur">Kjósarhreppur</option>
-            </select>
-          </label>
-          <label>
-            {data.copy['moderation.latitudeLabel']}
-            <input
-              name="latitude"
-              type="number"
-              min="-90"
-              max="90"
-              step="any"
-              required
-              value={data.review.latitude}
-            />
-          </label>
-          <label>
-            {data.copy['moderation.longitudeLabel']}
-            <input
-              name="longitude"
-              type="number"
-              min="-180"
-              max="180"
-              step="any"
-              required
-              value={data.review.longitude}
-            />
-          </label>
-          <label>
-            {data.copy['moderation.geometryPrecisionLabel']}
-            <select
-              name="geometryPrecision"
-              required
-              value={data.review.geometryPrecision}
-              aria-label={data.copy['moderation.geometryPrecisionLabel']}
-            >
-              <option value="moderator_confirmed_point"
-                >{data.copy['moderation.geometryPrecision.moderatorConfirmed']}</option
-              >
-              <option value="official_address_point"
-                >{data.copy['moderation.geometryPrecision.officialAddress']}</option
-              >
-              <option value="official_representative_centroid"
-                >{data.copy['moderation.geometryPrecision.officialCentroid']}</option
-              >
-              <option value="municipality_anchor_pending_geocode"
-                >{data.copy['moderation.geometryPrecision.pending']}</option
-              >
-            </select>
-          </label>
-          <label class="wide">
-            {data.copy['moderation.geometrySourceLabel']}
-            <input
-              name="geometrySource"
-              required
-              value={data.review.geometrySource}
-              aria-label={data.copy['moderation.geometrySourceLabel']}
-            />
-          </label>
-          <button type="submit" disabled={correctingLocation}>
-            {correctingLocation
-              ? data.copy['common.loading']
-              : data.copy['moderation.saveCorrectedGeometry']}
-          </button>
-        </form>
       </div>
     </ModerationReviewSection>
 
@@ -547,18 +814,68 @@
         ? 'complete'
         : 'blocking'}
     >
-      <div class="translation-grid">
-        <article lang="is">
-          <h3>{data.copy['moderation.checkIcelandic']}</h3>
-          <p>{data.review.nameIs ?? data.copy['common.notAvailable']}</p>
-          <p>{data.review.descriptionIs ?? data.copy['common.notAvailable']}</p>
-        </article>
-        <article lang="en">
-          <h3>{data.copy['moderation.checkEnglish']}</h3>
-          <p>{data.review.nameEn ?? data.copy['common.notAvailable']}</p>
-          <p>{data.review.descriptionEn ?? data.copy['common.notAvailable']}</p>
-        </article>
-      </div>
+      {#if editingSection === 'translations'}
+        <form
+          class="section-form"
+          data-section-form="translations"
+          method="POST"
+          action="?/saveCandidateSection"
+          use:enhance={enhanceSection('translations')}
+          aria-busy={savingSection === 'translations'}
+        >
+          <input type="hidden" name="placeId" value={data.review.placeId} />
+          <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
+          <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
+          <input type="hidden" name="sectionId" value="translations" />
+          <input type="hidden" name="sectionPayload" value={translationsSectionPayload} />
+          <label lang="is">
+            {data.copy['moderation.nameIsLabel']}
+            <input required bind:value={translationNameIs} />
+          </label>
+          <label lang="en">
+            {data.copy['moderation.nameEnLabel']}
+            <input required bind:value={translationNameEn} />
+          </label>
+          <label class="wide" lang="is">
+            {data.copy['moderation.descriptionIsLabel']}
+            <textarea required bind:value={translationDescriptionIs}></textarea>
+          </label>
+          <label class="wide" lang="en">
+            {data.copy['moderation.descriptionEnLabel']}
+            <textarea required bind:value={translationDescriptionEn}></textarea>
+          </label>
+          <div class="section-form-actions">
+            <button type="button" class="quiet" onclick={cancelEditing}
+              >{data.copy['common.cancel']}</button
+            >
+            <button type="submit" disabled={savingSection === 'translations'}
+              >{saveLabel('translations')}</button
+            >
+          </div>
+        </form>
+      {:else}
+        <div class="section-view translation-view">
+          <div class="translation-grid">
+            <article lang="is">
+              <h3>{data.copy['moderation.checkIcelandic']}</h3>
+              <p>{data.review.nameIs ?? data.copy['common.notAvailable']}</p>
+              <p>{data.review.descriptionIs ?? data.copy['common.notAvailable']}</p>
+            </article>
+            <article lang="en">
+              <h3>{data.copy['moderation.checkEnglish']}</h3>
+              <p>{data.review.nameEn ?? data.copy['common.notAvailable']}</p>
+              <p>{data.review.descriptionEn ?? data.copy['common.notAvailable']}</p>
+            </article>
+          </div>
+          <button
+            type="button"
+            class="edit-section"
+            aria-label={editLabel(data.copy['moderation.workbench.section.translations'])}
+            onclick={() => beginEditing('translations')}
+            >{editLabel(data.copy['moderation.workbench.section.translations'])}</button
+          >
+        </div>
+      {/if}
     </ModerationReviewSection>
 
     <ModerationReviewSection
@@ -570,13 +887,47 @@
       )}
       state={data.review.checks.accessCondition ? 'complete' : 'blocking'}
     >
-      <ol class="review-records">
-        {#each data.review.accessConditions as condition (condition.id)}
-          <li>
-            <strong>{describeCondition(condition)}</strong>
-          </li>
-        {/each}
-      </ol>
+      {#if editingSection === 'access_conditions'}
+        <form
+          class="section-form section-form-stack"
+          data-section-form="access_conditions"
+          method="POST"
+          action="?/saveCandidateSection"
+          use:enhance={enhanceSection('access_conditions')}
+          aria-busy={savingSection === 'access_conditions'}
+        >
+          <input type="hidden" name="placeId" value={data.review.placeId} />
+          <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
+          <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
+          <input type="hidden" name="sectionId" value="access_conditions" />
+          <AccessConditionsEditor copy={data.copy} conditions={data.review.accessConditions} />
+          <div class="section-form-actions">
+            <button type="button" class="quiet" onclick={cancelEditing}
+              >{data.copy['common.cancel']}</button
+            >
+            <button type="submit" disabled={savingSection === 'access_conditions'}
+              >{saveLabel('access_conditions')}</button
+            >
+          </div>
+        </form>
+      {:else}
+        <div class="section-view">
+          <ol class="review-records">
+            {#each data.review.accessConditions as condition (condition.id)}
+              <li>
+                <strong>{describeCondition(condition)}</strong>
+              </li>
+            {/each}
+          </ol>
+          <button
+            type="button"
+            class="edit-section"
+            aria-label={editLabel(data.copy['moderation.checkAccess'])}
+            onclick={() => beginEditing('access_conditions')}
+            >{editLabel(data.copy['moderation.checkAccess'])}</button
+          >
+        </div>
+      {/if}
     </ModerationReviewSection>
 
     <ModerationReviewSection
@@ -588,21 +939,55 @@
       )}
       state={data.review.checks.evidence ? 'complete' : 'blocking'}
     >
-      <ul class="review-records">
-        {#each data.review.evidenceRecords as evidence (evidence.id)}
-          <li class="evidence-record">
-            <strong>{evidence.sourceLabel}</strong>
-            <span>{localizeEvidenceKind(evidence.kind, data.copy)}</span>
-            {#if evidence.sourceUrl}<span class="reference">{evidence.sourceUrl}</span>{/if}
-            {#if evidence.sourceCitation}
-              <span class="reference">{evidence.sourceCitation}</span>
-            {/if}
-            <time datetime={evidence.observedAt}
-              >{formatLocalizedDate(evidence.observedAt, data.lang)}</time
+      {#if editingSection === 'evidence_records'}
+        <form
+          class="section-form section-form-stack"
+          data-section-form="evidence_records"
+          method="POST"
+          action="?/saveCandidateSection"
+          use:enhance={enhanceSection('evidence_records')}
+          aria-busy={savingSection === 'evidence_records'}
+        >
+          <input type="hidden" name="placeId" value={data.review.placeId} />
+          <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
+          <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
+          <input type="hidden" name="sectionId" value="evidence_records" />
+          <EvidenceRecordsEditor copy={data.copy} evidenceRecords={data.review.evidenceRecords} />
+          <div class="section-form-actions">
+            <button type="button" class="quiet" onclick={cancelEditing}
+              >{data.copy['common.cancel']}</button
             >
-          </li>
-        {/each}
-      </ul>
+            <button type="submit" disabled={savingSection === 'evidence_records'}
+              >{saveLabel('evidence_records')}</button
+            >
+          </div>
+        </form>
+      {:else}
+        <div class="section-view">
+          <ul class="review-records">
+            {#each data.review.evidenceRecords as evidence (evidence.id)}
+              <li class="evidence-record">
+                <strong>{evidence.sourceLabel}</strong>
+                <span>{localizeEvidenceKind(evidence.kind, data.copy)}</span>
+                {#if evidence.sourceUrl}<span class="reference">{evidence.sourceUrl}</span>{/if}
+                {#if evidence.sourceCitation}
+                  <span class="reference">{evidence.sourceCitation}</span>
+                {/if}
+                <time datetime={evidence.observedAt}
+                  >{formatLocalizedDate(evidence.observedAt, data.lang)}</time
+                >
+              </li>
+            {/each}
+          </ul>
+          <button
+            type="button"
+            class="edit-section"
+            aria-label={editLabel(data.copy['moderation.checkEvidence'])}
+            onclick={() => beginEditing('evidence_records')}
+            >{editLabel(data.copy['moderation.checkEvidence'])}</button
+          >
+        </div>
+      {/if}
     </ModerationReviewSection>
 
     <ModerationReviewSection
@@ -1098,6 +1483,111 @@
     margin-top: 0.75rem;
   }
 
+  .section-view {
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .edit-section {
+    justify-self: end;
+    min-height: 2.4rem;
+    background: var(--hv-color-snow-raised);
+  }
+
+  .section-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+    align-items: end;
+    margin-top: 0;
+  }
+
+  .section-form-stack,
+  .section-form-wide {
+    grid-template-columns: 1fr;
+  }
+
+  .section-form .wide,
+  .section-form-actions {
+    grid-column: 1 / -1;
+  }
+
+  .section-form-actions {
+    display: flex;
+    gap: 0.55rem;
+    justify-content: flex-end;
+  }
+
+  .section-form-actions button {
+    min-width: 7rem;
+  }
+
+  .section-form .quiet,
+  .edit-section {
+    background: var(--hv-color-snow-raised);
+  }
+
+  .editor-group,
+  .amenities-editor {
+    margin: 0;
+    padding: 0.7rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-control);
+  }
+
+  .editor-group h3,
+  .amenities-editor legend {
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 850;
+  }
+
+  .amenities-editor {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .amenities-editor legend {
+    padding-inline: 0.35rem;
+  }
+
+  .repeated-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.55rem;
+    align-items: end;
+  }
+
+  .add-row {
+    width: fit-content;
+  }
+
+  .detail-facts dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    margin: 0;
+  }
+
+  .detail-facts dl div {
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.55rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-control);
+  }
+
+  .detail-facts dt {
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.75rem;
+    font-weight: 800;
+  }
+
+  .detail-facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
   .location-correction {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1308,6 +1798,7 @@
   input[type='date'],
   input[type='datetime-local'],
   input[type='url'],
+  input[type='tel'],
   input[type='text'],
   input[type='file'],
   input[type='number'],
@@ -1316,6 +1807,19 @@
     width: 100%;
     max-width: 100%;
     min-height: 2.5rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
+    color: var(--hv-color-basalt);
+    font: inherit;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 6rem;
+    box-sizing: border-box;
+    resize: vertical;
     padding: 0.5rem 0.6rem;
     border: 1px solid var(--hv-color-basalt);
     border-radius: var(--hv-radius-control);
@@ -1369,6 +1873,7 @@
 
   button:focus-visible,
   input:focus-visible,
+  textarea:focus-visible,
   select:focus-visible,
   a:focus-visible,
   .message:focus-visible {
@@ -1505,6 +2010,26 @@
 
     .location-correction {
       grid-template-columns: 1fr;
+    }
+
+    .section-form,
+    .detail-facts dl,
+    .repeated-row {
+      grid-template-columns: 1fr;
+    }
+
+    .section-form .wide,
+    .section-form-actions {
+      grid-column: auto;
+    }
+
+    .section-form-actions {
+      display: grid;
+    }
+
+    .edit-section,
+    .add-row {
+      width: 100%;
     }
 
     button {
