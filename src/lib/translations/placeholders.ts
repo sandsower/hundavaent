@@ -1,5 +1,15 @@
+import { catalogues, type MessageKey } from '$i18n';
+
+export const TRANSLATION_VALUE_MAX_LENGTH = 10_000;
+
 export type TranslationValidationIssue =
-  'missing_is' | 'missing_en' | 'malformed_is' | 'malformed_en' | 'placeholder_mismatch';
+  | 'missing_is'
+  | 'missing_en'
+  | 'malformed_is'
+  | 'malformed_en'
+  | 'placeholder_mismatch'
+  | 'placeholder_contract_is'
+  | 'placeholder_contract_en';
 
 const placeholderPattern = /\{([A-Za-z][A-Za-z0-9_]*)\}/g;
 
@@ -34,4 +44,31 @@ export function validateTranslationPair(
     issues.push('placeholder_mismatch');
   }
   return issues;
+}
+
+export function validateTranslationEntry(
+  key: MessageKey,
+  isValue: string,
+  enValue: string
+): TranslationValidationIssue[] {
+  const issues = validateTranslationPair(isValue, enValue);
+  const bundledIs = catalogues.is[key];
+  const bundledEn = catalogues.en[key];
+  if (typeof bundledIs !== 'string' || typeof bundledEn !== 'string') return issues;
+  const expectedIs = extractPlaceholders(bundledIs);
+  const expectedEn = extractPlaceholders(bundledEn);
+  const actualIs = extractPlaceholders(isValue);
+  const actualEn = extractPlaceholders(enValue);
+
+  if (expectedIs && actualIs && !samePlaceholders(expectedIs, actualIs)) {
+    issues.push('placeholder_contract_is');
+  }
+  if (expectedEn && actualEn && !samePlaceholders(expectedEn, actualEn)) {
+    issues.push('placeholder_contract_en');
+  }
+  return issues;
+}
+
+function samePlaceholders(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((name, index) => name === right[index]);
 }

@@ -1,7 +1,15 @@
+import { error, redirect } from '@sveltejs/kit';
+
 export interface TranslationAccessConfig {
   password: string;
   sessionSecret: string;
   databaseSecret: string;
+}
+
+interface TranslationSessionEvent {
+  cookies: { get(name: string): string | undefined };
+  locals: { requestId: string };
+  url: URL;
 }
 
 export const TRANSLATION_COOKIE_NAME = 'hundavaent-translations';
@@ -76,7 +84,7 @@ export function normalizeTranslationRedirectTo(value: unknown): string {
   const parsed = new URL(value, 'https://hundavaent.local');
   if (
     parsed.origin !== 'https://hundavaent.local' ||
-    !parsed.pathname.startsWith('/translations') ||
+    !(parsed.pathname === '/translations' || parsed.pathname.startsWith('/translations/')) ||
     parsed.pathname === '/translations/sign-in'
   ) {
     return '/translations';
@@ -99,6 +107,35 @@ export function translationCookieOptions(url: URL): {
     secure: url.protocol === 'https:',
     maxAge: TRANSLATION_SESSION_MAX_AGE_SECONDS
   };
+}
+
+export async function requireTranslationSession(
+  event: TranslationSessionEvent,
+  environment: Record<string, string | undefined>
+): Promise<TranslationAccessConfig> {
+  const config = getTranslationAccessConfig(environment);
+  if (!config) {
+    error(503, {
+      message: 'The translation workspace is not configured.',
+      requestId: event.locals.requestId
+    });
+  }
+  if (!(await isTranslationSessionValid(event.cookies.get(TRANSLATION_COOKIE_NAME), config))) {
+    const redirectTo = encodeURIComponent(`${event.url.pathname}${event.url.search}`);
+    redirect(303, `/translations/sign-in?redirectTo=${redirectTo}`);
+  }
+  return config;
+}
+
+export async function authenticateTranslationSession(
+  cookies: { get(name: string): string | undefined },
+  environment: Record<string, string | undefined>
+): Promise<TranslationAccessConfig | 'unavailable' | 'authentication_required'> {
+  const config = getTranslationAccessConfig(environment);
+  if (!config) return 'unavailable';
+  return (await isTranslationSessionValid(cookies.get(TRANSLATION_COOKIE_NAME), config))
+    ? config
+    : 'authentication_required';
 }
 
 async function sessionSignature(

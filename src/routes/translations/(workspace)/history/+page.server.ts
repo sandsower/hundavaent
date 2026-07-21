@@ -1,7 +1,10 @@
 import { env } from '$env/dynamic/private';
 import { error, fail, redirect } from '@sveltejs/kit';
 
-import { getTranslationAccessConfig } from '$server/translations/access';
+import {
+  requireTranslationSession,
+  type TranslationAccessConfig
+} from '$server/translations/access';
 import {
   loadTranslationWorkspace,
   restoreTranslationRevision,
@@ -10,10 +13,14 @@ import {
 
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
 
-export const load: PageServerLoad = async (event) => ({ workspace: await loadWorkspace(event) });
+export const load: PageServerLoad = async (event) => {
+  const config = await requireTranslationSession(event, env);
+  return { workspace: await loadWorkspace(event, config) };
+};
 
 export const actions: Actions = {
   restore: async (event) => {
+    const config = await requireTranslationSession(event, env);
     const formData = await event.request.formData();
     const targetRevision = parsePositiveInteger(formData.get('targetRevision'));
     const expectedRevision = parsePositiveInteger(formData.get('expectedRevision'));
@@ -21,7 +28,7 @@ export const actions: Actions = {
       return fail(400, { invalid: true });
     }
 
-    const workspace = await loadWorkspace(event);
+    const workspace = await loadWorkspace(event, config);
     if (workspace.currentRevision !== expectedRevision || workspace.pendingCount > 0) {
       return fail(409, { conflict: true });
     }
@@ -29,8 +36,7 @@ export const actions: Actions = {
       return fail(400, { invalid: true });
     }
 
-    const config = getTranslationAccessConfig(env);
-    if (!config || !event.locals.supabase) {
+    if (!event.locals.supabase) {
       error(503, {
         message: 'Revision restore is unavailable.',
         requestId: event.locals.requestId
@@ -54,9 +60,11 @@ export const actions: Actions = {
   }
 };
 
-async function loadWorkspace(event: RequestEvent): Promise<TranslationWorkspace> {
-  const config = getTranslationAccessConfig(env);
-  if (!config || !event.locals.supabase) {
+async function loadWorkspace(
+  event: RequestEvent,
+  config: TranslationAccessConfig
+): Promise<TranslationWorkspace> {
+  if (!event.locals.supabase) {
     error(503, {
       message: 'Translation history is unavailable.',
       requestId: event.locals.requestId

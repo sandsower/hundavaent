@@ -10,6 +10,7 @@ import {
   translationCookieOptions,
   verifyTranslationPassword
 } from '$server/translations/access';
+import { translationAttemptThrottle, translationClientKey } from '$server/translations/attempts';
 
 import type { Actions, PageServerLoad } from './$types';
 
@@ -38,13 +39,33 @@ export const actions: Actions = {
       });
     }
 
+    const clientKey = translationClientKey(request.headers);
+    const throttle = translationAttemptThrottle.check(clientKey);
+    const redirectToFromUrl = normalizeTranslationRedirectTo(url.searchParams.get('redirectTo'));
+    if (throttle.blocked) {
+      return fail(429, {
+        throttled: true,
+        retryAfterSeconds: throttle.retryAfterSeconds,
+        redirectTo: redirectToFromUrl
+      });
+    }
+
     const formData = await request.formData();
     const password = String(formData.get('password') ?? '');
     const redirectTo = normalizeTranslationRedirectTo(formData.get('redirectTo'));
     if (!(await verifyTranslationPassword(password, config))) {
+      const failure = translationAttemptThrottle.recordFailure(clientKey);
+      if (failure.blocked) {
+        return fail(429, {
+          throttled: true,
+          retryAfterSeconds: failure.retryAfterSeconds,
+          redirectTo
+        });
+      }
       return fail(400, { incorrect: true, redirectTo });
     }
 
+    translationAttemptThrottle.clear(clientKey);
     cookies.set(
       TRANSLATION_COOKIE_NAME,
       await createTranslationSession(config),

@@ -1,13 +1,14 @@
 import { env } from '$env/dynamic/private';
 import { error } from '@sveltejs/kit';
 
-import { getTranslationAccessConfig } from '$server/translations/access';
+import { requireTranslationSession } from '$server/translations/access';
 import { loadTranslationWorkspace } from '$server/translations/workspace';
 
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
-  const config = getTranslationAccessConfig(env);
+export const load: PageServerLoad = async (event) => {
+  const config = await requireTranslationSession(event, env);
+  const { locals, url } = event;
   if (!config || !locals.supabase) {
     error(503, {
       message: 'The translation workspace is unavailable.',
@@ -25,5 +26,6 @@ export const load: PageServerLoad = async ({ locals }) => {
       requestId: locals.requestId
     });
   }
-  return { workspace: result.value };
+  const initialSearch = url.searchParams.get('search')?.trim().slice(0, 200) ?? '';
+  return { workspace: result.value, initialSearch };
 };

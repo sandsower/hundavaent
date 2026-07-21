@@ -1,24 +1,31 @@
 import { env } from '$env/dynamic/private';
 import { error, fail, redirect } from '@sveltejs/kit';
 
-import { getTranslationAccessConfig } from '$server/translations/access';
+import {
+  requireTranslationSession,
+  type TranslationAccessConfig
+} from '$server/translations/access';
 import {
   loadTranslationWorkspace,
   publishTranslationDrafts,
   type TranslationWorkspace
 } from '$server/translations/workspace';
-import { validateTranslationPair } from '$lib/translations/placeholders';
+import { validateTranslationEntry } from '$lib/translations/placeholders';
 
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
 
-export const load: PageServerLoad = async (event) => ({ workspace: await loadWorkspace(event) });
+export const load: PageServerLoad = async (event) => {
+  const config = await requireTranslationSession(event, env);
+  return { workspace: await loadWorkspace(event, config) };
+};
 
 export const actions: Actions = {
   publish: async (event) => {
+    const config = await requireTranslationSession(event, env);
     const formData = await event.request.formData();
     const expectedRevision = parseRevision(formData.get('expectedRevision'));
     const expectedDraftGeneration = parseGeneration(formData.get('expectedDraftGeneration'));
-    const workspace = await loadWorkspace(event);
+    const workspace = await loadWorkspace(event, config);
     if (
       workspace.currentRevision !== expectedRevision ||
       workspace.draftGeneration !== expectedDraftGeneration
@@ -26,13 +33,14 @@ export const actions: Actions = {
       return fail(409, { conflict: true });
     }
     const invalidKeys = workspace.entries
-      .filter((entry) => validateTranslationPair(entry.draft.is, entry.draft.en).length > 0)
+      .filter(
+        (entry) => validateTranslationEntry(entry.key, entry.draft.is, entry.draft.en).length > 0
+      )
       .map((entry) => entry.key);
     if (invalidKeys.length > 0) return fail(400, { invalidKeys });
     if (workspace.pendingCount === 0) return fail(400, { noChanges: true });
 
-    const config = getTranslationAccessConfig(env);
-    if (!config || !event.locals.supabase) {
+    if (!event.locals.supabase) {
       error(503, { message: 'Publishing is unavailable.', requestId: event.locals.requestId });
     }
     const result = await publishTranslationDrafts(
@@ -50,9 +58,11 @@ export const actions: Actions = {
   }
 };
 
-async function loadWorkspace(event: RequestEvent): Promise<TranslationWorkspace> {
-  const config = getTranslationAccessConfig(env);
-  if (!config || !event.locals.supabase) {
+async function loadWorkspace(
+  event: RequestEvent,
+  config: TranslationAccessConfig
+): Promise<TranslationWorkspace> {
+  if (!event.locals.supabase) {
     error(503, {
       message: 'The translation workspace is unavailable.',
       requestId: event.locals.requestId

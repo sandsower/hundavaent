@@ -1,26 +1,21 @@
 import { env } from '$env/dynamic/private';
 
 import { privateJson } from '$server/http/private-json';
-import {
-  TRANSLATION_COOKIE_NAME,
-  getTranslationAccessConfig,
-  isTranslationSessionValid
-} from '$server/translations/access';
+import { authenticateTranslationSession } from '$server/translations/access';
 import { loadTranslationWorkspace, saveTranslationDraft } from '$server/translations/workspace';
+import { TRANSLATION_VALUE_MAX_LENGTH } from '$lib/translations/placeholders';
 
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ cookies, locals }) => {
-  const config = getTranslationAccessConfig(env);
-  if (!config) return privateJson({ error: 'unavailable' }, 503);
-  if (!(await isTranslationSessionValid(cookies.get(TRANSLATION_COOKIE_NAME), config))) {
-    return privateJson({ error: 'authentication_required' }, 401);
-  }
+  const access = await authenticateTranslationSession(cookies, env);
+  if (access === 'unavailable') return privateJson({ error: 'unavailable' }, 503);
+  if (access === 'authentication_required') return privateJson({ error: access }, 401);
   if (!locals.supabase) return privateJson({ error: 'unavailable' }, 503);
 
   const result = await loadTranslationWorkspace(
     locals.supabase,
-    config.databaseSecret,
+    access.databaseSecret,
     crypto.randomUUID()
   );
   if (result.status !== 'success') return privateJson({ error: 'unavailable' }, 503);
@@ -28,11 +23,9 @@ export const GET: RequestHandler = async ({ cookies, locals }) => {
 };
 
 export const PUT: RequestHandler = async ({ cookies, locals, request, url }) => {
-  const config = getTranslationAccessConfig(env);
-  if (!config) return privateJson({ error: 'unavailable' }, 503);
-  if (!(await isTranslationSessionValid(cookies.get(TRANSLATION_COOKIE_NAME), config))) {
-    return privateJson({ error: 'authentication_required' }, 401);
-  }
+  const access = await authenticateTranslationSession(cookies, env);
+  if (access === 'unavailable') return privateJson({ error: 'unavailable' }, 503);
+  if (access === 'authentication_required') return privateJson({ error: access }, 401);
   if (request.headers.get('origin') && request.headers.get('origin') !== url.origin) {
     return privateJson({ error: 'invalid_request' }, 403);
   }
@@ -48,7 +41,7 @@ export const PUT: RequestHandler = async ({ cookies, locals, request, url }) => 
 
   const result = await saveTranslationDraft(
     locals.supabase,
-    config.databaseSecret,
+    access.databaseSecret,
     body,
     crypto.randomUUID()
   );
@@ -71,6 +64,7 @@ function isSaveBody(value: unknown): value is {
     typeof body.key === 'string' &&
     (body.locale === 'is' || body.locale === 'en') &&
     typeof body.value === 'string' &&
+    body.value.length <= TRANSLATION_VALUE_MAX_LENGTH &&
     (body.expectedPublicationRevision === null ||
       (Number.isInteger(body.expectedPublicationRevision) &&
         Number(body.expectedPublicationRevision) > 0)) &&

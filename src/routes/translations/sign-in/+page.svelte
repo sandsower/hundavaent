@@ -18,7 +18,9 @@
   };
 
   $effect(() => {
-    if (form?.incorrect && errorElement) void tick().then(() => errorElement?.focus());
+    if ((form?.incorrect || form?.throttled) && errorElement) {
+      void tick().then(() => errorElement?.focus());
+    }
   });
 </script>
 
@@ -33,7 +35,11 @@
     <h1 id="translation-sign-in-title">Translations</h1>
     <p class="intro">Enter the shared password to edit Icelandic and English interface copy.</p>
 
-    {#if form?.incorrect}
+    {#if form?.throttled}
+      <p class="hv-notice" data-tone="error" role="alert" tabindex="-1" bind:this={errorElement}>
+        Too many failed attempts. Try again in about {Math.ceil(form.retryAfterSeconds / 60)} minutes.
+      </p>
+    {:else if form?.incorrect}
       <p class="hv-notice" data-tone="error" role="alert" tabindex="-1" bind:this={errorElement}>
         That password is not correct.
       </p>
@@ -50,7 +56,12 @@
         required
       />
       <input type="hidden" name="redirectTo" value={form?.redirectTo ?? data.redirectTo} />
-      <button class="hv-control" data-intent="primary" type="submit" disabled={submitting}>
+      <button
+        class="hv-control"
+        data-intent="primary"
+        type="submit"
+        disabled={submitting || form?.throttled}
+      >
         {submitting ? 'Opening…' : 'Open workspace'}
       </button>
     </form>

@@ -10,6 +10,11 @@ import {
   verifyTranslationPassword
 } from '$server/translations/access';
 import {
+  TRANSLATION_MAX_FAILED_ATTEMPTS,
+  TranslationAttemptThrottle,
+  translationClientKey
+} from '$server/translations/attempts';
+import {
   createPublishProof,
   createReadWorkspaceProof,
   createRestoreProof,
@@ -83,6 +88,7 @@ describe('translation workspace access', () => {
     expect(normalizeTranslationRedirectTo('/en')).toBe('/translations');
     expect(normalizeTranslationRedirectTo('//attacker.example/translations')).toBe('/translations');
     expect(normalizeTranslationRedirectTo('/translations/sign-in')).toBe('/translations');
+    expect(normalizeTranslationRedirectTo('/translations-evil')).toBe('/translations');
   });
 
   it('scopes the HttpOnly cookie to translations and secures it on HTTPS', () => {
@@ -95,6 +101,31 @@ describe('translation workspace access', () => {
     expect(translationCookieOptions(new URL('http://localhost:5173/translations')).secure).toBe(
       false
     );
+  });
+});
+
+describe('translation password throttling', () => {
+  it('blocks the fifth failed attempt for fifteen minutes and clears on success', () => {
+    let now = 1_000;
+    const throttle = new TranslationAttemptThrottle(() => now);
+    for (let attempt = 1; attempt < TRANSLATION_MAX_FAILED_ATTEMPTS; attempt += 1) {
+      expect(throttle.recordFailure('198.51.100.7').blocked).toBe(false);
+    }
+    expect(throttle.recordFailure('198.51.100.7')).toEqual({
+      blocked: true,
+      retryAfterSeconds: 900
+    });
+    now += 899_000;
+    expect(throttle.check('198.51.100.7').blocked).toBe(true);
+    throttle.clear('198.51.100.7');
+    expect(throttle.check('198.51.100.7').blocked).toBe(false);
+  });
+
+  it('uses the trusted Cloudflare client address with a bounded fallback', () => {
+    expect(translationClientKey(new Headers({ 'cf-connecting-ip': ' 198.51.100.9 ' }))).toBe(
+      '198.51.100.9'
+    );
+    expect(translationClientKey(new Headers())).toBe('unknown');
   });
 });
 
@@ -270,6 +301,26 @@ describe('translation workspace RPC adapter', () => {
       command_issued_at: 1_753_099_200,
       command_proof: expect.stringMatching(/^[0-9a-f]{64}$/)
     });
+  });
+
+  it('enforces the 10,000 character adapter boundary before any RPC', async () => {
+    const rpc = vi.fn();
+    await expect(
+      saveTranslationDraft(
+        { rpc },
+        config.databaseSecret,
+        {
+          key: 'site.name',
+          locale: 'en',
+          value: 'x'.repeat(10_001),
+          expectedPublicationRevision: 4,
+          expectedDraftVersion: 2
+        },
+        '11111111-1111-4111-8111-111111111111',
+        1_753_099_200
+      )
+    ).resolves.toEqual({ status: 'infrastructure_error' });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('maps stale saves and publications to conflicts', async () => {
