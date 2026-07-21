@@ -271,13 +271,16 @@ select results_eq(
       jsonb_build_object(
         'place_id', '30000000-0000-4000-8000-000000000003',
         'expected_version', 3,
+        'expected_item_version', 2,
+        'expected_draft_version', 0,
         'condition_verifications', jsonb_build_array(
           jsonb_build_object(
             'access_condition_id', '40000000-0000-4000-8000-000000000003',
             'evidence_ids', jsonb_build_array('50000000-0000-4000-8000-000000000003')
           )
         ),
-        'freshness_until', '2099-01-01T00:00:00Z'
+        'freshness_until', '2099-01-01T00:00:00Z',
+        'decision_metadata', '{}'::jsonb
       ),
       'b7900000-0000-4000-8000-000000000014'
     )
@@ -536,13 +539,16 @@ select throws_ok(
       jsonb_build_object(
         'place_id', 'b7300000-0000-4000-8000-000000000001',
         'expected_version', 1,
+        'expected_item_version', 1,
+        'expected_draft_version', 0,
         'condition_verifications', jsonb_build_array(
           jsonb_build_object(
             'access_condition_id', 'b7400000-0000-4000-8000-000000000001',
             'evidence_ids', jsonb_build_array('b7500000-0000-4000-8000-000000000001')
           )
         ),
-        'freshness_until', '2099-01-01T00:00:00Z'
+        'freshness_until', '2099-01-01T00:00:00Z',
+        'decision_metadata', '{}'::jsonb
       ),
       'b7900000-0000-4000-8000-000000000003'
     )
