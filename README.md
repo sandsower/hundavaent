@@ -75,6 +75,9 @@ The manual clean evaluation is the source of truth for performance budgets, comp
 | `AUTH_EMAIL_ENABLED`              | Server configuration               | Enables passwordless token-hash email authentication      | No           |
 | `MEMBER_ACTIVATION_SECRET`        | Secret, server-only                | Signs callback-bound Member activation proofs             | No           |
 | `SITE_GATE_PASSWORD`              | Secret, server-only                | Shared password wall for provisional deployments          | No           |
+| `TRANSLATION_WORKSPACE_PASSWORD`  | Secret, server-only                | Opens the private interface translation workspace         | No           |
+| `TRANSLATION_SESSION_SECRET`      | Secret, server-only                | Signs expiring translation workspace sessions             | No           |
+| `TRANSLATION_DATABASE_SECRET`     | Secret, server-only                | Signs narrow translation draft and publication commands   | No           |
 | `EVALUATION_ENABLED`              | Server/test harness                | Enables deterministic test-only routes outside production | No           |
 | `EVALUATION_MODERATOR_EMAIL`      | Server/test harness                | Stable local Moderator identity                           | No           |
 | `SUPABASE_SECRET_KEY`             | Secret, test/operations only       | Local fixtures and controlled evaluation administration   | No           |
@@ -85,8 +88,24 @@ The manual clean evaluation is the source of truth for performance budgets, comp
 | `CLOUDFLARE_API_TOKEN`            | Secret, deployment only            | Preview deployment access                                 | No           |
 
 `SITE_GATE_PASSWORD` activates a shared password wall meant for provisional deployments before release.
-While it is set, every route except `/gate` and `/api/health` redirects to the gate page, and all responses carry `X-Robots-Tag: noindex, nofollow`.
+While it is set, every route except `/gate`, `/api/health`, and the separately protected `/translations` workspace redirects to the gate page, and all responses carry `X-Robots-Tag: noindex, nofollow`.
 Rotating the password invalidates every issued gate cookie.
+
+## Interface translation workflow
+
+The private `/translations` workspace edits Icelandic and English interface copy as equal languages.
+Edits remain drafts until one reviewed batch is published, and previous publications remain available for rollback.
+Application releases continue to own the valid key inventory by synchronizing `src/lib/i18n/messages/is.json` and `src/lib/i18n/messages/en.json` after database migrations.
+The published database snapshot is loaded once per localized request, strictly checked against the bundled key and placeholder contract, and then exposed to every server route through request-local copy.
+If the translation database function is missing, unavailable, or returns an invalid snapshot, Hundavænt uses the bundled JSON catalogue instead.
+Localized pages and every `/translations` response use `private, no-store`, so a successful publication appears on the next reload without a deployment.
+
+`TRANSLATION_WORKSPACE_PASSWORD` is the human-entered shared password.
+For the provisional gated launch, production binds it from the existing `HUNDAVAENT_PRODUCTION_SITE_GATE_PASSWORD` secret so no additional human password needs to be distributed.
+The translation workspace bypasses the whole-site gate and verifies that shared password through its own session guard, so translators enter it only once.
+Split it into a dedicated GitHub environment secret before retiring the whole-site gate.
+`TRANSLATION_SESSION_SECRET` signs the narrow, expiring workspace cookie, while `TRANSLATION_DATABASE_SECRET` signs server-to-database management commands.
+Generate those two values independently as high-entropy base64url secrets and never expose them to browser code.
 
 `PUBLIC_SUPABASE_PUBLISHABLE_KEY` is intentionally safe to expose and must be paired with least-privilege database grants and Row Level Security.
 `SUPABASE_SECRET_KEY` bypasses Row Level Security and is prohibited in browser code and normal application request handlers.
@@ -159,6 +178,8 @@ Add `https://preview.hundavaent.pages.dev/**` to the dedicated Supabase project'
 The workflow intentionally does not copy Fundid data, secrets, or resource identifiers, and it does not seed hosted data automatically.
 After deployment, explicitly provision the first Moderator's private Member account, Member role, and Moderator role in the dedicated Supabase project, then use the Moderator flow to create and publish the first preview Place.
 The preview workflow is then the external evidence source for visual and health approval.
+Preview does not provision translation management secrets or seed a published translation inventory.
+It intentionally serves the bundled catalogue fallback, and `/translations` remains unavailable there unless preview translation management is explicitly provisioned later.
 
 ## Protected production release
 
@@ -188,8 +209,11 @@ Configure these additional GitHub `production` environment values before dispatc
 - Variable `HUNDAVAENT_PRODUCTION_POSTHOG_PROJECT_ID` when production browser source maps should upload.
 - Secret `HUNDAVAENT_PRODUCTION_POSTHOG_API_KEY` limited to Error Tracking write access when production browser source maps should upload.
 - Secret `HUNDAVAENT_PRODUCTION_BACKUP_PASSPHRASE` containing a dedicated high-entropy recovery passphrase.
+- Secret `HUNDAVAENT_PRODUCTION_TRANSLATION_SESSION_SECRET` containing a dedicated high-entropy base64url session-signing value.
+- Secret `HUNDAVAENT_PRODUCTION_TRANSLATION_DATABASE_SECRET` containing a separate high-entropy base64url database-capability value.
 
 The workflow also uses the existing production Supabase URL, project ref, database password, publishable key, MapTiler style URL, and application URL bindings.
+It binds `TRANSLATION_WORKSPACE_PASSWORD` from the existing production site-gate secret during v1.
 On manual runs, leave `migrate` or `deploy` disabled when an operator wants only the encrypted recovery point.
 
 The logical recovery artifact protects independent application data and Storage schemas but does not currently protect managed Auth identities, hard identity-owned application rows, or the original values of neutralized identity-attribution columns, and it is not a substitute for managed point-in-time recovery.

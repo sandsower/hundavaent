@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 
-import { catalogues, parseLocale } from '$i18n';
+import { parseLocale } from '$i18n';
 import { buildFavouritePage, listFavourites } from '$server/favourites/favourites';
 
 import type { PageServerLoad } from './$types';
@@ -18,7 +18,7 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
     redirect(303, discovery);
   }
   if (!locals.supabase) {
-    error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+    error(503, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
   setHeaders({ 'cache-control': 'private, no-store', vary: 'cookie' });
 
@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
   );
   const hasCursorInput = rawBeforeSavedAt !== null || rawBeforePlaceId !== null;
   if (hasCursorInput && !hasValidCursor) {
-    error(400, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+    error(400, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
   const result = await listFavourites(locals.supabase, lang, {
     limit: pageSize + 1,
@@ -39,7 +39,7 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
     beforePlaceId: hasValidCursor ? requestedBeforePlaceId : null
   });
   if (result.status !== 'success') {
-    error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+    error(503, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
 
   const page = buildFavouritePage(result.value, pageSize);

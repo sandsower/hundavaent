@@ -2,7 +2,7 @@ import { error, redirect } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/public';
 
-import { catalogues, parseLocale } from '$i18n';
+import { parseLocale } from '$i18n';
 import { defaultCameraForPlaces, parseDiscoveryState } from '$lib/discovery/state';
 import { getCheckInPolicy } from '$server/check-ins/check-ins';
 import { listPublished } from '$server/discovery/public-places';
@@ -15,7 +15,7 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
 
   if (!locals.supabase) {
     error(503, {
-      message: catalogues[lang]['error.unexpectedBody'],
+      message: locals.copy['error.unexpectedBody'],
       requestId: locals.requestId
     });
   }
@@ -24,7 +24,7 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
 
   if (result.status !== 'success') {
     error(503, {
-      message: catalogues[lang]['error.unexpectedBody'],
+      message: locals.copy['error.unexpectedBody'],
       requestId: locals.requestId
     });
   }
@@ -50,7 +50,7 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
     favouriteResult.status !== 'success'
   ) {
     error(503, {
-      message: catalogues[lang]['error.unexpectedBody'],
+      message: locals.copy['error.unexpectedBody'],
       requestId: locals.requestId
     });
   }

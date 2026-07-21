@@ -1,6 +1,6 @@
 import { error, fail, type RequestEvent } from '@sveltejs/kit';
 
-import { catalogues, parseLocale, type Catalogue } from '$i18n';
+import type { Catalogue } from '$i18n';
 import {
   executeModerationCandidateAction,
   loadModerationCandidateReview,
@@ -11,11 +11,9 @@ import {
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
-  const lang = parseLocale(params.lang);
-
   if (!locals.supabase) {
     error(503, {
-      message: catalogues[lang]['error.unexpectedBody'],
+      message: locals.copy['error.unexpectedBody'],
       requestId: locals.requestId
     });
   }
@@ -23,19 +21,19 @@ export const load: PageServerLoad = async ({ locals, params }) => {
   const result = await loadModerationCandidateReview(locals.supabase, params.id);
   if (result.status === 'not_found') {
     error(404, {
-      message: catalogues[lang]['error.notFoundBody'],
+      message: locals.copy['error.notFoundBody'],
       requestId: locals.requestId
     });
   }
   if (result.status === 'forbidden') {
     error(403, {
-      message: catalogues[lang]['moderation.unauthorized'],
+      message: locals.copy['moderation.unauthorized'],
       requestId: locals.requestId
     });
   }
   if (result.status !== 'success') {
     error(503, {
-      message: catalogues[lang]['error.unexpectedBody'],
+      message: locals.copy['error.unexpectedBody'],
       requestId: locals.requestId
     });
   }
@@ -59,8 +57,7 @@ async function handleCandidateAction(
   action: ModerationCandidateActionName,
   { locals, params, request }: RequestEvent
 ) {
-  const lang = parseLocale(params.lang);
-  const copy = catalogues[lang];
+  const copy = locals.copy;
   if (!locals.supabase) {
     return fail(503, { action, success: false, error: copy['error.unexpectedBody'] });
   }

@@ -724,6 +724,7 @@ jobs:
       SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_PROJECT_REF }}
       SUPABASE_POOLER_HOST: aws-0-eu-west-1.pooler.supabase.com
       MEMBER_ACTIVATION_SECRET: ${{ secrets.HUNDAVAENT_PRODUCTION_MEMBER_ACTIVATION_SECRET }}
+      TRANSLATION_DATABASE_SECRET: ${{ secrets.HUNDAVAENT_PRODUCTION_TRANSLATION_DATABASE_SECRET }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -753,6 +754,14 @@ jobs:
             echo "The Member activation secret must be high-entropy base64url." >&2
             exit 1
           fi
+          if [[ ! "${TRANSLATION_DATABASE_SECRET}" =~ ^[A-Za-z0-9_-]{43,}$ ]]; then
+            echo "The interface translation database secret must be high-entropy base64url." >&2
+            exit 1
+          fi
+          translation_sql="${RUNNER_TEMP}/hundavaent-interface-translation-sync.sql"
+          trap 'rm -f "${translation_sql}"' EXIT
+          node --experimental-strip-types scripts/sync-interface-translation-inventory.ts \
+            "${translation_sql}"
           pnpm exec supabase db push --db-url "${db_url}" --dry-run --yes
           pnpm exec supabase db push --db-url "${db_url}" --yes
           psql -v ON_ERROR_STOP=1 -v activation_secret="${MEMBER_ACTIVATION_SECRET}" "${db_url}" <<'SQL'
@@ -761,12 +770,19 @@ jobs:
           app_fingerprint="$(printf '%s' "${MEMBER_ACTIVATION_SECRET}" | sha256sum | cut -d' ' -f1)"
           db_fingerprint="$(psql -At "${db_url}" -c "select encode(extensions.digest(convert_to(secret, 'UTF8'), 'sha256'), 'hex') from private.member_activation_capabilities where singleton")"
           test "${app_fingerprint}" = "${db_fingerprint}"
+          psql \
+            -v ON_ERROR_STOP=1 \
+            -v release_sha="${RELEASE_SHA}" \
+            -f "${translation_sql}" \
+            "${db_url}"
+          translation_key_count="$(jq 'length' src/lib/i18n/messages/is.json)"
           {
             echo "### Production migrations"
             echo
             echo "- Commit: ${RELEASE_SHA}"
             echo "- Migrations applied after tested recovery point"
             echo "- Member activation capability fingerprint: ${app_fingerprint}"
+            echo "- Published interface translation keys per locale: ${translation_key_count}"
           } >> "${GITHUB_STEP_SUMMARY}"
 
   deploy:
@@ -792,6 +808,9 @@ jobs:
       POSTHOG_HOST: https://eu.i.posthog.com
       APP_ENVIRONMENT: production
       SITE_GATE_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SITE_GATE_PASSWORD }}
+      TRANSLATION_WORKSPACE_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SITE_GATE_PASSWORD }}
+      TRANSLATION_SESSION_SECRET: ${{ secrets.HUNDAVAENT_PRODUCTION_TRANSLATION_SESSION_SECRET }}
+      TRANSLATION_DATABASE_SECRET: ${{ secrets.HUNDAVAENT_PRODUCTION_TRANSLATION_DATABASE_SECRET }}
       SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_PROJECT_REF }}
       EVALUATION_ENABLED: 'false'
       AUTH_EMAIL_ENABLED: ${{ vars.HUNDAVAENT_PRODUCTION_AUTH_EMAIL_ENABLED }}
@@ -834,6 +853,9 @@ jobs:
             APP_ENVIRONMENT
             APP_RELEASE
             SITE_GATE_PASSWORD
+            TRANSLATION_WORKSPACE_PASSWORD
+            TRANSLATION_SESSION_SECRET
+            TRANSLATION_DATABASE_SECRET
             AUTH_EMAIL_ENABLED
             AUTH_FACEBOOK_ENABLED
             MEMBER_ACTIVATION_SECRET
@@ -865,6 +887,15 @@ jobs:
             echo "The Member activation secret must be high-entropy base64url." >&2
             exit 1
           fi
+          if [[ "${TRANSLATION_WORKSPACE_PASSWORD}" != "${SITE_GATE_PASSWORD}" ]]; then
+            echo "The v1 translation workspace password must reuse the provisional site gate password." >&2
+            exit 1
+          fi
+          if [[ ! "${TRANSLATION_SESSION_SECRET}" =~ ^[A-Za-z0-9_-]{43,}$ ]] || \
+              [[ ! "${TRANSLATION_DATABASE_SECRET}" =~ ^[A-Za-z0-9_-]{43,}$ ]]; then
+            echo "Translation session and database secrets must be high-entropy base64url." >&2
+            exit 1
+          fi
           if [[ "${PUBLIC_MAP_STYLE_URL}" != https://api.maptiler.com/* ]] || [[ "${PUBLIC_MAP_STYLE_URL}" != *"?key="* && "${PUBLIC_MAP_STYLE_URL}" != *"&key="* ]]; then
             echo "The production map style must use an authenticated MapTiler URL." >&2
             exit 1
@@ -893,6 +924,9 @@ jobs:
             --arg app_environment "${APP_ENVIRONMENT}" \
             --arg app_release "${APP_RELEASE}" \
             --arg gate_password "${SITE_GATE_PASSWORD}" \
+            --arg translation_workspace_password "${TRANSLATION_WORKSPACE_PASSWORD}" \
+            --arg translation_session_secret "${TRANSLATION_SESSION_SECRET}" \
+            --arg translation_database_secret "${TRANSLATION_DATABASE_SECRET}" \
             --arg auth_email_enabled "${AUTH_EMAIL_ENABLED}" \
             --arg auth_facebook_enabled "${AUTH_FACEBOOK_ENABLED}" \
             --arg member_activation_secret "${MEMBER_ACTIVATION_SECRET}" \
@@ -906,6 +940,9 @@ jobs:
               APP_ENVIRONMENT: $app_environment,
               APP_RELEASE: $app_release,
               SITE_GATE_PASSWORD: $gate_password,
+              TRANSLATION_WORKSPACE_PASSWORD: $translation_workspace_password,
+              TRANSLATION_SESSION_SECRET: $translation_session_secret,
+              TRANSLATION_DATABASE_SECRET: $translation_database_secret,
               AUTH_EMAIL_ENABLED: $auth_email_enabled,
               AUTH_FACEBOOK_ENABLED: $auth_facebook_enabled,
               MEMBER_ACTIVATION_SECRET: $member_activation_secret
@@ -927,23 +964,87 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --experimental-strip-types scripts/wait-for-health.ts "${PRODUCTION_URL}/api/health"
+          node --experimental-strip-types scripts/wait-for-health.ts \
+            "${PRODUCTION_URL}/api/health" \
+            --expected-release "${RELEASE_SHA}" \
+            --expected-check database=ready \
+            --expected-check map=configured \
+            --expected-check translations=published
           health_json="$(curl --fail --silent --show-error "${PRODUCTION_URL}/api/health")"
-          jq -e '
+          jq -e --arg release_sha "${RELEASE_SHA}" '
             .service == "hundavaent" and
             .status == "ok" and
+            .release == $release_sha and
             .checks.database == "ready" and
-            .checks.map == "configured"
+            .checks.map == "configured" and
+            .checks.translations == "published"
           ' <<< "${health_json}" > /dev/null
           gate_headers="$(curl --silent --show-error --head "${PRODUCTION_URL}/is")"
           grep -qiE '^location:.*/gate' <<< "${gate_headers}"
           grep -qi '^x-robots-tag:.*noindex' <<< "${gate_headers}"
           echo "Password gate verified: unauthenticated requests redirect to /gate with noindex."
+          workspace_headers="${RUNNER_TEMP}/hundavaent-translation-smoke-headers.txt"
+          workspace_body="${RUNNER_TEMP}/hundavaent-translation-smoke-body.html"
+          trap 'rm -f "${workspace_headers}" "${workspace_body}"' EXIT
+          workspace_location="$(curl \
+            --silent \
+            --show-error \
+            --head \
+            "${PRODUCTION_URL}/translations" | tr -d '\r' | awk -F ': ' \
+              'tolower($1) == "location" { print $2 }')"
+          test "${workspace_location}" = "/translations/sign-in?redirectTo=%2Ftranslations"
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --dump-header "${workspace_headers}" \
+            --output "${workspace_body}" \
+            "${PRODUCTION_URL}/translations/sign-in"
+          grep -qi '^cache-control:.*private, no-store' "${workspace_headers}"
+          grep -qi '^x-robots-tag:.*noindex' "${workspace_headers}"
+          grep -q 'data-translation-workspace-sign-in' "${workspace_body}"
+          grep -q 'name="password"' "${workspace_body}"
+          echo "Translation workspace password boundary verified without changing translations."
           {
             echo "### Hundavaent production"
             echo
             echo "- URL: ${PRODUCTION_URL}"
             echo "- Health: ready"
             echo "- Gate: active"
+            echo "- Interface translations: published"
+            echo "- Translation workspace: password boundary ready"
             echo "- Commit: ${RELEASE_SHA}"
           } >> "${GITHUB_STEP_SUMMARY}"
+
+  finalize-translation-capability:
+    name: Retire the previous translation capability
+    needs: deploy
+    if: ${{ github.event_name == 'workflow_run' || inputs.deploy }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      SUPABASE_DB_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_PROJECT_REF }}
+      SUPABASE_POOLER_HOST: aws-0-eu-west-1.pooler.supabase.com
+      TRANSLATION_DATABASE_SECRET: ${{ secrets.HUNDAVAENT_PRODUCTION_TRANSLATION_DATABASE_SECRET }}
+    steps:
+      - name: Retire the previous capability after healthy deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "${TRANSLATION_DATABASE_SECRET}" =~ ^[A-Za-z0-9_-]{43,}$ ]]; then
+            echo "The interface translation database secret must be high-entropy base64url." >&2
+            exit 1
+          fi
+          encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"], safe=""))')"
+          db_url="postgresql://postgres.${SUPABASE_PROJECT_REF}:${encoded_password}@${SUPABASE_POOLER_HOST}:5432/postgres"
+          psql \
+            -v ON_ERROR_STOP=1 \
+            "${db_url}" <<'SQL'
+          \getenv translation_database_secret TRANSLATION_DATABASE_SECRET
+          select public.retire_previous_interface_translation_capability(
+            :'translation_database_secret'
+          );
+          SQL
+          echo "The previous interface translation capability was retired after health verification."

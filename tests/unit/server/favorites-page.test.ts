@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { load } from '../../../src/routes/[lang=lang]/favorites/+page.server';
+import { catalogues } from '$i18n';
 
 const placeId = '30000000-0000-4000-8000-000000000003';
 
@@ -8,7 +9,7 @@ describe('Favorites page boundary', () => {
   it('opens the contextual sign-in dialog and preserves the Favorites destination', async () => {
     await expect(
       load({
-        locals: { requestId: 'request-signed-out' },
+        locals: { requestId: 'request-signed-out', copy: catalogues.en },
         params: { lang: 'en' },
         parent: vi.fn(async () => ({ signedIn: false })),
         setHeaders: vi.fn(),
@@ -35,7 +36,7 @@ describe('Favorites page boundary', () => {
     const rpc = vi.fn(async () => ({ data: rows, error: null }));
 
     const result = await load({
-      locals: { supabase: { rpc }, requestId: 'request-1' },
+      locals: { supabase: { rpc }, requestId: 'request-1', copy: catalogues.en },
       params: { lang: 'en' },
       parent: vi.fn(async () => ({ signedIn: true })),
       setHeaders: vi.fn(),
@@ -71,7 +72,11 @@ describe('Favorites page boundary', () => {
   ])('rejects a malformed or incomplete cursor: %s', async (url) => {
     await expect(
       load({
-        locals: { supabase: { rpc: vi.fn() }, requestId: 'request-2' },
+        locals: {
+          supabase: { rpc: vi.fn() },
+          requestId: 'request-2',
+          copy: catalogues.en
+        },
         params: { lang: 'en' },
         parent: vi.fn(async () => ({ signedIn: true })),
         setHeaders: vi.fn(),

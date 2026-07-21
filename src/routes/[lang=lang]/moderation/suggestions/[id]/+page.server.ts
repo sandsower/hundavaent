@@ -1,6 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 
-import { catalogues, parseLocale } from '$i18n';
+import { parseLocale } from '$i18n';
 import {
   executeModerationSuggestionAction,
   loadModerationSuggestionReview,
@@ -14,9 +14,8 @@ import type { Actions, PageServerLoad } from './$types';
 
 // The Moderator guard for this load is enforced by the parent moderation +layout.server.ts.
 export const load: PageServerLoad = async ({ locals, params, url }) => {
-  const lang = parseLocale(params.lang);
   if (!locals.supabase) {
-    error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+    error(503, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
   const result = await loadModerationSuggestionReview(
     locals.supabase as unknown as SuggestionRpcClient,
@@ -25,10 +24,10 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     url.searchParams
   );
   if (result.status === 'not_found') {
-    error(404, { message: catalogues[lang]['error.notFoundBody'], requestId: locals.requestId });
+    error(404, { message: locals.copy['error.notFoundBody'], requestId: locals.requestId });
   }
   if (result.status !== 'success') {
-    error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+    error(503, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
 
   return result.value;
