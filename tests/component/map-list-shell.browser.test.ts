@@ -24,6 +24,7 @@ const places = [
     locality: 'Reykjavík',
     latitude: 64.1423,
     longitude: -21.9555,
+    wheelchairAccessibility: 'accessible' as const,
     accessConditionCount: 1,
     simpleAccessSummary: true,
     accessArea: 'outdoors' as const,
@@ -68,6 +69,7 @@ const complexProfile = {
   name: 'Published Place',
   description: 'Complex verified access.',
   category: 'park' as const,
+  wheelchairAccessibility: 'accessible' as const,
   location: {
     addressLine: 'Hundagata 1',
     locality: 'Reykjavík',

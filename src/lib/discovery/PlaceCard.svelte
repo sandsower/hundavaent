@@ -6,6 +6,7 @@
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
   import AccessSymbols from '$lib/discovery/AccessSymbols.svelte';
+  import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
   import PhotoCredit from './PhotoCredit.svelte';
   import RefreshablePlaceImage from './RefreshablePlaceImage.svelte';
 
@@ -142,12 +143,15 @@
         </div>
       {/if}
     </div>
-    <AccessSymbols
-      placeName={place.name}
-      conditions={place.accessConditions}
-      {copy}
-      onOpenDetails={() => selectButton && onSelect(place.placeId, selectButton, true)}
-    />
+    <div class="place-facts">
+      <AccessSymbols
+        placeName={place.name}
+        conditions={place.accessConditions}
+        {copy}
+        onOpenDetails={() => selectButton && onSelect(place.placeId, selectButton, true)}
+      />
+      <WheelchairAccessibilityBadge state={place.wheelchairAccessibility} {copy} />
+    </div>
   </div>
 </article>
 
@@ -230,6 +234,12 @@
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.65rem;
     align-items: start;
+  }
+
+  .place-facts {
+    display: grid;
+    gap: 0.55rem;
+    justify-items: start;
   }
 
   .place-target {

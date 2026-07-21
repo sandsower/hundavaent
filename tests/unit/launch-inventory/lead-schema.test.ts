@@ -326,7 +326,8 @@ describe('launch-inventory candidate command mapping', () => {
         'operator',
         'phone',
         'translations',
-        'website_url'
+        'website_url',
+        'wheelchair_accessibility'
       ].sort()
     );
   });

@@ -486,6 +486,7 @@ export function buildCandidateCommand(lead: Lead): CandidatePlaceCommand {
       geometry_source: lead.location.geometryNote
     },
     category: lead.category,
+    wheelchair_accessibility: 'unknown',
     website_url: lead.websiteUrl,
     phone: lead.phone,
     opening_hours: {},

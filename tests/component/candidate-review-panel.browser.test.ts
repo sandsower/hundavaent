@@ -14,6 +14,7 @@ const data = {
     placeId,
     version: 3,
     lifecycle: 'candidate',
+    wheelchairAccessibility: 'unknown' as const,
     operatorName: 'Candidate operator',
     category: 'cafe',
     addressLine: 'Candidate street 1',
@@ -75,6 +76,8 @@ describe('CandidateReviewPanel', () => {
     expect(document.querySelector('#candidate-publication')).toBeTruthy();
     expect(document.querySelector('#candidate-media')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Verify and publish' })).toBeTruthy();
+    expect(screen.getByLabelText('Wheelchair accessibility')).toHaveValue('unknown');
+    expect(screen.getByRole('button', { name: 'Save accessibility' })).toBeTruthy();
 
     const forms = [...document.querySelectorAll('form')];
     expect(forms.length).toBeGreaterThan(0);
