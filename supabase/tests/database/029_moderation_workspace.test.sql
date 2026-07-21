@@ -356,6 +356,8 @@ select lives_ok(
     select * from public.resolve_place_suggestion(
       '92840000-0000-4000-8000-000000000002',
       'needs_information',
+      1,
+      0,
       'Frekari upplýsinga er þörf.',
       'More information is required.',
       null,
@@ -385,6 +387,8 @@ select lives_ok(
     select * from public.resolve_place_suggestion(
       '92840000-0000-4000-8000-000000000003',
       'rejected',
+      1,
+      0,
       'Tillögunni var hafnað.',
       'The Suggestion was rejected.',
       null,

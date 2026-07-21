@@ -88,7 +88,40 @@ values (
   '93160000-0000-4000-8000-000000000001',
   '93100000-0000-4000-8000-000000000001',
   '93161000-0000-4000-8000-000000000001',
-  '{}'::jsonb
+  '{
+    "purpose":"dog_access_destination",
+    "operator_name":"Workbench suggestion",
+    "category":"cafe",
+    "location":{
+      "address_line":"Tillögugata 1",
+      "locality":"Reykjavik",
+      "postal_code":"101",
+      "municipality":"reykjavik",
+      "latitude":64.147,
+      "longitude":-21.943
+    },
+    "translations":{
+      "is":{"name":"Tillaga","description":"Lýsing."},
+      "en":{"name":"Suggestion","description":"Description."}
+    },
+    "opening_hours":{},
+    "dog_amenities":[],
+    "access_condition":{
+      "access_area":"outdoors",
+      "restraint_condition":"leash_required",
+      "dog_eligibility":{"scope":"all_dogs"},
+      "availability_window":{},
+      "permission_requirement":"standing_permission"
+    },
+    "evidence":{
+      "kind":"member_report",
+      "source_url":"https://example.invalid/workbench",
+      "source_label":"Workbench source",
+      "observed_at":"2026-07-01T00:00:00Z",
+      "explanation":"Dogs are explicitly allowed.",
+      "source_metadata":{}
+    }
+  }'::jsonb
 );
 
 insert into private.place_flags (
@@ -189,7 +222,7 @@ select is(
   (
     select draft_version
     from public.save_place_suggestion_moderation_draft(
-      '93160000-0000-4000-8000-000000000001', 1, 0, 'proposal',
+      '93160000-0000-4000-8000-000000000001', 1, 0, 'identity',
       '{"operator_name":"Suggestion draft"}'::jsonb,
       '93140000-0000-4000-8000-000000000004'
     )
@@ -203,7 +236,7 @@ select is(
     select draft_version
     from public.save_place_flag_moderation_draft(
       '93170000-0000-4000-8000-000000000001', 1, 0, 'proposed-change',
-      '{"field_value":{"value":"555-0100"}}'::jsonb,
+      '{"application_payload":{"field_value":{"value":"555-0100"}}}'::jsonb,
       '93140000-0000-4000-8000-000000000005'
     )
   ),

@@ -41,9 +41,76 @@ select has_function(
 );
 select has_function(
   'public', 'resolve_place_flag',
-  array['uuid', 'text', 'text', 'text', 'text', 'jsonb', 'jsonb', 'jsonb', 'uuid'],
+  array[
+    'uuid', 'text', 'bigint', 'bigint', 'text', 'text', 'text', 'jsonb',
+    'jsonb', 'jsonb', 'uuid'
+  ],
   'Moderators resolve Corrections and Reports through one atomic command'
 );
+
+create function pg_temp.resolve_place_flag(
+  requested_flag_id uuid,
+  requested_outcome text,
+  member_reason_is text,
+  member_reason_en text,
+  private_note text,
+  application_payload jsonb,
+  dispute_command jsonb,
+  transition_command jsonb,
+  command_request_id uuid
+)
+returns table (
+  flag_id uuid,
+  status text,
+  applied_access_condition_id uuid,
+  dispute_id uuid,
+  transition_id uuid
+)
+language plpgsql
+as $$
+declare
+  current_status text;
+  current_item_version bigint;
+  current_draft_version bigint;
+begin
+  select detail.status, detail.item_version, detail.draft_version
+  into current_status, current_item_version, current_draft_version
+  from public.get_moderation_place_flag(requested_flag_id) detail;
+
+  if current_status is distinct from requested_outcome
+    and (application_payload is not null or dispute_command is not null or transition_command is not null)
+  then
+    select saved.draft_version into current_draft_version
+    from public.save_place_flag_moderation_draft(
+      requested_flag_id,
+      current_item_version,
+      current_draft_version,
+      'resolution',
+      jsonb_build_object(
+        'application_payload', application_payload,
+        'dispute_command', dispute_command,
+        'transition_command', transition_command
+      ),
+      gen_random_uuid()
+    ) saved;
+  end if;
+
+  return query
+  select * from public.resolve_place_flag(
+    requested_flag_id,
+    requested_outcome,
+    current_item_version,
+    current_draft_version,
+    member_reason_is,
+    member_reason_en,
+    private_note,
+    null,
+    null,
+    null,
+    command_request_id
+  );
+end;
+$$;
 select has_function(
   'public', 'confirm_place_flag_contribution', array['uuid', 'uuid'],
   'Contribution confirmation is a separate post-resolution command'
@@ -193,7 +260,7 @@ select throws_ok(
 );
 select throws_ok(
   $$
-    select * from public.resolve_place_flag(
+    select * from pg_temp.resolve_place_flag(
       '00000000-0000-4000-8000-000000000000', 'rejected', 'Ástæða', 'Reason', null, null, null, null,
       '86000000-0000-4000-8000-000000000002'
     )
@@ -572,7 +639,7 @@ set local role authenticated;
 -- Resolution: dispute_opened composes the existing freshness-and-identity command --------------------------------
 
 select is(
-  (select status from public.resolve_place_flag(
+  (select status from pg_temp.resolve_place_flag(
     :'flag_d',
     'dispute_opened', 'Málið er komið í rannsókn hjá stjórnendum.', 'The matter is under Moderator review.',
     'Escalated as a Safety Concern; venue contacted informally.', null,
@@ -594,7 +661,7 @@ select is(
 -- Resolution: applied composes an atomic Access Condition supersede + verify -------------------
 
 select is(
-  (select status from public.resolve_place_flag(
+  (select status from pg_temp.resolve_place_flag(
     :'flag_i',
     'applied', 'Leiðréttingin var staðfest og birt.', 'The Correction was verified and published.',
     null,
@@ -640,7 +707,7 @@ set local role authenticated;
 -- Resolution: a second, distinct-Member claim on the same target keeps its own outcome ----------
 
 select is(
-  (select status from public.resolve_place_flag(
+  (select status from pg_temp.resolve_place_flag(
     :'flag_j',
     'rejected', 'Ekki tókst að staðfesta ábendinguna sjálfstætt.',
     'The Report could not be independently substantiated.', 'Venue confirmed the sign is current.', null,
@@ -653,7 +720,7 @@ select is(
 -- Resolution: applied composes a Place-field update under optimistic concurrency ----------------
 
 select is(
-  (select status from public.resolve_place_flag(
+  (select status from pg_temp.resolve_place_flag(
     :'flag_a',
     'applied', 'Símanúmerið var uppfært.', 'The phone number was updated.', null,
     jsonb_build_object('expected_version', 1, 'field_value', jsonb_build_object('value', '+354 555 0199')),
@@ -663,7 +730,7 @@ select is(
   'A Moderator can apply a Place-field phone Correction'
 );
 select is(
-  (select status from public.resolve_place_flag(
+  (select status from pg_temp.resolve_place_flag(
     :'flag_a',
     'applied', 'Símanúmerið var uppfært.', 'The phone number was updated.', null,
     jsonb_build_object('expected_version', 1, 'field_value', jsonb_build_object('value', '+354 555 0199')),
@@ -674,7 +741,7 @@ select is(
 );
 select throws_ok(
   format(
-    $fmt$select * from public.resolve_place_flag(
+    $fmt$select * from pg_temp.resolve_place_flag(
       %L, 'rejected', 'Breytt niðurstaða.', 'Changed outcome.', null, null, null, null,
       '87000000-0000-4000-8000-000000000005'
     )$fmt$,
@@ -723,7 +790,7 @@ select is(
 -- Resolution: rejected surfaces a private Moderator-only note -----------------------------------
 
 select is(
-  (select status from public.resolve_place_flag(
+  (select status from pg_temp.resolve_place_flag(
     :'flag_b',
     'rejected', 'Vefslóðin er enn rétt.', 'The website address is still correct.',
     'Called the venue to confirm; no change needed.', null, null, null,
@@ -777,7 +844,7 @@ select set_config('request.jwt.claim.sub', '76000000-0000-4000-8000-000000000003
 set local role authenticated;
 select throws_ok(
   format(
-    $fmt$select * from public.resolve_place_flag(
+    $fmt$select * from pg_temp.resolve_place_flag(
       %L, 'applied', 'Ástæða', 'Reason', null, null, null, null, '87000000-0000-4000-8000-000000000009'
     )$fmt$,
     :'flag_e'::uuid
@@ -786,7 +853,7 @@ select throws_ok(
 );
 select throws_ok(
   format(
-    $fmt$select * from public.resolve_place_flag(
+    $fmt$select * from pg_temp.resolve_place_flag(
       %L, 'dispute_opened', 'Ástæða', 'Reason', null, null, null, null,
       '87000000-0000-4000-8000-000000000010'
     )$fmt$,
@@ -795,7 +862,7 @@ select throws_ok(
   '22023', null, 'Opening a dispute requires an Access Condition target, not a Place field'
 );
 select is(
-  (select status from public.resolve_place_flag(
+  (select status from pg_temp.resolve_place_flag(
     :'flag_e',
     'needs_information', 'Vinsamlegast sendu ljósmynd af nýja skiltinu.',
     'Please share a photo of the new sign.', null, null, null, null, '87000000-0000-4000-8000-000000000011'
@@ -813,7 +880,7 @@ select ok(
 select set_config('request.jwt.claim.sub', '76000000-0000-4000-8000-000000000003', true);
 set local role authenticated;
 select is(
-  (select status from public.resolve_place_flag(
+  (select status from pg_temp.resolve_place_flag(
     :'flag_e',
     'confirmed_useful', 'Ábendingin reyndist gagnleg.', 'The Report supplied useful Evidence.', null,
     null, null, null, '87000000-0000-4000-8000-000000000012'
@@ -865,7 +932,7 @@ select set_config('request.jwt.claim.sub', '76000000-0000-4000-8000-000000000003
 set local role authenticated;
 select throws_ok(
   format(
-    $fmt$select * from public.resolve_place_flag(
+    $fmt$select * from pg_temp.resolve_place_flag(
       %L, 'confirmed_useful', 'Ástæða', 'Reason', null, null, null, null,
       '87000000-0000-4000-8000-000000000014'
     )$fmt$,
@@ -874,7 +941,7 @@ select throws_ok(
   '22023', null, 'Only a Report can be resolved as confirmed useful, not a Correction'
 );
 select is(
-  (select status from public.resolve_place_flag(
+  (select status from pg_temp.resolve_place_flag(
     :'flag_g',
     'applied', 'Hundabúnaður uppfærður.', 'Dog amenities were updated.', null,
     jsonb_build_object('expected_version', 2, 'field_value', jsonb_build_object('value', jsonb_build_array('water_bowl'))),
@@ -929,7 +996,7 @@ select id as flag_h from private.place_flags where request_id = '86000000-0000-4
 select set_config('request.jwt.claim.sub', '76000000-0000-4000-8000-000000000003', true);
 set local role authenticated;
 select is(
-  (select status from public.resolve_place_flag(
+  (select status from pg_temp.resolve_place_flag(
     :'flag_h',
     'place_inactivated', 'Staðurinn hefur verið gerður óvirkur.', 'The Place has been made Inactive.', null,
     null, null,
