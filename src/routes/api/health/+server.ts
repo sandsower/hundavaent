@@ -47,11 +47,13 @@ function healthResponse(
   translations: 'fallback' | 'published'
 ): Response {
   const evaluationServerId = privateEnv.HUNDAVAENT_EVALUATION_SERVER_ID?.trim();
+  const release = privateEnv.APP_RELEASE?.trim() || null;
 
   return json(
     {
       service: 'hundavaent',
       status: status === 200 ? 'ok' : 'unavailable',
+      release,
       checks: { database, map, translations },
       requestId
     },

@@ -37,6 +37,67 @@ describe('interface translation inventory release SQL', () => {
     ).toThrow('same keys');
   });
 
+  it('requires exactly the Icelandic and English locale catalogues', () => {
+    expect(() =>
+      renderInterfaceTranslationInventorySql({
+        is: { welcome: 'Velkomin' },
+        en: { welcome: 'Welcome' },
+        fr: { welcome: 'Bienvenue' }
+      } as never)
+    ).toThrow('exactly is and en');
+  });
+
+  it.each(['.invalid', 'invalid key', 'a'.repeat(161)])(
+    'rejects a key outside the database contract: %s',
+    (key) => {
+      expect(() =>
+        renderInterfaceTranslationInventorySql({
+          is: { [key]: 'Gildi' },
+          en: { [key]: 'Value' }
+        })
+      ).toThrow('invalid key');
+    }
+  );
+
+  it('rejects values longer than the database contract', () => {
+    const oversized = 'a'.repeat(10_001);
+    expect(() =>
+      renderInterfaceTranslationInventorySql({
+        is: { welcome: oversized },
+        en: { welcome: oversized }
+      })
+    ).toThrow('10,000');
+  });
+
+  it.each(['', '   '])('rejects an empty translation value: %j', (value) => {
+    expect(() =>
+      renderInterfaceTranslationInventorySql({
+        is: { welcome: value },
+        en: { welcome: value }
+      })
+    ).toThrow('non-empty');
+  });
+
+  it('accepts the maximum SQL key and value boundaries', () => {
+    const key = `A${'_'.repeat(159)}`;
+    const value = `{name}{name}${'a'.repeat(9_988)}`;
+
+    expect(key).toHaveLength(160);
+    expect(value).toHaveLength(10_000);
+    expect(() =>
+      renderInterfaceTranslationInventorySql({ is: { [key]: value }, en: { [key]: value } })
+    ).not.toThrow();
+  });
+
+  it('rejects mismatched placeholder multisets between locales', () => {
+    expect(() =>
+      renderInterfaceTranslationInventorySql({
+        is: { welcome: 'Velkomin {name} {name}' },
+        en: { welcome: 'Welcome {name}' }
+      })
+    ).toThrow('placeholders');
+  });
+
   it('rejects a catalogue value that could terminate its dollar-quoted payload', () => {
     expect(() =>
       renderInterfaceTranslationInventorySql({

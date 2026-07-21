@@ -178,6 +178,8 @@ Add `https://preview.hundavaent.pages.dev/**` to the dedicated Supabase project'
 The workflow intentionally does not copy Fundid data, secrets, or resource identifiers, and it does not seed hosted data automatically.
 After deployment, explicitly provision the first Moderator's private Member account, Member role, and Moderator role in the dedicated Supabase project, then use the Moderator flow to create and publish the first preview Place.
 The preview workflow is then the external evidence source for visual and health approval.
+Preview does not provision translation management secrets or seed a published translation inventory.
+It intentionally serves the bundled catalogue fallback, and `/translations` remains unavailable there unless preview translation management is explicitly provisioned later.
 
 ## Protected production release
 

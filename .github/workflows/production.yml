@@ -758,6 +758,10 @@ jobs:
             echo "The interface translation database secret must be high-entropy base64url." >&2
             exit 1
           fi
+          translation_sql="${RUNNER_TEMP}/hundavaent-interface-translation-sync.sql"
+          trap 'rm -f "${translation_sql}"' EXIT
+          node --experimental-strip-types scripts/sync-interface-translation-inventory.ts \
+            "${translation_sql}"
           pnpm exec supabase db push --db-url "${db_url}" --dry-run --yes
           pnpm exec supabase db push --db-url "${db_url}" --yes
           psql -v ON_ERROR_STOP=1 -v activation_secret="${MEMBER_ACTIVATION_SECRET}" "${db_url}" <<'SQL'
@@ -766,10 +770,6 @@ jobs:
           app_fingerprint="$(printf '%s' "${MEMBER_ACTIVATION_SECRET}" | sha256sum | cut -d' ' -f1)"
           db_fingerprint="$(psql -At "${db_url}" -c "select encode(extensions.digest(convert_to(secret, 'UTF8'), 'sha256'), 'hex') from private.member_activation_capabilities where singleton")"
           test "${app_fingerprint}" = "${db_fingerprint}"
-          translation_sql="${RUNNER_TEMP}/hundavaent-interface-translation-sync.sql"
-          trap 'rm -f "${translation_sql}"' EXIT
-          node --experimental-strip-types scripts/sync-interface-translation-inventory.ts \
-            "${translation_sql}"
           psql \
             -v ON_ERROR_STOP=1 \
             -v release_sha="${RELEASE_SHA}" \
@@ -964,11 +964,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --experimental-strip-types scripts/wait-for-health.ts "${PRODUCTION_URL}/api/health"
+          node --experimental-strip-types scripts/wait-for-health.ts \
+            "${PRODUCTION_URL}/api/health" \
+            --expected-release "${RELEASE_SHA}" \
+            --expected-check database=ready \
+            --expected-check map=configured \
+            --expected-check translations=published
           health_json="$(curl --fail --silent --show-error "${PRODUCTION_URL}/api/health")"
-          jq -e '
+          jq -e --arg release_sha "${RELEASE_SHA}" '
             .service == "hundavaent" and
             .status == "ok" and
+            .release == $release_sha and
             .checks.database == "ready" and
             .checks.map == "configured" and
             .checks.translations == "published"

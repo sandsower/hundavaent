@@ -9,6 +9,8 @@ export interface InterfaceTranslationCatalogues {
 }
 
 const catalogueDelimiter = '$hundavaent_interface_catalogues_v1$';
+const translationKeyPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/;
+const maximumMessageLength = 10_000;
 
 export function renderInterfaceTranslationInventorySql(
   catalogues: InterfaceTranslationCatalogues
@@ -64,6 +66,15 @@ commit;
 }
 
 function validateCatalogues(catalogues: InterfaceTranslationCatalogues): number {
+  if (
+    !isRecord(catalogues) ||
+    Object.keys(catalogues).sort().join(',') !== 'en,is' ||
+    !isRecord(catalogues.is) ||
+    !isRecord(catalogues.en)
+  ) {
+    throw new Error('Interface translation inventory must contain exactly is and en catalogues');
+  }
+
   const icelandicKeys = Object.keys(catalogues.is).sort();
   const englishKeys = Object.keys(catalogues.en).sort();
   if (
@@ -75,19 +86,46 @@ function validateCatalogues(catalogues: InterfaceTranslationCatalogues): number 
   }
 
   for (const key of icelandicKeys) {
+    if (!translationKeyPattern.test(key)) {
+      throw new Error(`Interface translation inventory contains an invalid key: ${key}`);
+    }
     const icelandic = catalogues.is[key];
     const english = catalogues.en[key];
     if (
       typeof icelandic !== 'string' ||
       !icelandic.trim() ||
+      icelandic.length > maximumMessageLength ||
       typeof english !== 'string' ||
-      !english.trim()
+      !english.trim() ||
+      english.length > maximumMessageLength
     ) {
-      throw new Error(`Interface translation value must be non-empty: ${key}`);
+      throw new Error(
+        `Interface translation value must be non-empty and at most 10,000 characters: ${key}`
+      );
+    }
+    if (!samePlaceholders(icelandic, english)) {
+      throw new Error(`Interface translation locales must use the same placeholders: ${key}`);
     }
   }
 
   return icelandicKeys.length;
+}
+
+function samePlaceholders(left: string, right: string): boolean {
+  const leftPlaceholders = placeholders(left);
+  const rightPlaceholders = placeholders(right);
+  return (
+    leftPlaceholders.length === rightPlaceholders.length &&
+    leftPlaceholders.every((placeholder, index) => placeholder === rightPlaceholders[index])
+  );
+}
+
+function placeholders(value: string): string[] {
+  return [...value.matchAll(/\{[^{}]+\}/g)].map(([placeholder]) => placeholder).sort();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 async function readCatalogue(path: string): Promise<TranslationMessages> {
