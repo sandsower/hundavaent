@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('$env/dynamic/private', () => ({ env: { APP_RELEASE: 'release-under-test' } }));
+
 import { GET } from '../../../src/routes/api/health/+server';
 import { catalogues } from '$i18n';
 import type { RequestSupabaseClient } from '$server/db/clients';
@@ -37,6 +39,7 @@ describe('translation health', () => {
     const { response, body } = await healthBody(client);
 
     expect(response.status).toBe(200);
+    expect(body.release).toBe('release-under-test');
     expect(body.checks.translations).toBe('published');
     expect(client.rpc).toHaveBeenNthCalledWith(2, 'get_published_interface_translations', {
       requested_locale: 'is'

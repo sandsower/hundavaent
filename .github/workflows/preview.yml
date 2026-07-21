@@ -184,7 +184,8 @@ jobs:
             .service == "hundavaent" and
             .status == "ok" and
             .checks.database == "ready" and
-            .checks.map == "configured"
+            .checks.map == "configured" and
+            .checks.translations == "fallback"
           ' <<< "${health_json}" > /dev/null
           curl --head --silent --show-error "${PREVIEW_URL}" | grep -qi '^x-robots-tag:.*noindex'
           echo "url=${PREVIEW_URL}" >> "${GITHUB_OUTPUT}"
@@ -193,5 +194,6 @@ jobs:
             echo
             echo "- URL: ${PREVIEW_URL}"
             echo "- Health: ready"
+            echo "- Interface translations: bundled fallback"
             echo "- Commit: ${GITHUB_SHA}"
           } >> "${GITHUB_STEP_SUMMARY}"
