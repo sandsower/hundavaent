@@ -12,6 +12,11 @@
   import { createMapLibreAdapter, emptyMapLibreStyle } from '$lib/map/maplibre-adapter';
   import type { MapAdapter } from '$lib/map/types';
   import { downscaleImageFile, readImageDimensions } from '$lib/place-media/downscale-image';
+  import ModerationActionBar from './ModerationActionBar.svelte';
+  import ModerationConfirmDialog from './ModerationConfirmDialog.svelte';
+  import ModerationReadinessSummary from './ModerationReadinessSummary.svelte';
+  import ModerationReviewSection from './ModerationReviewSection.svelte';
+  import type { ModerationReviewIssue } from './types';
 
   import type { CandidatePublicationReview } from '$server/moderation/place-moderation';
   import type { ModerationPlaceMediaView } from '$server/moderation/candidate-workspace';
@@ -41,6 +46,7 @@
   let { data, form = null, standalone = false }: Props = $props();
   let submitting = $state(false);
   let correctingLocation = $state(false);
+  let confirmingPublish = $state(false);
   let alertElement = $state<HTMLElement>();
   let publishError = $derived(
     form && 'action' in form && form.action === 'publish' && 'error' in form ? form.error : null
@@ -129,13 +135,13 @@
       key: 'candidate',
       label: 'moderation.checkCandidate',
       recovery: 'moderation.addCandidateState',
-      target: 'candidate-state'
+      target: 'candidate-overview'
     },
     {
       key: 'operatorAndCategory',
       label: 'moderation.checkOperator',
       recovery: 'moderation.addOperator',
-      target: 'operator-category'
+      target: 'candidate-overview'
     },
     {
       key: 'capitalRegionLocation',
@@ -153,13 +159,13 @@
       key: 'icelandicTranslation',
       label: 'moderation.checkIcelandic',
       recovery: 'moderation.addIcelandic',
-      target: 'icelandic-translation'
+      target: 'translations'
     },
     {
       key: 'englishTranslation',
       label: 'moderation.checkEnglish',
       recovery: 'moderation.addEnglish',
-      target: 'english-translation'
+      target: 'translations'
     },
     {
       key: 'accessCondition',
@@ -174,6 +180,30 @@
       target: 'evidence'
     }
   ];
+
+  const readinessIssues = $derived(
+    checklist
+      .filter((item) => !data.review.checks[item.key])
+      .map((item): ModerationReviewIssue => ({
+        sectionId: item.target,
+        label: data.copy[item.recovery],
+        severity: 'blocking'
+      }))
+  );
+  const readinessState = $derived(data.review.ready ? 'ready' : 'blocked');
+  const readinessLabel = $derived(
+    data.review.ready
+      ? data.copy['moderation.workbench.readiness.ready']
+      : data.copy['moderation.workbench.readiness.blocked']
+  );
+  const readinessSummary = $derived(
+    data.review.ready
+      ? data.copy['moderation.workbench.readiness.readySummary']
+      : data.copy['moderation.workbench.readiness.blockedSummary'].replace(
+          '{count}',
+          String(readinessIssues.length)
+        )
+  );
 
   const enhancePublication: SubmitFunction = () => {
     submitting = true;
@@ -206,6 +236,11 @@
     };
 
     return data.copy[labels[data.review.geometryPrecision]];
+  }
+
+  function requestPublication(): void {
+    confirmingPublish = false;
+    document.querySelector<HTMLFormElement>('#candidate-publication')?.requestSubmit();
   }
 
   function describeCondition(
@@ -310,193 +345,238 @@
     </section>
   {/if}
 
-  <div class="review-grid">
-    <section class="place-card" aria-labelledby="place-name">
-      <span class="state">{data.copy[`status.${data.review.lifecycle}` as MessageKey]}</span>
-      <h2 id="place-name">
-        {data.lang === 'is'
-          ? (data.review.nameIs ?? data.review.nameEn ?? data.review.placeId)
-          : (data.review.nameEn ?? data.review.nameIs ?? data.review.placeId)}
-      </h2>
-      <p>{data.review.operatorName} · {data.review.category}</p>
-      <p>
-        {data.review.addressLine}, {data.review.postalCode}
-        {data.review.locality}
-      </p>
-    </section>
+  <h2 class="readiness-title">{data.copy['moderation.checklistTitle']}</h2>
+  <ModerationReadinessSummary
+    label={data.copy['moderation.checklistTitle']}
+    state={readinessState}
+    stateLabel={readinessLabel}
+    summary={readinessSummary}
+    issues={readinessIssues}
+  />
 
-    <section class="checklist-card" aria-labelledby="checklist-title">
-      <h2 id="checklist-title">{data.copy['moderation.checklistTitle']}</h2>
-      <ul>
-        {#each checklist as item (item.key)}
-          <li class:missing={!data.review.checks[item.key]}>
-            <span aria-hidden="true">{data.review.checks[item.key] ? '✓' : '!'}</span>
-            <div>
-              <strong>{data.copy[item.label]}</strong>
-              <small>
-                {data.review.checks[item.key]
-                  ? data.copy['moderation.checkComplete']
-                  : data.copy['moderation.checkMissing']}
-              </small>
-              {#if !data.review.checks[item.key]}
-                <a href={`#${item.target}`}>{data.copy[item.recovery]}</a>
-              {/if}
-            </div>
-          </li>
-        {/each}
-      </ul>
-    </section>
+  <div class="candidate-actions">
+    <ModerationActionBar label={data.copy['moderation.workbench.candidateActions']}>
+      <div class="action-buttons">
+        <button
+          type="button"
+          class="primary-action"
+          disabled={!data.review.ready ||
+            submitting ||
+            succeeded ||
+            (Boolean(form?.conflict) && data.review.lifecycle !== 'candidate')}
+          onclick={() => (confirmingPublish = true)}
+        >
+          {data.copy['moderation.verifyAndPublish']}
+        </button>
+        <button type="button" disabled title={data.copy['moderation.workbench.actionPending']}>
+          {data.copy['moderation.workbench.needsInformation']}
+        </button>
+        <button
+          type="button"
+          class="danger-action"
+          disabled
+          title={data.copy['moderation.workbench.actionPending']}
+        >
+          {data.copy['moderation.workbench.reject']}
+        </button>
+      </div>
+    </ModerationActionBar>
   </div>
 
-  <section class="details" aria-label={data.copy['moderation.reviewTitle']}>
-    <article id="candidate-state">
-      <h2>{data.copy['moderation.checkCandidate']}</h2>
-      <p>{data.copy[`status.${data.review.lifecycle}` as MessageKey]}</p>
-    </article>
-    <article id="operator-category">
-      <h2>{data.copy['moderation.checkOperator']}</h2>
-      <p>{data.review.operatorName} · {data.review.category}</p>
-    </article>
-    <article id="location">
-      <h2>{data.copy['moderation.checkLocation']}</h2>
-      <p>
-        {data.review.addressLine}, {data.review.postalCode}
-        {data.review.locality}
-      </p>
-      <p>{data.review.latitude.toFixed(6)}, {data.review.longitude.toFixed(6)}</p>
-      <p><strong>{geometryPrecisionLabel()}</strong></p>
-      <p>{data.review.geometrySource}</p>
-      <MapSurface
-        adapter={locationMapAdapter}
-        places={locationPlaces}
-        selectedPlaceId={data.review.placeId}
-        camera={locationCamera}
-        copy={data.copy}
-        onMarkerSelect={() => undefined}
-        onCameraChange={() => undefined}
-        compact
-      />
-      {#if locationError}<p class="message error" role="alert">{locationError}</p>{/if}
-      {#if locationSucceeded}
-        <p class="message success" role="status">{data.copy['moderation.geometryCorrected']}</p>
-      {/if}
-      <form
-        class="location-correction"
-        method="POST"
-        action="?/correctLocation"
-        use:enhance={enhanceLocation}
-        aria-busy={correctingLocation}
-      >
-        <input type="hidden" name="placeId" value={data.review.placeId} />
-        <input type="hidden" name="expectedVersion" value={data.review.version} />
-        <label>
-          {data.copy['moderation.addressLabel']}
-          <input name="addressLine" required value={data.review.addressLine} />
-        </label>
-        <label>
-          {data.copy['moderation.localityLabel']}
-          <input name="locality" required value={data.review.locality} />
-        </label>
-        <label>
-          {data.copy['moderation.postalCodeLabel']}
-          <input
-            name="postalCode"
-            required
-            pattern="[0-9][0-9][0-9]"
-            value={data.review.postalCode}
-          />
-        </label>
-        <label>
-          {data.copy['moderation.municipalityLabel']}
-          <select
-            name="municipality"
-            required
-            value={data.review.municipality}
-            aria-label={data.copy['moderation.municipalityLabel']}
-          >
-            <option value="reykjavik">Reykjavík</option>
-            <option value="kopavogur">Kópavogur</option>
-            <option value="seltjarnarnes">Seltjarnarnes</option>
-            <option value="gardabaer">Garðabær</option>
-            <option value="hafnarfjordur">Hafnarfjörður</option>
-            <option value="mosfellsbaer">Mosfellsbær</option>
-            <option value="kjosarhreppur">Kjósarhreppur</option>
-          </select>
-        </label>
-        <label>
-          {data.copy['moderation.latitudeLabel']}
-          <input
-            name="latitude"
-            type="number"
-            min="-90"
-            max="90"
-            step="any"
-            required
-            value={data.review.latitude}
-          />
-        </label>
-        <label>
-          {data.copy['moderation.longitudeLabel']}
-          <input
-            name="longitude"
-            type="number"
-            min="-180"
-            max="180"
-            step="any"
-            required
-            value={data.review.longitude}
-          />
-        </label>
-        <label>
-          {data.copy['moderation.geometryPrecisionLabel']}
-          <select
-            name="geometryPrecision"
-            required
-            value={data.review.geometryPrecision}
-            aria-label={data.copy['moderation.geometryPrecisionLabel']}
-          >
-            <option value="moderator_confirmed_point"
-              >{data.copy['moderation.geometryPrecision.moderatorConfirmed']}</option
+  <div class="review-sections">
+    <ModerationReviewSection
+      id="candidate-overview"
+      title={data.copy['moderation.workbench.section.overview']}
+      summary={`${data.review.operatorName} · ${data.review.category}`}
+      state={data.review.checks.candidate && data.review.checks.operatorAndCategory
+        ? 'complete'
+        : 'blocking'}
+    >
+      <section class="place-card" aria-labelledby="place-name">
+        <span class="state">{data.copy[`status.${data.review.lifecycle}` as MessageKey]}</span>
+        <h2 id="place-name">
+          {data.lang === 'is'
+            ? (data.review.nameIs ?? data.review.nameEn ?? data.review.placeId)
+            : (data.review.nameEn ?? data.review.nameIs ?? data.review.placeId)}
+        </h2>
+        <p>{data.review.operatorName} · {data.review.category}</p>
+        <p>
+          {data.review.addressLine}, {data.review.postalCode}
+          {data.review.locality}
+        </p>
+      </section>
+    </ModerationReviewSection>
+
+    <ModerationReviewSection
+      id="location"
+      title={data.copy['moderation.checkLocation']}
+      summary={`${data.review.addressLine}, ${data.review.locality}`}
+      state={data.review.checks.capitalRegionLocation && data.review.checks.geometryQuality
+        ? 'complete'
+        : 'blocking'}
+    >
+      <div class="location-detail">
+        <p>
+          {data.review.addressLine}, {data.review.postalCode}
+          {data.review.locality}
+        </p>
+        <p>{data.review.latitude.toFixed(6)}, {data.review.longitude.toFixed(6)}</p>
+        <p><strong>{geometryPrecisionLabel()}</strong></p>
+        <p>{data.review.geometrySource}</p>
+        <MapSurface
+          adapter={locationMapAdapter}
+          places={locationPlaces}
+          selectedPlaceId={data.review.placeId}
+          camera={locationCamera}
+          copy={data.copy}
+          onMarkerSelect={() => undefined}
+          onCameraChange={() => undefined}
+          compact
+        />
+        {#if locationError}<p class="message error" role="alert">{locationError}</p>{/if}
+        {#if locationSucceeded}
+          <p class="message success" role="status">{data.copy['moderation.geometryCorrected']}</p>
+        {/if}
+        <form
+          class="location-correction"
+          method="POST"
+          action="?/correctLocation"
+          use:enhance={enhanceLocation}
+          aria-busy={correctingLocation}
+        >
+          <input type="hidden" name="placeId" value={data.review.placeId} />
+          <input type="hidden" name="expectedVersion" value={data.review.version} />
+          <label>
+            {data.copy['moderation.addressLabel']}
+            <input name="addressLine" required value={data.review.addressLine} />
+          </label>
+          <label>
+            {data.copy['moderation.localityLabel']}
+            <input name="locality" required value={data.review.locality} />
+          </label>
+          <label>
+            {data.copy['moderation.postalCodeLabel']}
+            <input
+              name="postalCode"
+              required
+              pattern="[0-9][0-9][0-9]"
+              value={data.review.postalCode}
+            />
+          </label>
+          <label>
+            {data.copy['moderation.municipalityLabel']}
+            <select
+              name="municipality"
+              required
+              value={data.review.municipality}
+              aria-label={data.copy['moderation.municipalityLabel']}
             >
-            <option value="official_address_point"
-              >{data.copy['moderation.geometryPrecision.officialAddress']}</option
+              <option value="reykjavik">Reykjavík</option>
+              <option value="kopavogur">Kópavogur</option>
+              <option value="seltjarnarnes">Seltjarnarnes</option>
+              <option value="gardabaer">Garðabær</option>
+              <option value="hafnarfjordur">Hafnarfjörður</option>
+              <option value="mosfellsbaer">Mosfellsbær</option>
+              <option value="kjosarhreppur">Kjósarhreppur</option>
+            </select>
+          </label>
+          <label>
+            {data.copy['moderation.latitudeLabel']}
+            <input
+              name="latitude"
+              type="number"
+              min="-90"
+              max="90"
+              step="any"
+              required
+              value={data.review.latitude}
+            />
+          </label>
+          <label>
+            {data.copy['moderation.longitudeLabel']}
+            <input
+              name="longitude"
+              type="number"
+              min="-180"
+              max="180"
+              step="any"
+              required
+              value={data.review.longitude}
+            />
+          </label>
+          <label>
+            {data.copy['moderation.geometryPrecisionLabel']}
+            <select
+              name="geometryPrecision"
+              required
+              value={data.review.geometryPrecision}
+              aria-label={data.copy['moderation.geometryPrecisionLabel']}
             >
-            <option value="official_representative_centroid"
-              >{data.copy['moderation.geometryPrecision.officialCentroid']}</option
-            >
-            <option value="municipality_anchor_pending_geocode"
-              >{data.copy['moderation.geometryPrecision.pending']}</option
-            >
-          </select>
-        </label>
-        <label class="wide">
-          {data.copy['moderation.geometrySourceLabel']}
-          <input
-            name="geometrySource"
-            required
-            value={data.review.geometrySource}
-            aria-label={data.copy['moderation.geometrySourceLabel']}
-          />
-        </label>
-        <button type="submit" disabled={correctingLocation}>
-          {correctingLocation
-            ? data.copy['common.loading']
-            : data.copy['moderation.saveCorrectedGeometry']}
-        </button>
-      </form>
-    </article>
-    <article id="icelandic-translation" lang="is">
-      <h2>{data.copy['moderation.checkIcelandic']}</h2>
-      <p>{data.review.nameIs ?? data.copy['common.notAvailable']}</p>
-      <p>{data.review.descriptionIs ?? data.copy['common.notAvailable']}</p>
-    </article>
-    <article id="english-translation" lang="en">
-      <h2>{data.copy['moderation.checkEnglish']}</h2>
-      <p>{data.review.nameEn ?? data.copy['common.notAvailable']}</p>
-      <p>{data.review.descriptionEn ?? data.copy['common.notAvailable']}</p>
-    </article>
-    <article id="access-condition">
-      <h2>{data.copy['moderation.checkAccess']}</h2>
+              <option value="moderator_confirmed_point"
+                >{data.copy['moderation.geometryPrecision.moderatorConfirmed']}</option
+              >
+              <option value="official_address_point"
+                >{data.copy['moderation.geometryPrecision.officialAddress']}</option
+              >
+              <option value="official_representative_centroid"
+                >{data.copy['moderation.geometryPrecision.officialCentroid']}</option
+              >
+              <option value="municipality_anchor_pending_geocode"
+                >{data.copy['moderation.geometryPrecision.pending']}</option
+              >
+            </select>
+          </label>
+          <label class="wide">
+            {data.copy['moderation.geometrySourceLabel']}
+            <input
+              name="geometrySource"
+              required
+              value={data.review.geometrySource}
+              aria-label={data.copy['moderation.geometrySourceLabel']}
+            />
+          </label>
+          <button type="submit" disabled={correctingLocation}>
+            {correctingLocation
+              ? data.copy['common.loading']
+              : data.copy['moderation.saveCorrectedGeometry']}
+          </button>
+        </form>
+      </div>
+    </ModerationReviewSection>
+
+    <ModerationReviewSection
+      id="translations"
+      title={data.copy['moderation.workbench.section.translations']}
+      summary={data.review.checks.icelandicTranslation && data.review.checks.englishTranslation
+        ? data.copy['moderation.workbench.section.translationsComplete']
+        : data.copy['moderation.workbench.section.translationsMissing']}
+      state={data.review.checks.icelandicTranslation && data.review.checks.englishTranslation
+        ? 'complete'
+        : 'blocking'}
+    >
+      <div class="translation-grid">
+        <article lang="is">
+          <h3>{data.copy['moderation.checkIcelandic']}</h3>
+          <p>{data.review.nameIs ?? data.copy['common.notAvailable']}</p>
+          <p>{data.review.descriptionIs ?? data.copy['common.notAvailable']}</p>
+        </article>
+        <article lang="en">
+          <h3>{data.copy['moderation.checkEnglish']}</h3>
+          <p>{data.review.nameEn ?? data.copy['common.notAvailable']}</p>
+          <p>{data.review.descriptionEn ?? data.copy['common.notAvailable']}</p>
+        </article>
+      </div>
+    </ModerationReviewSection>
+
+    <ModerationReviewSection
+      id="access-condition"
+      title={data.copy['moderation.checkAccess']}
+      summary={data.copy['moderation.workbench.section.itemCount'].replace(
+        '{count}',
+        String(data.review.accessConditions.length)
+      )}
+      state={data.review.checks.accessCondition ? 'complete' : 'blocking'}
+    >
       <ol class="review-records">
         {#each data.review.accessConditions as condition (condition.id)}
           <li>
@@ -504,9 +584,17 @@
           </li>
         {/each}
       </ol>
-    </article>
-    <article id="evidence">
-      <h2>{data.copy['moderation.checkEvidence']}</h2>
+    </ModerationReviewSection>
+
+    <ModerationReviewSection
+      id="evidence"
+      title={data.copy['moderation.checkEvidence']}
+      summary={data.copy['moderation.workbench.section.sourceCount'].replace(
+        '{count}',
+        String(data.review.evidenceRecords.length)
+      )}
+      state={data.review.checks.evidence ? 'complete' : 'blocking'}
+    >
       <ul class="review-records">
         {#each data.review.evidenceRecords as evidence (evidence.id)}
           <li class="evidence-record">
@@ -522,372 +610,427 @@
           </li>
         {/each}
       </ul>
-    </article>
-  </section>
+    </ModerationReviewSection>
 
-  <form
-    id="candidate-publication"
-    method="POST"
-    action="?/publish"
-    use:enhance={enhancePublication}
-    aria-busy={submitting}
-  >
-    <input type="hidden" name="placeId" value={data.review.placeId} />
-    <input type="hidden" name="expectedVersion" value={data.review.version} />
-    {#each data.review.accessConditions as condition, index (condition.id)}
-      <fieldset class="evidence-map">
-        <legend
-          >{data.copy['moderation.conditionEvidence'].replace(
-            '{number}',
-            String(index + 1)
-          )}</legend
-        >
-        <p class="condition-context">
-          <strong>{describeCondition(condition)}</strong>
-        </p>
-        <input type="hidden" name="accessConditionId" value={condition.id} />
-        {#each data.review.evidenceRecords as evidence (evidence.id)}
-          <label>
-            <input type="checkbox" name={`conditionEvidence.${condition.id}`} value={evidence.id} />
-            <span class="evidence-choice">
-              <strong>{evidence.sourceLabel}</strong>
-              <small>{localizeEvidenceKind(evidence.kind, data.copy)}</small>
-              {#if evidence.sourceUrl}<small class="reference">{evidence.sourceUrl}</small>{/if}
-              {#if evidence.sourceCitation}
-                <small class="reference">{evidence.sourceCitation}</small>
-              {/if}
-              <time datetime={evidence.observedAt}
-                >{formatLocalizedDate(evidence.observedAt, data.lang)}</time
-              >
-            </span>
-          </label>
-        {/each}
-      </fieldset>
-    {/each}
-    <label>
-      {data.copy['moderation.freshnessLabel']}
-      <input
-        type="date"
-        name="freshnessUntil"
-        value={data.defaultFreshnessUntil}
-        required
-        aria-describedby="freshness-help"
-      />
-      <small id="freshness-help">{data.copy['moderation.freshnessHelp']}</small>
-    </label>
-    <button
-      type="submit"
-      disabled={!data.review.ready ||
-        submitting ||
-        succeeded ||
-        (Boolean(form?.conflict) && data.review.lifecycle !== 'candidate')}
+    <ModerationReviewSection
+      id="publication-evidence"
+      title={data.copy['moderation.workbench.section.publicationEvidence']}
+      summary={data.copy['moderation.workbench.section.publicationEvidenceSummary']}
+      state={data.review.checks.evidence && data.review.checks.accessCondition
+        ? 'complete'
+        : 'blocking'}
     >
-      {submitting ? data.copy['common.loading'] : data.copy['moderation.verifyAndPublish']}
-    </button>
-  </form>
-
-  <section id="candidate-media" class="media-section" aria-labelledby="media-title">
-    <h2 id="media-title">{data.copy['moderation.media.title']}</h2>
-    <p>{data.copy['moderation.media.intro']}</p>
-
-    {#if mediaError}
-      <section class="message error" role="alert">
-        <strong>{mediaError}</strong>
-      </section>
-    {/if}
-    {#if mediaSucceeded}
-      <section class="message success" role="status">
-        <strong>
-          {form && 'action' in form && form.action === 'uploadEvidence'
-            ? data.copy['moderation.media.uploadSucceeded']
-            : form && 'action' in form && form.action === 'uploadPhoto'
-              ? data.copy['moderation.media.uploadSucceeded']
-              : form && 'action' in form && form.action === 'approveMedia'
-                ? data.copy['moderation.media.approveSucceeded']
-                : form && 'action' in form && form.action === 'rejectMedia'
-                  ? data.copy['moderation.media.rejectSucceeded']
-                  : data.copy['moderation.media.retireSucceeded']}
-        </strong>
-      </section>
-    {/if}
-
-    <div class="media-columns">
-      <article
-        class="media-column"
-        aria-labelledby="evidence-media-title"
-        data-media-column="evidence"
+      <form
+        id="candidate-publication"
+        method="POST"
+        action="?/publish"
+        use:enhance={enhancePublication}
+        aria-busy={submitting}
       >
-        <h3 id="evidence-media-title">{data.copy['moderation.media.evidenceTitle']}</h3>
-        {#if evidenceItems.length === 0}
-          <p>{data.copy['moderation.media.evidenceEmpty']}</p>
-        {:else}
-          <ul class="media-list">
-            {#each evidenceItems as item (item.mediaId)}
-              <li
-                class="media-item"
-                class:retired={Boolean(item.retiredAt)}
-                data-media-item={item.mediaId}
-                data-storage-object-path={item.storageObjectPath}
-              >
-                {#if item.signedUrl}
-                  <img src={item.signedUrl} alt="" width="160" height="120" loading="lazy" />
-                {/if}
-                <div class="media-item-body">
-                  {#if item.sourceUrl}<span class="reference">{item.sourceUrl}</span>{/if}
-                  {#if item.capturedAt}
-                    <time datetime={item.capturedAt}
-                      >{formatLocalizedDate(item.capturedAt, data.lang)}</time
-                    >
+        <input type="hidden" name="placeId" value={data.review.placeId} />
+        <input type="hidden" name="expectedVersion" value={data.review.version} />
+        {#each data.review.accessConditions as condition, index (condition.id)}
+          <fieldset class="evidence-map">
+            <legend
+              >{data.copy['moderation.conditionEvidence'].replace(
+                '{number}',
+                String(index + 1)
+              )}</legend
+            >
+            <p class="condition-context">
+              <strong>{describeCondition(condition)}</strong>
+            </p>
+            <input type="hidden" name="accessConditionId" value={condition.id} />
+            {#each data.review.evidenceRecords as evidence (evidence.id)}
+              <label>
+                <input
+                  type="checkbox"
+                  name={`conditionEvidence.${condition.id}`}
+                  value={evidence.id}
+                />
+                <span class="evidence-choice">
+                  <strong>{evidence.sourceLabel}</strong>
+                  <small>{localizeEvidenceKind(evidence.kind, data.copy)}</small>
+                  {#if evidence.sourceUrl}<small class="reference">{evidence.sourceUrl}</small>{/if}
+                  {#if evidence.sourceCitation}
+                    <small class="reference">{evidence.sourceCitation}</small>
                   {/if}
-                  {#if item.retiredAt}
-                    <span class="badge">{data.copy['moderation.media.retired']}</span>
-                  {:else}
-                    <form method="POST" action="?/retireMedia" use:enhance={enhanceMedia}>
-                      <input type="hidden" name="placeId" value={data.review.placeId} />
-                      <input type="hidden" name="mediaId" value={item.mediaId} />
-                      <button type="submit">{data.copy['moderation.media.retireAction']}</button>
-                    </form>
-                  {/if}
-                </div>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-
-        <form
-          method="POST"
-          action="?/uploadEvidence"
-          enctype="multipart/form-data"
-          use:enhance={enhanceMedia}
-          class="media-upload-form"
-        >
-          <input type="hidden" name="placeId" value={data.review.placeId} />
-          <h4>{data.copy['moderation.media.uploadEvidenceTitle']}</h4>
-          <label>
-            {data.copy['moderation.media.fileLabel']}
-            <input
-              type="file"
-              name="file"
-              accept="image/png,image/jpeg,image/webp"
-              required
-              onchange={(fileEvent) => handleEvidenceFileChange(fileEvent.currentTarget)}
-            />
-          </label>
-          <input type="hidden" name="widthPx" value={evidenceWidth ?? ''} />
-          <input type="hidden" name="heightPx" value={evidenceHeight ?? ''} />
-          {#if evidenceFileError}
-            <p class="field-error">{data.copy[evidenceFileError]}</p>
-          {/if}
-          <label>
-            {data.copy['moderation.media.sourceUrlLabel']}
-            <input type="url" name="sourceUrl" required />
-          </label>
-          <label>
-            {data.copy['moderation.media.capturedAtLabel']}
-            <input type="datetime-local" name="capturedAt" required />
-          </label>
-          <button type="submit" disabled={evidenceProcessing || !evidenceWidth}>
-            {evidenceProcessing
-              ? data.copy['moderation.media.uploading']
-              : data.copy['moderation.media.uploadEvidenceAction']}
-          </button>
-        </form>
-      </article>
-
-      <article class="media-column" aria-labelledby="photo-media-title" data-media-column="photo">
-        <h3 id="photo-media-title">{data.copy['moderation.media.photosTitle']}</h3>
-        {#if photoItems.length === 0}
-          <p>{data.copy['moderation.media.photosEmpty']}</p>
-        {:else}
-          <ul class="media-list">
-            {#each photoItems as item (item.mediaId)}
-              <li
-                class="media-item"
-                class:retired={Boolean(item.retiredAt)}
-                data-media-item={item.mediaId}
-                data-storage-object-path={item.storageObjectPath}
-              >
-                {#if item.signedUrl}
-                  <img src={item.signedUrl} alt="" width="160" height="120" loading="lazy" />
-                {/if}
-                <div class="media-item-body">
-                  <span class="badge"
-                    >{data.copy[`moderation.media.state.${item.approvalState}` as MessageKey]}</span
+                  <time datetime={evidence.observedAt}
+                    >{formatLocalizedDate(evidence.observedAt, data.lang)}</time
                   >
-                  {#if item.isPrimary}
-                    <span class="badge">{data.copy['moderation.media.primary']}</span>
-                  {/if}
-                  {#if item.retiredAt}
-                    <span class="badge">{data.copy['moderation.media.retired']}</span>
-                  {:else if item.approvalState === 'pending'}
-                    <form
-                      method="POST"
-                      action="?/approveMedia"
-                      use:enhance={enhanceMedia}
-                      class="approve-form"
-                    >
-                      <input type="hidden" name="placeId" value={data.review.placeId} />
-                      <input type="hidden" name="mediaId" value={item.mediaId} />
-                      <label>
-                        {data.copy['moderation.media.photographerLabel']}
-                        <input
-                          type="text"
-                          name="photographerOrUploader"
-                          value={item.photographerOrUploader ?? ''}
-                          required
-                        />
-                      </label>
-                      <label>
-                        {data.copy['moderation.media.licenseDateLabel']}
-                        <input
-                          type="date"
-                          name="sourceOrCaptureDate"
-                          value={item.sourceOrCaptureDate ?? ''}
-                          required
-                        />
-                      </label>
-                      <label>
-                        {data.copy['moderation.media.licenseReferenceLabel']}
-                        <input
-                          type="text"
-                          name="licenseReference"
-                          value={item.licenseReference ?? ''}
-                          required
-                        />
-                      </label>
-                      <label>
-                        {data.copy['moderation.media.rightsBasisLabel']}
-                        <select
-                          name="rightsBasis"
-                          value={item.rightsBasis ?? 'explicit_permission'}
-                          required
-                        >
-                          <option value="explicit_permission"
-                            >{data.copy['moderation.media.rightsBasis.explicitPermission']}</option
-                          >
-                          <option value="cc0">CC0</option>
-                          <option value="public_domain"
-                            >{data.copy['moderation.media.rightsBasis.publicDomain']}</option
-                          >
-                          <option value="cc_by">CC BY</option>
-                          <option value="cc_by_sa">CC BY-SA</option>
-                          <option value="official_reuse"
-                            >{data.copy['moderation.media.rightsBasis.officialReuse']}</option
-                          >
-                        </select>
-                      </label>
-                      <label>
-                        {data.copy['moderation.media.rightsEvidenceLabel']}
-                        <input
-                          type="text"
-                          name="rightsEvidenceReference"
-                          value={item.rightsEvidenceReference ?? ''}
-                          required
-                        />
-                      </label>
-                      <label>
-                        {data.copy['moderation.media.photoSourceUrlLabel']}
-                        <input type="url" name="sourceUrl" value={item.sourceUrl ?? ''} />
-                      </label>
-                      <label>
-                        {data.copy['moderation.media.licenseUrlLabel']}
-                        <input type="url" name="licenseUrl" value={item.licenseUrl ?? ''} />
-                      </label>
-                      <label>
-                        {data.copy['moderation.media.attributionTextLabel']}
-                        <input
-                          type="text"
-                          name="attributionText"
-                          value={item.attributionText ?? ''}
-                          required
-                        />
-                      </label>
-                      <label>
-                        {data.copy['moderation.media.attributionUrlLabel']}
-                        <input type="url" name="attributionUrl" value={item.attributionUrl ?? ''} />
-                      </label>
-                      <label>
-                        {data.copy['moderation.media.peopleReviewLabel']}
-                        <select name="peopleReview" value={item.peopleReview ?? 'unknown'} required>
-                          <option value="unknown" disabled
-                            >{data.copy['moderation.media.peopleReview.unknown']}</option
-                          >
-                          <option value="no_prominent_people"
-                            >{data.copy['moderation.media.peopleReview.noProminentPeople']}</option
-                          >
-                          <option value="permission_documented"
-                            >{data.copy[
-                              'moderation.media.peopleReview.permissionDocumented'
-                            ]}</option
-                          >
-                        </select>
-                      </label>
-                      <label lang="is">
-                        {data.copy['moderation.media.altTextIsLabel']}
-                        <input type="text" name="altTextIs" value={item.altTextIs ?? ''} required />
-                      </label>
-                      <label lang="en">
-                        {data.copy['moderation.media.altTextEnLabel']}
-                        <input type="text" name="altTextEn" value={item.altTextEn ?? ''} required />
-                      </label>
-                      <label class="checkbox-label">
-                        <input type="checkbox" name="makePrimary" checked={item.isPrimary} />
-                        {data.copy['moderation.media.makePrimaryLabel']}
-                      </label>
-                      <small>{data.copy['moderation.media.approveHelp']}</small>
-                      <button type="submit">{data.copy['moderation.media.approveAction']}</button>
-                    </form>
-                    <form method="POST" action="?/rejectMedia" use:enhance={enhanceMedia}>
-                      <input type="hidden" name="placeId" value={data.review.placeId} />
-                      <input type="hidden" name="mediaId" value={item.mediaId} />
-                      <button type="submit">{data.copy['moderation.media.rejectAction']}</button>
-                    </form>
-                  {:else}
-                    <form method="POST" action="?/retireMedia" use:enhance={enhanceMedia}>
-                      <input type="hidden" name="placeId" value={data.review.placeId} />
-                      <input type="hidden" name="mediaId" value={item.mediaId} />
-                      <button type="submit">{data.copy['moderation.media.retireAction']}</button>
-                    </form>
-                  {/if}
-                </div>
-              </li>
+                </span>
+              </label>
             {/each}
-          </ul>
+          </fieldset>
+        {/each}
+        <label>
+          {data.copy['moderation.freshnessLabel']}
+          <input
+            type="date"
+            name="freshnessUntil"
+            value={data.defaultFreshnessUntil}
+            required
+            aria-describedby="freshness-help"
+          />
+          <small id="freshness-help">{data.copy['moderation.freshnessHelp']}</small>
+        </label>
+      </form>
+    </ModerationReviewSection>
+
+    <ModerationReviewSection
+      id="candidate-media"
+      title={data.copy['moderation.media.title']}
+      summary={data.copy['moderation.workbench.section.mediaCount'].replace(
+        '{count}',
+        String(data.media.length)
+      )}
+    >
+      <div class="media-section">
+        <p>{data.copy['moderation.media.intro']}</p>
+
+        {#if mediaError}
+          <section class="message error" role="alert">
+            <strong>{mediaError}</strong>
+          </section>
+        {/if}
+        {#if mediaSucceeded}
+          <section class="message success" role="status">
+            <strong>
+              {form && 'action' in form && form.action === 'uploadEvidence'
+                ? data.copy['moderation.media.uploadSucceeded']
+                : form && 'action' in form && form.action === 'uploadPhoto'
+                  ? data.copy['moderation.media.uploadSucceeded']
+                  : form && 'action' in form && form.action === 'approveMedia'
+                    ? data.copy['moderation.media.approveSucceeded']
+                    : form && 'action' in form && form.action === 'rejectMedia'
+                      ? data.copy['moderation.media.rejectSucceeded']
+                      : data.copy['moderation.media.retireSucceeded']}
+            </strong>
+          </section>
         {/if}
 
-        <form
-          method="POST"
-          action="?/uploadPhoto"
-          enctype="multipart/form-data"
-          use:enhance={enhanceMedia}
-          class="media-upload-form"
-        >
-          <input type="hidden" name="placeId" value={data.review.placeId} />
-          <h4>{data.copy['moderation.media.uploadPhotoTitle']}</h4>
-          <label>
-            {data.copy['moderation.media.fileLabel']}
-            <input
-              type="file"
-              name="file"
-              accept="image/png,image/jpeg,image/webp"
-              required
-              onchange={(fileEvent) => handlePhotoFileChange(fileEvent.currentTarget)}
-            />
-          </label>
-          <input type="hidden" name="widthPx" value={photoWidth ?? ''} />
-          <input type="hidden" name="heightPx" value={photoHeight ?? ''} />
-          {#if photoFileError}
-            <p class="field-error">{data.copy[photoFileError]}</p>
-          {/if}
-          <button type="submit" disabled={photoProcessing || !photoWidth}>
-            {photoProcessing
-              ? data.copy['moderation.media.uploading']
-              : data.copy['moderation.media.uploadPhotoAction']}
-          </button>
-        </form>
-      </article>
-    </div>
-  </section>
+        <div class="media-columns">
+          <article
+            class="media-column"
+            aria-labelledby="evidence-media-title"
+            data-media-column="evidence"
+          >
+            <h3 id="evidence-media-title">{data.copy['moderation.media.evidenceTitle']}</h3>
+            {#if evidenceItems.length === 0}
+              <p>{data.copy['moderation.media.evidenceEmpty']}</p>
+            {:else}
+              <ul class="media-list">
+                {#each evidenceItems as item (item.mediaId)}
+                  <li
+                    class="media-item"
+                    class:retired={Boolean(item.retiredAt)}
+                    data-media-item={item.mediaId}
+                    data-storage-object-path={item.storageObjectPath}
+                  >
+                    {#if item.signedUrl}
+                      <img src={item.signedUrl} alt="" width="160" height="120" loading="lazy" />
+                    {/if}
+                    <div class="media-item-body">
+                      {#if item.sourceUrl}<span class="reference">{item.sourceUrl}</span>{/if}
+                      {#if item.capturedAt}
+                        <time datetime={item.capturedAt}
+                          >{formatLocalizedDate(item.capturedAt, data.lang)}</time
+                        >
+                      {/if}
+                      {#if item.retiredAt}
+                        <span class="badge">{data.copy['moderation.media.retired']}</span>
+                      {:else}
+                        <form method="POST" action="?/retireMedia" use:enhance={enhanceMedia}>
+                          <input type="hidden" name="placeId" value={data.review.placeId} />
+                          <input type="hidden" name="mediaId" value={item.mediaId} />
+                          <button type="submit">{data.copy['moderation.media.retireAction']}</button
+                          >
+                        </form>
+                      {/if}
+                    </div>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+
+            <form
+              method="POST"
+              action="?/uploadEvidence"
+              enctype="multipart/form-data"
+              use:enhance={enhanceMedia}
+              class="media-upload-form"
+            >
+              <input type="hidden" name="placeId" value={data.review.placeId} />
+              <h4>{data.copy['moderation.media.uploadEvidenceTitle']}</h4>
+              <label>
+                {data.copy['moderation.media.fileLabel']}
+                <input
+                  type="file"
+                  name="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  required
+                  onchange={(fileEvent) => handleEvidenceFileChange(fileEvent.currentTarget)}
+                />
+              </label>
+              <input type="hidden" name="widthPx" value={evidenceWidth ?? ''} />
+              <input type="hidden" name="heightPx" value={evidenceHeight ?? ''} />
+              {#if evidenceFileError}
+                <p class="field-error">{data.copy[evidenceFileError]}</p>
+              {/if}
+              <label>
+                {data.copy['moderation.media.sourceUrlLabel']}
+                <input type="url" name="sourceUrl" required />
+              </label>
+              <label>
+                {data.copy['moderation.media.capturedAtLabel']}
+                <input type="datetime-local" name="capturedAt" required />
+              </label>
+              <button type="submit" disabled={evidenceProcessing || !evidenceWidth}>
+                {evidenceProcessing
+                  ? data.copy['moderation.media.uploading']
+                  : data.copy['moderation.media.uploadEvidenceAction']}
+              </button>
+            </form>
+          </article>
+
+          <article
+            class="media-column"
+            aria-labelledby="photo-media-title"
+            data-media-column="photo"
+          >
+            <h3 id="photo-media-title">{data.copy['moderation.media.photosTitle']}</h3>
+            {#if photoItems.length === 0}
+              <p>{data.copy['moderation.media.photosEmpty']}</p>
+            {:else}
+              <ul class="media-list">
+                {#each photoItems as item (item.mediaId)}
+                  <li
+                    class="media-item"
+                    class:retired={Boolean(item.retiredAt)}
+                    data-media-item={item.mediaId}
+                    data-storage-object-path={item.storageObjectPath}
+                  >
+                    {#if item.signedUrl}
+                      <img src={item.signedUrl} alt="" width="160" height="120" loading="lazy" />
+                    {/if}
+                    <div class="media-item-body">
+                      <span class="badge"
+                        >{data.copy[
+                          `moderation.media.state.${item.approvalState}` as MessageKey
+                        ]}</span
+                      >
+                      {#if item.isPrimary}
+                        <span class="badge">{data.copy['moderation.media.primary']}</span>
+                      {/if}
+                      {#if item.retiredAt}
+                        <span class="badge">{data.copy['moderation.media.retired']}</span>
+                      {:else if item.approvalState === 'pending'}
+                        <form
+                          method="POST"
+                          action="?/approveMedia"
+                          use:enhance={enhanceMedia}
+                          class="approve-form"
+                        >
+                          <input type="hidden" name="placeId" value={data.review.placeId} />
+                          <input type="hidden" name="mediaId" value={item.mediaId} />
+                          <label>
+                            {data.copy['moderation.media.photographerLabel']}
+                            <input
+                              type="text"
+                              name="photographerOrUploader"
+                              value={item.photographerOrUploader ?? ''}
+                              required
+                            />
+                          </label>
+                          <label>
+                            {data.copy['moderation.media.licenseDateLabel']}
+                            <input
+                              type="date"
+                              name="sourceOrCaptureDate"
+                              value={item.sourceOrCaptureDate ?? ''}
+                              required
+                            />
+                          </label>
+                          <label>
+                            {data.copy['moderation.media.licenseReferenceLabel']}
+                            <input
+                              type="text"
+                              name="licenseReference"
+                              value={item.licenseReference ?? ''}
+                              required
+                            />
+                          </label>
+                          <label>
+                            {data.copy['moderation.media.rightsBasisLabel']}
+                            <select
+                              name="rightsBasis"
+                              value={item.rightsBasis ?? 'explicit_permission'}
+                              required
+                            >
+                              <option value="explicit_permission"
+                                >{data.copy[
+                                  'moderation.media.rightsBasis.explicitPermission'
+                                ]}</option
+                              >
+                              <option value="cc0">CC0</option>
+                              <option value="public_domain"
+                                >{data.copy['moderation.media.rightsBasis.publicDomain']}</option
+                              >
+                              <option value="cc_by">CC BY</option>
+                              <option value="cc_by_sa">CC BY-SA</option>
+                              <option value="official_reuse"
+                                >{data.copy['moderation.media.rightsBasis.officialReuse']}</option
+                              >
+                            </select>
+                          </label>
+                          <label>
+                            {data.copy['moderation.media.rightsEvidenceLabel']}
+                            <input
+                              type="text"
+                              name="rightsEvidenceReference"
+                              value={item.rightsEvidenceReference ?? ''}
+                              required
+                            />
+                          </label>
+                          <label>
+                            {data.copy['moderation.media.photoSourceUrlLabel']}
+                            <input type="url" name="sourceUrl" value={item.sourceUrl ?? ''} />
+                          </label>
+                          <label>
+                            {data.copy['moderation.media.licenseUrlLabel']}
+                            <input type="url" name="licenseUrl" value={item.licenseUrl ?? ''} />
+                          </label>
+                          <label>
+                            {data.copy['moderation.media.attributionTextLabel']}
+                            <input
+                              type="text"
+                              name="attributionText"
+                              value={item.attributionText ?? ''}
+                              required
+                            />
+                          </label>
+                          <label>
+                            {data.copy['moderation.media.attributionUrlLabel']}
+                            <input
+                              type="url"
+                              name="attributionUrl"
+                              value={item.attributionUrl ?? ''}
+                            />
+                          </label>
+                          <label>
+                            {data.copy['moderation.media.peopleReviewLabel']}
+                            <select
+                              name="peopleReview"
+                              value={item.peopleReview ?? 'unknown'}
+                              required
+                            >
+                              <option value="unknown" disabled
+                                >{data.copy['moderation.media.peopleReview.unknown']}</option
+                              >
+                              <option value="no_prominent_people"
+                                >{data.copy[
+                                  'moderation.media.peopleReview.noProminentPeople'
+                                ]}</option
+                              >
+                              <option value="permission_documented"
+                                >{data.copy[
+                                  'moderation.media.peopleReview.permissionDocumented'
+                                ]}</option
+                              >
+                            </select>
+                          </label>
+                          <label lang="is">
+                            {data.copy['moderation.media.altTextIsLabel']}
+                            <input
+                              type="text"
+                              name="altTextIs"
+                              value={item.altTextIs ?? ''}
+                              required
+                            />
+                          </label>
+                          <label lang="en">
+                            {data.copy['moderation.media.altTextEnLabel']}
+                            <input
+                              type="text"
+                              name="altTextEn"
+                              value={item.altTextEn ?? ''}
+                              required
+                            />
+                          </label>
+                          <label class="checkbox-label">
+                            <input type="checkbox" name="makePrimary" checked={item.isPrimary} />
+                            {data.copy['moderation.media.makePrimaryLabel']}
+                          </label>
+                          <small>{data.copy['moderation.media.approveHelp']}</small>
+                          <button type="submit"
+                            >{data.copy['moderation.media.approveAction']}</button
+                          >
+                        </form>
+                        <form method="POST" action="?/rejectMedia" use:enhance={enhanceMedia}>
+                          <input type="hidden" name="placeId" value={data.review.placeId} />
+                          <input type="hidden" name="mediaId" value={item.mediaId} />
+                          <button type="submit">{data.copy['moderation.media.rejectAction']}</button
+                          >
+                        </form>
+                      {:else}
+                        <form method="POST" action="?/retireMedia" use:enhance={enhanceMedia}>
+                          <input type="hidden" name="placeId" value={data.review.placeId} />
+                          <input type="hidden" name="mediaId" value={item.mediaId} />
+                          <button type="submit">{data.copy['moderation.media.retireAction']}</button
+                          >
+                        </form>
+                      {/if}
+                    </div>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+
+            <form
+              method="POST"
+              action="?/uploadPhoto"
+              enctype="multipart/form-data"
+              use:enhance={enhanceMedia}
+              class="media-upload-form"
+            >
+              <input type="hidden" name="placeId" value={data.review.placeId} />
+              <h4>{data.copy['moderation.media.uploadPhotoTitle']}</h4>
+              <label>
+                {data.copy['moderation.media.fileLabel']}
+                <input
+                  type="file"
+                  name="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  required
+                  onchange={(fileEvent) => handlePhotoFileChange(fileEvent.currentTarget)}
+                />
+              </label>
+              <input type="hidden" name="widthPx" value={photoWidth ?? ''} />
+              <input type="hidden" name="heightPx" value={photoHeight ?? ''} />
+              {#if photoFileError}
+                <p class="field-error">{data.copy[photoFileError]}</p>
+              {/if}
+              <button type="submit" disabled={photoProcessing || !photoWidth}>
+                {photoProcessing
+                  ? data.copy['moderation.media.uploading']
+                  : data.copy['moderation.media.uploadPhotoAction']}
+              </button>
+            </form>
+          </article>
+        </div>
+      </div>
+    </ModerationReviewSection>
+  </div>
+
+  <ModerationConfirmDialog
+    open={confirmingPublish}
+    title={data.copy['moderation.workbench.publishConfirmTitle']}
+    description={data.copy['moderation.workbench.publishConfirmBody']}
+    confirmLabel={data.copy['moderation.verifyAndPublish']}
+    cancelLabel={data.copy['moderation.workbench.keepReviewing']}
+    onconfirm={requestPublication}
+    oncancel={() => (confirmingPublish = false)}
+  />
 </div>
 
 <style>
@@ -934,15 +1077,35 @@
     letter-spacing: -0.02em;
   }
 
-  .review-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-    align-items: start;
+  .readiness-title {
+    margin: 0 0 0.45rem;
+    font-family: var(--hv-font-display);
+    font-size: 1rem;
   }
 
-  .review-shell.standalone .review-grid {
-    grid-template-columns: minmax(0, 0.9fr) minmax(22rem, 1.1fr);
+  .candidate-actions {
+    margin-top: 0.75rem;
+  }
+
+  .action-buttons {
+    display: grid;
+    grid-template-columns: minmax(9rem, 1fr) repeat(2, minmax(8rem, auto));
+    gap: 0.55rem;
+  }
+
+  .action-buttons .primary-action {
+    background: var(--hv-color-signal);
+  }
+
+  .action-buttons .danger-action:not(:disabled) {
+    background: var(--hv-color-danger);
+    color: var(--hv-color-snow-raised);
+  }
+
+  .review-sections {
+    display: grid;
+    gap: 0.65rem;
+    margin-top: 0.75rem;
   }
 
   .location-correction {
@@ -962,8 +1125,6 @@
   }
 
   .place-card,
-  .checklist-card,
-  .details article,
   form {
     border: 1px solid var(--hv-border-subtle);
     background: var(--hv-color-snow-raised);
@@ -1006,8 +1167,7 @@
     color: var(--hv-color-basalt-muted);
   }
 
-  .place-card,
-  .checklist-card {
+  .place-card {
     padding: 0.85rem;
     border-radius: var(--hv-radius-panel);
     box-shadow: none;
@@ -1024,7 +1184,6 @@
     font-size: 0.75rem;
   }
 
-  .checklist-card h2,
   .place-card h2 {
     margin-top: 0.65rem;
   }
@@ -1063,66 +1222,50 @@
     gap: 0.2rem;
   }
 
-  li.missing {
-    border-color: var(--hv-color-danger);
-    background: var(--hv-color-danger-soft);
-  }
-
-  li.missing > span {
-    background: var(--hv-color-danger);
-  }
-
-  li.missing a {
-    color: var(--hv-color-basalt);
-  }
-
-  .details {
+  .translation-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.65rem;
-    margin-top: 0.75rem;
   }
 
-  .details article {
+  .translation-grid article {
     padding: 0.75rem;
+    border: 1px solid var(--hv-border-subtle);
     border-radius: var(--hv-radius-panel);
-    scroll-margin-top: 1rem;
   }
 
-  #location {
+  .translation-grid h3 {
+    margin: 0 0 0.45rem;
+    font-size: 0.95rem;
+  }
+
+  .location-detail {
     display: grid;
-    grid-column: 1 / -1;
     grid-template-columns: minmax(0, 1fr) minmax(22rem, 0.85fr);
     gap: 0.8rem 1rem;
   }
 
-  #location > h2,
-  #location > p {
+  .location-detail > p {
     grid-column: 1 / -1;
     margin-block: 0;
   }
 
-  #location :global(.map-surface) {
+  .location-detail :global(.map-surface) {
     grid-column: 1;
   }
 
-  #location .location-correction {
+  .location-detail .location-correction {
     grid-column: 2;
     margin-top: 0;
   }
 
-  .review-shell:not(.standalone) #location {
+  .review-shell:not(.standalone) .location-detail {
     grid-template-columns: 1fr;
   }
 
-  .review-shell:not(.standalone) #location :global(.map-surface),
-  .review-shell:not(.standalone) #location .location-correction {
+  .review-shell:not(.standalone) .location-detail :global(.map-surface),
+  .review-shell:not(.standalone) .location-detail .location-correction {
     grid-column: 1;
-  }
-
-  .details h2 {
-    margin-top: 0;
-    font-size: 1rem;
   }
 
   .review-records {
@@ -1201,10 +1344,6 @@
     font: inherit;
     font-weight: 850;
     box-shadow: none;
-  }
-
-  #candidate-publication > button {
-    background: var(--hv-color-signal);
   }
 
   button:disabled {
@@ -1355,8 +1494,8 @@
   }
 
   @media (max-width: 48rem) {
-    .review-grid,
-    .details,
+    .action-buttons,
+    .translation-grid,
     .media-columns {
       grid-template-columns: 1fr;
     }
@@ -1365,12 +1504,12 @@
       grid-template-columns: 1fr;
     }
 
-    #location {
+    .location-detail {
       grid-template-columns: 1fr;
     }
 
-    #location :global(.map-surface),
-    #location .location-correction {
+    .location-detail :global(.map-surface),
+    .location-detail .location-correction {
       grid-column: 1;
     }
 

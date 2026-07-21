@@ -55,7 +55,7 @@
     </div>
   </header>
 
-  <div class="items">
+  <div class="items" data-work-list-scroll>
     {#if errorMessage}
       <div class="error" role="alert">
         <strong>{copy['moderation.workspace.errorTitle']}</strong>
@@ -134,14 +134,16 @@
 
 <style>
   .work-list {
+    display: grid;
     min-width: 0;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    overflow: hidden;
     border-right: 1px solid var(--hv-border-subtle);
     background: var(--hv-color-snow-raised);
   }
   header {
-    position: sticky;
     z-index: 2;
-    top: 0;
     border-bottom: 1px solid var(--hv-border-subtle);
     background: var(--hv-color-snow-raised);
     padding: 1rem;
@@ -180,6 +182,12 @@
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+  .items {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
   li + li {
     border-top: 1px solid var(--hv-border-subtle);
@@ -270,18 +278,14 @@
   .pagination a:last-child {
     margin-left: auto;
   }
-  @media (max-width: 44rem) {
+  @media (max-width: 60rem) {
     .work-list {
       border-right: 0;
+    }
+  }
+  @media (max-width: 44rem) {
+    .work-list {
       border-bottom: 1px solid var(--hv-border-subtle);
-    }
-    header {
-      position: static;
-    }
-    .items {
-      max-height: 15rem;
-      overflow-y: auto;
-      overscroll-behavior: contain;
     }
   }
 </style>

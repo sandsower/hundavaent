@@ -1,8 +1,13 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
+import { page as browserPage } from 'vitest/browser';
 
 import { catalogues } from '$i18n';
+import ModerationActionBar from '$lib/moderation/ModerationActionBar.svelte';
+import ModerationConfirmDialog from '$lib/moderation/ModerationConfirmDialog.svelte';
+import ModerationReadinessSummary from '$lib/moderation/ModerationReadinessSummary.svelte';
+import ModerationReviewSection from '$lib/moderation/ModerationReviewSection.svelte';
 import ModerationWorkspace from '$lib/moderation/ModerationWorkspace.svelte';
 
 const suggestionOne = '11111111-1111-4111-8111-111111111111';
@@ -254,5 +259,131 @@ describe('Compact moderation workspace', () => {
     expect(screen.getByRole('link', { name: 'Try again' }).getAttribute('href')).toBe(
       '/en/moderation?queue=suggestions&filter=actionable'
     );
+  });
+
+  it('gives the inbox and review independent desktop scroll containers', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1280, 800);
+
+    try {
+      const longItems = Array.from({ length: 30 }, (_, index) => ({
+        ...items[index % items.length],
+        id: `${String(index + 1).padStart(8, '0')}-1111-4111-8111-111111111111`,
+        title: `Moderation item ${index + 1}`
+      }));
+      const { container } = render(ModerationWorkspace, {
+        ...readyProps(),
+        items: longItems,
+        selectedItemId: longItems[0].id,
+        statusMessage: '',
+        reviewContent: createRawSnippet(() => ({
+          render: () =>
+            '<div style="height: 90rem"><button type="button" style="margin-top: 85rem">Last review control</button></div>'
+        }))
+      });
+
+      const workspace = container.querySelector<HTMLElement>('[data-moderation-workspace]');
+      const workListScroll = container.querySelector<HTMLElement>('[data-work-list-scroll]');
+      const reviewScroll = container.querySelector<HTMLElement>('[data-review-scroll]');
+      const reviewHeader = screen
+        .getByRole('heading', { name: 'Moderation item 1' })
+        .closest('header');
+      const actionBar = screen.getByRole('region', { name: 'Decision controls' });
+
+      expect(workspace).toBeTruthy();
+      expect(workListScroll).toBeTruthy();
+      expect(reviewScroll).toBeTruthy();
+      expect(workListScroll!.scrollHeight).toBeGreaterThan(workListScroll!.clientHeight);
+      expect(reviewScroll!.scrollHeight).toBeGreaterThan(reviewScroll!.clientHeight);
+
+      const headerTop = reviewHeader!.getBoundingClientRect().top;
+      const actionBottom = actionBar.getBoundingClientRect().bottom;
+      workListScroll!.scrollTop = 200;
+      reviewScroll!.scrollTop = 300;
+      await waitFor(() => {
+        expect(workListScroll!.scrollTop).toBeGreaterThan(0);
+        expect(reviewScroll!.scrollTop).toBeGreaterThan(0);
+      });
+      expect(reviewHeader!.getBoundingClientRect().top).toBeCloseTo(headerTop, 0);
+      expect(actionBar.getBoundingClientRect().bottom).toBeCloseTo(actionBottom, 0);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+});
+
+describe('Low-friction review primitives', () => {
+  it('summarizes readiness by exception and links only the issues needing attention', () => {
+    render(ModerationReadinessSummary, {
+      label: 'Publication readiness',
+      state: 'attention',
+      stateLabel: 'Needs attention',
+      summary: 'Two details need review before publishing.',
+      issues: [
+        { sectionId: 'location', label: 'Confirm the map point', severity: 'warning' },
+        { sectionId: 'evidence', label: 'Add a current source', severity: 'blocking' }
+      ]
+    });
+
+    const summary = screen.getByRole('region', { name: 'Publication readiness' });
+    expect(within(summary).getByText('Needs attention')).toBeTruthy();
+    expect(within(summary).getAllByRole('link')).toHaveLength(2);
+    expect(
+      within(summary).getByRole('link', { name: 'Add a current source' }).getAttribute('href')
+    ).toBe('#evidence');
+    expect(summary.getAttribute('data-readiness-state')).toBe('attention');
+  });
+
+  it('keeps complete supporting detail collapsed while opening a problem section', () => {
+    const detail = createRawSnippet(() => ({ render: () => '<p>Full supporting detail</p>' }));
+    const { rerender } = render(ModerationReviewSection, {
+      id: 'identity',
+      title: 'Place details',
+      summary: 'Names and operator are complete.',
+      state: 'complete',
+      children: detail
+    });
+
+    const disclosure = screen.getByText('Place details').closest('details');
+    expect(disclosure?.open).toBe(false);
+
+    rerender({
+      id: 'identity',
+      title: 'Place details',
+      summary: 'The English description is missing.',
+      state: 'blocking',
+      children: detail
+    });
+    expect(screen.getByText('Place details').closest('details')?.open).toBe(true);
+    expect(screen.getByText('Full supporting detail')).toBeTruthy();
+  });
+
+  it('presents primary actions persistently and confirms consequential decisions', async () => {
+    const confirm = vi.fn();
+    const cancel = vi.fn();
+    const actions = createRawSnippet(() => ({
+      render: () => '<button type="button">Publish Place</button>'
+    }));
+    render(ModerationActionBar, {
+      label: 'Candidate decisions',
+      children: actions
+    });
+    render(ModerationConfirmDialog, {
+      open: true,
+      title: 'Publish this Place?',
+      description: 'The Place will become visible to the public.',
+      confirmLabel: 'Publish Place',
+      cancelLabel: 'Keep reviewing',
+      onconfirm: confirm,
+      oncancel: cancel
+    });
+
+    expect(screen.getByRole('region', { name: 'Candidate decisions' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Publish this Place?' })).toBeTruthy();
+    await fireEvent.click(screen.getAllByRole('button', { name: 'Publish Place' }).at(-1)!);
+    expect(confirm).toHaveBeenCalledOnce();
+    await fireEvent.click(screen.getByRole('button', { name: 'Keep reviewing' }));
+    expect(cancel).toHaveBeenCalledOnce();
   });
 });

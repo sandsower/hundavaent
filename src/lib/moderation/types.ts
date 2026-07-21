@@ -28,6 +28,16 @@ export interface ModerationWorkItem {
   readonly priority?: boolean;
 }
 
+export type ModerationReadinessState = 'ready' | 'attention' | 'blocked';
+
+export type ModerationReviewSectionState = 'complete' | 'warning' | 'blocking';
+
+export interface ModerationReviewIssue {
+  readonly sectionId: string;
+  readonly label: string;
+  readonly severity: Exclude<ModerationReviewSectionState, 'complete'>;
+}
+
 export interface ModerationWorkspaceProps {
   copy: Catalogue;
   baseHref: string;

@@ -50,6 +50,9 @@
 <style>
   .queue-rail {
     min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     border-right: 1px solid var(--hv-border-subtle);
     background: var(--hv-color-snow);
     padding: 0.9rem;
@@ -102,9 +105,10 @@
     font-weight: 900;
     text-align: center;
   }
-  @media (max-width: 44rem) {
+  @media (max-width: 60rem) {
     .queue-rail {
       overflow-x: auto;
+      overflow-y: hidden;
       border-right: 0;
       border-bottom: 1px solid var(--hv-border-subtle);
       padding: 0.65rem;

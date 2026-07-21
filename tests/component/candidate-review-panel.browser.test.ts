@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import { catalogues } from '$i18n';
@@ -66,15 +66,28 @@ const data = {
 };
 
 describe('CandidateReviewPanel', () => {
-  it('embeds the readiness, publication, and media workflow without taking over the page heading', () => {
+  it('leads with one readiness summary and keeps complete supporting sections collapsed', async () => {
     render(CandidateReviewPanel, { data, form: null });
 
     expect(screen.queryByRole('heading', { name: 'Review Place' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Candidate Place' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Publication checklist' })).toBeTruthy();
+    expect(screen.getAllByText('Ready')).toHaveLength(1);
     expect(document.querySelector('#candidate-publication')).toBeTruthy();
     expect(document.querySelector('#candidate-media')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Verify and publish' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Needs information' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
+    expect(screen.getByText('Place overview').closest('details')?.open).toBe(false);
+    expect(screen.getByText('Names and descriptions').closest('details')?.open).toBe(false);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Verify and publish' }));
+    const confirmation = screen.getByRole('dialog', { name: 'Publish this Place?' });
+    expect(
+      within(confirmation).getByText(
+        'The reviewed Place and its verified access information will become publicly visible.'
+      )
+    ).toBeTruthy();
 
     const forms = [...document.querySelectorAll('form')];
     expect(forms.length).toBeGreaterThan(0);
@@ -85,6 +98,31 @@ describe('CandidateReviewPanel', () => {
           placeId
       )
     ).toBe(true);
+  });
+
+  it('opens only the problem section and links to it from the blocked summary', async () => {
+    render(CandidateReviewPanel, {
+      data: {
+        ...data,
+        review: {
+          ...data.review,
+          nameEn: null,
+          descriptionEn: null,
+          ready: false,
+          checks: { ...data.review.checks, englishTranslation: false }
+        }
+      },
+      form: null
+    });
+
+    const readiness = screen.getByRole('region', { name: 'Publication checklist' });
+    expect(within(readiness).getByText('Blocked')).toBeTruthy();
+    expect(
+      within(readiness).getByRole('link', { name: 'Add English translation' }).getAttribute('href')
+    ).toBe('#translations');
+    expect(screen.getByText('Names and descriptions').closest('details')?.open).toBe(true);
+    expect(screen.getByText('Place overview').closest('details')?.open).toBe(false);
+    expect(screen.getByRole('button', { name: 'Verify and publish' })).toBeDisabled();
   });
 
   it('preserves the direct-route heading and stale-version recovery in standalone mode', () => {
