@@ -1015,3 +1015,36 @@ jobs:
             echo "- Translation workspace: password boundary ready"
             echo "- Commit: ${RELEASE_SHA}"
           } >> "${GITHUB_STEP_SUMMARY}"
+
+  finalize-translation-capability:
+    name: Retire the previous translation capability
+    needs: deploy
+    if: ${{ github.event_name == 'workflow_run' || inputs.deploy }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      SUPABASE_DB_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_PROJECT_REF }}
+      SUPABASE_POOLER_HOST: aws-0-eu-west-1.pooler.supabase.com
+      TRANSLATION_DATABASE_SECRET: ${{ secrets.HUNDAVAENT_PRODUCTION_TRANSLATION_DATABASE_SECRET }}
+    steps:
+      - name: Retire the previous capability after healthy deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "${TRANSLATION_DATABASE_SECRET}" =~ ^[A-Za-z0-9_-]{43,}$ ]]; then
+            echo "The interface translation database secret must be high-entropy base64url." >&2
+            exit 1
+          fi
+          encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"], safe=""))')"
+          db_url="postgresql://postgres.${SUPABASE_PROJECT_REF}:${encoded_password}@${SUPABASE_POOLER_HOST}:5432/postgres"
+          psql \
+            -v ON_ERROR_STOP=1 \
+            "${db_url}" <<'SQL'
+          \getenv translation_database_secret TRANSLATION_DATABASE_SECRET
+          select public.retire_previous_interface_translation_capability(
+            :'translation_database_secret'
+          );
+          SQL
+          echo "The previous interface translation capability was retired after health verification."

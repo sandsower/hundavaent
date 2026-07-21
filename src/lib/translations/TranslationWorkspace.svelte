@@ -123,6 +123,7 @@
       <input
         class="hv-field"
         type="search"
+        name="search"
         aria-label="Search translations"
         bind:value={search}
         oninput={() => (visibleLimit = 50)}
@@ -133,6 +134,7 @@
       <span>Namespace</span>
       <select
         class="hv-field"
+        name="namespace"
         aria-label="Namespace"
         bind:value={namespace}
         onchange={() => (visibleLimit = 50)}

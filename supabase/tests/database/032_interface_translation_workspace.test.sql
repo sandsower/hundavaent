@@ -75,6 +75,12 @@ select has_function(
 );
 select has_function(
   'public',
+  'retire_previous_interface_translation_capability',
+  array['text'],
+  'Deployment operations can retire the overlap after a healthy release'
+);
+select has_function(
+  'public',
   'sync_interface_translation_inventory',
   array['jsonb', 'text'],
   'Deployment operations synchronize the developer-owned key inventory'
@@ -126,12 +132,22 @@ select ok(
   )
   and has_function_privilege(
     'service_role',
+    'public.retire_previous_interface_translation_capability(text)',
+    'execute'
+  )
+  and has_function_privilege(
+    'service_role',
     'public.sync_interface_translation_inventory(jsonb,text)',
     'execute'
   )
   and not has_function_privilege(
     'anon',
     'public.configure_interface_translation_capability(text)',
+    'execute'
+  )
+  and not has_function_privilege(
+    'authenticated',
+    'public.retire_previous_interface_translation_capability(text)',
     'execute'
   )
   and not has_function_privilege(
@@ -340,6 +356,11 @@ select set_config(
   floor(extract(epoch from statement_timestamp()))::bigint::text,
   true
 );
+select set_config(
+  'test.initial_translation_draft_generation',
+  public.test_interface_translation_draft_generation()::text,
+  true
+);
 
 select extensions.dblink_connect(
   'translation_late_save',
@@ -396,7 +417,7 @@ select is(
 
 select is(
   public.test_interface_translation_draft_generation(),
-  1::bigint,
+  current_setting('test.initial_translation_draft_generation')::bigint + 1,
   'The first effective save advances the monotonic draft generation'
 );
 
@@ -454,14 +475,16 @@ select throws_ok(
           issued_at bigint := floor(extract(epoch from statement_timestamp()))::bigint;
           publication_revision bigint;
           proof text;
+          reviewed_draft_generation bigint;
         begin
-          select revision_number into publication_revision
+          select revision_number, draft_generation - 1
+          into publication_revision, reviewed_draft_generation
           from private.interface_translation_publication
           where singleton;
           proof := encode(
             extensions.hmac(
               'interface-translations-v2:publish:race-stale-publish:' || issued_at::text || ':' ||
-                publication_revision::text || ':1',
+                publication_revision::text || ':' || reviewed_draft_generation::text,
               'local-interface-translation-capability-secret-v1',
               'sha256'
             ),
@@ -469,7 +492,7 @@ select throws_ok(
           );
           perform public.publish_interface_translation_drafts(
             publication_revision,
-            1,
+            reviewed_draft_generation,
             'race-stale-publish',
             issued_at,
             proof
@@ -485,7 +508,8 @@ select throws_ok(
 );
 
 select ok(
-  public.test_interface_translation_draft_generation() = 2
+  public.test_interface_translation_draft_generation() =
+    current_setting('test.initial_translation_draft_generation')::bigint + 2
   and (
     select value = 'Late {name}'
     from private.interface_translation_drafts
@@ -544,7 +568,7 @@ select is(
 
 select is(
   public.test_interface_translation_draft_generation(),
-  3::bigint,
+  current_setting('test.initial_translation_draft_generation')::bigint + 3,
   'An effective revert advances the same monotonic draft generation'
 );
 
@@ -656,6 +680,25 @@ select ok(
     ) as projection
   ),
   'The workspace returns the fixed current, entry, pending, and revision shape'
+);
+
+select is(
+  (
+    select entry #>> '{draft,en}'
+    from jsonb_array_elements(
+      public.get_interface_translation_workspace(
+        'read-effective-draft',
+        current_setting('test.translation_command_issued_at')::bigint,
+        public.test_interface_translation_proof(
+          'interface-translations-v2:read_workspace:read-effective-draft:' ||
+            current_setting('test.translation_command_issued_at')
+        )
+      ) -> 'entries'
+    ) as entry
+    where entry ->> 'key' = 'greeting'
+  ),
+  'Hello {name}'::text,
+  'An untouched editor field receives its effective published value instead of null'
 );
 
 select throws_ok(
@@ -1543,6 +1586,70 @@ select throws_ok(
   '22023',
   'Valid interface translation draft required',
   'Draft saving rejects a value above the runtime 10,000-character limit'
+);
+
+reset role;
+
+select lives_ok(
+  $$
+    select public.configure_interface_translation_capability(
+      'local-interface-translation-capability-secret-v2'
+    )
+  $$,
+  'Capability rotation starts an overlap instead of invalidating the active release'
+);
+
+set local role anon;
+
+select lives_ok(
+  format(
+    $proof$
+      select public.get_interface_translation_workspace(
+        'rotation-old-release',
+        %s,
+        '%s'
+      )
+    $proof$,
+    current_setting('test.translation_command_issued_at')::bigint,
+    public.test_interface_translation_proof(
+      'interface-translations-v2:read_workspace:rotation-old-release:' ||
+        current_setting('test.translation_command_issued_at')
+    )
+  ),
+  'The previous release capability remains valid during deployment'
+);
+
+reset role;
+
+select lives_ok(
+  $$
+    select public.retire_previous_interface_translation_capability(
+      'local-interface-translation-capability-secret-v2'
+    )
+  $$,
+  'A healthy deployment can retire the previous release capability'
+);
+
+set local role anon;
+
+select throws_ok(
+  format(
+    $proof$
+      select public.get_interface_translation_workspace(
+        'rotation-retired-release',
+        %s,
+        '%s'
+      )
+    $proof$,
+    current_setting('test.translation_command_issued_at')::bigint,
+    public.test_interface_translation_proof(
+      'interface-translations-v2:read_workspace:rotation-retired-release:' ||
+        current_setting('test.translation_command_issued_at')
+    )
+  ),
+  '42501',
+  'Valid interface translation capability required',
+  'The old release capability is rejected after the healthy deployment retires it'
 );
 
 reset role;

@@ -130,6 +130,70 @@ describe('Translation workspace', () => {
     expect(screen.getByRole('link', { name: 'Review 1 unpublished change' })).toBeTruthy();
   });
 
+  it('serializes continued typing behind an in-flight autosave', async () => {
+    vi.useFakeTimers();
+    let completeFirstSave!: (response: Response) => void;
+    const firstSave = new Promise<Response>((resolve) => (completeFirstSave = resolve));
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(firstSave)
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            key: 'site.name',
+            locale: 'en',
+            value: 'Dog-friendly places',
+            version: 4,
+            changed: true,
+            pendingCount: 1,
+            currentRevision: 4
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    render(TranslationWorkspace, { workspace: workspace([baseEntries[0]]) });
+
+    const english = screen.getByRole('textbox', { name: 'English translation for site.name' });
+    await fireEvent.input(english, { target: { value: 'Dog-friendly' } });
+    await vi.advanceTimersByTimeAsync(700);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+
+    await fireEvent.input(english, { target: { value: 'Dog-friendly places' } });
+    await vi.advanceTimersByTimeAsync(700);
+    expect(fetchMock).toHaveBeenCalledOnce();
+
+    completeFirstSave(
+      new Response(
+        JSON.stringify({
+          key: 'site.name',
+          locale: 'en',
+          value: 'Dog-friendly',
+          version: 3,
+          changed: true,
+          pendingCount: 1,
+          currentRevision: 4
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/translations/api/drafts', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        key: 'site.name',
+        locale: 'en',
+        value: 'Dog-friendly places',
+        expectedPublicationRevision: 4,
+        expectedDraftVersion: 3
+      })
+    });
+    await waitFor(() => expect(screen.getByText('Saved')).toBeTruthy());
+    expect(screen.queryByText('Conflict')).toBeNull();
+  });
+
   it('shows remote and local conflict values and requires confirmation before overwrite', async () => {
     vi.useFakeTimers();
     const fetchMock = vi

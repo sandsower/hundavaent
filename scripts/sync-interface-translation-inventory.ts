@@ -41,11 +41,13 @@ declare
   icelandic_key_count integer;
   english_key_count integer;
 begin
-  select revision_number, jsonb_object_length(messages)
+  select revision_number,
+    (select count(*)::integer from pg_catalog.jsonb_object_keys(messages))
   into icelandic_revision, icelandic_key_count
   from public.get_published_interface_translations('is');
 
-  select revision_number, jsonb_object_length(messages)
+  select revision_number,
+    (select count(*)::integer from pg_catalog.jsonb_object_keys(messages))
   into english_revision, english_key_count
   from public.get_published_interface_translations('en');
 

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { renderInterfaceTranslationInventorySql } from '../../../scripts/sync-interface-translation-inventory';
@@ -19,6 +21,8 @@ describe('interface translation inventory release SQL', () => {
     expect(sql).toContain(":'release_sha'");
     expect(sql).toContain('public.get_published_interface_translations');
     expect(sql).toContain('expected_key_count constant integer := 2;');
+    expect(sql).toContain('(select count(*)::integer from pg_catalog.jsonb_object_keys(messages))');
+    expect(sql).not.toContain('jsonb_object_length');
 
     const payload = sql.match(
       /\$hundavaent_interface_catalogues_v1\$(.*)\$hundavaent_interface_catalogues_v1\$::jsonb/s
@@ -105,5 +109,20 @@ describe('interface translation inventory release SQL', () => {
         en: { unsafe: '$hundavaent_interface_catalogues_v1$' }
       })
     ).toThrow('reserved SQL delimiter');
+  });
+
+  it('keeps publication compatible with the PostgREST safe-update request guard', () => {
+    const migration = readFileSync(
+      resolve(
+        import.meta.dirname,
+        '../../../supabase/migrations/202607210039_interface_translation_workspace.sql'
+      ),
+      'utf8'
+    );
+
+    expect(migration).not.toMatch(/delete from private\.interface_translation_drafts\s*;/i);
+    expect(migration).toMatch(
+      /delete from private\.interface_translation_drafts as draft\s+where draft\.key is not null;/i
+    );
   });
 });

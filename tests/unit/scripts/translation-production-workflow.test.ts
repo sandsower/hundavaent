@@ -46,6 +46,21 @@ describe('production interface translation release contract', () => {
     );
   });
 
+  it('keeps the previous capability valid until the deployed release is healthy', async () => {
+    const workflow = await readFile('.github/workflows/production.yml', 'utf8');
+
+    const deployIndex = workflow.indexOf('  deploy:');
+    const healthIndex = workflow.indexOf('Verify production health and password gate');
+    const finalizeIndex = workflow.indexOf('  finalize-translation-capability:');
+    const retireIndex = workflow.indexOf('retire_previous_interface_translation_capability');
+
+    expect(deployIndex).toBeGreaterThan(0);
+    expect(healthIndex).toBeGreaterThan(deployIndex);
+    expect(finalizeIndex).toBeGreaterThan(healthIndex);
+    expect(retireIndex).toBeGreaterThan(finalizeIndex);
+    expect(workflow).toContain('needs: deploy');
+  });
+
   it('keeps preview translations explicitly unconfigured', async () => {
     const [previewWorkflow, wrangler] = await Promise.all([
       readFile('.github/workflows/preview.yml', 'utf8'),

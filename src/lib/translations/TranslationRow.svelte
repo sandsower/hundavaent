@@ -88,6 +88,9 @@
     if (timers[locale]) clearTimeout(timers[locale]);
     timers[locale] = undefined;
     const sequence = requestedSequence ?? ++requestSequence[locale];
+    const predecessor = pendingSaves[locale];
+    if (predecessor) await predecessor;
+    if (sequence !== requestSequence[locale]) return;
     const value = valueFor(locale);
     setSaveState(locale, 'saving');
 
@@ -104,13 +107,12 @@
             expectedDraftVersion: versions[locale]
           })
         });
-        if (sequence !== requestSequence[locale]) return;
         if (response.status === 409) {
-          await loadConflict(locale, value, sequence);
+          if (sequence === requestSequence[locale]) await loadConflict(locale, value, sequence);
           return;
         }
         if (!response.ok) {
-          setSaveState(locale, 'error');
+          if (sequence === requestSequence[locale]) setSaveState(locale, 'error');
           return;
         }
 
@@ -121,15 +123,17 @@
           saved.value !== value ||
           !Number.isInteger(saved.version)
         ) {
-          setSaveState(locale, 'error');
+          if (sequence === requestSequence[locale]) setSaveState(locale, 'error');
           return;
         }
         versions[locale] = saved.version;
         changed[locale] = saved.changed;
         publicationRevision = saved.currentRevision;
-        conflicts[locale] = undefined;
-        setSaveState(locale, 'saved');
         onSaved(saved);
+        if (sequence === requestSequence[locale]) {
+          conflicts[locale] = undefined;
+          setSaveState(locale, 'saved');
+        }
       } catch {
         if (sequence === requestSequence[locale]) setSaveState(locale, 'error');
       }

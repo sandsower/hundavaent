@@ -53,6 +53,7 @@ create table private.interface_translation_publication (
 create table private.interface_translation_capabilities (
   singleton boolean primary key default true check (singleton),
   secret text not null check (length(secret) >= 32),
+  previous_secret text check (previous_secret is null or length(previous_secret) >= 32),
   configured_at timestamptz not null default statement_timestamp()
 );
 
@@ -158,8 +159,10 @@ set search_path = ''
 as $$
 declare
   capability_secret text;
+  previous_capability_secret text;
   current_epoch_seconds bigint;
   expected_proof text;
+  previous_expected_proof text;
 begin
   perform private.require_interface_translation_request_id(command_request_id);
 
@@ -175,8 +178,8 @@ begin
       message = 'Valid interface translation capability required';
   end if;
 
-  select capability.secret
-  into capability_secret
+  select capability.secret, capability.previous_secret
+  into capability_secret, previous_capability_secret
   from private.interface_translation_capabilities as capability
   where capability.singleton;
 
@@ -194,8 +197,20 @@ begin
     ),
     'hex'
   );
+  previous_expected_proof := case
+    when previous_capability_secret is null then null
+    else encode(
+      extensions.hmac(
+        canonical_message,
+        previous_capability_secret,
+        'sha256'
+      ),
+      'hex'
+    )
+  end;
 
-  if command_proof <> expected_proof then
+  if command_proof <> expected_proof
+    and (previous_expected_proof is null or command_proof <> previous_expected_proof) then
     raise exception using
       errcode = '42501',
       message = 'Valid interface translation capability required';
@@ -305,8 +320,47 @@ begin
   values (command_secret, statement_timestamp())
   on conflict (singleton)
   do update set
+    previous_secret = case
+      when interface_translation_capabilities.secret = excluded.secret
+        then interface_translation_capabilities.previous_secret
+      else interface_translation_capabilities.secret
+    end,
     secret = excluded.secret,
     configured_at = excluded.configured_at;
+end;
+$$;
+
+create function public.retire_previous_interface_translation_capability(command_secret text)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  configured_secret text;
+begin
+  if command_secret is null or length(command_secret) < 32 then
+    raise exception using
+      errcode = '22023',
+      message = 'Strong interface translation capability required';
+  end if;
+
+  select capability.secret
+  into configured_secret
+  from private.interface_translation_capabilities as capability
+  where capability.singleton
+  for update;
+
+  if configured_secret is null or configured_secret <> command_secret then
+    raise exception using
+      errcode = '42501',
+      message = 'Current interface translation capability required';
+  end if;
+
+  update private.interface_translation_capabilities
+  set previous_secret = null
+  where singleton;
 end;
 $$;
 
@@ -620,7 +674,10 @@ begin
           'is', current_catalogues #>> array['is', translation_key.key],
           'en', current_catalogues #>> array['en', translation_key.key]
         ),
-        'draft', jsonb_build_object('is', draft_is.value, 'en', draft_en.value),
+        'draft', jsonb_build_object(
+          'is', coalesce(draft_is.value, current_catalogues #>> array['is', translation_key.key]),
+          'en', coalesce(draft_en.value, current_catalogues #>> array['en', translation_key.key])
+        ),
         'versions', jsonb_build_object(
           'is', coalesce(draft_is.version, 0),
           'en', coalesce(draft_en.version, 0)
@@ -989,7 +1046,8 @@ begin
     updated_at = statement_timestamp()
   where publication.singleton;
 
-  delete from private.interface_translation_drafts;
+  delete from private.interface_translation_drafts as draft
+  where draft.key is not null;
 
   return query select created_revision_number, created_published_at, created_change_count;
 end;
@@ -1181,6 +1239,11 @@ revoke execute on function private.validate_interface_translation_catalogues(jso
 revoke execute on function public.configure_interface_translation_capability(text)
   from public, anon, authenticated;
 grant execute on function public.configure_interface_translation_capability(text)
+  to service_role;
+
+revoke execute on function public.retire_previous_interface_translation_capability(text)
+  from public, anon, authenticated;
+grant execute on function public.retire_previous_interface_translation_capability(text)
   to service_role;
 
 revoke execute on function public.sync_interface_translation_inventory(jsonb, text)
