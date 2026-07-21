@@ -10,17 +10,17 @@ create table private.interface_translation_keys (
     key ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$'
   ),
   constraint interface_translation_bundled_is_check check (
-    nullif(btrim(bundled_is), '') is not null and length(bundled_is) <= 20000
+    nullif(btrim(bundled_is), '') is not null and length(bundled_is) <= 10000
   ),
   constraint interface_translation_bundled_en_check check (
-    nullif(btrim(bundled_en), '') is not null and length(bundled_en) <= 20000
+    nullif(btrim(bundled_en), '') is not null and length(bundled_en) <= 10000
   )
 );
 
 create table private.interface_translation_drafts (
   key text not null references private.interface_translation_keys(key) on delete cascade,
   locale private.locale_code not null,
-  value text not null check (length(value) <= 20000),
+  value text not null check (length(value) <= 10000),
   version bigint not null default 1 check (version > 0),
   updated_at timestamptz not null default statement_timestamp(),
   primary key (key, locale)
@@ -29,7 +29,7 @@ create table private.interface_translation_drafts (
 create table private.interface_translation_revisions (
   revision_number bigint generated always as identity primary key,
   request_id text not null unique
-    check (nullif(btrim(request_id), '') is not null and length(request_id) <= 128),
+    check (request_id ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'),
   kind text not null check (kind in ('inventory_sync', 'publish', 'restore')),
   catalogues jsonb not null check (
     jsonb_typeof(catalogues) = 'object'
@@ -46,6 +46,7 @@ create table private.interface_translation_publication (
   singleton boolean primary key default true check (singleton),
   revision_number bigint not null
     references private.interface_translation_revisions(revision_number) on delete restrict,
+  draft_generation bigint not null default 0 check (draft_generation >= 0),
   updated_at timestamptz not null default statement_timestamp()
 );
 
@@ -137,16 +138,16 @@ set search_path = ''
 as $$
 begin
   if command_request_id is null
-    or nullif(btrim(command_request_id), '') is null
-    or length(command_request_id) > 128 then
+    or command_request_id !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$' then
     raise exception using errcode = '22023', message = 'Valid request identifier required';
   end if;
 end;
 $$;
 
 create function private.require_interface_translation_proof(
-  requested_operation text,
   command_request_id text,
+  command_issued_at bigint,
+  canonical_message text,
   command_proof text
 )
 returns void
@@ -157,11 +158,16 @@ set search_path = ''
 as $$
 declare
   capability_secret text;
+  current_epoch_seconds bigint;
   expected_proof text;
 begin
   perform private.require_interface_translation_request_id(command_request_id);
 
-  if requested_operation not in ('read_workspace', 'save_draft', 'publish', 'restore')
+  current_epoch_seconds := floor(extract(epoch from statement_timestamp()))::bigint;
+  if command_issued_at is null
+    or command_issued_at < current_epoch_seconds - 300
+    or command_issued_at > current_epoch_seconds + 300
+    or canonical_message is null
     or command_proof is null
     or command_proof !~ '^[0-9a-f]{64}$' then
     raise exception using
@@ -182,7 +188,7 @@ begin
 
   expected_proof := encode(
     extensions.hmac(
-      'interface-translations-v1:' || requested_operation || ':' || command_request_id,
+      canonical_message,
       capability_secret,
       'sha256'
     ),
@@ -260,8 +266,8 @@ begin
 
     if nullif(btrim(value_is), '') is null
       or nullif(btrim(value_en), '') is null
-      or length(value_is) > 20000
-      or length(value_en) > 20000 then
+      or length(value_is) > 10000
+      or length(value_en) > 10000 then
       raise exception using
         errcode = '22023',
         message = 'Published interface translations must be non-empty';
@@ -391,8 +397,8 @@ begin
       or jsonb_typeof(value_record.value_en) <> 'string'
       or nullif(btrim(value_record.value_is #>> '{}'), '') is null
       or nullif(btrim(value_record.value_en #>> '{}'), '') is null
-      or length(value_record.value_is #>> '{}') > 20000
-      or length(value_record.value_en #>> '{}') > 20000 then
+      or length(value_record.value_is #>> '{}') > 10000
+      or length(value_record.value_en #>> '{}') > 10000 then
       raise exception using
         errcode = '22023',
         message = 'Valid non-empty interface translation inventory required';
@@ -564,6 +570,7 @@ $$;
 
 create function public.get_interface_translation_workspace(
   command_request_id text,
+  command_issued_at bigint,
   command_proof text
 )
 returns jsonb
@@ -574,6 +581,7 @@ set search_path = ''
 as $$
 declare
   current_catalogues jsonb;
+  current_draft_generation bigint;
   current_published_at timestamptz;
   current_revision_number bigint;
   entries jsonb;
@@ -581,13 +589,23 @@ declare
   revisions jsonb;
 begin
   perform private.require_interface_translation_proof(
-    'read_workspace',
     command_request_id,
+    command_issued_at,
+    'interface-translations-v2:read_workspace:' || command_request_id || ':' ||
+      command_issued_at::text,
     command_proof
   );
 
-  select revision.catalogues, revision.published_at, revision.revision_number
-  into current_catalogues, current_published_at, current_revision_number
+  select
+    revision.catalogues,
+    publication.draft_generation,
+    revision.published_at,
+    revision.revision_number
+  into
+    current_catalogues,
+    current_draft_generation,
+    current_published_at,
+    current_revision_number
   from private.interface_translation_publication as publication
   join private.interface_translation_revisions as revision
     on revision.revision_number = publication.revision_number
@@ -645,6 +663,7 @@ begin
 
   return jsonb_build_object(
     'currentRevision', current_revision_number,
+    'draftGeneration', coalesce(current_draft_generation, 0),
     'publishedAt', current_published_at,
     'pendingCount', pending_count,
     'entries', entries,
@@ -656,6 +675,7 @@ $$;
 create function public.get_interface_translation_revision(
   requested_revision_number bigint,
   command_request_id text,
+  command_issued_at bigint,
   command_proof text
 )
 returns jsonb
@@ -668,8 +688,10 @@ declare
   result jsonb;
 begin
   perform private.require_interface_translation_proof(
-    'read_workspace',
     command_request_id,
+    command_issued_at,
+    'interface-translations-v2:read_revision:' || command_request_id || ':' ||
+      command_issued_at::text || ':' || requested_revision_number::text,
     command_proof
   );
 
@@ -702,6 +724,7 @@ create function public.save_interface_translation_draft(
   expected_publication_revision bigint,
   expected_draft_version bigint,
   command_request_id text,
+  command_issued_at bigint,
   command_proof text
 )
 returns table (
@@ -715,13 +738,19 @@ set search_path = ''
 as $$
 declare
   current_draft_version bigint;
+  current_draft_value text;
   current_publication_revision bigint;
   current_value text;
+  effective_change boolean := false;
   next_draft_version bigint;
 begin
   perform private.require_interface_translation_proof(
-    'save_draft',
     command_request_id,
+    command_issued_at,
+    'interface-translations-v2:save_draft:' || command_request_id || ':' ||
+      command_issued_at::text || ':' || requested_key || ':' || requested_locale || ':' ||
+      coalesce(expected_publication_revision, 0)::text || ':' || expected_draft_version::text || ':' ||
+      encode(extensions.digest(convert_to(requested_value, 'UTF8'), 'sha256'), 'hex'),
     command_proof
   );
   perform pg_catalog.pg_advisory_xact_lock(
@@ -730,7 +759,7 @@ begin
 
   if requested_locale not in ('is', 'en')
     or requested_value is null
-    or length(requested_value) > 20000
+    or length(requested_value) > 10000
     or expected_draft_version is null
     or expected_draft_version < 0 then
     raise exception using
@@ -766,8 +795,8 @@ begin
       message = 'Interface translation publication changed';
   end if;
 
-  select draft.version
-  into current_draft_version
+  select draft.version, draft.value
+  into current_draft_version, current_draft_value
   from private.interface_translation_drafts as draft
   where draft.key = requested_key
     and draft.locale = requested_locale::private.locale_code
@@ -790,6 +819,9 @@ begin
     where draft.key = requested_key
       and draft.locale = requested_locale::private.locale_code;
     next_draft_version := 0;
+    effective_change := current_draft_version > 0;
+  elsif current_draft_version > 0 and requested_value = current_draft_value then
+    next_draft_version := current_draft_version;
   else
     insert into private.interface_translation_drafts (
       key,
@@ -810,6 +842,13 @@ begin
       version = interface_translation_drafts.version + 1,
       updated_at = excluded.updated_at
     returning interface_translation_drafts.version into next_draft_version;
+    effective_change := true;
+  end if;
+
+  if effective_change then
+    update private.interface_translation_publication as publication
+    set draft_generation = publication.draft_generation + 1
+    where publication.singleton;
   end if;
 
   return query
@@ -822,7 +861,9 @@ $$;
 
 create function public.publish_interface_translation_drafts(
   expected_publication_revision bigint,
+  expected_draft_generation bigint,
   command_request_id text,
+  command_issued_at bigint,
   command_proof text
 )
 returns table (
@@ -840,12 +881,16 @@ declare
   created_published_at timestamptz;
   created_revision_number bigint;
   current_catalogues jsonb;
+  current_draft_generation bigint;
   current_revision_number bigint;
   next_catalogues jsonb;
 begin
   perform private.require_interface_translation_proof(
-    'publish',
     command_request_id,
+    command_issued_at,
+    'interface-translations-v2:publish:' || command_request_id || ':' ||
+      command_issued_at::text || ':' || coalesce(expected_publication_revision, 0)::text || ':' ||
+      expected_draft_generation::text,
     command_proof
   );
   perform pg_catalog.pg_advisory_xact_lock(
@@ -862,8 +907,8 @@ begin
     return;
   end if;
 
-  select revision.revision_number, revision.catalogues
-  into current_revision_number, current_catalogues
+  select revision.revision_number, revision.catalogues, publication.draft_generation
+  into current_revision_number, current_catalogues, current_draft_generation
   from private.interface_translation_publication as publication
   join private.interface_translation_revisions as revision
     on revision.revision_number = publication.revision_number
@@ -880,6 +925,12 @@ begin
     raise exception using
       errcode = '40001',
       message = 'Interface translation publication changed';
+  end if;
+
+  if expected_draft_generation is distinct from current_draft_generation then
+    raise exception using
+      errcode = '40001',
+      message = 'Interface translation drafts changed';
   end if;
 
   if not exists (select 1 from private.interface_translation_drafts) then
@@ -911,8 +962,10 @@ begin
   where translation_key.active;
 
   perform private.validate_interface_translation_catalogues(next_catalogues);
-  select count(*)::integer into created_change_count
-  from private.interface_translation_drafts;
+  created_change_count := private.interface_translation_change_count(
+    current_catalogues,
+    next_catalogues
+  );
 
   insert into private.interface_translation_revisions (
     request_id,
@@ -946,6 +999,7 @@ create function public.restore_interface_translation_revision(
   requested_revision_number bigint,
   expected_current_revision_number bigint,
   command_request_id text,
+  command_issued_at bigint,
   command_proof text
 )
 returns table (
@@ -968,8 +1022,11 @@ declare
   target_catalogues jsonb;
 begin
   perform private.require_interface_translation_proof(
-    'restore',
     command_request_id,
+    command_issued_at,
+    'interface-translations-v2:restore:' || command_request_id || ':' ||
+      command_issued_at::text || ':' || requested_revision_number::text || ':' ||
+      coalesce(expected_current_revision_number, 0)::text,
     command_proof
   );
   perform pg_catalog.pg_advisory_xact_lock(
@@ -1116,7 +1173,7 @@ revoke execute on function private.interface_translation_change_count(jsonb, jso
   from public, anon, authenticated, service_role;
 revoke execute on function private.require_interface_translation_request_id(text)
   from public, anon, authenticated, service_role;
-revoke execute on function private.require_interface_translation_proof(text, text, text)
+revoke execute on function private.require_interface_translation_proof(text, bigint, text, text)
   from public, anon, authenticated, service_role;
 revoke execute on function private.validate_interface_translation_catalogues(jsonb)
   from public, anon, authenticated, service_role;
@@ -1136,14 +1193,14 @@ revoke execute on function public.get_published_interface_translations(text)
 grant execute on function public.get_published_interface_translations(text)
   to anon, authenticated;
 
-revoke execute on function public.get_interface_translation_workspace(text, text)
+revoke execute on function public.get_interface_translation_workspace(text, bigint, text)
   from public, service_role;
-grant execute on function public.get_interface_translation_workspace(text, text)
+grant execute on function public.get_interface_translation_workspace(text, bigint, text)
   to anon, authenticated;
 
-revoke execute on function public.get_interface_translation_revision(bigint, text, text)
+revoke execute on function public.get_interface_translation_revision(bigint, text, bigint, text)
   from public, service_role;
-grant execute on function public.get_interface_translation_revision(bigint, text, text)
+grant execute on function public.get_interface_translation_revision(bigint, text, bigint, text)
   to anon, authenticated;
 
 revoke execute on function public.save_interface_translation_draft(
@@ -1153,6 +1210,7 @@ revoke execute on function public.save_interface_translation_draft(
   bigint,
   bigint,
   text,
+  bigint,
   text
 ) from public, service_role;
 grant execute on function public.save_interface_translation_draft(
@@ -1162,17 +1220,18 @@ grant execute on function public.save_interface_translation_draft(
   bigint,
   bigint,
   text,
+  bigint,
   text
 ) to anon, authenticated;
 
-revoke execute on function public.publish_interface_translation_drafts(bigint, text, text)
+revoke execute on function public.publish_interface_translation_drafts(bigint, bigint, text, bigint, text)
   from public, service_role;
-grant execute on function public.publish_interface_translation_drafts(bigint, text, text)
+grant execute on function public.publish_interface_translation_drafts(bigint, bigint, text, bigint, text)
   to anon, authenticated;
 
-revoke execute on function public.restore_interface_translation_revision(bigint, bigint, text, text)
+revoke execute on function public.restore_interface_translation_revision(bigint, bigint, text, bigint, text)
   from public, service_role;
-grant execute on function public.restore_interface_translation_revision(bigint, bigint, text, text)
+grant execute on function public.restore_interface_translation_revision(bigint, bigint, text, bigint, text)
   to anon, authenticated;
 
 comment on table private.interface_translation_revisions is
@@ -1181,7 +1240,7 @@ comment on function public.get_published_interface_translations(text) is
   'Public current interface catalogue for one supported locale, with no draft exposure.';
 comment on function public.sync_interface_translation_inventory(jsonb, text) is
   'Deployment-only key inventory synchronization that preserves compatible published edits.';
-comment on function public.publish_interface_translation_drafts(bigint, text, text) is
+comment on function public.publish_interface_translation_drafts(bigint, bigint, text, bigint, text) is
   'Capability-checked atomic publication of every shared draft after server-side validation.';
 
 commit;
