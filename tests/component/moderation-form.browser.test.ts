@@ -118,8 +118,22 @@ const completePublicationReview = {
   placeId: 'place-1',
   version: 1,
   lifecycle: 'candidate',
+  candidateStatus: 'pending' as const,
+  itemVersion: 1,
+  draftVersion: 0,
+  draftPayload: null,
+  draftUpdatedBy: null,
+  draftUpdatedAt: null,
+  readinessState: 'ready' as const,
+  readinessIssues: [],
+  originatingSuggestionId: null,
+  contributorId: null,
   operatorName: 'Candidate operator',
   category: 'restaurant',
+  websiteUrl: null,
+  phone: null,
+  openingHours: {},
+  dogAmenities: [],
   addressLine: 'Tillögugata 7',
   locality: 'Reykjavík',
   postalCode: '101',
@@ -190,7 +204,7 @@ describe('Publication checklist', () => {
 
       expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
       expect(screen.getByRole('heading', { name: checklistHeading })).toBeTruthy();
-      expect(screen.getAllByText(dataReadyLabel(lang))).toHaveLength(8);
+      expect(screen.getAllByText(dataReadyLabel(lang))).toHaveLength(1);
       expect(screen.getByText('64.146600, -21.942600')).toBeTruthy();
       expect(screen.getByText('HMS Staðfangaskrá coordinate 10000001')).toBeTruthy();
       expect(screen.getByRole('region', { name: lang === 'is' ? 'Kort' : 'Map' })).toBeTruthy();
@@ -317,7 +331,7 @@ describe('Publication checklist', () => {
     });
 
     expect(screen.getByRole('link', { name: 'Add English translation' }).getAttribute('href')).toBe(
-      '#english-translation'
+      '#translations'
     );
     expect(
       (

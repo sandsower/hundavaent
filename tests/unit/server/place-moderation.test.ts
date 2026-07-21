@@ -265,6 +265,7 @@ describe('updateCandidatePlaceLocation', () => {
 const publishCommand: PublishPlaceCommand = {
   placeId: 'place-1',
   expectedVersion: 1,
+  expectedDraftVersion: 2,
   conditionVerifications: [{ accessConditionId: 'condition-1', evidenceIds: ['evidence-1'] }],
   freshnessUntil: '2099-01-01T00:00:00.000Z',
   decisionMetadata: { basis: 'official_source' }
@@ -313,6 +314,7 @@ describe('verifyAndPublish', () => {
       command_payload: {
         place_id: 'place-1',
         expected_version: 1,
+        expected_draft_version: 2,
         condition_verifications: [
           { access_condition_id: 'condition-1', evidence_ids: ['evidence-1'] }
         ],
@@ -399,8 +401,22 @@ function createReviewClient({
     place_id: string;
     version: number;
     lifecycle: string;
+    candidate_status: string;
+    item_version: number;
+    draft_version: number;
+    draft_payload: Json | null;
+    draft_updated_by: string | null;
+    draft_updated_at: string | null;
+    readiness_state: string;
+    readiness_issues: Json;
+    originating_suggestion_id: string | null;
+    contributor_id: string | null;
     operator_name: string;
     category: string;
+    website_url: string | null;
+    phone: string | null;
+    opening_hours: Json;
+    dog_amenities: Json;
     address_line: string;
     locality: string;
     postal_code: string;
@@ -427,8 +443,22 @@ const completeReviewRow = {
   place_id: 'place-1',
   version: 1,
   lifecycle: 'candidate',
+  candidate_status: 'pending',
+  item_version: 2,
+  draft_version: 1,
+  draft_payload: { translations: { en: { name: 'Candidate venue' } } },
+  draft_updated_by: 'moderator-1',
+  draft_updated_at: '2026-07-21T20:00:00Z',
+  readiness_state: 'ready',
+  readiness_issues: [],
+  originating_suggestion_id: 'suggestion-1',
+  contributor_id: 'member-1',
   operator_name: 'Candidate operator',
   category: 'restaurant',
+  website_url: 'https://example.invalid/place',
+  phone: '+354 555 0100',
+  opening_hours: { monday: ['09:00', '17:00'] },
+  dog_amenities: ['water_bowl'],
   address_line: 'Tillögugata 7',
   locality: 'Reykjavík',
   postal_code: '101',
@@ -477,6 +507,20 @@ describe('getCandidatePublicationReview', () => {
         placeId: 'place-1',
         version: 1,
         lifecycle: 'candidate',
+        candidateStatus: 'pending',
+        itemVersion: 2,
+        draftVersion: 1,
+        draftPayload: { translations: { en: { name: 'Candidate venue' } } },
+        draftUpdatedBy: 'moderator-1',
+        draftUpdatedAt: '2026-07-21T20:00:00Z',
+        readinessState: 'ready',
+        readinessIssues: [],
+        originatingSuggestionId: 'suggestion-1',
+        contributorId: 'member-1',
+        websiteUrl: 'https://example.invalid/place',
+        phone: '+354 555 0100',
+        openingHours: { monday: ['09:00', '17:00'] },
+        dogAmenities: ['water_bowl'],
         latitude: 64.1466,
         longitude: -21.9426,
         geometryPrecision: 'official_address_point',

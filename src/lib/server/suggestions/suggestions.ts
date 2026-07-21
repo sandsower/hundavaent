@@ -177,13 +177,15 @@ export async function listMemberSuggestions(
 export async function listModerationSuggestions(
   client: SuggestionRpcClient,
   cursor: ModerationSuggestionCursor | null = null,
-  limit = 20
+  limit = 20,
+  filter: 'actionable' | 'deferred' | 'resolved' = 'actionable'
 ): Promise<
   SuggestionCommandResult<SuggestionPage<ModerationSuggestionSummary, ModerationSuggestionCursor>>
 > {
   try {
     const pageSize = boundedPageSize(limit);
     const { data, error } = await client.rpc('list_moderation_place_suggestions', {
+      requested_filter: filter,
       cursor_queue_rank: cursor?.queueRank ?? null,
       cursor_submitted_at: cursor?.submittedAt ?? null,
       cursor_suggestion_id: cursor?.suggestionId ?? null,

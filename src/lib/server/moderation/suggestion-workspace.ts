@@ -139,9 +139,10 @@ export function parseModerationSuggestionQueueCursor(
 export async function loadModerationSuggestionQueue(
   suggestionClient: SuggestionRpcClient,
   contributorClient: ContributorRpcClient,
-  cursorState: ModerationSuggestionQueueCursorState
+  cursorState: ModerationSuggestionQueueCursorState,
+  filter: 'actionable' | 'deferred' | 'resolved' = 'actionable'
 ): Promise<SuggestionWorkspaceLoadResult<ModerationSuggestionQueueData>> {
-  const result = await listModerationSuggestions(suggestionClient, cursorState.cursor);
+  const result = await listModerationSuggestions(suggestionClient, cursorState.cursor, 20, filter);
   if (result.status !== 'success') return { status: result.status };
 
   const memberIds = [...new Set(result.value.items.map((item) => item.memberId))];

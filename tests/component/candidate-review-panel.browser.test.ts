@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import { catalogues } from '$i18n';
@@ -14,8 +14,22 @@ const data = {
     placeId,
     version: 3,
     lifecycle: 'candidate',
+    candidateStatus: 'pending' as const,
+    itemVersion: 2,
+    draftVersion: 0,
+    draftPayload: null,
+    draftUpdatedBy: null,
+    draftUpdatedAt: null,
+    readinessState: 'ready' as const,
+    readinessIssues: [],
+    originatingSuggestionId: null,
+    contributorId: null,
     operatorName: 'Candidate operator',
     category: 'cafe',
+    websiteUrl: null,
+    phone: null,
+    openingHours: {},
+    dogAmenities: [],
     addressLine: 'Candidate street 1',
     locality: 'Reykjavik',
     postalCode: '101',
@@ -75,19 +89,9 @@ describe('CandidateReviewPanel', () => {
     expect(screen.getAllByText('Ready')).toHaveLength(1);
     expect(document.querySelector('#candidate-publication')).toBeTruthy();
     expect(document.querySelector('#candidate-media')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Verify and publish' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Needs information' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Verify and publish' })).toBeNull();
     expect(screen.getByText('Place overview').closest('details')?.open).toBe(false);
     expect(screen.getByText('Names and descriptions').closest('details')?.open).toBe(false);
-
-    await fireEvent.click(screen.getByRole('button', { name: 'Verify and publish' }));
-    const confirmation = screen.getByRole('dialog', { name: 'Publish this Place?' });
-    expect(
-      within(confirmation).getByText(
-        'The reviewed Place and its verified access information will become publicly visible.'
-      )
-    ).toBeTruthy();
 
     const forms = [...document.querySelectorAll('form')];
     expect(forms.length).toBeGreaterThan(0);
@@ -112,7 +116,8 @@ describe('CandidateReviewPanel', () => {
           checks: { ...data.review.checks, englishTranslation: false }
         }
       },
-      form: null
+      form: null,
+      standalone: true
     });
 
     const readiness = screen.getByRole('region', { name: 'Publication checklist' });
@@ -153,6 +158,7 @@ describe('CandidateReviewPanel', () => {
     };
     const { container } = render(CandidateReviewPanel, {
       data: refreshedData,
+      standalone: true,
       form: {
         action: 'publish',
         success: false,
@@ -175,6 +181,7 @@ describe('CandidateReviewPanel', () => {
         ...data,
         review: { ...data.review, lifecycle: 'published' }
       },
+      standalone: true,
       form: {
         action: 'publish',
         success: false,

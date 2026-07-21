@@ -163,6 +163,7 @@ describe('Corrections and Reports workspace queue assembly', () => {
       }
     });
     expect(rpc).toHaveBeenCalledWith('list_moderation_place_flags', {
+      requested_filter: 'actionable',
       cursor_priority: cursor.priority,
       cursor_submitted_at: cursor.submittedAt,
       cursor_flag_id: cursor.flagId,

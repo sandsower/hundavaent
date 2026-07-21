@@ -245,6 +245,7 @@ describe('Suggestions workspace queue assembly', () => {
     });
     expect(result.value.hasPrevious).toBe(true);
     expect(suggestionRpc).toHaveBeenCalledWith('list_moderation_place_suggestions', {
+      requested_filter: 'actionable',
       cursor_queue_rank: cursor.queueRank,
       cursor_submitted_at: cursor.submittedAt,
       cursor_suggestion_id: cursor.suggestionId,

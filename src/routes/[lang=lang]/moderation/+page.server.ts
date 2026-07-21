@@ -8,9 +8,11 @@ import type {
   CandidateQueueRpcClient
 } from '$server/moderation/candidate-queue';
 import {
+  executeCandidateDecision,
   executeModerationCandidateAction,
   loadModerationCandidateQueue,
   loadModerationCandidateReview,
+  saveCandidateDraftSection,
   type ModerationCandidateActionError,
   type ModerationCandidateActionName,
   type ModerationCandidateReviewData
@@ -86,7 +88,8 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
       const flagClient = locals.supabase as unknown as PlaceFlagRpcClient;
       const queueResult = await loadModerationCorrectionQueue(
         flagClient,
-        correctionCursorState(state.cursor)
+        correctionCursorState(state.cursor),
+        state.filters[0]
       );
       if (queueResult.status !== 'success') {
         redirectIfNonCanonical(url, state);
@@ -108,9 +111,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
         };
       }
 
-      const corrections = queueResult.value.flags.filter(
-        (flag) => flag.outcome === 'submitted' || flag.outcome === 'needs_information'
-      );
+      const corrections = queueResult.value.flags;
       let selectedItemId = selectVisibleModerationItemId(
         state.itemId,
         corrections.map((flag) => flag.flagId),
@@ -126,8 +127,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
         );
         if (
           reviewResult.status === 'success' &&
-          (reviewResult.value.flag.outcome === 'submitted' ||
-            reviewResult.value.flag.outcome === 'needs_information')
+          correctionOutcomeMatchesFilter(reviewResult.value.flag.outcome, state.filters[0])
         ) {
           correctionReview = reviewResult.value;
         } else if (reviewResult.status !== 'success' && reviewResult.status !== 'not_found') {
@@ -135,7 +135,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
         } else if (state.itemId) {
           selectedItemId = corrections[0]?.flagId ?? null;
           correctionReview = selectedItemId
-            ? await loadActionableCorrectionReview(flagClient, selectedItemId, url)
+            ? await loadCorrectionReviewForFilter(flagClient, selectedItemId, state.filters[0], url)
             : null;
         }
       }
@@ -168,6 +168,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
     }
     const candidateQueueResult = await loadModerationCandidateQueue(
       locals.supabase as unknown as CandidateQueueRpcClient,
+      state.filters[0],
       candidateCursorState(state.cursor)
     );
     if (candidateQueueResult.status !== 'success') {
@@ -202,7 +203,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
       const reviewResult = await loadModerationCandidateReview(locals.supabase, selectedItemId);
       if (
         reviewResult.status === 'success' &&
-        reviewResult.value.review.lifecycle === 'candidate'
+        candidateReviewMatchesFilter(reviewResult.value, state.filters[0])
       ) {
         candidateReview = reviewResult.value;
       } else if (reviewResult.status !== 'success' && reviewResult.status !== 'not_found') {
@@ -210,7 +211,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
       } else if (state.itemId) {
         selectedItemId = candidates[0]?.placeId ?? null;
         candidateReview = selectedItemId
-          ? await loadActionableCandidateReview(locals.supabase, selectedItemId)
+          ? await loadCandidateReviewForFilter(locals.supabase, selectedItemId, state.filters[0])
           : null;
       }
     }
@@ -247,7 +248,8 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
   const queueResult = await loadModerationSuggestionQueue(
     suggestionClient,
     contributorClient,
-    suggestionCursorState(state.cursor)
+    suggestionCursorState(state.cursor),
+    state.filters[0]
   );
 
   if (queueResult.status !== 'success') {
@@ -270,9 +272,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
     };
   }
 
-  const suggestions = queueResult.value.suggestions.filter(
-    (suggestion) => suggestion.outcome === 'submitted'
-  );
+  const suggestions = queueResult.value.suggestions;
   let selectedItemId = selectVisibleModerationItemId(
     state.itemId,
     suggestions.map((suggestion) => suggestion.suggestionId),
@@ -290,7 +290,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
     );
     if (
       reviewResult.status === 'success' &&
-      reviewResult.value.suggestion.outcome === 'submitted'
+      suggestionOutcomeMatchesFilter(reviewResult.value.suggestion.outcome, state.filters[0])
     ) {
       suggestionReview = reviewResult.value;
     } else if (reviewResult.status !== 'success' && reviewResult.status !== 'not_found') {
@@ -298,7 +298,13 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
     } else if (state.itemId) {
       selectedItemId = suggestions[0]?.suggestionId ?? null;
       suggestionReview = selectedItemId
-        ? await loadActionableReview(suggestionClient, contributorClient, selectedItemId, url)
+        ? await loadSuggestionReviewForFilter(
+            suggestionClient,
+            contributorClient,
+            selectedItemId,
+            state.filters[0],
+            url
+          )
         : null;
     }
   }
@@ -340,6 +346,8 @@ export const actions: Actions = {
   recordConductFlag: (event) => runWorkspaceSuggestionAction('recordConductFlag', event),
   clearConductFlag: (event) => runWorkspaceSuggestionAction('clearConductFlag', event),
   correctLocation: (event) => runWorkspaceCandidateAction('correctLocation', event),
+  saveCandidateSection: (event) => runWorkspaceCandidateAction('saveCandidateSection', event),
+  decideCandidate: (event) => runWorkspaceCandidateAction('decideCandidate', event),
   publish: (event) => runWorkspaceCandidateAction('publish', event),
   uploadEvidence: (event) => runWorkspaceCandidateAction('uploadEvidence', event),
   uploadPhoto: (event) => runWorkspaceCandidateAction('uploadPhoto', event),
@@ -463,7 +471,7 @@ async function runWorkspaceCorrectionAction(
 }
 
 async function runWorkspaceCandidateAction(
-  action: ModerationCandidateActionName,
+  action: ModerationCandidateWorkspaceAction,
   event: Parameters<NonNullable<Actions['resolve']>>[0]
 ) {
   const { cookies, locals, params, request, url } = event;
@@ -481,12 +489,18 @@ async function runWorkspaceCandidateAction(
     return fail(400, { action, success: false, error: copy['moderation.incomplete'] });
   }
 
-  const result = await executeModerationCandidateAction(action, {
+  const context = {
     client: locals.supabase,
     placeId,
     requestId: locals.requestId,
     formData
-  });
+  };
+  const result =
+    action === 'saveCandidateSection'
+      ? await saveCandidateDraftSection(context)
+      : action === 'decideCandidate'
+        ? await executeCandidateDecision(context)
+        : await executeModerationCandidateAction(action, context);
   if (result.status === 'failure') {
     const conflictReview =
       result.error === 'conflict'
@@ -521,7 +535,7 @@ async function runWorkspaceCandidateAction(
 }
 
 function candidateActionErrorMessage(
-  action: ModerationCandidateActionName,
+  action: ModerationCandidateWorkspaceAction,
   actionError: ModerationCandidateActionError,
   copy: Catalogue
 ): string {
@@ -529,13 +543,20 @@ function candidateActionErrorMessage(
   if (actionError === 'unavailable') return copy['error.unexpectedBody'];
   if (actionError === 'already_published') return copy['moderation.alreadyPublished'];
   if (actionError === 'conflict') {
-    return action === 'publish' || action === 'correctLocation'
+    return action === 'publish' ||
+      action === 'correctLocation' ||
+      action === 'saveCandidateSection' ||
+      action === 'decideCandidate'
       ? copy['moderation.versionConflict']
       : copy['moderation.media.error.conflict'];
   }
   if (
     actionError === 'incomplete' ||
-    (actionError === 'invalid' && (action === 'publish' || action === 'correctLocation'))
+    (actionError === 'invalid' &&
+      (action === 'publish' ||
+        action === 'correctLocation' ||
+        action === 'saveCandidateSection' ||
+        action === 'decideCandidate'))
   ) {
     return copy['moderation.incomplete'];
   }
@@ -625,6 +646,10 @@ type CandidateWorkspaceNotice = {
   readonly kind: 'candidate';
   readonly value:
     | 'published'
+    | 'draft_saved'
+    | 'needs_information'
+    | 'rejected'
+    | 'reopened'
     | 'location_corrected'
     | 'evidence_uploaded'
     | 'photo_uploaded'
@@ -635,6 +660,10 @@ type CandidateWorkspaceNotice = {
 
 const moderationCandidateEffects = new Set<CandidateWorkspaceNotice['value']>([
   'published',
+  'draft_saved',
+  'needs_information',
+  'rejected',
+  'reopened',
   'location_corrected',
   'evidence_uploaded',
   'photo_uploaded',
@@ -643,10 +672,11 @@ const moderationCandidateEffects = new Set<CandidateWorkspaceNotice['value']>([
   'media_retired'
 ]);
 
-async function loadActionableReview(
+async function loadSuggestionReviewForFilter(
   suggestionClient: SuggestionRpcClient,
   contributorClient: ContributorRpcClient,
   suggestionId: string,
+  filter: ModerationWorkspaceQuery['filters'][number],
   url: URL
 ): Promise<ModerationSuggestionReviewData | null> {
   const result = await loadModerationSuggestionReview(
@@ -655,32 +685,72 @@ async function loadActionableReview(
     suggestionId,
     url.searchParams
   );
-  return result.status === 'success' && result.value.suggestion.outcome === 'submitted'
+  return result.status === 'success' &&
+    suggestionOutcomeMatchesFilter(result.value.suggestion.outcome, filter)
     ? result.value
     : null;
 }
 
-async function loadActionableCorrectionReview(
+async function loadCorrectionReviewForFilter(
   flagClient: PlaceFlagRpcClient,
   flagId: string,
+  filter: ModerationWorkspaceQuery['filters'][number],
   url: URL
 ): Promise<ModerationCorrectionReviewData | null> {
   const result = await loadModerationCorrectionReview(flagClient, flagId, url.searchParams);
   return result.status === 'success' &&
-    (result.value.flag.outcome === 'submitted' || result.value.flag.outcome === 'needs_information')
+    correctionOutcomeMatchesFilter(result.value.flag.outcome, filter)
     ? result.value
     : null;
 }
 
-async function loadActionableCandidateReview(
+function suggestionOutcomeMatchesFilter(
+  outcome: string,
+  filter: ModerationWorkspaceQuery['filters'][number]
+): boolean {
+  if (filter === 'actionable') return outcome === 'submitted';
+  if (filter === 'deferred') return outcome === 'needs_information';
+  return outcome === 'accepted' || outcome === 'duplicate' || outcome === 'rejected';
+}
+
+function correctionOutcomeMatchesFilter(
+  outcome: string,
+  filter: ModerationWorkspaceQuery['filters'][number]
+): boolean {
+  if (filter === 'actionable') return outcome === 'submitted';
+  if (filter === 'deferred') return outcome === 'needs_information';
+  return (
+    outcome === 'applied' ||
+    outcome === 'confirmed_useful' ||
+    outcome === 'dispute_opened' ||
+    outcome === 'place_inactivated' ||
+    outcome === 'rejected'
+  );
+}
+
+async function loadCandidateReviewForFilter(
   client: Parameters<typeof loadModerationCandidateReview>[0],
-  placeId: string
+  placeId: string,
+  filter: ModerationWorkspaceQuery['filters'][number]
 ): Promise<ModerationCandidateReviewData | null> {
   const result = await loadModerationCandidateReview(client, placeId);
-  return result.status === 'success' && result.value.review.lifecycle === 'candidate'
+  return result.status === 'success' && candidateReviewMatchesFilter(result.value, filter)
     ? result.value
     : null;
 }
+
+function candidateReviewMatchesFilter(
+  value: ModerationCandidateReviewData,
+  filter: ModerationWorkspaceQuery['filters'][number]
+): boolean {
+  const status = value.review.candidateStatus;
+  if (filter === 'actionable') return status === 'pending';
+  if (filter === 'deferred') return status === 'needs_information';
+  return status === 'rejected' || status === 'published';
+}
+
+type ModerationCandidateWorkspaceAction =
+  ModerationCandidateActionName | 'saveCandidateSection' | 'decideCandidate';
 
 function redirectIfNonCanonical(url: URL, state: ModerationWorkspaceQuery): void {
   const canonical = serializeModerationWorkspaceQuery(state).toString();

@@ -10,7 +10,7 @@ export const moderationQueueIds = [
 
 export type ModerationQueueId = (typeof moderationQueueIds)[number];
 
-export const moderationFilterIds = ['actionable'] as const;
+export const moderationFilterIds = ['actionable', 'deferred', 'resolved'] as const;
 
 export type ModerationFilterId = (typeof moderationFilterIds)[number];
 

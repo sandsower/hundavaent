@@ -224,6 +224,7 @@ describe('Suggestion RPC adapter', () => {
       200
     );
     expect(rpc).toHaveBeenLastCalledWith('list_moderation_place_suggestions', {
+      requested_filter: 'actionable',
       cursor_queue_rank: 0,
       cursor_submitted_at: queueRow.submitted_at,
       cursor_suggestion_id: 'suggestion-2',
@@ -298,6 +299,7 @@ describe('Suggestion RPC adapter', () => {
       expect(result.value.items).toHaveLength(Math.min(rowCount, 2));
       expect(Boolean(result.value.nextCursor)).toBe(hasNext);
       expect(rpc).toHaveBeenCalledWith('list_moderation_place_suggestions', {
+        requested_filter: 'actionable',
         cursor_queue_rank: null,
         cursor_submitted_at: null,
         cursor_suggestion_id: null,

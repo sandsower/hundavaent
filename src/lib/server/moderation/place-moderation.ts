@@ -87,6 +87,7 @@ export interface CreatedCandidate {
 export interface PublishPlaceCommand {
   placeId: string;
   expectedVersion: number;
+  expectedDraftVersion: number;
   conditionVerifications: ReadonlyArray<{
     accessConditionId: string;
     evidenceIds: readonly string[];
@@ -125,8 +126,22 @@ export interface CandidatePublicationReview {
   placeId: string;
   version: number;
   lifecycle: string;
+  candidateStatus: 'pending' | 'needs_information' | 'rejected' | 'published';
+  itemVersion: number;
+  draftVersion: number;
+  draftPayload: Json | null;
+  draftUpdatedBy: string | null;
+  draftUpdatedAt: string | null;
+  readinessState: 'ready' | 'blocked';
+  readinessIssues: string[];
+  originatingSuggestionId: string | null;
+  contributorId: string | null;
   operatorName: string;
   category: string;
+  websiteUrl: string | null;
+  phone: string | null;
+  openingHours: Readonly<Record<string, Json>>;
+  dogAmenities: string[];
   addressLine: string;
   locality: string;
   postalCode: string;
@@ -254,6 +269,7 @@ export async function verifyAndPublish(
       command_payload: {
         place_id: command.placeId,
         expected_version: command.expectedVersion,
+        expected_draft_version: command.expectedDraftVersion,
         condition_verifications: command.conditionVerifications.map((verification) => ({
           access_condition_id: verification.accessConditionId,
           evidence_ids: [...verification.evidenceIds]
@@ -303,11 +319,12 @@ export async function getCandidatePublicationReview(
       return { status: 'not_found' };
     }
 
-    if (data.length !== 1 || !isCandidateReviewRow(data[0])) {
+    const candidateRow = data[0] as unknown as DatabaseReviewRowInput | undefined;
+    if (data.length !== 1 || !isCandidateReviewRow(candidateRow)) {
       return { status: 'infrastructure_error' };
     }
 
-    const row = data[0];
+    const row = candidateRow;
     const accessConditions = parseModerationConditions(row.access_conditions);
     const evidenceRecords = parseModerationEvidence(row.evidence_records);
     if (!accessConditions || !evidenceRecords) return { status: 'infrastructure_error' };
@@ -337,8 +354,22 @@ export async function getCandidatePublicationReview(
         placeId: row.place_id,
         version: row.version,
         lifecycle: row.lifecycle,
+        candidateStatus: row.candidate_status,
+        itemVersion: row.item_version,
+        draftVersion: row.draft_version,
+        draftPayload: row.draft_payload,
+        draftUpdatedBy: row.draft_updated_by,
+        draftUpdatedAt: row.draft_updated_at,
+        readinessState: row.readiness_state,
+        readinessIssues: row.readiness_issues,
+        originatingSuggestionId: row.originating_suggestion_id,
+        contributorId: row.contributor_id,
         operatorName: row.operator_name,
         category: row.category,
+        websiteUrl: row.website_url,
+        phone: row.phone,
+        openingHours: row.opening_hours,
+        dogAmenities: row.dog_amenities,
         addressLine: row.address_line,
         locality: row.locality,
         postalCode: row.postal_code,
@@ -354,7 +385,7 @@ export async function getCandidatePublicationReview(
         accessConditions,
         evidenceRecords,
         checks,
-        ready: Object.values(checks).every(Boolean)
+        ready: row.readiness_state === 'ready' && Object.values(checks).every(Boolean)
       }
     };
   } catch {
@@ -559,8 +590,22 @@ type DatabaseReviewRow = {
   place_id: string;
   version: number;
   lifecycle: string;
+  candidate_status: 'pending' | 'needs_information' | 'rejected' | 'published';
+  item_version: number;
+  draft_version: number;
+  draft_payload: Json | null;
+  draft_updated_by: string | null;
+  draft_updated_at: string | null;
+  readiness_state: 'ready' | 'blocked';
+  readiness_issues: string[];
+  originating_suggestion_id: string | null;
+  contributor_id: string | null;
   operator_name: string;
   category: string;
+  website_url: string | null;
+  phone: string | null;
+  opening_hours: Readonly<Record<string, Json>>;
+  dog_amenities: string[];
   address_line: string;
   locality: string;
   postal_code: string;
@@ -588,8 +633,26 @@ function isCandidateReviewRow(row: DatabaseReviewRowInput | undefined): row is D
     Number.isInteger(row.version) &&
     row.version > 0 &&
     hasText(row.lifecycle) &&
+    isCandidateReviewStatus(row.candidate_status) &&
+    Number.isInteger(row.item_version) &&
+    row.item_version > 0 &&
+    Number.isInteger(row.draft_version) &&
+    row.draft_version >= 0 &&
+    (row.draft_payload === null || isJsonObject(row.draft_payload)) &&
+    (row.draft_updated_by === null || hasText(row.draft_updated_by)) &&
+    (row.draft_updated_at === null || hasText(row.draft_updated_at)) &&
+    (row.readiness_state === 'ready' || row.readiness_state === 'blocked') &&
+    Array.isArray(row.readiness_issues) &&
+    row.readiness_issues.every(hasText) &&
+    (row.originating_suggestion_id === null || hasText(row.originating_suggestion_id)) &&
+    (row.contributor_id === null || hasText(row.contributor_id)) &&
     hasText(row.operator_name) &&
     hasText(row.category) &&
+    (row.website_url === null || hasText(row.website_url)) &&
+    (row.phone === null || hasText(row.phone)) &&
+    isJsonObject(row.opening_hours) &&
+    Array.isArray(row.dog_amenities) &&
+    row.dog_amenities.every(hasText) &&
     hasText(row.address_line) &&
     hasText(row.locality) &&
     hasText(row.postal_code) &&
@@ -601,6 +664,19 @@ function isCandidateReviewRow(row: DatabaseReviewRowInput | undefined): row is D
     Array.isArray(row.access_conditions) &&
     Array.isArray(row.evidence_records)
   );
+}
+
+function isCandidateReviewStatus(value: unknown): value is DatabaseReviewRow['candidate_status'] {
+  return (
+    value === 'pending' ||
+    value === 'needs_information' ||
+    value === 'rejected' ||
+    value === 'published'
+  );
+}
+
+function isJsonObject(value: unknown): value is Readonly<Record<string, Json>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isLocationGeometryPrecision(value: unknown): value is LocationGeometryPrecision {

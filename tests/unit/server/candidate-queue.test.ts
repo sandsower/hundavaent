@@ -14,12 +14,20 @@ describe('Moderation Candidate queue RPC adapter', () => {
       address_line: `Gata ${index}`,
       locality: 'Reykjavík',
       municipality: 'reykjavik',
-      created_at: `2026-07-1${index % 9}T09:00:00Z`
+      created_at: `2026-07-1${index % 9}T09:00:00Z`,
+      candidate_status: 'pending',
+      item_version: 1,
+      draft_version: 0,
+      draft_updated_by: null,
+      draft_updated_at: null,
+      readiness_state: 'ready',
+      readiness_issue_count: 0
     }));
     const rpc = vi.fn().mockResolvedValue({ data: rows, error: null });
 
     const result = await listModerationCandidatePlaces(
       { rpc } satisfies CandidateQueueRpcClient,
+      'actionable',
       null,
       20
     );
@@ -32,6 +40,7 @@ describe('Moderation Candidate queue RPC adapter', () => {
       placeId: rows[19].place_id
     });
     expect(rpc).toHaveBeenCalledWith('list_moderation_candidate_places', {
+      requested_filter: 'actionable',
       cursor_created_at: null,
       cursor_place_id: null,
       requested_limit: 21
@@ -48,16 +57,24 @@ describe('Moderation Candidate queue RPC adapter', () => {
           address_line: 'Vafragata 23',
           locality: 'Reykjavík',
           municipality: 'reykjavik',
-          created_at: '2026-07-11T09:00:00Z'
+          created_at: '2026-07-11T09:00:00Z',
+          candidate_status: 'rejected',
+          item_version: 4,
+          draft_version: 2,
+          draft_updated_by: 'moderator-1',
+          draft_updated_at: '2026-07-11T10:00:00Z',
+          readiness_state: 'blocked',
+          readiness_issue_count: 2
         }
       ],
       error: null
     });
 
-    const result = await listModerationCandidatePlaces({ rpc } satisfies CandidateQueueRpcClient, {
-      createdAt: '2026-07-10T09:00:00Z',
-      placeId: 'place-0'
-    });
+    const result = await listModerationCandidatePlaces(
+      { rpc } satisfies CandidateQueueRpcClient,
+      'resolved',
+      { createdAt: '2026-07-10T09:00:00Z', placeId: 'place-0' }
+    );
 
     expect(result).toEqual({
       status: 'success',
@@ -70,13 +87,21 @@ describe('Moderation Candidate queue RPC adapter', () => {
             addressLine: 'Vafragata 23',
             locality: 'Reykjavík',
             municipality: 'reykjavik',
-            createdAt: '2026-07-11T09:00:00Z'
+            createdAt: '2026-07-11T09:00:00Z',
+            candidateStatus: 'rejected',
+            itemVersion: 4,
+            draftVersion: 2,
+            draftUpdatedBy: 'moderator-1',
+            draftUpdatedAt: '2026-07-11T10:00:00Z',
+            readinessState: 'blocked',
+            readinessIssueCount: 2
           }
         ],
         nextCursor: null
       }
     });
     expect(rpc).toHaveBeenCalledWith('list_moderation_candidate_places', {
+      requested_filter: 'resolved',
       cursor_created_at: '2026-07-10T09:00:00Z',
       cursor_place_id: 'place-0',
       requested_limit: 21

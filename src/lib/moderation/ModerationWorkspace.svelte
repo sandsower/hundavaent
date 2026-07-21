@@ -62,7 +62,8 @@
       cursor,
       cursorTrail,
       nextItemId,
-      nextCursor
+      nextCursor,
+      filter: filters[0] ?? 'actionable'
     });
   });
 
@@ -113,7 +114,13 @@
 
   function handleSubmit(event: SubmitEvent): void {
     if (!(event.target instanceof HTMLFormElement)) return;
-    synchronizeForm(event.target, { cursor, cursorTrail, nextItemId, nextCursor });
+    synchronizeForm(event.target, {
+      cursor,
+      cursorTrail,
+      nextItemId,
+      nextCursor,
+      filter: filters[0] ?? 'actionable'
+    });
   }
 
   function isTypingTarget(target: EventTarget | null): boolean {
@@ -131,6 +138,7 @@
       cursorTrail: readonly (string | null)[];
       nextItemId: string | null;
       nextCursor: string | null;
+      filter: string;
     }
   ): void {
     for (const form of workspace.querySelectorAll<HTMLFormElement>('form[method="POST" i]')) {
@@ -145,6 +153,7 @@
       cursorTrail: readonly (string | null)[];
       nextItemId: string | null;
       nextCursor: string | null;
+      filter: string;
     }
   ): void {
     form.querySelectorAll('[data-workspace-context]').forEach((input) => input.remove());
@@ -154,6 +163,7 @@
     }
     appendWorkspaceInput(form, 'workspaceNextItemId', context.nextItemId);
     appendWorkspaceInput(form, 'workspaceNextCursor', context.nextCursor);
+    appendWorkspaceInput(form, 'workspaceFilter', context.filter);
   }
 
   function appendWorkspaceInput(form: HTMLFormElement, name: string, value: string | null): void {

@@ -237,13 +237,15 @@ export async function listMemberPlaceFlags(
 export async function listModerationPlaceFlags(
   client: PlaceFlagRpcClient,
   cursor: ModerationPlaceFlagCursor | null = null,
-  limit = 20
+  limit = 20,
+  filter: 'actionable' | 'deferred' | 'resolved' = 'actionable'
 ): Promise<
   PlaceFlagCommandResult<PlaceFlagPage<ModerationPlaceFlagSummary, ModerationPlaceFlagCursor>>
 > {
   try {
     const pageSize = boundedPageSize(limit);
     const { data, error } = await client.rpc('list_moderation_place_flags', {
+      requested_filter: filter,
       cursor_priority: cursor?.priority ?? null,
       cursor_submitted_at: cursor?.submittedAt ?? null,
       cursor_flag_id: cursor?.flagId ?? null,

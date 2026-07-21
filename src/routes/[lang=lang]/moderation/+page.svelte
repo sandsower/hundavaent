@@ -3,6 +3,7 @@
   import CandidateReviewPanel from '$lib/moderation/CandidateReviewPanel.svelte';
   import CorrectionReviewPanel from '$lib/moderation/CorrectionReviewPanel.svelte';
   import ModerationWorkspace from '$lib/moderation/ModerationWorkspace.svelte';
+  import ModerationConfirmDialog from '$lib/moderation/ModerationConfirmDialog.svelte';
   import SuggestionReviewPanel from '$lib/moderation/SuggestionReviewPanel.svelte';
   import type { ModerationWorkItem } from '$lib/moderation/types';
   import type { MessageKey } from '$i18n';
@@ -26,8 +27,17 @@
 
   const conflictAction = $derived(form as ConflictActionData | null);
 
+  const activeFilter = $derived(data.workspace.filters[0] ?? 'actionable');
   const queues = $derived(
-    data.queues.map((queue) => ({ id: queue.queueId, count: queue.actionableCount }))
+    data.queues.map((queue) => ({
+      id: queue.queueId,
+      count:
+        activeFilter === 'deferred'
+          ? queue.deferredCount
+          : activeFilter === 'resolved'
+            ? queue.resolvedCount
+            : queue.actionableCount
+    }))
   );
   const items = $derived(
     data.workspace.queue === 'candidate-places'
@@ -93,6 +103,12 @@
     if (!notice) return '';
     if (data.workspace.queue === 'candidate-places' && notice.kind === 'candidate') {
       if (notice.value === 'published') return data.copy['moderation.published'];
+      if (notice.value === 'draft_saved') return data.copy['moderation.workbench.draftSaved'];
+      if (notice.value === 'needs_information') {
+        return data.copy['moderation.workbench.needsInformationSaved'];
+      }
+      if (notice.value === 'rejected') return data.copy['moderation.workbench.rejectedSaved'];
+      if (notice.value === 'reopened') return data.copy['moderation.workbench.reopenedSaved'];
       if (notice.value === 'location_corrected') return data.copy['moderation.geometryCorrected'];
       if (notice.value === 'evidence_uploaded' || notice.value === 'photo_uploaded') {
         return data.copy['moderation.media.uploadSucceeded'];
@@ -119,6 +135,7 @@
       : data.copy['contributor.moderation.flagCleared'];
   });
   let selectedOutcome = $state('needs_information');
+  let candidateDialog = $state<'publish' | 'needs_information' | 'rejected' | null>(null);
   $effect(() => {
     const selectedItemId = data.workspace.itemId;
     selectedOutcome =
@@ -150,10 +167,9 @@
     form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     form?.querySelector<HTMLElement>('textarea[name="memberReasonIs"]')?.focus();
   }
-  function focusCandidateDecision(target: 'publication' | 'media'): void {
-    const element = document.querySelector<HTMLElement>(`#candidate-${target}`);
-    element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    element?.querySelector<HTMLElement>('input, button')?.focus();
+  function submitCandidatePublication(): void {
+    candidateDialog = null;
+    document.querySelector<HTMLFormElement>('#candidate-publication')?.requestSubmit();
   }
 </script>
 
@@ -232,21 +248,132 @@
           role="group"
           aria-label={data.copy['moderation.reviewTitle']}
         >
-          <button
-            class="decision-option"
-            type="button"
-            onclick={() => focusCandidateDecision('publication')}
-          >
-            {data.copy['moderation.checklistTitle']}
-          </button>
-          <button
-            class="decision-option"
-            type="button"
-            onclick={() => focusCandidateDecision('media')}
-          >
-            {data.copy['moderation.media.title']}
-          </button>
+          {#if activeFilter === 'resolved'}
+            <form method="POST" action="?/decideCandidate">
+              <input type="hidden" name="placeId" value={candidateReviewData.review.placeId} />
+              <input
+                type="hidden"
+                name="expectedItemVersion"
+                value={candidateReviewData.review.itemVersion}
+              />
+              <input
+                type="hidden"
+                name="expectedDraftVersion"
+                value={candidateReviewData.review.draftVersion}
+              />
+              <input type="hidden" name="decision" value="reopen" />
+              <button class="decision-option" type="submit">
+                {data.copy['moderation.workbench.reopen']}
+              </button>
+            </form>
+          {:else}
+            <button
+              class="decision-option primary"
+              type="button"
+              disabled={!candidateReviewData.review.ready}
+              onclick={() => (candidateDialog = 'publish')}
+            >
+              {data.copy['moderation.verifyAndPublish']}
+            </button>
+            <button
+              class="decision-option"
+              type="button"
+              onclick={() => (candidateDialog = 'needs_information')}
+            >
+              {data.copy['moderation.workbench.needsInformation']}
+            </button>
+            <button
+              class="decision-option danger"
+              type="button"
+              onclick={() => (candidateDialog = 'rejected')}
+            >
+              {data.copy['moderation.workbench.reject']}
+            </button>
+          {/if}
         </div>
+
+        <ModerationConfirmDialog
+          open={candidateDialog === 'publish'}
+          title={data.copy['moderation.workbench.publishConfirmTitle']}
+          description={data.copy['moderation.workbench.publishConfirmBody']}
+          confirmLabel={data.copy['moderation.verifyAndPublish']}
+          cancelLabel={data.copy['moderation.workbench.keepReviewing']}
+          onconfirm={submitCandidatePublication}
+          oncancel={() => (candidateDialog = null)}
+        />
+
+        {#if candidateDialog === 'needs_information' || candidateDialog === 'rejected'}
+          <dialog
+            class="candidate-dialog"
+            open
+            aria-labelledby="candidate-decision-title"
+            oncancel={() => (candidateDialog = null)}
+          >
+            <h2 id="candidate-decision-title">
+              {candidateDialog === 'rejected'
+                ? data.copy['moderation.workbench.rejectTitle']
+                : data.copy['moderation.workbench.needsInformationTitle']}
+            </h2>
+            <p>{data.copy['moderation.workbench.decisionHelp']}</p>
+            <form method="POST" action="?/decideCandidate">
+              <input type="hidden" name="placeId" value={candidateReviewData.review.placeId} />
+              <input
+                type="hidden"
+                name="expectedItemVersion"
+                value={candidateReviewData.review.itemVersion}
+              />
+              <input
+                type="hidden"
+                name="expectedDraftVersion"
+                value={candidateReviewData.review.draftVersion}
+              />
+              <input type="hidden" name="decision" value={candidateDialog} />
+              {#if candidateDialog === 'rejected'}
+                <input type="hidden" name="confirmedDecision" value="rejected" />
+                <label>
+                  {data.copy['moderation.workbench.reasonCode']}
+                  <select name="reasonCode" required>
+                    <option value="insufficient_evidence"
+                      >{data.copy['moderation.workbench.reason.insufficientEvidence']}</option
+                    >
+                    <option value="inaccurate"
+                      >{data.copy['moderation.workbench.reason.inaccurate']}</option
+                    >
+                    <option value="out_of_scope"
+                      >{data.copy['moderation.workbench.reason.outOfScope']}</option
+                    >
+                    <option value="unsafe">{data.copy['moderation.workbench.reason.unsafe']}</option
+                    >
+                    <option value="spam">{data.copy['moderation.workbench.reason.spam']}</option>
+                    <option value="other">{data.copy['moderation.workbench.reason.other']}</option>
+                  </select>
+                </label>
+              {/if}
+              <label>
+                {data.copy['suggestion.memberReasonIs']}
+                <textarea name="memberReasonIs" rows="3" required></textarea>
+              </label>
+              <label>
+                {data.copy['suggestion.memberReasonEn']}
+                <textarea name="memberReasonEn" rows="3" required></textarea>
+              </label>
+              <label>
+                {data.copy['suggestion.privateNote']}
+                <textarea name="privateNote" rows="2"></textarea>
+              </label>
+              <div class="dialog-actions">
+                <button type="button" onclick={() => (candidateDialog = null)}>
+                  {data.copy['moderation.workbench.keepReviewing']}
+                </button>
+                <button class:danger={candidateDialog === 'rejected'} type="submit">
+                  {candidateDialog === 'rejected'
+                    ? data.copy['moderation.workbench.reject']
+                    : data.copy['moderation.workbench.needsInformation']}
+                </button>
+              </div>
+            </form>
+          </dialog>
+        {/if}
       {/if}
     {/snippet}
   </ModerationWorkspace>
@@ -312,7 +439,75 @@
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
   .candidate-options {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .candidate-options form {
+    display: contents;
+  }
+  .decision-option.primary {
+    background: var(--hv-color-signal);
+  }
+  .decision-option.danger:not(:disabled),
+  .candidate-dialog button.danger {
+    background: var(--hv-color-danger);
+    color: var(--hv-color-snow-raised);
+  }
+  .candidate-dialog {
+    position: fixed;
+    z-index: 40;
+    inset: 50% auto auto 50%;
+    display: grid;
+    width: min(calc(100% - 2rem), 34rem);
+    max-height: calc(100dvh - 2rem);
+    translate: -50% -50%;
+    gap: 0.75rem;
+    overflow-y: auto;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-shell);
+    background: var(--hv-color-snow-raised);
+    padding: 1.1rem;
+    color: var(--hv-color-basalt);
+    box-shadow: var(--hv-shadow-raised);
+  }
+  .candidate-dialog::backdrop {
+    background: rgb(20 37 41 / 55%);
+  }
+  .candidate-dialog h2,
+  .candidate-dialog p {
+    margin: 0;
+  }
+  .candidate-dialog form,
+  .candidate-dialog label {
+    display: grid;
+    gap: 0.35rem;
+  }
+  .candidate-dialog form {
+    gap: 0.7rem;
+  }
+  .candidate-dialog textarea,
+  .candidate-dialog select {
+    width: 100%;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
+    padding: 0.55rem;
+    color: var(--hv-color-basalt);
+    font: inherit;
+  }
+  .dialog-actions {
+    display: flex;
+    gap: 0.55rem;
+    justify-content: flex-end;
+  }
+  .dialog-actions button {
+    min-height: 2.7rem;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
+    padding: 0.55rem 0.8rem;
+    color: var(--hv-color-basalt);
+    font: inherit;
+    font-weight: 900;
   }
   @media (max-width: 44rem) {
     .workspace-shell {

@@ -94,9 +94,10 @@ export function parseModerationCorrectionQueueCursor(
 
 export async function loadModerationCorrectionQueue(
   flagClient: PlaceFlagRpcClient,
-  cursorState: ModerationCorrectionQueueCursorState
+  cursorState: ModerationCorrectionQueueCursorState,
+  filter: 'actionable' | 'deferred' | 'resolved' = 'actionable'
 ): Promise<CorrectionWorkspaceLoadResult<ModerationCorrectionQueueData>> {
-  const result = await listModerationPlaceFlags(flagClient, cursorState.cursor);
+  const result = await listModerationPlaceFlags(flagClient, cursorState.cursor, 20, filter);
   if (result.status !== 'success') return { status: result.status };
 
   return {

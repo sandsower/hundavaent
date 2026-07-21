@@ -2,8 +2,10 @@ import { error, fail, type RequestEvent } from '@sveltejs/kit';
 
 import { catalogues, parseLocale, type Catalogue } from '$i18n';
 import {
+  executeCandidateDecision,
   executeModerationCandidateAction,
   loadModerationCandidateReview,
+  saveCandidateDraftSection,
   type ModerationCandidateActionError,
   type ModerationCandidateActionName
 } from '$server/moderation/candidate-workspace';
@@ -45,6 +47,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 export const actions: Actions = {
   correctLocation: (event) => handleCandidateAction('correctLocation', event),
+  saveCandidateSection: (event) => handleCandidateAction('saveCandidateSection', event),
+  decideCandidate: (event) => handleCandidateAction('decideCandidate', event),
   publish: (event) => handleCandidateAction('publish', event),
   uploadEvidence: (event) => handleCandidateAction('uploadEvidence', event),
   uploadPhoto: (event) => handleCandidateAction('uploadPhoto', event),
@@ -54,7 +58,7 @@ export const actions: Actions = {
 };
 
 async function handleCandidateAction(
-  action: ModerationCandidateActionName,
+  action: ModerationCandidateRouteAction,
   { locals, params, request }: RequestEvent
 ) {
   const lang = parseLocale(params.lang);
@@ -67,12 +71,18 @@ async function handleCandidateAction(
     return fail(400, { action, success: false, error: copy['moderation.incomplete'] });
   }
 
-  const result = await executeModerationCandidateAction(action, {
+  const context = {
     client: locals.supabase,
     placeId,
     requestId: locals.requestId,
     formData: await request.formData()
-  });
+  };
+  const result =
+    action === 'saveCandidateSection'
+      ? await saveCandidateDraftSection(context)
+      : action === 'decideCandidate'
+        ? await executeCandidateDecision(context)
+        : await executeModerationCandidateAction(action, context);
 
   if (result.status === 'confirmed') {
     if (result.effect.kind === 'published') {
@@ -83,7 +93,7 @@ async function handleCandidateAction(
         publishedAt: result.effect.publishedAt
       };
     }
-    return { action, success: true, terminal: false };
+    return { action, success: true, terminal: result.terminal };
   }
 
   return fail(result.httpStatus, {
@@ -96,7 +106,7 @@ async function handleCandidateAction(
 }
 
 function candidateActionErrorMessage(
-  action: ModerationCandidateActionName,
+  action: ModerationCandidateRouteAction,
   actionError: ModerationCandidateActionError,
   copy: Catalogue
 ): string {
@@ -104,13 +114,20 @@ function candidateActionErrorMessage(
   if (actionError === 'unavailable') return copy['error.unexpectedBody'];
   if (actionError === 'already_published') return copy['moderation.alreadyPublished'];
   if (actionError === 'conflict') {
-    return action === 'publish' || action === 'correctLocation'
+    return action === 'publish' ||
+      action === 'correctLocation' ||
+      action === 'saveCandidateSection' ||
+      action === 'decideCandidate'
       ? copy['moderation.versionConflict']
       : copy['moderation.media.error.conflict'];
   }
   if (
     actionError === 'incomplete' ||
-    (actionError === 'invalid' && (action === 'publish' || action === 'correctLocation'))
+    (actionError === 'invalid' &&
+      (action === 'publish' ||
+        action === 'correctLocation' ||
+        action === 'saveCandidateSection' ||
+        action === 'decideCandidate'))
   ) {
     return copy['moderation.incomplete'];
   }
@@ -120,3 +137,6 @@ function candidateActionErrorMessage(
   if (actionError === 'media_upload') return copy['moderation.media.error.upload'];
   return copy['moderation.media.error.invalid'];
 }
+
+type ModerationCandidateRouteAction =
+  ModerationCandidateActionName | 'saveCandidateSection' | 'decideCandidate';

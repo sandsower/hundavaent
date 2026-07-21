@@ -57,7 +57,7 @@
     )
   );
   let locationError = $derived(
-    form && 'action' in form && form.action === 'correctLocation' && 'error' in form
+    form && 'action' in form && form.action === 'saveCandidateSection' && 'error' in form
       ? form.error
       : null
   );
@@ -65,7 +65,7 @@
     Boolean(
       form &&
       'action' in form &&
-      form.action === 'correctLocation' &&
+      form.action === 'saveCandidateSection' &&
       'success' in form &&
       form.success
     )
@@ -76,6 +76,7 @@
       'action' in form &&
       form.action !== 'publish' &&
       form.action !== 'correctLocation' &&
+      form.action !== 'saveCandidateSection' &&
       'error' in form
       ? form.error
       : null
@@ -86,6 +87,7 @@
       'action' in form &&
       form.action !== 'publish' &&
       form.action !== 'correctLocation' &&
+      form.action !== 'saveCandidateSection' &&
       'success' in form &&
       form.success
     )
@@ -354,34 +356,23 @@
     issues={readinessIssues}
   />
 
-  <div class="candidate-actions">
-    <ModerationActionBar label={data.copy['moderation.workbench.candidateActions']}>
-      <div class="action-buttons">
-        <button
-          type="button"
-          class="primary-action"
-          disabled={!data.review.ready ||
-            submitting ||
-            succeeded ||
-            (Boolean(form?.conflict) && data.review.lifecycle !== 'candidate')}
-          onclick={() => (confirmingPublish = true)}
-        >
-          {data.copy['moderation.verifyAndPublish']}
-        </button>
-        <button type="button" disabled title={data.copy['moderation.workbench.actionPending']}>
-          {data.copy['moderation.workbench.needsInformation']}
-        </button>
-        <button
-          type="button"
-          class="danger-action"
-          disabled
-          title={data.copy['moderation.workbench.actionPending']}
-        >
-          {data.copy['moderation.workbench.reject']}
-        </button>
-      </div>
-    </ModerationActionBar>
-  </div>
+  {#if standalone}<div class="candidate-actions">
+      <ModerationActionBar label={data.copy['moderation.workbench.candidateActions']}>
+        <div class="action-buttons">
+          <button
+            type="button"
+            class="primary-action"
+            disabled={!data.review.ready ||
+              submitting ||
+              succeeded ||
+              (Boolean(form?.conflict) && data.review.lifecycle !== 'candidate')}
+            onclick={() => (confirmingPublish = true)}
+          >
+            {data.copy['moderation.verifyAndPublish']}
+          </button>
+        </div>
+      </ModerationActionBar>
+    </div>{/if}
 
   <div class="review-sections">
     <ModerationReviewSection
@@ -440,12 +431,19 @@
         <form
           class="location-correction"
           method="POST"
-          action="?/correctLocation"
+          action="?/saveCandidateSection"
           use:enhance={enhanceLocation}
           aria-busy={correctingLocation}
         >
           <input type="hidden" name="placeId" value={data.review.placeId} />
-          <input type="hidden" name="expectedVersion" value={data.review.version} />
+          <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
+          <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
+          <input type="hidden" name="sectionId" value="location" />
+          <input
+            type="hidden"
+            name="currentDraftPayload"
+            value={JSON.stringify(data.review.draftPayload ?? {})}
+          />
           <label>
             {data.copy['moderation.addressLabel']}
             <input name="addressLine" required value={data.review.addressLine} />
@@ -629,6 +627,7 @@
       >
         <input type="hidden" name="placeId" value={data.review.placeId} />
         <input type="hidden" name="expectedVersion" value={data.review.version} />
+        <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
         {#each data.review.accessConditions as condition, index (condition.id)}
           <fieldset class="evidence-map">
             <legend
@@ -1022,15 +1021,15 @@
     </ModerationReviewSection>
   </div>
 
-  <ModerationConfirmDialog
-    open={confirmingPublish}
-    title={data.copy['moderation.workbench.publishConfirmTitle']}
-    description={data.copy['moderation.workbench.publishConfirmBody']}
-    confirmLabel={data.copy['moderation.verifyAndPublish']}
-    cancelLabel={data.copy['moderation.workbench.keepReviewing']}
-    onconfirm={requestPublication}
-    oncancel={() => (confirmingPublish = false)}
-  />
+  {#if standalone}<ModerationConfirmDialog
+      open={confirmingPublish}
+      title={data.copy['moderation.workbench.publishConfirmTitle']}
+      description={data.copy['moderation.workbench.publishConfirmBody']}
+      confirmLabel={data.copy['moderation.verifyAndPublish']}
+      cancelLabel={data.copy['moderation.workbench.keepReviewing']}
+      onconfirm={requestPublication}
+      oncancel={() => (confirmingPublish = false)}
+    />{/if}
 </div>
 
 <style>
@@ -1089,17 +1088,12 @@
 
   .action-buttons {
     display: grid;
-    grid-template-columns: minmax(9rem, 1fr) repeat(2, minmax(8rem, auto));
+    grid-template-columns: minmax(9rem, 1fr);
     gap: 0.55rem;
   }
 
   .action-buttons .primary-action {
     background: var(--hv-color-signal);
-  }
-
-  .action-buttons .danger-action:not(:disabled) {
-    background: var(--hv-color-danger);
-    color: var(--hv-color-snow-raised);
   }
 
   .review-sections {
