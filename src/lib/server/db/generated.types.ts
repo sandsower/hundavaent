@@ -373,6 +373,31 @@ export type Database = {
           version: number
         }[]
       }
+      get_moderation_place_review_v2: {
+        Args: { requested_place_id: string }
+        Returns: {
+          access_conditions: Json
+          address_line: string
+          category: string
+          description_en: string
+          description_is: string
+          evidence_records: Json
+          geometry_precision: string
+          geometry_source: string
+          latitude: number
+          lifecycle: string
+          locality: string
+          longitude: number
+          municipality: string
+          name_en: string
+          name_is: string
+          operator_name: string
+          place_id: string
+          postal_code: string
+          version: number
+          wheelchair_accessibility: string
+        }[]
+      }
       get_moderation_place_suggestion: {
         Args: { requested_suggestion_id: string }
         Returns: {
@@ -509,6 +534,35 @@ export type Database = {
           restraint_condition: string
           restraint_note: string
           website_url: string
+        }[]
+      }
+      get_published_place_profile_v3: {
+        Args: { requested_locale: string; requested_place_id: string }
+        Returns: {
+          access_area: string
+          access_area_note: string
+          access_condition_id: string
+          access_information_urls: Json
+          address_line: string
+          availability_state: string
+          availability_window: Json
+          category: string
+          description: string
+          dog_amenities: Json
+          dog_eligibility: Json
+          latitude: number
+          locality: string
+          longitude: number
+          name: string
+          opening_hours: Json
+          permission_requirement: string
+          phone: string
+          place_id: string
+          postal_code: string
+          restraint_condition: string
+          restraint_note: string
+          website_url: string
+          wheelchair_accessibility: string
         }[]
       }
       get_support_check_in: {
@@ -849,6 +903,24 @@ export type Database = {
           simple_access_summary: boolean
         }[]
       }
+      list_published_places_v3: {
+        Args: { requested_locale: string }
+        Returns: {
+          access_area: string
+          access_condition_count: number
+          access_conditions: Json
+          category: string
+          latitude: number
+          locality: string
+          longitude: number
+          name: string
+          permission_requirement: string
+          place_id: string
+          restraint_condition: string
+          simple_access_summary: boolean
+          wheelchair_accessibility: string
+        }[]
+      }
       list_related_place_flags: {
         Args: { requested_flag_id: string }
         Returns: {
@@ -1181,6 +1253,14 @@ export type Database = {
           geometry_precision: string
           place_id: string
           version: number
+        }[]
+      }
+      update_place_wheelchair_accessibility: {
+        Args: { command_payload: Json; command_request_id: string }
+        Returns: {
+          place_id: string
+          version: number
+          wheelchair_accessibility: string
         }[]
       }
       verify_and_publish_place: {

@@ -94,6 +94,9 @@
     if (data.workspace.queue === 'candidate-places' && notice.kind === 'candidate') {
       if (notice.value === 'published') return data.copy['moderation.published'];
       if (notice.value === 'location_corrected') return data.copy['moderation.geometryCorrected'];
+      if (notice.value === 'wheelchair_accessibility_updated') {
+        return data.copy['moderation.wheelchairAccessibilitySaved'];
+      }
       if (notice.value === 'evidence_uploaded' || notice.value === 'photo_uploaded') {
         return data.copy['moderation.media.uploadSucceeded'];
       }

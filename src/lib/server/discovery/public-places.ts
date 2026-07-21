@@ -7,7 +7,11 @@ import type {
   RestraintCondition
 } from '$domain/access';
 import { parseAvailabilityWindow, parseDogEligibility } from '$domain/access-schema';
-import type { PlaceCategory } from '$domain/place';
+import {
+  isWheelchairAccessibility,
+  type PlaceCategory,
+  type WheelchairAccessibility
+} from '$domain/place';
 import type { Locale } from '$i18n';
 import type { Database, Json } from '$server/db/generated.types';
 import type { RequestSupabaseClient } from '$server/db/clients';
@@ -23,9 +27,9 @@ import {
 } from '$server/place-media/place-media';
 import type { PlacePhotoRightsBasis } from '$server/place-media/place-media-input';
 
-type ListRow = Database['public']['Functions']['list_published_places_v2']['Returns'][number];
+type ListRow = Database['public']['Functions']['list_published_places_v3']['Returns'][number];
 type ProfileRow =
-  Database['public']['Functions']['get_published_place_profile_v2']['Returns'][number];
+  Database['public']['Functions']['get_published_place_profile_v3']['Returns'][number];
 const publishedPhotoUrlTtlSeconds = 300;
 
 export interface PublishedPlaceSummary {
@@ -35,6 +39,7 @@ export interface PublishedPlaceSummary {
   locality: string;
   latitude: number;
   longitude: number;
+  wheelchairAccessibility: WheelchairAccessibility;
   accessConditionCount: number;
   simpleAccessSummary: boolean;
   accessArea: AccessArea | null;
@@ -112,6 +117,7 @@ export interface PublishedPlaceProfile {
   };
   websiteUrl: string | null;
   phone: string | null;
+  wheelchairAccessibility: WheelchairAccessibility;
   openingHours: Readonly<Record<string, Json>>;
   dogAmenities: string[];
   accessInformationUrls?: string[];
@@ -141,7 +147,7 @@ export async function listPublished(
   locale: Locale
 ): Promise<PublicListResult> {
   try {
-    const { data, error } = await client.rpc('list_published_places_v2', {
+    const { data, error } = await client.rpc('list_published_places_v3', {
       requested_locale: locale
     });
 
@@ -224,7 +230,7 @@ export async function getPublishedProfile(
   locale: Locale
 ): Promise<PublicProfileResult> {
   try {
-    const { data, error } = await client.rpc('get_published_place_profile_v2', {
+    const { data, error } = await client.rpc('get_published_place_profile_v3', {
       requested_place_id: placeId,
       requested_locale: locale
     });
@@ -275,6 +281,7 @@ export async function getPublishedProfile(
         },
         websiteUrl: first.website_url,
         phone: first.phone,
+        wheelchairAccessibility: first.wheelchair_accessibility as WheelchairAccessibility,
         openingHours: first.opening_hours as Readonly<Record<string, Json>>,
         dogAmenities: first.dog_amenities as string[],
         accessConditions: data.map(mapAccessFacts),
@@ -394,6 +401,7 @@ function mapListRow(row: ListRow): PublishedPlaceSummary {
     locality: row.locality,
     latitude: row.latitude,
     longitude: row.longitude,
+    wheelchairAccessibility: row.wheelchair_accessibility as WheelchairAccessibility,
     accessConditionCount: row.access_condition_count,
     simpleAccessSummary: row.simple_access_summary,
     accessArea: row.access_area as AccessArea | null,
@@ -470,6 +478,7 @@ function isListRowWithoutCoordinates(row: ListRow): boolean {
     hasText(row.name) &&
     placeCategories.has(row.category) &&
     hasText(row.locality) &&
+    isWheelchairAccessibility(row.wheelchair_accessibility) &&
     Number.isInteger(row.access_condition_count) &&
     row.access_condition_count > 0 &&
     publicAccessConditions !== null &&
@@ -540,6 +549,7 @@ function isProfileRow(row: ProfileRow): boolean {
     /^\d{3}$/.test(row.postal_code) &&
     isLatitude(row.latitude) &&
     isLongitude(row.longitude) &&
+    isWheelchairAccessibility(row.wheelchair_accessibility) &&
     isOptionalText(row.website_url) &&
     isOptionalText(row.phone) &&
     isJsonObject(row.opening_hours) &&
@@ -570,6 +580,7 @@ function hasSameProfileIdentity(first: ProfileRow, row: ProfileRow): boolean {
     row.longitude === first.longitude &&
     row.website_url === first.website_url &&
     row.phone === first.phone &&
+    row.wheelchair_accessibility === first.wheelchair_accessibility &&
     JSON.stringify(row.opening_hours) === JSON.stringify(first.opening_hours) &&
     JSON.stringify(row.dog_amenities) === JSON.stringify(first.dog_amenities)
   );

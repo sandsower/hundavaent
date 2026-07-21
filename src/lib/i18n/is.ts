@@ -338,6 +338,10 @@ export const isCatalogue = {
   'place.detailsUnavailable': 'Ekki tókst að hlaða öllum upplýsingum um aðgang.',
   'place.showPracticalDetails': 'Upplýsingar um staðinn',
   'place.conditionLabel': 'Skilyrði {number}',
+  'wheelchairAccessibility.heading': 'Aðgengi fyrir hreyfihamlaða',
+  'wheelchairAccessibility.accessible': 'Aðgengilegt fyrir hjólastóla',
+  'wheelchairAccessibility.notAccessible': 'Ekki aðgengilegt fyrir hjólastóla',
+  'wheelchairAccessibility.unknown': 'Hjólastólaaðgengi óþekkt',
   'accessSymbols.label': 'Aðgangur hunda að {name}',
   'accessSymbols.differentConditions': 'Mismunandi skilyrði gilda',
   'accessSymbols.differentConditionsDetail':
@@ -458,6 +462,11 @@ export const isCatalogue = {
   'moderation.latitudeLabel': 'Breiddargráða',
   'moderation.longitudeLabel': 'Lengdargráða',
   'moderation.operatorLabel': 'Rekstraraðili',
+  'moderation.wheelchairAccessibilityLabel': 'Hjólastólaaðgengi',
+  'moderation.wheelchairAccessibilityHelp':
+    'Veldu óþekkt þegar hjólastólaaðgengi staðarins hefur ekki verið staðfest.',
+  'moderation.saveWheelchairAccessibility': 'Vista aðgengi',
+  'moderation.wheelchairAccessibilitySaved': 'Hjólastólaaðgengi vistað.',
   'moderation.websiteLabel': 'Vefsíða staðar',
   'moderation.phoneLabel': 'Sími staðar',
   'moderation.evidenceUrlLabel': 'Slóð á heimild',

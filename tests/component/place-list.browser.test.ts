@@ -12,6 +12,7 @@ const places = [
     locality: 'Reykjavík',
     latitude: 64.1423,
     longitude: -21.9555,
+    wheelchairAccessibility: 'accessible' as const,
     accessConditionCount: 1,
     simpleAccessSummary: true,
     accessArea: 'outdoors' as const,
@@ -33,6 +34,7 @@ const places = [
     locality: 'Kópavogur',
     latitude: 64.111,
     longitude: -21.907,
+    wheelchairAccessibility: 'unknown' as const,
     accessConditionCount: 1,
     simpleAccessSummary: true,
     accessArea: 'indoors' as const,
@@ -63,6 +65,19 @@ describe('PlaceList', () => {
     expect(screen.getByRole('list', { name: 'List' })).toBeTruthy();
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
     expect(screen.getByText('Outdoor place · Park', { exact: true })).toBeTruthy();
+    expect(screen.getByText('Wheelchair accessible')).toBeTruthy();
+    expect(screen.getByText('Accessibility unknown')).toBeTruthy();
+
+    const firstCard = document.querySelector<HTMLElement>('[aria-label="Published Place"]');
+    const dogAccess = screen.getByRole('group', { name: 'Dog access at Published Place' });
+    const mobilityAccess = firstCard?.querySelector<HTMLElement>(
+      '[data-wheelchair-accessibility="accessible"]'
+    );
+    expect(firstCard).toBeTruthy();
+    expect(mobilityAccess).toBeTruthy();
+    expect(
+      dogAccess.compareDocumentPosition(mobilityAccess as Node) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
     expect(
       screen.getByRole('link', { name: 'Sign in to add Published Place to favorites' })
     ).toBeTruthy();

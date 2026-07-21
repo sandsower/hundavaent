@@ -337,6 +337,10 @@ export const enCatalogue = {
   'place.detailsUnavailable': 'The complete access information could not be loaded.',
   'place.showPracticalDetails': 'Place details',
   'place.conditionLabel': 'Condition {number}',
+  'wheelchairAccessibility.heading': 'Mobility access',
+  'wheelchairAccessibility.accessible': 'Wheelchair accessible',
+  'wheelchairAccessibility.notAccessible': 'Not wheelchair accessible',
+  'wheelchairAccessibility.unknown': 'Accessibility unknown',
   'accessSymbols.label': 'Dog access at {name}',
   'accessSymbols.differentConditions': 'Different conditions apply',
   'accessSymbols.differentConditionsDetail':
@@ -455,6 +459,11 @@ export const enCatalogue = {
   'moderation.latitudeLabel': 'Latitude',
   'moderation.longitudeLabel': 'Longitude',
   'moderation.operatorLabel': 'Operator',
+  'moderation.wheelchairAccessibilityLabel': 'Wheelchair accessibility',
+  'moderation.wheelchairAccessibilityHelp':
+    'Choose unknown when the Place has not been verified for wheelchair access.',
+  'moderation.saveWheelchairAccessibility': 'Save accessibility',
+  'moderation.wheelchairAccessibilitySaved': 'Wheelchair accessibility saved.',
   'moderation.websiteLabel': 'Place website',
   'moderation.phoneLabel': 'Place phone',
   'moderation.evidenceUrlLabel': 'Evidence URL',

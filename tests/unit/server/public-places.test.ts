@@ -15,6 +15,7 @@ const listRow = {
   locality: 'Reykjavík',
   latitude: 64.1466,
   longitude: -21.9426,
+  wheelchair_accessibility: 'unknown',
   access_condition_count: 1,
   simple_access_summary: true,
   access_area: 'outdoors',
@@ -43,6 +44,7 @@ const profileRow = {
   longitude: -21.9426,
   website_url: 'https://example.invalid/place',
   phone: '+354 555 0101',
+  wheelchair_accessibility: 'unknown',
   opening_hours: { monday: ['09:00-17:00'] },
   dog_amenities: ['water_bowl'],
   access_condition_id: 'condition-1',
@@ -60,10 +62,10 @@ const profileRow = {
 function createClient(
   responses: Partial<
     Record<
-      | 'list_published_places_v2'
+      | 'list_published_places_v3'
       | 'list_published_place_primary_photos'
       | 'list_published_place_photos'
-      | 'get_published_place_profile_v2',
+      | 'get_published_place_profile_v3',
       { data: unknown; error: { code: string; message: string } | null }
     >
   >,
@@ -102,7 +104,7 @@ describe('listPublished', () => {
   it('maps the fixed localized list projection', async () => {
     const { client, rpc, createSignedUrl, createSignedUrls } = createClient(
       {
-        list_published_places_v2: { data: [listRow], error: null },
+        list_published_places_v3: { data: [listRow], error: null },
         list_published_place_primary_photos: {
           data: [
             {
@@ -138,6 +140,7 @@ describe('listPublished', () => {
           locality: 'Reykjavík',
           latitude: 64.1466,
           longitude: -21.9426,
+          wheelchairAccessibility: 'unknown',
           accessConditionCount: 1,
           simpleAccessSummary: true,
           accessArea: 'outdoors',
@@ -170,7 +173,7 @@ describe('listPublished', () => {
         }
       ]
     });
-    expect(rpc).toHaveBeenCalledWith('list_published_places_v2', {
+    expect(rpc).toHaveBeenCalledWith('list_published_places_v3', {
       requested_locale: 'en'
     });
     expect(rpc).toHaveBeenCalledWith('list_published_place_primary_photos', {
@@ -185,7 +188,7 @@ describe('listPublished', () => {
     const secondRow = { ...listRow, place_id: 'place-2', name: 'Second Place' };
     const { client, rpc, createSignedUrls } = createClient(
       {
-        list_published_places_v2: { data: [listRow, secondRow], error: null },
+        list_published_places_v3: { data: [listRow, secondRow], error: null },
         list_published_place_primary_photos: {
           data: [
             {
@@ -269,7 +272,7 @@ describe('listPublished', () => {
       ]
     };
     const { client } = createClient({
-      list_published_places_v2: { data: [multiConditionRow], error: null }
+      list_published_places_v3: { data: [multiConditionRow], error: null }
     });
 
     await expect(listPublished(client, 'en')).resolves.toEqual({
@@ -289,22 +292,22 @@ describe('listPublished', () => {
 
   it('accepts an empty list, omits invalid coordinates, and rejects malformed public fields', async () => {
     const empty = createClient({
-      list_published_places_v2: { data: [], error: null }
+      list_published_places_v3: { data: [], error: null }
     }).client;
     const invalidCoordinates = createClient({
-      list_published_places_v2: {
+      list_published_places_v3: {
         data: [{ ...listRow, latitude: 'private provider shape' }],
         error: null
       }
     }).client;
     const malformed = createClient({
-      list_published_places_v2: {
+      list_published_places_v3: {
         data: [{ ...listRow, name: '' }],
         error: null
       }
     }).client;
     const malformedDimensions = createClient({
-      list_published_places_v2: {
+      list_published_places_v3: {
         data: [
           {
             ...listRow,
@@ -341,7 +344,7 @@ describe('listPublished', () => {
 
   it('redacts provider and thrown failures', async () => {
     const failed = createClient({
-      list_published_places_v2: {
+      list_published_places_v3: {
         data: null,
         error: { code: 'XX000', message: 'private database detail' }
       }
@@ -436,7 +439,7 @@ describe('signPlaceMediaUrls', () => {
 describe('getPublishedProfile', () => {
   it('maps the fixed localized profile and its access facts', async () => {
     const { client, rpc } = createClient({
-      get_published_place_profile_v2: { data: [profileRow], error: null }
+      get_published_place_profile_v3: { data: [profileRow], error: null }
     });
 
     const result = await getPublishedProfile(client, 'place-1', 'is');
@@ -447,6 +450,7 @@ describe('getPublishedProfile', () => {
         placeId: 'place-1',
         name: 'Published Place',
         category: 'cafe',
+        wheelchairAccessibility: 'unknown',
         location: {
           addressLine: 'Hundagata 1',
           locality: 'Reykjavík',
@@ -462,7 +466,7 @@ describe('getPublishedProfile', () => {
         accessInformationUrls: []
       }
     });
-    expect(rpc).toHaveBeenCalledWith('get_published_place_profile_v2', {
+    expect(rpc).toHaveBeenCalledWith('get_published_place_profile_v3', {
       requested_place_id: 'place-1',
       requested_locale: 'is'
     });
@@ -470,7 +474,7 @@ describe('getPublishedProfile', () => {
 
   it('returns not found without revealing private Place existence', async () => {
     const { client } = createClient({
-      get_published_place_profile_v2: { data: [], error: null }
+      get_published_place_profile_v3: { data: [], error: null }
     });
 
     await expect(getPublishedProfile(client, 'private-place', 'en')).resolves.toEqual({
@@ -480,13 +484,13 @@ describe('getPublishedProfile', () => {
 
   it('rejects inconsistent rows and redacts provider failures', async () => {
     const malformed = createClient({
-      get_published_place_profile_v2: {
+      get_published_place_profile_v3: {
         data: [profileRow, { ...profileRow, place_id: 'other-place' }],
         error: null
       }
     }).client;
     const failed = createClient({
-      get_published_place_profile_v2: {
+      get_published_place_profile_v3: {
         data: null,
         error: { code: 'XX000', message: 'private database detail' }
       }
@@ -509,7 +513,7 @@ describe('getPublishedProfile', () => {
     { availability_window: { startsAt: '10:00', unknownRule: true } }
   ])('returns invalid_response for malformed structured access RPC data', async (override) => {
     const { client } = createClient({
-      get_published_place_profile_v2: { data: [{ ...profileRow, ...override }], error: null }
+      get_published_place_profile_v3: { data: [{ ...profileRow, ...override }], error: null }
     });
 
     await expect(getPublishedProfile(client, 'place-1', 'en')).resolves.toEqual({
@@ -519,7 +523,7 @@ describe('getPublishedProfile', () => {
 
   it('rejects access-information projections containing undeclared private fields', async () => {
     const { client } = createClient({
-      get_published_place_profile_v2: {
+      get_published_place_profile_v3: {
         data: [
           {
             ...profileRow,
@@ -539,7 +543,7 @@ describe('getPublishedProfile', () => {
 
   it('drops provenance URLs and moderator-state notes at the public mapping boundary', async () => {
     const { client } = createClient({
-      get_published_place_profile_v2: {
+      get_published_place_profile_v3: {
         data: [
           {
             ...profileRow,

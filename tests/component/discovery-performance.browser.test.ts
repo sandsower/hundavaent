@@ -13,6 +13,7 @@ const representativePlaces: PublishedPlaceSummary[] = Array.from({ length: 500 }
   locality: index % 3 === 0 ? 'Reykjavík' : index % 3 === 1 ? 'Kópavogur' : 'Hafnarfjörður',
   latitude: 64.08 + (index % 25) * 0.004,
   longitude: -22.02 + (index % 20) * 0.012,
+  wheelchairAccessibility: 'unknown',
   accessConditionCount: 1,
   simpleAccessSummary: true,
   accessArea: index % 2 === 0 ? ('indoors' as const) : ('outdoors' as const),

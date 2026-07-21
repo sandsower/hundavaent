@@ -82,6 +82,7 @@ describe('Candidate Place form', () => {
     expect(screen.getByLabelText('Where dogs are allowed')).toBeTruthy();
     expect(screen.getByLabelText('Leash and restraint')).toBeTruthy();
     expect(screen.getByLabelText('Permission')).toBeTruthy();
+    expect(screen.getByLabelText('Wheelchair accessibility')).toHaveValue('unknown');
   });
 
   it('focuses a Candidate error and preserves submitted values', async () => {
@@ -118,6 +119,7 @@ const completePublicationReview = {
   placeId: 'place-1',
   version: 1,
   lifecycle: 'candidate',
+  wheelchairAccessibility: 'unknown' as const,
   operatorName: 'Candidate operator',
   category: 'restaurant',
   addressLine: 'Tillögugata 7',

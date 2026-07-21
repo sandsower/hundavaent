@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isPubliclyEligiblePlace, type Place } from '$domain/place';
+import { isPubliclyEligiblePlace, isWheelchairAccessibility, type Place } from '$domain/place';
 
 describe('Place publication eligibility', () => {
   const publishedPlace: Place = {
@@ -23,5 +23,15 @@ describe('Place publication eligibility', () => {
         true
       )
     ).toBe(false);
+  });
+});
+
+describe('Wheelchair accessibility', () => {
+  it('accepts only the three approved factual states', () => {
+    expect(isWheelchairAccessibility('accessible')).toBe(true);
+    expect(isWheelchairAccessibility('not_accessible')).toBe(true);
+    expect(isWheelchairAccessibility('unknown')).toBe(true);
+    expect(isWheelchairAccessibility('partial')).toBe(false);
+    expect(isWheelchairAccessibility(null)).toBe(false);
   });
 });
