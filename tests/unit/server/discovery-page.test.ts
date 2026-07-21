@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { load } from '../../../src/routes/[lang=lang]/+page.server';
+import { catalogues } from '$i18n';
 
 describe('Discovery Member boundary', () => {
   it('marks Favorites unavailable instead of presenting a false empty projection', async () => {
@@ -16,7 +17,11 @@ describe('Discovery Member boundary', () => {
     });
 
     const result = await load({
-      locals: { supabase: { rpc }, requestId: 'request-favorites-unavailable-default' },
+      locals: {
+        supabase: { rpc },
+        requestId: 'request-favorites-unavailable-default',
+        copy: catalogues.en
+      },
       params: { lang: 'en' },
       parent: vi.fn(async () => ({ signedIn: true })),
       setHeaders: vi.fn(),
@@ -41,7 +46,11 @@ describe('Discovery Member boundary', () => {
 
     await expect(
       load({
-        locals: { supabase: { rpc }, requestId: 'request-favorites-unavailable' },
+        locals: {
+          supabase: { rpc },
+          requestId: 'request-favorites-unavailable',
+          copy: catalogues.en
+        },
         params: { lang: 'en' },
         parent: vi.fn(async () => ({ signedIn: true })),
         setHeaders: vi.fn(),
@@ -55,7 +64,11 @@ describe('Discovery Member boundary', () => {
 
     await expect(
       load({
-        locals: { supabase: { rpc }, requestId: 'request-normalize-favorites' },
+        locals: {
+          supabase: { rpc },
+          requestId: 'request-normalize-favorites',
+          copy: catalogues.en
+        },
         params: { lang: 'en' },
         parent: vi.fn(async () => ({ signedIn: false })),
         setHeaders: vi.fn(),
@@ -104,7 +117,11 @@ describe('Discovery Member boundary', () => {
     const setHeaders = vi.fn();
 
     const result = await load({
-      locals: { supabase: { rpc }, requestId: 'request-discovery-signed-out' },
+      locals: {
+        supabase: { rpc },
+        requestId: 'request-discovery-signed-out',
+        copy: catalogues.en
+      },
       params: { lang: 'en' },
       parent: vi.fn(async () => ({ signedIn: false })),
       setHeaders,

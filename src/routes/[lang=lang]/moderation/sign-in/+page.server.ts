@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
 
-import { catalogues, parseLocale } from '$i18n';
+import { parseLocale } from '$i18n';
 import { isValidEmail, normalizeModerationReturnTo } from '$server/auth/return-to';
 
 import type { Actions, PageServerLoad } from './$types';
@@ -16,7 +16,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 export const actions: Actions = {
   default: async ({ locals, params, request, url }) => {
     const lang = parseLocale(params.lang);
-    const copy = catalogues[lang];
+    const copy = locals.copy;
     const formData = await request.formData();
     const email = String(formData.get('email') ?? '').trim();
     const returnTo = normalizeModerationReturnTo(formData.get('returnTo'), lang);

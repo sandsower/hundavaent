@@ -1,6 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 
-import { catalogues, parseLocale } from '$i18n';
+import { parseLocale } from '$i18n';
 import { getPublishedProfile } from '$server/discovery/public-places';
 import {
   excludeRating,
@@ -30,7 +30,7 @@ export interface RatingNoteDetail {
 export const load: PageServerLoad = async ({ locals, params }) => {
   const lang = parseLocale(params.lang);
   if (!locals.supabase) {
-    error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+    error(503, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
 
   const client = locals.supabase as unknown as DogFriendlinessRpcClient;
@@ -40,7 +40,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
   ]);
 
   if (ratingsResult.status !== 'success') {
-    error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+    error(503, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
 
   // Only fetch the deeper note history/disposition detail for Ratings that currently carry a

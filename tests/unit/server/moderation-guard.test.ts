@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { load } from '../../../src/routes/[lang=lang]/moderation/+layout.server';
+import { catalogues } from '$i18n';
 import type { RequestSupabaseClient } from '$server/db/clients';
 
 function createAuthenticatedClient(hasModeratorRole: boolean): RequestSupabaseClient {
@@ -17,7 +18,7 @@ function createAuthenticatedClient(hasModeratorRole: boolean): RequestSupabaseCl
 
 function createLoadEvent(pathname: string, supabase: RequestSupabaseClient | null) {
   return {
-    locals: { requestId: 'request-guard', supabase },
+    locals: { requestId: 'request-guard', supabase, copy: catalogues.is },
     params: { lang: 'is' },
     route: { id: '/[lang=lang]/moderation' },
     url: new URL(`http://localhost${pathname}`)

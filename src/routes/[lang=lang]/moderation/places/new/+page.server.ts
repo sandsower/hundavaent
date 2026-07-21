@@ -1,6 +1,5 @@
 import { fail } from '@sveltejs/kit';
 
-import { catalogues, parseLocale } from '$i18n';
 import type { PlaceCategory } from '$domain/place';
 import { parseAvailabilityWindow, parseDogEligibility } from '$domain/access-schema';
 import type { Json } from '$server/db/generated.types';
@@ -53,9 +52,8 @@ export const load: PageServerLoad = () => ({
 });
 
 export const actions: Actions = {
-  default: async ({ locals, params, request }) => {
-    const lang = parseLocale(params.lang);
-    const copy = catalogues[lang];
+  default: async ({ locals, request }) => {
+    const copy = locals.copy;
     const values = readValues(await request.formData());
     const command = toCommand(values);
 
