@@ -101,7 +101,7 @@ async function handleCandidateAction(
     success: false,
     error: candidateActionErrorMessage(action, result.error, copy),
     ...(result.error === 'conflict' && action === 'publish' ? { conflict: true } : {}),
-    ...(result.error === 'already_published' ? { alreadyPublished: true } : {})
+    ...(result.error === 'not_publishable' ? { notPublishable: true } : {})
   });
 }
 
@@ -112,7 +112,7 @@ function candidateActionErrorMessage(
 ): string {
   if (actionError === 'forbidden') return copy['moderation.unauthorized'];
   if (actionError === 'unavailable') return copy['error.unexpectedBody'];
-  if (actionError === 'already_published') return copy['moderation.alreadyPublished'];
+  if (actionError === 'not_publishable') return copy['moderation.notPublishable'];
   if (actionError === 'conflict') {
     return action === 'publish' ||
       action === 'correctLocation' ||

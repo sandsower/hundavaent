@@ -511,7 +511,7 @@ async function runWorkspaceCandidateAction(
       success: false,
       error: candidateActionErrorMessage(action, result.error, copy),
       ...(result.error === 'conflict' ? { conflict: true } : {}),
-      ...(result.error === 'already_published' ? { alreadyPublished: true } : {}),
+      ...(result.error === 'not_publishable' ? { notPublishable: true } : {}),
       ...(conflictReview?.status === 'success'
         ? { conflictQueue: 'candidate-places' as const, conflictReview: conflictReview.value }
         : {}),
@@ -541,7 +541,7 @@ function candidateActionErrorMessage(
 ): string {
   if (actionError === 'forbidden') return copy['moderation.unauthorized'];
   if (actionError === 'unavailable') return copy['error.unexpectedBody'];
-  if (actionError === 'already_published') return copy['moderation.alreadyPublished'];
+  if (actionError === 'not_publishable') return copy['moderation.notPublishable'];
   if (actionError === 'conflict') {
     return action === 'publish' ||
       action === 'correctLocation' ||

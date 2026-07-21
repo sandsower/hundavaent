@@ -61,7 +61,8 @@ const data = {
         sourceUrl: 'https://example.invalid/source',
         sourceCitation: null,
         sourceLabel: 'Official website',
-        observedAt: '2026-07-13T09:00:00Z'
+        observedAt: '2026-07-13T09:00:00Z',
+        sourceMetadata: {}
       }
     ],
     checks: {

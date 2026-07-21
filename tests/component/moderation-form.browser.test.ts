@@ -165,7 +165,8 @@ const completePublicationReview = {
       sourceUrl: 'https://example.invalid/source',
       sourceCitation: 'Section 4, patio rule',
       sourceLabel: 'Official website',
-      observedAt: '2026-07-09T10:00:00.000Z'
+      observedAt: '2026-07-09T10:00:00.000Z',
+      sourceMetadata: {}
     }
   ],
   checks: {

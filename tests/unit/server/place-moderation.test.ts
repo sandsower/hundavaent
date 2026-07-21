@@ -265,6 +265,7 @@ describe('updateCandidatePlaceLocation', () => {
 const publishCommand: PublishPlaceCommand = {
   placeId: 'place-1',
   expectedVersion: 1,
+  expectedItemVersion: 3,
   expectedDraftVersion: 2,
   conditionVerifications: [{ accessConditionId: 'condition-1', evidenceIds: ['evidence-1'] }],
   freshnessUntil: '2099-01-01T00:00:00.000Z',
@@ -314,6 +315,7 @@ describe('verifyAndPublish', () => {
       command_payload: {
         place_id: 'place-1',
         expected_version: 1,
+        expected_item_version: 3,
         expected_draft_version: 2,
         condition_verifications: [
           { access_condition_id: 'condition-1', evidence_ids: ['evidence-1'] }
@@ -359,13 +361,13 @@ describe('verifyAndPublish', () => {
     });
   });
 
-  it('maps Candidate lifecycle failure to already published', async () => {
+  it('maps Candidate lifecycle failure to not publishable', async () => {
     const { client } = createPublicationClient({
       error: { code: '55000', message: 'private lifecycle detail' }
     });
 
     await expect(verifyAndPublish(client, publishCommand, 'request-11')).resolves.toEqual({
-      status: 'already_published'
+      status: 'not_publishable'
     });
   });
 
@@ -490,7 +492,8 @@ const completeReviewRow = {
       sourceUrl: 'https://example.invalid/source',
       sourceCitation: 'Section 4, patio rule',
       sourceLabel: 'Official website',
-      observedAt: '2026-07-09T10:00:00Z'
+      observedAt: '2026-07-09T10:00:00Z',
+      sourceMetadata: { section: 'dogs' }
     }
   ]
 };
@@ -533,7 +536,8 @@ describe('getCandidatePublicationReview', () => {
             sourceUrl: 'https://example.invalid/source',
             sourceCitation: 'Section 4, patio rule',
             sourceLabel: 'Official website',
-            observedAt: '2026-07-09T10:00:00Z'
+            observedAt: '2026-07-09T10:00:00Z',
+            sourceMetadata: { section: 'dogs' }
           }
         ],
         ready: true,
@@ -551,6 +555,58 @@ describe('getCandidatePublicationReview', () => {
     });
     expect(rpc).toHaveBeenCalledWith('get_moderation_place_review', {
       requested_place_id: 'place-1'
+    });
+  });
+
+  it('normalizes canonical snake-case draft children into the review DTO', async () => {
+    const draftRow = {
+      ...completeReviewRow,
+      access_conditions: [
+        {
+          id: 'condition-1',
+          access_area: 'outdoors',
+          access_area_note: null,
+          restraint_condition: 'leash_required',
+          restraint_note: null,
+          dog_eligibility: { scope: 'all_dogs' },
+          availability_state: 'whenever_open',
+          availability_window: {},
+          permission_requirement: 'standing_permission'
+        }
+      ],
+      evidence_records: [
+        {
+          id: 'evidence-1',
+          kind: 'official_website',
+          source_url: 'https://example.invalid/source',
+          source_citation: 'Section 4',
+          source_label: 'Official website',
+          observed_at: '2026-07-09T10:00:00Z',
+          source_metadata: { section: 'dogs' }
+        }
+      ]
+    };
+
+    await expect(
+      getCandidatePublicationReview(createReviewClient({ data: [draftRow] }).client, 'place-1')
+    ).resolves.toMatchObject({
+      status: 'success',
+      value: {
+        accessConditions: [
+          {
+            id: 'condition-1',
+            accessArea: 'outdoors',
+            availabilityState: 'whenever_open'
+          }
+        ],
+        evidenceRecords: [
+          {
+            id: 'evidence-1',
+            sourceUrl: 'https://example.invalid/source',
+            sourceMetadata: { section: 'dogs' }
+          }
+        ]
+      }
     });
   });
 

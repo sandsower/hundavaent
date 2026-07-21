@@ -87,6 +87,7 @@ export interface CreatedCandidate {
 export interface PublishPlaceCommand {
   placeId: string;
   expectedVersion: number;
+  expectedItemVersion: number;
   expectedDraftVersion: number;
   conditionVerifications: ReadonlyArray<{
     accessConditionId: string;
@@ -108,7 +109,7 @@ export type PublicationResult =
   | { status: 'incomplete' }
   | { status: 'stale' }
   | { status: 'forbidden' }
-  | { status: 'already_published' }
+  | { status: 'not_publishable' }
   | { status: 'infrastructure_error' };
 
 export interface PublicationChecks {
@@ -179,6 +180,7 @@ export interface ModerationEvidence {
   sourceCitation: string | null;
   sourceLabel: string;
   observedAt: string;
+  sourceMetadata: Readonly<Record<string, Json>>;
 }
 
 export type CandidateReviewResult =
@@ -269,6 +271,7 @@ export async function verifyAndPublish(
       command_payload: {
         place_id: command.placeId,
         expected_version: command.expectedVersion,
+        expected_item_version: command.expectedItemVersion,
         expected_draft_version: command.expectedDraftVersion,
         condition_verifications: command.conditionVerifications.map((verification) => ({
           access_condition_id: verification.accessConditionId,
@@ -419,7 +422,7 @@ function mapPublicationError(code: string): PublicationResult {
   }
 
   if (code === '55000') {
-    return { status: 'already_published' };
+    return { status: 'not_publishable' };
   }
 
   if (code === '22007' || code === '22023' || code === '23502' || code === '23514') {
@@ -487,22 +490,38 @@ function parseModerationConditions(value: Json): ModerationAccessCondition[] | n
   if (!Array.isArray(value)) return null;
   const conditions: ModerationAccessCondition[] = [];
   for (const item of value) {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) return null;
+    const accessArea = item.accessArea ?? item.access_area;
+    const accessAreaNote = item.accessAreaNote ?? item.access_area_note;
+    const restraintCondition = item.restraintCondition ?? item.restraint_condition;
+    const restraintNote = item.restraintNote ?? item.restraint_note;
+    const dogEligibility = item.dogEligibility ?? item.dog_eligibility;
+    const availabilityWindow = item.availabilityWindow ?? item.availability_window;
+    const availabilityState = item.availabilityState ?? item.availability_state;
+    const permissionRequirement = item.permissionRequirement ?? item.permission_requirement;
     if (
-      typeof item !== 'object' ||
-      item === null ||
-      Array.isArray(item) ||
       !hasText(item.id) ||
-      !isAccessArea(item.accessArea) ||
-      !isOptionalText(item.accessAreaNote) ||
-      !isRestraint(item.restraintCondition) ||
-      !isOptionalText(item.restraintNote) ||
-      parseDogEligibility(item.dogEligibility) === null ||
-      parseAvailabilityWindow(item.availabilityWindow) === null ||
-      (item.availabilityState !== undefined && !isAvailabilityState(item.availabilityState)) ||
-      !isPermission(item.permissionRequirement)
+      !isAccessArea(accessArea) ||
+      !isOptionalText(accessAreaNote) ||
+      !isRestraint(restraintCondition) ||
+      !isOptionalText(restraintNote) ||
+      parseDogEligibility(dogEligibility) === null ||
+      parseAvailabilityWindow(availabilityWindow) === null ||
+      (availabilityState !== undefined && !isAvailabilityState(availabilityState)) ||
+      !isPermission(permissionRequirement)
     )
       return null;
-    conditions.push(item as unknown as ModerationAccessCondition);
+    conditions.push({
+      id: item.id,
+      accessArea,
+      accessAreaNote: accessAreaNote ?? null,
+      restraintCondition,
+      restraintNote: restraintNote ?? null,
+      dogEligibility: parseDogEligibility(dogEligibility) as DogEligibility,
+      availabilityWindow: parseAvailabilityWindow(availabilityWindow) as AvailabilityWindow,
+      ...(availabilityState === undefined ? {} : { availabilityState }),
+      permissionRequirement
+    });
   }
   return conditions;
 }
@@ -511,20 +530,32 @@ function parseModerationEvidence(value: Json): ModerationEvidence[] | null {
   if (!Array.isArray(value)) return null;
   const records: ModerationEvidence[] = [];
   for (const item of value) {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) return null;
+    const sourceUrl = item.sourceUrl ?? item.source_url;
+    const sourceCitation = item.sourceCitation ?? item.source_citation;
+    const sourceLabel = item.sourceLabel ?? item.source_label;
+    const observedAt = item.observedAt ?? item.observed_at;
+    const sourceMetadata = item.sourceMetadata ?? item.source_metadata;
     if (
-      typeof item !== 'object' ||
-      item === null ||
-      Array.isArray(item) ||
       !hasText(item.id) ||
       !isEvidenceKind(item.kind) ||
-      !isOptionalText(item.sourceUrl) ||
-      !isOptionalText(item.sourceCitation) ||
-      !hasText(item.sourceLabel) ||
-      !hasText(item.observedAt) ||
-      !Number.isFinite(Date.parse(item.observedAt))
+      !isOptionalText(sourceUrl) ||
+      !isOptionalText(sourceCitation) ||
+      !hasText(sourceLabel) ||
+      !hasText(observedAt) ||
+      !Number.isFinite(Date.parse(observedAt)) ||
+      !isJsonObject(sourceMetadata)
     )
       return null;
-    records.push(item as unknown as ModerationEvidence);
+    records.push({
+      id: item.id,
+      kind: item.kind,
+      sourceUrl: sourceUrl ?? null,
+      sourceCitation: sourceCitation ?? null,
+      sourceLabel,
+      observedAt,
+      sourceMetadata
+    });
   }
   return records;
 }

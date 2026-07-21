@@ -1,7 +1,11 @@
 import { env } from '$env/dynamic/public';
 
 import type { RequestSupabaseClient } from '$server/db/clients';
-import type { Json } from '$server/db/generated.types';
+import {
+  isCandidateDraftSectionId,
+  parseCandidateDraftSectionPatch,
+  type CandidateDraftSectionId
+} from '$server/moderation/candidate-draft-input';
 import {
   listModerationCandidatePlaces,
   type CandidateQueueCursor,
@@ -83,7 +87,7 @@ export type ModerationCandidateActionError =
   | 'invalid'
   | 'incomplete'
   | 'conflict'
-  | 'already_published'
+  | 'not_publishable'
   | 'forbidden'
   | 'unavailable'
   | 'media_incomplete'
@@ -133,8 +137,7 @@ export type ModerationCandidateActionResult =
       readonly error: ModerationCandidateActionError;
     };
 
-export type CandidateDraftSectionId =
-  'identity' | 'location' | 'translations' | 'details' | 'access_conditions' | 'evidence_records';
+export type { CandidateDraftSectionId } from '$server/moderation/candidate-draft-input';
 
 export function parseModerationCandidateQueueCursor(
   params: URLSearchParams
@@ -336,7 +339,7 @@ async function publishCandidate(
     };
   }
   if (result.status === 'stale') return failure(409, 'conflict');
-  if (result.status === 'already_published') return failure(409, 'already_published');
+  if (result.status === 'not_publishable') return failure(409, 'not_publishable');
   if (result.status === 'forbidden') return failure(403, 'forbidden');
   if (result.status === 'incomplete') return failure(400, 'incomplete');
   return failure(503, 'unavailable');
@@ -474,14 +477,7 @@ function readCandidateDraftCommand(context: ModerationCandidateActionContext) {
     return null;
   }
 
-  const currentPayload = parseJsonObject(context.formData.get('currentDraftPayload')) ?? {};
-  const suppliedSection = parseJsonObject(context.formData.get('sectionPayload'));
-  let sectionPayload: Record<string, Json> | null = suppliedSection;
-  if (sectionId === 'location') {
-    const location = readDraftLocation(context.formData);
-    if (!location) return null;
-    sectionPayload = { location };
-  }
+  const sectionPayload = parseCandidateDraftSectionPatch(sectionId, context.formData);
   if (!sectionPayload) return null;
 
   return {
@@ -489,7 +485,7 @@ function readCandidateDraftCommand(context: ModerationCandidateActionContext) {
     expectedItemVersion,
     expectedDraftVersion,
     sectionId,
-    payload: { ...currentPayload, ...sectionPayload },
+    payload: sectionPayload,
     requestId: context.requestId
   };
 }
@@ -542,68 +538,9 @@ function readCandidateDecisionCommand(context: ModerationCandidateActionContext)
   };
 }
 
-function readDraftLocation(formData: FormData): Record<string, Json> | null {
-  const addressLine = String(formData.get('addressLine') ?? '').trim();
-  const locality = String(formData.get('locality') ?? '').trim();
-  const postalCode = String(formData.get('postalCode') ?? '').trim();
-  const municipality = String(formData.get('municipality') ?? '').trim();
-  const latitude = Number(formData.get('latitude'));
-  const longitude = Number(formData.get('longitude'));
-  const geometryPrecision = String(formData.get('geometryPrecision') ?? '').trim();
-  const geometrySource = String(formData.get('geometrySource') ?? '').trim();
-  if (
-    !addressLine ||
-    !locality ||
-    !/^\d{3}$/.test(postalCode) ||
-    !capitalRegionMunicipalities.has(municipality) ||
-    !Number.isFinite(latitude) ||
-    latitude < -90 ||
-    latitude > 90 ||
-    !Number.isFinite(longitude) ||
-    longitude < -180 ||
-    longitude > 180 ||
-    !geometryPrecisions.has(geometryPrecision) ||
-    !geometrySource
-  ) {
-    return null;
-  }
-  return {
-    address_line: addressLine,
-    locality,
-    postal_code: postalCode,
-    municipality,
-    latitude,
-    longitude,
-    geometry_precision: geometryPrecision,
-    geometry_source: geometrySource
-  };
-}
-
-function parseJsonObject(value: FormDataEntryValue | null): Record<string, Json> | null {
-  if (typeof value !== 'string' || !value.trim()) return null;
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
-      ? (parsed as Record<string, Json>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function isCandidateDraftSectionId(value: string): value is CandidateDraftSectionId {
-  return [
-    'identity',
-    'location',
-    'translations',
-    'details',
-    'access_conditions',
-    'evidence_records'
-  ].includes(value);
-}
-
 function readPublicationCommand(placeId: string, formData: FormData): PublishPlaceCommand | null {
   const expectedVersion = Number(formData.get('expectedVersion'));
+  const expectedItemVersion = Number(formData.get('expectedItemVersion'));
   const expectedDraftVersion = Number(formData.get('expectedDraftVersion'));
   const accessConditionIds = formData
     .getAll('accessConditionId')
@@ -624,6 +561,8 @@ function readPublicationCommand(placeId: string, formData: FormData): PublishPla
     !uuidPattern.test(placeId) ||
     !Number.isInteger(expectedVersion) ||
     expectedVersion < 1 ||
+    !Number.isInteger(expectedItemVersion) ||
+    expectedItemVersion < 1 ||
     !Number.isInteger(expectedDraftVersion) ||
     expectedDraftVersion < 0 ||
     conditionVerifications.length === 0 ||
@@ -641,6 +580,7 @@ function readPublicationCommand(placeId: string, formData: FormData): PublishPla
   return {
     placeId,
     expectedVersion,
+    expectedItemVersion,
     expectedDraftVersion,
     conditionVerifications,
     freshnessUntil: `${freshnessDate}T23:59:59.999Z`,

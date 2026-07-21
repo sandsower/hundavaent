@@ -879,6 +879,7 @@ export const isCatalogue = {
     'Veldu dagsetningu þegar upplýsingarnar eiga að vera endurstaðfestar.',
   'moderation.reloadCurrent': 'Hlaða inn nýjustu upplýsingum',
   'moderation.alreadyPublished': 'Staðurinn hefur þegar verið birtur.',
+  'moderation.notPublishable': 'Ekki er lengur hægt að birta þessa tillögu úr þessari yfirferð.',
   'moderation.verifyAndPublish': 'Staðfesta og birta',
   'moderation.published': 'Staðurinn hefur verið birtur.',
   'moderation.unauthorized': 'Þú hefur ekki heimild til að framkvæma þessa aðgerð.',

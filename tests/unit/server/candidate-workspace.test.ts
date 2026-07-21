@@ -237,7 +237,7 @@ describe('Candidate workspace action orchestration', () => {
       expectedItemVersion: '3',
       expectedDraftVersion: '1',
       sectionId: 'location',
-      currentDraftPayload: '{}',
+      currentDraftPayload: '{"translations":{"en":{"name":"must not be echoed"}}}',
       addressLine: 'Corrected street 2',
       locality: 'Reykjavík',
       postalCode: '101',
@@ -270,6 +270,9 @@ describe('Candidate workspace action orchestration', () => {
           location: expect.objectContaining({ address_line: 'Corrected street 2' })
         })
       })
+    );
+    expect(operations.saveCandidateModerationDraft.mock.calls[0]?.[1].payload).not.toHaveProperty(
+      'translations'
     );
   });
 
@@ -366,6 +369,7 @@ describe('Candidate workspace action orchestration', () => {
     });
     const formData = actionForm({
       expectedVersion: '3',
+      expectedItemVersion: '2',
       expectedDraftVersion: '1',
       freshnessUntil: '2027-07-13'
     });
@@ -386,7 +390,7 @@ describe('Candidate workspace action orchestration', () => {
     });
     expect(operations.verifyAndPublish).toHaveBeenCalledWith(
       client,
-      expect.objectContaining({ placeId, expectedVersion: 3 }),
+      expect.objectContaining({ placeId, expectedVersion: 3, expectedItemVersion: 2 }),
       'request-1'
     );
   });
@@ -394,7 +398,7 @@ describe('Candidate workspace action orchestration', () => {
   it.each([
     ['incomplete', 400, 'incomplete'],
     ['stale', 409, 'conflict'],
-    ['already_published', 409, 'already_published'],
+    ['not_publishable', 409, 'not_publishable'],
     ['forbidden', 403, 'forbidden'],
     ['infrastructure_error', 503, 'unavailable']
   ] as const)(
@@ -403,6 +407,7 @@ describe('Candidate workspace action orchestration', () => {
       operations.verifyAndPublish.mockResolvedValue({ status });
       const formData = actionForm({
         expectedVersion: '3',
+        expectedItemVersion: '2',
         expectedDraftVersion: '1',
         freshnessUntil: '2027-07-13'
       });
@@ -419,6 +424,26 @@ describe('Candidate workspace action orchestration', () => {
       ).resolves.toEqual({ status: 'failure', terminal: false, httpStatus, error });
     }
   );
+
+  it('rejects publication without the Candidate review version before calling the RPC', async () => {
+    const formData = actionForm({
+      expectedVersion: '3',
+      expectedDraftVersion: '1',
+      freshnessUntil: '2027-07-13'
+    });
+    formData.append('accessConditionId', conditionId);
+    formData.append(`conditionEvidence.${conditionId}`, evidenceId);
+
+    await expect(
+      executeModerationCandidateAction('publish', {
+        client,
+        placeId,
+        requestId: 'request-missing-item-version',
+        formData
+      })
+    ).resolves.toMatchObject({ status: 'failure', error: 'incomplete' });
+    expect(operations.verifyAndPublish).not.toHaveBeenCalled();
+  });
 
   it('rejects a mismatched form Place before executing a Candidate action', async () => {
     const formData = actionForm();

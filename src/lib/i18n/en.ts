@@ -875,6 +875,7 @@ export const enCatalogue = {
   'moderation.freshnessHelp': 'Choose when these facts must be reconfirmed.',
   'moderation.reloadCurrent': 'Reload current information',
   'moderation.alreadyPublished': 'The Place has already been published.',
+  'moderation.notPublishable': 'This Candidate can no longer be published from this review.',
   'moderation.verifyAndPublish': 'Verify and publish',
   'moderation.published': 'The Place has been published.',
   'moderation.unauthorized': 'You are not authorized to perform this action.',

@@ -439,11 +439,6 @@
           <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
           <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
           <input type="hidden" name="sectionId" value="location" />
-          <input
-            type="hidden"
-            name="currentDraftPayload"
-            value={JSON.stringify(data.review.draftPayload ?? {})}
-          />
           <label>
             {data.copy['moderation.addressLabel']}
             <input name="addressLine" required value={data.review.addressLine} />
@@ -627,6 +622,7 @@
       >
         <input type="hidden" name="placeId" value={data.review.placeId} />
         <input type="hidden" name="expectedVersion" value={data.review.version} />
+        <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
         <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
         {#each data.review.accessConditions as condition, index (condition.id)}
           <fieldset class="evidence-map">
