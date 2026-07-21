@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 
-import { catalogues, parseLocale } from '$i18n';
+import { parseLocale } from '$i18n';
 import {
   AuthenticationRequiredError,
   AuthenticationUnavailableError,
@@ -24,7 +24,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     }
     if (cause instanceof AuthenticationUnavailableError) {
       error(503, {
-        message: catalogues[lang]['error.unexpectedBody'],
+        message: locals.copy['error.unexpectedBody'],
         requestId: locals.requestId
       });
     }
@@ -43,7 +43,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   );
   if (result.status !== 'success') {
     error(result.status === 'forbidden' ? 403 : 503, {
-      message: catalogues[lang]['error.unexpectedBody'],
+      message: locals.copy['error.unexpectedBody'],
       requestId: locals.requestId
     });
   }

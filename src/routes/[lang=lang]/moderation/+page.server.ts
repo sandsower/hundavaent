@@ -1,7 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Cookies } from '@sveltejs/kit';
 
-import { catalogues, parseLocale, type Catalogue } from '$i18n';
+import { parseLocale, type Catalogue } from '$i18n';
 import type { ContributorRpcClient } from '$server/contributors/contributor-status';
 import type {
   CandidateQueueCursor,
@@ -66,7 +66,7 @@ const fallbackPaths: Record<Exclude<ModerationWorkspaceQueueId, 'suggestions'>, 
 export const load: PageServerLoad = async ({ cookies, locals, params, url }) => {
   const lang = parseLocale(params.lang);
   if (!locals.supabase) {
-    error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+    error(503, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
 
   const state = parseModerationWorkspaceQuery(url.searchParams);
@@ -76,7 +76,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
   );
   if (summaryResult.status !== 'success') {
     error(summaryResult.status === 'forbidden' ? 403 : 503, {
-      message: catalogues[lang]['error.unexpectedBody'],
+      message: locals.copy['error.unexpectedBody'],
       requestId: locals.requestId
     });
   }
@@ -101,7 +101,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
           candidateReview: null,
           nextCursor: null,
           hasPrevious: Boolean(state.cursor),
-          queueError: catalogues[lang]['error.unexpectedBody'],
+          queueError: locals.copy['error.unexpectedBody'],
           reviewError: null,
           workspaceNotice: takeWorkspaceNotice(cookies, lang),
           fallbackHref: `/${lang}/moderation/corrections-and-reports`
@@ -131,7 +131,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
         ) {
           correctionReview = reviewResult.value;
         } else if (reviewResult.status !== 'success' && reviewResult.status !== 'not_found') {
-          reviewError = catalogues[lang]['moderation.workspace.reviewUnavailable'];
+          reviewError = locals.copy['moderation.workspace.reviewUnavailable'];
         } else if (state.itemId) {
           selectedItemId = corrections[0]?.flagId ?? null;
           correctionReview = selectedItemId
@@ -140,7 +140,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
         }
       }
       if (selectedItemId && !correctionReview && !reviewError) {
-        reviewError = catalogues[lang]['moderation.workspace.reviewUnavailable'];
+        reviewError = locals.copy['moderation.workspace.reviewUnavailable'];
       }
 
       const canonicalState: ModerationWorkspaceQuery = {
@@ -183,7 +183,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
         candidateReview: null,
         nextCursor: null,
         hasPrevious: Boolean(state.cursor),
-        queueError: catalogues[lang]['error.unexpectedBody'],
+        queueError: locals.copy['error.unexpectedBody'],
         reviewError: null,
         workspaceNotice: takeWorkspaceNotice(cookies, lang),
         fallbackHref: `/${lang}/moderation/${fallbackPaths[state.queue]}`
@@ -206,7 +206,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
       ) {
         candidateReview = reviewResult.value;
       } else if (reviewResult.status !== 'success' && reviewResult.status !== 'not_found') {
-        reviewError = catalogues[lang]['moderation.workspace.reviewUnavailable'];
+        reviewError = locals.copy['moderation.workspace.reviewUnavailable'];
       } else if (state.itemId) {
         selectedItemId = candidates[0]?.placeId ?? null;
         candidateReview = selectedItemId
@@ -215,7 +215,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
       }
     }
     if (selectedItemId && !candidateReview && !reviewError) {
-      reviewError = catalogues[lang]['moderation.workspace.reviewUnavailable'];
+      reviewError = locals.copy['moderation.workspace.reviewUnavailable'];
     }
 
     const canonicalState: ModerationWorkspaceQuery = {
@@ -263,7 +263,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
       candidateReview: null,
       nextCursor: null,
       hasPrevious: Boolean(state.cursor),
-      queueError: catalogues[lang]['error.unexpectedBody'],
+      queueError: locals.copy['error.unexpectedBody'],
       reviewError: null,
       workspaceNotice: takeWorkspaceNotice(cookies, lang),
       fallbackHref: `/${lang}/moderation/suggestions`
@@ -294,7 +294,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
     ) {
       suggestionReview = reviewResult.value;
     } else if (reviewResult.status !== 'success' && reviewResult.status !== 'not_found') {
-      reviewError = catalogues[lang]['moderation.workspace.reviewUnavailable'];
+      reviewError = locals.copy['moderation.workspace.reviewUnavailable'];
     } else if (state.itemId) {
       selectedItemId = suggestions[0]?.suggestionId ?? null;
       suggestionReview = selectedItemId
@@ -303,7 +303,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
     }
   }
   if (selectedItemId && !suggestionReview && !reviewError) {
-    reviewError = catalogues[lang]['moderation.workspace.reviewUnavailable'];
+    reviewError = locals.copy['moderation.workspace.reviewUnavailable'];
   }
 
   const canonicalState: ModerationWorkspaceQuery = {
@@ -468,7 +468,7 @@ async function runWorkspaceCandidateAction(
 ) {
   const { cookies, locals, params, request, url } = event;
   const lang = parseLocale(params.lang);
-  const copy = catalogues[lang];
+  const copy = locals.copy;
   if (!locals.supabase) {
     return fail(503, { action, success: false, error: copy['error.unexpectedBody'] });
   }

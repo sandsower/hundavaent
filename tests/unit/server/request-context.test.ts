@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createHandle, createHandleError } from '../../../src/hooks.server';
+import { catalogues } from '$i18n';
 import type { TelemetryLogger } from '$server/telemetry/logger';
 import type { RequestSupabaseClient } from '$server/db/clients';
 
@@ -63,6 +64,69 @@ describe('request pipeline', () => {
     });
   });
 
+  it('loads one request-scoped published catalogue for a localized route', async () => {
+    const { event } = createEvent();
+    const client = {
+      auth: { getClaims: vi.fn(async () => ({ data: { claims: null }, error: null })) }
+    } as unknown as RequestSupabaseClient;
+    const publishedCopy = { ...catalogues.is, 'meta.description': 'Beint birt íslenskt efni.' };
+    const loadCatalogue = vi.fn(async () => ({
+      copy: publishedCopy,
+      revisionNumber: '21',
+      source: 'published' as const
+    }));
+    const handle = createHandle({
+      getPublicConfig: () => ({
+        url: 'http://supabase.test',
+        publishableKey: 'public-key'
+      }),
+      createClient: () => client,
+      createRequestId: () => 'request-translations',
+      getGateConfig: () => null,
+      loadCatalogue
+    });
+
+    await handle({
+      event,
+      resolve: async (resolvedEvent: typeof event) => {
+        expect(resolvedEvent.locals.copy).toBe(publishedCopy);
+        expect(resolvedEvent.locals.translationRevision).toBe('21');
+        expect(resolvedEvent.locals.translationSource).toBe('published');
+        return new Response('published');
+      }
+    } as never);
+
+    expect(loadCatalogue).toHaveBeenCalledOnce();
+    expect(loadCatalogue).toHaveBeenCalledWith(client, 'is');
+  });
+
+  it('does not query published translations for a non-localized route', async () => {
+    const { event } = createEvent();
+    event.request = new Request('http://localhost/api/health');
+    event.url = new URL('http://localhost/api/health');
+    event.route = { id: '/api/health' };
+    const loadCatalogue = vi.fn();
+    const handle = createHandle({
+      getPublicConfig: () => null,
+      createClient: vi.fn(),
+      createRequestId: () => 'request-health',
+      getGateConfig: () => null,
+      loadCatalogue
+    });
+
+    await handle({
+      event,
+      resolve: async (resolvedEvent: typeof event) => {
+        expect(resolvedEvent.locals.copy).toBe(catalogues.is);
+        expect(resolvedEvent.locals.translationRevision).toBeNull();
+        expect(resolvedEvent.locals.translationSource).toBe('bundled');
+        return new Response('healthy');
+      }
+    } as never);
+
+    expect(loadCatalogue).not.toHaveBeenCalled();
+  });
+
   it('keeps public routes available when Supabase is not configured', async () => {
     const { event } = createEvent();
     const createClient = vi.fn();
@@ -103,9 +167,28 @@ describe('request pipeline', () => {
     expect(response.headers.get('strict-transport-security')).toBe(
       'max-age=31536000; includeSubDomains'
     );
-    expect(response.headers.get('cache-control')).toBe(
-      'public, max-age=0, s-maxage=60, stale-while-revalidate=300'
-    );
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+  });
+
+  it('never caches the translation workspace, including its signed-out page', async () => {
+    const { event } = createEvent();
+    event.request = new Request('https://preview.hundavaent.is/translations');
+    event.url = new URL('https://preview.hundavaent.is/translations');
+    event.route = { id: '/translations' };
+    const handle = createHandle({
+      getPublicConfig: () => null,
+      createClient: vi.fn(),
+      createRequestId: () => 'request-translation-workspace',
+      getGateConfig: () => null
+    });
+
+    const response = await handle({
+      event,
+      resolve: async () => new Response('workspace sign-in')
+    } as never);
+
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
   });
 
   it('never shares account or authentication responses through a public cache', async () => {
@@ -207,7 +290,13 @@ describe('request pipeline', () => {
 
   it('returns a request-correlated error without leaking provider details', () => {
     const { event } = createEvent();
-    event.locals = { requestId: 'request-789', supabase: null };
+    event.locals = {
+      copy: catalogues.is,
+      requestId: 'request-789',
+      supabase: null,
+      translationRevision: null,
+      translationSource: 'bundled'
+    };
 
     const logger = createLogger();
     const result = createHandleError(logger)({
