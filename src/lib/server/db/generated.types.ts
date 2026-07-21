@@ -102,6 +102,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      configure_interface_translation_capability: {
+        Args: { command_secret: string }
+        Returns: undefined
+      }
       configure_member_activation_capability: {
         Args: { command_secret: string }
         Returns: undefined
@@ -174,25 +178,6 @@ export type Database = {
           submitted_at: string
         }[]
       }
-      decide_candidate_place: {
-        Args: {
-          command_request_id: string
-          contributor_explanation_en: string
-          contributor_explanation_is: string
-          expected_draft_version: number
-          expected_item_version: number
-          requested_outcome: string
-          requested_place_id: string
-          requested_private_note: string
-          requested_reason_code: string
-        }
-        Returns: {
-          draft_version: number
-          item_version: number
-          place_id: string
-          status: string
-        }[]
-      }
       exclude_dog_friendliness_rating: {
         Args: {
           command_request_id: string
@@ -256,6 +241,23 @@ export type Database = {
           summary_visible: boolean
           trailing_twelve_month_count: number
         }[]
+      }
+      get_interface_translation_revision: {
+        Args: {
+          command_issued_at: number
+          command_proof: string
+          command_request_id: string
+          requested_revision_number: number
+        }
+        Returns: Json
+      }
+      get_interface_translation_workspace: {
+        Args: {
+          command_issued_at: number
+          command_proof: string
+          command_request_id: string
+        }
+        Returns: Json
       }
       get_member_provider_policy: {
         Args: never
@@ -373,20 +375,12 @@ export type Database = {
         Returns: {
           access_conditions: Json
           address_line: string
-          candidate_status: string
           category: string
-          contributor_id: string
           description_en: string
           description_is: string
-          dog_amenities: Json
-          draft_payload: Json
-          draft_updated_at: string
-          draft_updated_by: string
-          draft_version: number
           evidence_records: Json
           geometry_precision: string
           geometry_source: string
-          item_version: number
           latitude: number
           lifecycle: string
           locality: string
@@ -394,16 +388,35 @@ export type Database = {
           municipality: string
           name_en: string
           name_is: string
-          opening_hours: Json
           operator_name: string
-          originating_suggestion_id: string
-          phone: string
           place_id: string
           postal_code: string
-          readiness_issues: Json
-          readiness_state: string
           version: number
-          website_url: string
+        }[]
+      }
+      get_moderation_place_review_v2: {
+        Args: { requested_place_id: string }
+        Returns: {
+          access_conditions: Json
+          address_line: string
+          category: string
+          description_en: string
+          description_is: string
+          evidence_records: Json
+          geometry_precision: string
+          geometry_source: string
+          latitude: number
+          lifecycle: string
+          locality: string
+          longitude: number
+          municipality: string
+          name_en: string
+          name_is: string
+          operator_name: string
+          place_id: string
+          postal_code: string
+          version: number
+          wheelchair_accessibility: string
         }[]
       }
       get_moderation_place_suggestion: {
@@ -487,6 +500,14 @@ export type Database = {
           low_score_threshold: number
         }[]
       }
+      get_published_interface_translations: {
+        Args: { requested_locale: string }
+        Returns: {
+          messages: Json
+          published_at: string
+          revision_number: number
+        }[]
+      }
       get_published_place_profile: {
         Args: { requested_locale: string; requested_place_id: string }
         Returns: {
@@ -544,6 +565,35 @@ export type Database = {
           website_url: string
         }[]
       }
+      get_published_place_profile_v3: {
+        Args: { requested_locale: string; requested_place_id: string }
+        Returns: {
+          access_area: string
+          access_area_note: string
+          access_condition_id: string
+          access_information_urls: Json
+          address_line: string
+          availability_state: string
+          availability_window: Json
+          category: string
+          description: string
+          dog_amenities: Json
+          dog_eligibility: Json
+          latitude: number
+          locality: string
+          longitude: number
+          name: string
+          opening_hours: Json
+          permission_requirement: string
+          phone: string
+          place_id: string
+          postal_code: string
+          restraint_condition: string
+          restraint_note: string
+          website_url: string
+          wheelchair_accessibility: string
+        }[]
+      }
       get_support_check_in: {
         Args: {
           command_request_id: string
@@ -594,47 +644,22 @@ export type Database = {
           status: string
         }[]
       }
-      list_moderation_candidate_places:
-        | {
-            Args: {
-              cursor_created_at?: string
-              cursor_place_id?: string
-              requested_limit?: number
-            }
-            Returns: {
-              address_line: string
-              category: string
-              created_at: string
-              locality: string
-              municipality: string
-              operator_name: string
-              place_id: string
-            }[]
-          }
-        | {
-            Args: {
-              cursor_created_at?: string
-              cursor_place_id?: string
-              requested_filter: string
-              requested_limit?: number
-            }
-            Returns: {
-              address_line: string
-              candidate_status: string
-              category: string
-              created_at: string
-              draft_updated_at: string
-              draft_updated_by: string
-              draft_version: number
-              item_version: number
-              locality: string
-              municipality: string
-              operator_name: string
-              place_id: string
-              readiness_issue_count: number
-              readiness_state: string
-            }[]
-          }
+      list_moderation_candidate_places: {
+        Args: {
+          cursor_created_at?: string
+          cursor_place_id?: string
+          requested_limit?: number
+        }
+        Returns: {
+          address_line: string
+          category: string
+          created_at: string
+          locality: string
+          municipality: string
+          operator_name: string
+          place_id: string
+        }[]
+      }
       list_moderation_contributor_evidence: {
         Args: { requested_member_id: string }
         Returns: {
@@ -679,121 +704,58 @@ export type Database = {
           welcome_score: number
         }[]
       }
-      list_moderation_place_flags:
-        | {
-            Args: {
-              cursor_flag_id?: string
-              cursor_priority?: number
-              cursor_submitted_at?: string
-              requested_limit?: number
-            }
-            Returns: {
-              access_condition_id: string
-              flag_id: string
-              is_safety_concern: boolean
-              kind: string
-              member_id: string
-              place_id: string
-              place_name_en: string
-              place_name_is: string
-              priority: number
-              report_reason: string
-              status: string
-              submitted_at: string
-              target_field: string
-              target_kind: string
-              updated_at: string
-            }[]
-          }
-        | {
-            Args: {
-              cursor_flag_id?: string
-              cursor_priority?: number
-              cursor_submitted_at?: string
-              requested_filter: string
-              requested_limit?: number
-            }
-            Returns: {
-              access_condition_id: string
-              draft_updated_at: string
-              draft_updated_by: string
-              draft_version: number
-              flag_id: string
-              is_safety_concern: boolean
-              item_version: number
-              kind: string
-              member_id: string
-              place_id: string
-              place_name_en: string
-              place_name_is: string
-              priority: number
-              readiness_state: string
-              report_reason: string
-              status: string
-              submitted_at: string
-              target_field: string
-              target_kind: string
-              updated_at: string
-            }[]
-          }
-      list_moderation_place_suggestions:
-        | {
-            Args: {
-              cursor_queue_rank?: number
-              cursor_submitted_at?: string
-              cursor_suggestion_id?: string
-              requested_limit?: number
-            }
-            Returns: {
-              address_line: string
-              category: string
-              locality: string
-              member_id: string
-              name_en: string
-              name_is: string
-              operator_name: string
-              queue_rank: number
-              status: string
-              submitted_at: string
-              suggestion_id: string
-              updated_at: string
-            }[]
-          }
-        | {
-            Args: {
-              cursor_queue_rank?: number
-              cursor_submitted_at?: string
-              cursor_suggestion_id?: string
-              requested_filter: string
-              requested_limit?: number
-            }
-            Returns: {
-              address_line: string
-              category: string
-              draft_updated_at: string
-              draft_updated_by: string
-              draft_version: number
-              item_version: number
-              locality: string
-              member_id: string
-              name_en: string
-              name_is: string
-              operator_name: string
-              queue_rank: number
-              readiness_state: string
-              status: string
-              submitted_at: string
-              suggestion_id: string
-              updated_at: string
-            }[]
-          }
+      list_moderation_place_flags: {
+        Args: {
+          cursor_flag_id?: string
+          cursor_priority?: number
+          cursor_submitted_at?: string
+          requested_limit?: number
+        }
+        Returns: {
+          access_condition_id: string
+          flag_id: string
+          is_safety_concern: boolean
+          kind: string
+          member_id: string
+          place_id: string
+          place_name_en: string
+          place_name_is: string
+          priority: number
+          report_reason: string
+          status: string
+          submitted_at: string
+          target_field: string
+          target_kind: string
+          updated_at: string
+        }[]
+      }
+      list_moderation_place_suggestions: {
+        Args: {
+          cursor_queue_rank?: number
+          cursor_submitted_at?: string
+          cursor_suggestion_id?: string
+          requested_limit?: number
+        }
+        Returns: {
+          address_line: string
+          category: string
+          locality: string
+          member_id: string
+          name_en: string
+          name_is: string
+          operator_name: string
+          queue_rank: number
+          status: string
+          submitted_at: string
+          suggestion_id: string
+          updated_at: string
+        }[]
+      }
       list_moderation_queue_summary: {
         Args: never
         Returns: {
           actionable_count: number
-          deferred_count: number
           queue_id: string
-          resolved_count: number
         }[]
       }
       list_moderation_rating_note_dispositions: {
@@ -970,6 +932,24 @@ export type Database = {
           simple_access_summary: boolean
         }[]
       }
+      list_published_places_v3: {
+        Args: { requested_locale: string }
+        Returns: {
+          access_area: string
+          access_condition_count: number
+          access_conditions: Json
+          category: string
+          latitude: number
+          locality: string
+          longitude: number
+          name: string
+          permission_requirement: string
+          place_id: string
+          restraint_condition: string
+          simple_access_summary: boolean
+          wheelchair_accessibility: string
+        }[]
+      }
       list_related_place_flags: {
         Args: { requested_flag_id: string }
         Returns: {
@@ -1018,6 +998,20 @@ export type Database = {
       provision_moderator: {
         Args: { command_user_id: string }
         Returns: string
+      }
+      publish_interface_translation_drafts: {
+        Args: {
+          command_issued_at: number
+          command_proof: string
+          command_request_id: string
+          expected_draft_generation: number
+          expected_publication_revision: number
+        }
+        Returns: {
+          change_count: number
+          published_at: string
+          revision_number: number
+        }[]
       }
       quarantine_place_pending_geometry: {
         Args: { command_payload: Json; command_request_id: string }
@@ -1178,12 +1172,30 @@ export type Database = {
           suggestion_id: string
         }[]
       }
+      restore_interface_translation_revision: {
+        Args: {
+          command_issued_at: number
+          command_proof: string
+          command_request_id: string
+          expected_current_revision_number: number
+          requested_revision_number: number
+        }
+        Returns: {
+          change_count: number
+          published_at: string
+          revision_number: number
+        }[]
+      }
       retire_place_media: {
         Args: { command_payload: Json; command_request_id: string }
         Returns: {
           media_id: string
           retired_at: string
         }[]
+      }
+      retire_previous_interface_translation_capability: {
+        Args: { command_secret: string }
+        Returns: undefined
       }
       revoke_contribution: {
         Args: {
@@ -1194,23 +1206,6 @@ export type Database = {
         Returns: {
           contribution_id: string
           revoked_at: string
-        }[]
-      }
-      save_candidate_place_moderation_draft: {
-        Args: {
-          command_request_id: string
-          expected_draft_version: number
-          expected_item_version: number
-          requested_payload: Json
-          requested_place_id: string
-          requested_section_id: string
-        }
-        Returns: {
-          draft_version: number
-          payload: Json
-          target_id: string
-          updated_at: string
-          updated_by: string
         }[]
       }
       save_inline_dog_friendliness_rating: {
@@ -1239,38 +1234,20 @@ export type Database = {
           welcome_score: number | null
         }[]
       }
-      save_place_flag_moderation_draft: {
+      save_interface_translation_draft: {
         Args: {
+          command_issued_at: number
+          command_proof: string
           command_request_id: string
           expected_draft_version: number
-          expected_item_version: number
-          requested_flag_id: string
-          requested_payload: Json
-          requested_section_id: string
+          expected_publication_revision: number
+          requested_key: string
+          requested_locale: string
+          requested_value: string
         }
         Returns: {
           draft_version: number
-          payload: Json
-          target_id: string
-          updated_at: string
-          updated_by: string
-        }[]
-      }
-      save_place_suggestion_moderation_draft: {
-        Args: {
-          command_request_id: string
-          expected_draft_version: number
-          expected_item_version: number
-          requested_payload: Json
-          requested_section_id: string
-          requested_suggestion_id: string
-        }
-        Returns: {
-          draft_version: number
-          payload: Json
-          target_id: string
-          updated_at: string
-          updated_by: string
+          pending_count: number
         }[]
       }
       schedule_reconfirmation_due: {
@@ -1337,6 +1314,14 @@ export type Database = {
           suggestion_id: string
         }[]
       }
+      sync_interface_translation_inventory: {
+        Args: { command_request_id: string; requested_catalogues: Json }
+        Returns: {
+          change_count: number
+          published_at: string
+          revision_number: number
+        }[]
+      }
       transition_place_identity: {
         Args: { command_payload: Json; command_request_id: string }
         Returns: {
@@ -1353,6 +1338,14 @@ export type Database = {
           geometry_precision: string
           place_id: string
           version: number
+        }[]
+      }
+      update_place_wheelchair_accessibility: {
+        Args: { command_payload: Json; command_request_id: string }
+        Returns: {
+          place_id: string
+          version: number
+          wheelchair_accessibility: string
         }[]
       }
       verify_and_publish_place: {

@@ -53,6 +53,11 @@ const place: PublishedPlaceProfile = {
 };
 
 const correctionFlag: ModerationPlaceFlag = {
+  itemVersion: 1,
+  draftVersion: 0,
+  draftPayload: null,
+  draftUpdatedBy: null,
+  draftUpdatedAt: null,
   flagId: '90000000-0000-4000-8000-000000000001',
   memberId: '76000000-0000-4000-8000-000000000001',
   kind: 'correction',

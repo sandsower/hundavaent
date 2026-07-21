@@ -60,6 +60,12 @@ const proposal = {
 };
 
 const moderationSuggestion: ModerationSuggestion = {
+  itemVersion: 1,
+  draftVersion: 0,
+  draftProposal: null,
+  effectiveProposal: proposal,
+  draftUpdatedBy: null,
+  draftUpdatedAt: null,
   suggestionId: '85000000-0000-4000-8000-000000000001',
   memberId: '75000000-0000-4000-8000-000000000001',
   outcome: 'accepted',

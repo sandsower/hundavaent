@@ -157,7 +157,12 @@ describe('Place-flag RPC adapter', () => {
           is_safety_concern: true,
           submitted_at: '2026-07-11T09:00:00Z',
           updated_at: '2026-07-11T09:00:00Z',
-          priority: 0
+          priority: 0,
+          item_version: 1,
+          draft_version: 0,
+          draft_updated_by: null,
+          draft_updated_at: null,
+          readiness_state: 'ready'
         }
       ],
       error: null
@@ -184,7 +189,12 @@ describe('Place-flag RPC adapter', () => {
             isSafetyConcern: true,
             submittedAt: '2026-07-11T09:00:00Z',
             updatedAt: '2026-07-11T09:00:00Z',
-            priority: 0
+            priority: 0,
+            itemVersion: 1,
+            draftVersion: 0,
+            draftUpdatedBy: null,
+            draftUpdatedAt: null,
+            readinessState: 'ready'
           }
         ],
         nextCursor: null
@@ -230,7 +240,12 @@ describe('Place-flag RPC adapter', () => {
           transition_id: null,
           contribution_id: null,
           submitted_at: '2026-07-11T09:00:00Z',
-          updated_at: '2026-07-11T09:00:00Z'
+          updated_at: '2026-07-11T09:00:00Z',
+          item_version: 1,
+          draft_version: 0,
+          draft_payload: null,
+          draft_updated_by: null,
+          draft_updated_at: null
         }
       ],
       error: null
@@ -293,7 +308,12 @@ describe('Place-flag RPC adapter', () => {
           transition_id: null,
           contribution_id: null,
           submitted_at: '2026-07-11T09:00:00Z',
-          updated_at: '2026-07-11T09:00:00Z'
+          updated_at: '2026-07-11T09:00:00Z',
+          item_version: 1,
+          draft_version: 0,
+          draft_payload: null,
+          draft_updated_by: null,
+          draft_updated_at: null
         }
       ],
       error: null
@@ -374,16 +394,11 @@ describe('Place-flag RPC adapter', () => {
         {
           flagId: 'flag-1',
           outcome: 'dispute_opened',
+          expectedItemVersion: 2,
+          expectedDraftVersion: 1,
           memberReasonIs: 'Ástæða',
           memberReasonEn: 'Reason',
-          privateNote: null,
-          applicationPayload: null,
-          disputeCommand: {
-            reason: 'Contradicted',
-            evidence: {},
-            expected_verification_id: 'verification-1'
-          },
-          transitionCommand: null
+          privateNote: null
         },
         'request-1'
       )
@@ -391,6 +406,16 @@ describe('Place-flag RPC adapter', () => {
       status: 'success',
       value: { appliedAccessConditionId: null, disputeId: 'dispute-1', transitionId: null }
     });
+    expect(rpc).toHaveBeenCalledWith(
+      'resolve_place_flag',
+      expect.objectContaining({
+        expected_item_version: 2,
+        expected_draft_version: 1,
+        application_payload: null,
+        dispute_command: null,
+        transition_command: null
+      })
+    );
   });
 
   it('confirms Contribution credit idempotently', async () => {

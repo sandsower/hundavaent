@@ -118,6 +118,81 @@
       submitting = false;
     };
   };
+  const enhanceDecisionForm: SubmitFunction = ({ formData, submitter }) => {
+    if (submitter?.getAttribute('formaction')?.includes('saveSuggestionSection')) {
+      formData.set('sectionPayload', JSON.stringify(proposalPayload(formData)));
+    }
+    submitting = true;
+    return async ({ update }) => {
+      await update();
+      submitting = false;
+    };
+  };
+
+  function proposalPayload(formData: FormData): Record<string, unknown> {
+    const value = (key: string) => String(formData.get(key) ?? '').trim();
+    const jsonObject = (key: string) => {
+      try {
+        const parsed: unknown = JSON.parse(value(key) || '{}');
+        return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+          ? parsed
+          : null;
+      } catch {
+        return null;
+      }
+    };
+    const days = value('availabilityDays').split(',').map(Number).filter(Number.isFinite);
+    const startsAt = value('availabilityStartsAt');
+    const endsAt = value('availabilityEndsAt');
+    const observedAt = value('evidenceObservedAt');
+    return {
+      purpose: 'dog_access_destination',
+      operator_name: value('operatorName'),
+      category: value('category'),
+      location: {
+        address_line: value('addressLine'),
+        locality: value('locality'),
+        postal_code: value('postalCode'),
+        municipality: value('municipality'),
+        latitude: Number(value('latitude')),
+        longitude: Number(value('longitude'))
+      },
+      translations: {
+        is: { name: value('nameIs'), description: value('descriptionIs') },
+        en: { name: value('nameEn'), description: value('descriptionEn') }
+      },
+      website_url: value('websiteUrl') || null,
+      phone: value('phone') || null,
+      opening_hours: jsonObject('openingHoursJson'),
+      dog_amenities: value('dogAmenities')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      access_condition: {
+        access_area: value('accessArea'),
+        access_area_note: value('accessAreaNote') || null,
+        restraint_condition: value('restraintCondition'),
+        restraint_note: value('restraintNote') || null,
+        dog_eligibility: { scope: 'all_dogs' },
+        availability_state: value('availabilityState'),
+        availability_window: {
+          ...(days.length ? { days } : {}),
+          ...(startsAt ? { startsAt } : {}),
+          ...(endsAt ? { endsAt } : {})
+        },
+        permission_requirement: value('permissionRequirement')
+      },
+      evidence: {
+        kind: value('evidenceKind'),
+        source_url: value('evidenceUrl') || null,
+        source_citation: value('evidenceCitation') || null,
+        source_label: value('evidenceSourceLabel'),
+        observed_at: observedAt ? `${observedAt}:00.000Z` : '',
+        explanation: value('evidenceExplanation'),
+        source_metadata: jsonObject('sourceMetadataJson')
+      }
+    };
+  }
   const flagKindKey = (kind: string): MessageKey =>
     `contributor.moderation.flagKind.${kind}` as MessageKey;
   const activeEvidenceFlagId = $derived(
@@ -395,11 +470,13 @@
     <form
       id="suggestion-decision"
       method="POST"
-      action="?/resolve"
-      use:enhance={enhanceForm}
+      action="?/decideSuggestion"
+      use:enhance={enhanceDecisionForm}
       aria-busy={submitting}
     >
       <input type="hidden" name="suggestionId" value={data.suggestion.suggestionId} />
+      <input type="hidden" name="expectedItemVersion" value={data.suggestion.itemVersion} />
+      <input type="hidden" name="expectedDraftVersion" value={data.suggestion.draftVersion} />
       <label>
         {data.copy['suggestion.outcome']}
         <select name="outcome" bind:value={outcome}>
@@ -413,12 +490,12 @@
       </label>
       <div class="two">
         <label
-          >{data.copy['suggestion.memberReasonIs']}<textarea name="memberReasonIs" rows="3" required
+          >{data.copy['suggestion.memberReasonIs']}<textarea name="memberReasonIs" rows="3" required={outcome !== 'accepted'}
             >{form?.refreshedMemberReasonIs ?? ''}</textarea
           ></label
         >
         <label
-          >{data.copy['suggestion.memberReasonEn']}<textarea name="memberReasonEn" rows="3" required
+          >{data.copy['suggestion.memberReasonEn']}<textarea name="memberReasonEn" rows="3" required={outcome !== 'accepted'}
             >{form?.refreshedMemberReasonEn ?? ''}</textarea
           ></label
         >
@@ -720,7 +797,13 @@
         </fieldset>
         <fieldset class="identity-decisions">
           <legend>{data.copy['suggestion.identityDecisions']}</legend>
-          <button type="submit" formaction="?/refreshMatches" formnovalidate class="secondary">
+          <button
+            type="submit"
+            formaction="?/saveSuggestionSection"
+            name="sectionId"
+            value="proposal"
+            class="secondary"
+          >
             {data.copy['suggestion.refreshIdentityMatches']}
           </button>
           <label

@@ -31,6 +31,24 @@ export interface SaveCandidateModerationDraftCommand {
   requestId: string;
 }
 
+export interface SaveSuggestionModerationDraftCommand {
+  suggestionId: string;
+  expectedItemVersion: number;
+  expectedDraftVersion: number;
+  sectionId: string;
+  payload: Json;
+  requestId: string;
+}
+
+export interface SaveFlagModerationDraftCommand {
+  flagId: string;
+  expectedItemVersion: number;
+  expectedDraftVersion: number;
+  sectionId: string;
+  payload: Json;
+  requestId: string;
+}
+
 export interface DecideCandidatePlaceCommand {
   placeId: string;
   outcome: CandidateDecisionOutcome;
@@ -63,6 +81,61 @@ export async function saveCandidateModerationDraft(
       requested_payload: command.payload,
       command_request_id: command.requestId
     });
+    if (error) return { status: mapError(error.code) };
+    if (!Array.isArray(data) || data.length !== 1 || !isDraftRow(data[0])) {
+      return { status: 'infrastructure_error' };
+    }
+    const row = data[0];
+    return {
+      status: 'success',
+      value: {
+        targetId: row.target_id,
+        version: row.draft_version,
+        payload: row.payload as Json,
+        updatedBy: row.updated_by,
+        updatedAt: row.updated_at
+      }
+    };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+export async function saveSuggestionModerationDraft(
+  client: ModerationDraftRpcClient,
+  command: SaveSuggestionModerationDraftCommand
+): Promise<ModerationDraftCommandResult<ModerationDraftSnapshot>> {
+  return saveModerationDraft(client, 'save_place_suggestion_moderation_draft', {
+    requested_suggestion_id: command.suggestionId,
+    expected_item_version: command.expectedItemVersion,
+    expected_draft_version: command.expectedDraftVersion,
+    requested_section_id: command.sectionId,
+    requested_payload: command.payload,
+    command_request_id: command.requestId
+  });
+}
+
+export async function saveFlagModerationDraft(
+  client: ModerationDraftRpcClient,
+  command: SaveFlagModerationDraftCommand
+): Promise<ModerationDraftCommandResult<ModerationDraftSnapshot>> {
+  return saveModerationDraft(client, 'save_place_flag_moderation_draft', {
+    requested_flag_id: command.flagId,
+    expected_item_version: command.expectedItemVersion,
+    expected_draft_version: command.expectedDraftVersion,
+    requested_section_id: command.sectionId,
+    requested_payload: command.payload,
+    command_request_id: command.requestId
+  });
+}
+
+async function saveModerationDraft(
+  client: ModerationDraftRpcClient,
+  functionName: 'save_place_suggestion_moderation_draft' | 'save_place_flag_moderation_draft',
+  args: Record<string, unknown>
+): Promise<ModerationDraftCommandResult<ModerationDraftSnapshot>> {
+  try {
+    const { data, error } = await client.rpc(functionName, args);
     if (error) return { status: mapError(error.code) };
     if (!Array.isArray(data) || data.length !== 1 || !isDraftRow(data[0])) {
       return { status: 'infrastructure_error' };

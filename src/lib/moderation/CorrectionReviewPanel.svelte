@@ -246,11 +246,13 @@
     <form
       id="correction-decision"
       method="POST"
-      action="?/resolve"
+      action="?/decideCorrection"
       use:enhance={enhanceForm}
       aria-busy={submitting}
     >
       <input type="hidden" name="flagId" value={data.flag.flagId} />
+      <input type="hidden" name="expectedItemVersion" value={data.flag.itemVersion} />
+      <input type="hidden" name="expectedDraftVersion" value={data.flag.draftVersion} />
       <label>
         {data.copy['suggestion.outcome']}
         <select name="outcome" bind:value={outcome}>
@@ -271,11 +273,11 @@
       <div class="grid two">
         <label>
           {data.copy['flag.memberReasonIs']}
-          <textarea name="memberReasonIs" rows="2" required></textarea>
+          <textarea name="memberReasonIs" rows="2" required={outcome !== 'applied' && outcome !== 'confirmed_useful'}></textarea>
         </label>
         <label>
           {data.copy['flag.memberReasonEn']}
-          <textarea name="memberReasonEn" rows="2" required></textarea>
+          <textarea name="memberReasonEn" rows="2" required={outcome !== 'applied' && outcome !== 'confirmed_useful'}></textarea>
         </label>
       </div>
 
@@ -508,6 +510,20 @@
         </fieldset>
       {/if}
 
+      {#if outcome === 'applied' || outcome === 'dispute_opened' || outcome === 'place_inactivated'}
+        <button
+          type="submit"
+          class="secondary"
+          formaction="?/saveCorrectionSection"
+          name="sectionId"
+          value={outcome === 'applied'
+            ? 'application'
+            : outcome === 'dispute_opened'
+              ? 'dispute'
+              : 'transition'}
+          disabled={submitting}>{data.copy['common.save']}</button
+        >
+      {/if}
       <button type="submit" disabled={submitting || (form?.error === 'conflict' && !isOpen)}
         >{data.copy['flag.resolve']}</button
       >

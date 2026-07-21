@@ -36,8 +36,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 
 // Each action below is itself enforced by security.require_moderator() inside the RPC.
 export const actions: Actions = {
-  refreshMatches: (event) => runFallbackAction('refreshMatches', event),
-  resolve: (event) => runFallbackAction('resolve', event),
+  saveSuggestionSection: (event) => runFallbackAction('saveSuggestionSection', event),
+  decideSuggestion: (event) => runFallbackAction('decideSuggestion', event),
   confirmUseful: (event) => runFallbackAction('confirmUseful', event),
   revokeContribution: (event) => runFallbackAction('revokeContribution', event),
   recordConductFlag: (event) => runFallbackAction('recordConductFlag', event),
@@ -61,9 +61,10 @@ async function runFallbackAction(
   if (result.status === 'failure') {
     return fail(result.httpStatus, { error: result.error });
   }
-  if (result.status === 'refreshed') return result.data;
-
   const lang = parseLocale(params.lang);
+  if (result.effect.kind === 'draft_saved') {
+    redirect(303, `/${lang}/moderation/suggestions/${params.id}?draft=saved`);
+  }
   redirect(303, fallbackConfirmationHref(lang, params.id, result.effect));
 }
 
@@ -72,6 +73,8 @@ function fallbackConfirmationHref(
   suggestionId: string,
   effect: ModerationSuggestionConfirmedEffect
 ): string {
+  if (effect.kind === 'draft_saved')
+    return `/${lang}/moderation/suggestions/${suggestionId}?draft=saved`;
   const key = effect.kind === 'resolved' ? 'resolved' : effect.kind;
   return `/${lang}/moderation/suggestions/${suggestionId}?${key}=${effect.value}`;
 }

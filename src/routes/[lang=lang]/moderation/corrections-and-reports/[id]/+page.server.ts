@@ -41,11 +41,14 @@ async function runAction(
     flagClient: locals.supabase as unknown as PlaceFlagRpcClient,
     flagId: params.id,
     requestId: locals.requestId,
-    formData: action === 'resolve' ? await request.formData() : null
+    formData: action === 'confirmUseful' ? null : await request.formData()
   });
   if (result.status === 'failure') return fail(result.httpStatus, { error: result.error });
 
   const lang = parseLocale(params.lang);
+  if (result.effect.kind === 'draft_saved') {
+    redirect(303, `/${lang}/moderation/corrections-and-reports/${params.id}?draft=saved`);
+  }
   if (result.effect.kind === 'resolved') {
     redirect(
       303,
@@ -57,6 +60,7 @@ async function runAction(
 
 // Each action below is itself enforced by security.require_moderator() inside the RPC.
 export const actions: Actions = {
-  resolve: (event) => runAction('resolve', event),
+  saveCorrectionSection: (event) => runAction('saveCorrectionSection', event),
+  decideCorrection: (event) => runAction('decideCorrection', event),
   confirmUseful: (event) => runAction('confirmUseful', event)
 };

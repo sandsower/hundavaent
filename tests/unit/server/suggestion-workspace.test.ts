@@ -21,7 +21,12 @@ const queueRow = {
   locality: 'Reykjavík',
   submitted_at: '2026-07-11T09:00:00Z',
   updated_at: '2026-07-11T09:00:00Z',
-  queue_rank: 0
+  queue_rank: 0,
+  item_version: 1,
+  draft_version: 0,
+  draft_updated_by: null,
+  draft_updated_at: null,
+  readiness_state: 'ready'
 };
 
 const detailRow = {
@@ -31,7 +36,8 @@ const detailRow = {
   private_note: null,
   contribution_id: 'contribution-1',
   operator_identity_place_id: null,
-  location_identity_place_id: null
+  location_identity_place_id: null,
+  draft_payload: null
 };
 
 const matchRow = {
@@ -100,7 +106,8 @@ function detailClients(
   return clients(
     (name) => {
       if (name === 'get_moderation_place_suggestion') return { data: [detailRow], error: null };
-      if (name === 'list_suggestion_place_matches') return { data: [matchRow], error: null };
+      if (name === 'list_suggestion_place_matches_for_payload')
+        return { data: [matchRow], error: null };
       throw new Error(`Unexpected Suggestion RPC: ${name}`);
     },
     (name) => {
@@ -328,7 +335,7 @@ describe('Suggestions workspace review assembly', () => {
     });
   });
 
-  it('reports a missing detail only after the mandatory match request succeeds', async () => {
+  it('does not request matches when the detail is missing', async () => {
     const { suggestionClient, contributorClient, suggestionRpc, contributorRpc } = clients(
       (name) => {
         if (name === 'get_moderation_place_suggestion') return { data: [], error: null };
@@ -346,7 +353,7 @@ describe('Suggestions workspace review assembly', () => {
         new URLSearchParams()
       )
     ).resolves.toEqual({ status: 'not_found' });
-    expect(suggestionRpc).toHaveBeenCalledTimes(2);
+    expect(suggestionRpc).toHaveBeenCalledTimes(1);
     expect(contributorRpc).not.toHaveBeenCalled();
   });
 
@@ -422,6 +429,8 @@ function actionForm(
 ): FormData {
   const form = new FormData();
   form.set('outcome', outcome);
+  form.set('expectedItemVersion', '1');
+  form.set('expectedDraftVersion', '0');
   form.set('memberReasonIs', 'Ástæða');
   form.set('memberReasonEn', 'Reason');
   for (const [key, value] of Object.entries(entries)) form.set(key, value);
@@ -471,6 +480,20 @@ function actionClients(
     if (name === 'resolve_place_suggestion') {
       return { data: [{ candidate_place_id: null }], error: null };
     }
+    if (name === 'save_place_suggestion_moderation_draft') {
+      return {
+        data: [
+          {
+            target_id: detailRow.suggestion_id,
+            draft_version: 1,
+            payload: {},
+            updated_by: 'moderator-1',
+            updated_at: '2026-07-11T12:00:00Z'
+          }
+        ],
+        error: null
+      };
+    }
     if (name === 'confirm_suggestion_contribution') {
       return {
         data: [{ contribution_id: 'contribution-1', confirmed_at: '2026-07-11T12:00:00Z' }],
@@ -514,53 +537,47 @@ async function executeAction(
 }
 
 describe('Suggestions workspace action orchestration', () => {
-  it('refreshes matches while preserving edited proposal and moderator notes', async () => {
-    const form = acceptedForm({
-      memberReasonIs: 'Breytt íslenska',
-      memberReasonEn: 'Edited English',
-      privateNote: 'Private context'
+  it('persists a strict Suggestion section patch before decision', async () => {
+    const form = actionForm({
+      sectionId: 'identity',
+      sectionPayload: JSON.stringify({
+        purpose: 'dog_access_destination',
+        operator_name: 'Edited operator',
+        category: 'cafe'
+      })
     });
-    const { result, rpc } = await executeAction('refreshMatches', form, {
-      list_suggestion_place_matches_for_payload: { data: [matchRow], error: null }
-    });
-
-    expect(result).toMatchObject({
-      status: 'refreshed',
-      data: {
-        matchesRefreshed: true,
-        refreshedMatches: [{ placeId: matchRow.place_id }],
-        refreshedProposal: { operator_name: 'Operator' },
-        refreshedOutcome: 'accepted',
-        refreshedMemberReasonIs: 'Breytt íslenska',
-        refreshedMemberReasonEn: 'Edited English',
-        refreshedPrivateNote: 'Private context'
-      }
+    const { result, rpc } = await executeAction('saveSuggestionSection', form);
+    expect(result).toEqual({
+      status: 'confirmed',
+      terminal: false,
+      effect: { kind: 'draft_saved', sectionId: 'identity', draftVersion: 1 }
     });
     expect(rpc).toHaveBeenCalledWith(
-      'list_suggestion_place_matches_for_payload',
+      'save_place_suggestion_moderation_draft',
       expect.objectContaining({
-        requested_proposal: expect.objectContaining({ operator_name: 'Operator' })
+        requested_section_id: 'identity',
+        requested_payload: {
+          purpose: 'dog_access_destination',
+          operator_name: 'Edited operator',
+          category: 'cafe'
+        }
       })
     );
   });
 
-  it.each([
-    [{}, 'excluded_purpose'],
-    [{ purpose: 'dog_access_destination' }, 'incomplete']
-  ])('returns the existing refresh validation error for %j', async (entries, error) => {
-    const form = new FormData();
-    for (const [key, value] of Object.entries(entries)) form.set(key, value);
-    const { result } = await executeAction('refreshMatches', form);
-
-    expect(result).toEqual({ status: 'failure', httpStatus: 400, error });
-  });
-
-  it('keeps the refresh-specific forbidden mapping', async () => {
-    const { result } = await executeAction('refreshMatches', acceptedForm(), {
-      list_suggestion_place_matches_for_payload: { data: null, error: { code: '42501' } }
+  it('rejects an unknown key in a Suggestion section patch', async () => {
+    const form = actionForm({
+      sectionId: 'identity',
+      sectionPayload: JSON.stringify({
+        purpose: 'dog_access_destination',
+        operator_name: 'Operator',
+        category: 'cafe',
+        unsafe: true
+      })
     });
-
-    expect(result).toEqual({ status: 'failure', httpStatus: 403, error: 'forbidden' });
+    const { result, rpc } = await executeAction('saveSuggestionSection', form);
+    expect(result).toEqual({ status: 'failure', httpStatus: 400, error: 'invalid' });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it.each(['needs_information', 'accepted', 'duplicate', 'rejected'] as const)(
@@ -573,10 +590,11 @@ describe('Suggestions workspace action orchestration', () => {
               outcome === 'duplicate' ? { duplicatePlaceId: matchRow.place_id } : {},
               outcome
             );
-      const { result, rpc } = await executeAction('resolve', form);
+      const { result, rpc } = await executeAction('decideSuggestion', form);
 
       expect(result).toEqual({
         status: 'confirmed',
+        terminal: true,
         effect: { kind: 'resolved', value: outcome }
       });
       expect(rpc).toHaveBeenCalledWith(
@@ -589,25 +607,37 @@ describe('Suggestions workspace action orchestration', () => {
     }
   );
 
-  it('preserves whenever-open timing through the accepted Candidate payload', async () => {
+  it('sends no inline Candidate payload when accepting', async () => {
     const { result, rpc } = await executeAction(
-      'resolve',
+      'decideSuggestion',
       acceptedForm({ availabilityState: 'whenever_open' })
     );
 
     expect(result).toEqual({
       status: 'confirmed',
+      terminal: true,
       effect: { kind: 'resolved', value: 'accepted' }
     });
     expect(rpc).toHaveBeenCalledWith(
       'resolve_place_suggestion',
       expect.objectContaining({
-        moderator_candidate_payload: expect.objectContaining({
-          access_condition: expect.objectContaining({
-            availability_state: 'whenever_open',
-            availability_window: {}
-          })
-        })
+        moderator_candidate_payload: null,
+        expected_item_version: 1,
+        expected_draft_version: 0
+      })
+    );
+  });
+
+  it('allows an accepted Suggestion to omit paired Member explanations', async () => {
+    const form = acceptedForm({ memberReasonIs: '', memberReasonEn: '' });
+    const { result, rpc } = await executeAction('decideSuggestion', form);
+    expect(result).toMatchObject({ status: 'confirmed', terminal: true });
+    expect(rpc).toHaveBeenCalledWith(
+      'resolve_place_suggestion',
+      expect.objectContaining({
+        member_reason_is: null,
+        member_reason_en: null,
+        moderator_candidate_payload: null
       })
     );
   });
@@ -619,7 +649,7 @@ describe('Suggestions workspace action orchestration', () => {
     'rejects invalid resolution input before any command RPC',
     async (form, remove, error) => {
       if (remove) form.delete(remove);
-      const { result, rpc } = await executeAction('resolve', form);
+      const { result, rpc } = await executeAction('decideSuggestion', form);
 
       expect(result).toEqual({ status: 'failure', httpStatus: 400, error });
       expect(rpc).not.toHaveBeenCalled();
@@ -628,7 +658,7 @@ describe('Suggestions workspace action orchestration', () => {
 
   it('validates accepted identity choices against refreshed matches', async () => {
     const { result, rpc } = await executeAction(
-      'resolve',
+      'decideSuggestion',
       acceptedForm({ operatorIdentityPlaceId: 'unknown-place' })
     );
 
@@ -637,12 +667,12 @@ describe('Suggestions workspace action orchestration', () => {
   });
 
   it.each([
-    ['55006', 409, 'conflict'],
+    ['55006', 409, 'resolved'],
     ['42501', 403, 'forbidden'],
     ['22023', 400, 'invalid'],
     ['50000', 503, 'unavailable']
   ] as const)('normalizes resolve RPC error %s', async (code, httpStatus, error) => {
-    const { result } = await executeAction('resolve', actionForm(), {
+    const { result } = await executeAction('decideSuggestion', actionForm(), {
       resolve_place_suggestion: { data: null, error: { code } }
     });
 
@@ -669,7 +699,7 @@ describe('Suggestions workspace action orchestration', () => {
   ] as const)('confirms the %s contributor control', async (action, form, effect) => {
     const { result } = await executeAction(action, form);
 
-    expect(result).toEqual({ status: 'confirmed', effect });
+    expect(result).toEqual({ status: 'confirmed', terminal: false, effect });
   });
 
   it.each([

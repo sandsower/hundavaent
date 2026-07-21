@@ -1,8 +1,8 @@
 import {
-  readAccessConditionValue,
-  readEvidence,
-  readPlaceFieldValue
-} from '$server/place-flags/place-flag-input';
+  parseCorrectionDraftSection,
+  type CorrectionDraftSectionId
+} from '$server/moderation/correction-draft-input';
+import { saveFlagModerationDraft } from '$server/moderation/moderation-drafts';
 import {
   confirmPlaceFlagContribution,
   getModerationPlaceFlag,
@@ -45,10 +45,11 @@ export interface ModerationCorrectionReviewData {
   readonly contributionConfirmed: boolean;
 }
 
-export type ModerationCorrectionActionName = 'resolve' | 'confirmUseful';
+export type ModerationCorrectionActionName =
+  'saveCorrectionSection' | 'decideCorrection' | 'confirmUseful';
 
 export type ModerationCorrectionActionError =
-  'invalid' | 'incomplete' | 'not_found' | 'conflict' | 'forbidden' | 'unavailable';
+  'invalid' | 'incomplete' | 'not_found' | 'conflict' | 'resolved' | 'forbidden' | 'unavailable';
 
 export interface ModerationCorrectionActionContext {
   readonly flagClient: PlaceFlagRpcClient;
@@ -62,11 +63,17 @@ export type ModerationCorrectionConfirmedEffect =
       readonly kind: 'resolved';
       readonly value: Exclude<PlaceFlagOutcome, 'submitted'>;
     }
-  | { readonly kind: 'contribution'; readonly value: 'confirmed' };
+  | { readonly kind: 'contribution'; readonly value: 'confirmed' }
+  | {
+      readonly kind: 'draft_saved';
+      readonly sectionId: CorrectionDraftSectionId;
+      readonly draftVersion: number;
+    };
 
 export type ModerationCorrectionActionResult =
   | {
       readonly status: 'confirmed';
+      readonly terminal: boolean;
       readonly effect: ModerationCorrectionConfirmedEffect;
     }
   | {
@@ -139,14 +146,16 @@ export async function executeModerationCorrectionAction(
   context: ModerationCorrectionActionContext
 ): Promise<ModerationCorrectionActionResult> {
   switch (action) {
-    case 'resolve':
-      return resolveModerationCorrection(context);
+    case 'saveCorrectionSection':
+      return saveCorrectionSection(context);
+    case 'decideCorrection':
+      return decideCorrection(context);
     case 'confirmUseful':
       return confirmUsefulCorrection(context);
   }
 }
 
-async function resolveModerationCorrection(
+async function saveCorrectionSection(
   context: ModerationCorrectionActionContext
 ): Promise<ModerationCorrectionActionResult> {
   const detail = await getModerationPlaceFlag(context.flagClient, context.flagId);
@@ -155,78 +164,62 @@ async function resolveModerationCorrection(
   if (!flag) return failure(404, 'not_found');
 
   const form = context.formData ?? new FormData();
+  const versions = readVersions(form);
+  const parsed = parseCorrectionDraftSection(
+    flag,
+    String(form.get('sectionId') ?? '').trim(),
+    form
+  );
+  if (!versions || !parsed) return failure(400, 'incomplete');
+  const result = await saveFlagModerationDraft(context.flagClient, {
+    flagId: context.flagId,
+    expectedItemVersion: versions.expectedItemVersion,
+    expectedDraftVersion: versions.expectedDraftVersion,
+    sectionId: parsed.sectionId,
+    payload: parsed.payload,
+    requestId: context.requestId
+  });
+  if (result.status !== 'success') return commandFailure(result.status);
+  return {
+    status: 'confirmed',
+    terminal: false,
+    effect: { kind: 'draft_saved', sectionId: parsed.sectionId, draftVersion: result.value.version }
+  };
+}
+
+async function decideCorrection(
+  context: ModerationCorrectionActionContext
+): Promise<ModerationCorrectionActionResult> {
+  const form = context.formData ?? new FormData();
   const requestedOutcome = String(form.get('outcome') ?? '');
   if (!isResolvedOutcome(requestedOutcome)) return failure(400, 'invalid');
-
-  const reasonIs = String(form.get('memberReasonIs') ?? '').trim();
-  const reasonEn = String(form.get('memberReasonEn') ?? '').trim();
-  if (!reasonIs || !reasonEn) return failure(400, 'incomplete');
-
-  const privateNote = String(form.get('privateNote') ?? '').trim() || null;
-  let applicationPayload: Record<string, unknown> | null = null;
-  let disputeCommand: Record<string, unknown> | null = null;
-  let transitionCommand: Record<string, unknown> | null = null;
-
-  if (requestedOutcome === 'applied') {
-    if (flag.targetKind === 'place_field') {
-      if (!flag.targetField) return failure(400, 'invalid');
-      const fieldValue = readPlaceFieldValue(form, flag.targetField);
-      const expectedVersion = Number(form.get('expectedVersion') ?? '');
-      if (!fieldValue || !Number.isInteger(expectedVersion)) return failure(400, 'invalid');
-      applicationPayload = { expected_version: expectedVersion, field_value: fieldValue };
-    } else {
-      const replacementCondition = readAccessConditionValue(form);
-      const evidence = readEvidence(form);
-      const expectedVerificationId = String(form.get('expectedVerificationId') ?? '').trim();
-      const verifiedAt = String(form.get('verifiedAt') ?? '').trim();
-      const freshnessUntil = String(form.get('freshnessUntil') ?? '').trim();
-      if (
-        !replacementCondition ||
-        !evidence ||
-        !expectedVerificationId ||
-        !verifiedAt ||
-        !freshnessUntil
-      ) {
-        return failure(400, 'invalid');
-      }
-      applicationPayload = {
-        expected_verification_id: expectedVerificationId,
-        replacement_condition: replacementCondition,
-        evidence,
-        verified_at: `${verifiedAt}:00.000Z`,
-        freshness_until: `${freshnessUntil}:00.000Z`
-      };
-    }
-  } else if (requestedOutcome === 'dispute_opened') {
-    const evidence = readEvidence(form);
-    const expectedVerificationId = String(form.get('expectedVerificationId') ?? '').trim();
-    const reason = String(form.get('disputeReason') ?? '').trim();
-    if (!evidence || !expectedVerificationId || !reason) return failure(400, 'invalid');
-    disputeCommand = { expected_verification_id: expectedVerificationId, reason, evidence };
-  } else if (requestedOutcome === 'place_inactivated') {
-    const expectedVersion = Number(form.get('expectedVersion') ?? '');
-    const decisionNotes = String(form.get('decisionNotes') ?? '').trim();
-    if (!Number.isInteger(expectedVersion) || !decisionNotes) return failure(400, 'invalid');
-    transitionCommand = { expected_version: expectedVersion, decision_notes: decisionNotes };
-  }
+  const versions = readVersions(form);
+  const reasons = readPairedReasons(
+    form,
+    requestedOutcome !== 'applied' && requestedOutcome !== 'confirmed_useful'
+  );
+  if (!versions || !reasons) return failure(400, 'incomplete');
 
   const result = await resolvePlaceFlag(
     context.flagClient,
     {
-      flagId: flag.flagId,
+      flagId: context.flagId,
       outcome: requestedOutcome,
-      memberReasonIs: reasonIs,
-      memberReasonEn: reasonEn,
-      privateNote,
-      applicationPayload,
-      disputeCommand,
-      transitionCommand
+      expectedItemVersion: versions.expectedItemVersion,
+      expectedDraftVersion: versions.expectedDraftVersion,
+      memberReasonIs: reasons.is,
+      memberReasonEn: reasons.en,
+      privateNote: String(form.get('privateNote') ?? '').trim() || null
     },
     context.requestId
   );
   if (result.status !== 'success') return commandFailure(result.status);
 
-  return { status: 'confirmed', effect: { kind: 'resolved', value: requestedOutcome } };
+  return {
+    status: 'confirmed',
+    terminal: true,
+    effect: { kind: 'resolved', value: requestedOutcome }
+  };
 }
 
 async function confirmUsefulCorrection(
@@ -238,7 +231,11 @@ async function confirmUsefulCorrection(
     context.requestId
   );
   if (result.status !== 'success') return commandFailure(result.status);
-  return { status: 'confirmed', effect: { kind: 'contribution', value: 'confirmed' } };
+  return {
+    status: 'confirmed',
+    terminal: false,
+    effect: { kind: 'contribution', value: 'confirmed' }
+  };
 }
 
 function isResolvedOutcome(value: string): value is Exclude<PlaceFlagOutcome, 'submitted'> {
@@ -254,9 +251,33 @@ function isResolvedOutcome(value: string): value is Exclude<PlaceFlagOutcome, 's
 
 function commandFailure(status: PlaceFlagFailureStatus): ModerationCorrectionActionResult {
   if (status === 'conflict') return failure(409, 'conflict');
+  if (status === 'resolved') return failure(409, 'resolved');
   if (status === 'forbidden') return failure(403, 'forbidden');
   if (status === 'invalid') return failure(400, 'invalid');
   return failure(503, 'unavailable');
+}
+
+function readVersions(
+  form: FormData
+): { expectedItemVersion: number; expectedDraftVersion: number } | null {
+  const expectedItemVersion = Number(form.get('expectedItemVersion'));
+  const expectedDraftVersion = Number(form.get('expectedDraftVersion'));
+  return Number.isInteger(expectedItemVersion) &&
+    expectedItemVersion > 0 &&
+    Number.isInteger(expectedDraftVersion) &&
+    expectedDraftVersion >= 0
+    ? { expectedItemVersion, expectedDraftVersion }
+    : null;
+}
+
+function readPairedReasons(
+  form: FormData,
+  required: boolean
+): { is: string | null; en: string | null } | null {
+  const is = String(form.get('memberReasonIs') ?? '').trim() || null;
+  const en = String(form.get('memberReasonEn') ?? '').trim() || null;
+  if ((is === null) !== (en === null) || (required && (!is || !en))) return null;
+  return { is, en };
 }
 
 function failure(

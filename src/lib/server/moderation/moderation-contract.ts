@@ -29,7 +29,9 @@ export function isModerationFilterId(value: unknown): value is ModerationFilterI
 }
 
 export function isCandidateDecisionOutcome(value: unknown): value is CandidateDecisionOutcome {
-  return typeof value === 'string' && candidateDecisionOutcomes.some((outcome) => outcome === value);
+  return (
+    typeof value === 'string' && candidateDecisionOutcomes.some((outcome) => outcome === value)
+  );
 }
 
 export function isCandidateRejectionReasonCode(

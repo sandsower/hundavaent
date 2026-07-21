@@ -6,6 +6,11 @@ import { catalogues } from '$i18n';
 import type { ModerationPlaceFlag } from '$server/place-flags/place-flags';
 
 const flag: ModerationPlaceFlag = {
+  itemVersion: 1,
+  draftVersion: 0,
+  draftPayload: null,
+  draftUpdatedBy: null,
+  draftUpdatedAt: null,
   flagId: '90000000-0000-4000-8000-000000000002',
   memberId: '76000000-0000-4000-8000-000000000001',
   kind: 'report',

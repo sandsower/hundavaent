@@ -21,6 +21,7 @@ import {
   executeModerationCorrectionAction,
   loadModerationCorrectionQueue,
   loadModerationCorrectionReview,
+  type ModerationCorrectionActionName,
   type ModerationCorrectionConfirmedEffect,
   type ModerationCorrectionQueueCursorState,
   type ModerationCorrectionReviewData
@@ -339,9 +340,16 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
 
 // Every command remains authorized by security.require_moderator() inside its RPC.
 export const actions: Actions = {
-  refreshMatches: (event) => runWorkspaceSuggestionAction('refreshMatches', event),
-  resolve: (event) => runSharedWorkspaceAction('resolve', event),
-  confirmUseful: (event) => runSharedWorkspaceAction('confirmUseful', event),
+  saveSuggestionSection: (event) => runWorkspaceSuggestionAction('saveSuggestionSection', event),
+  decideSuggestion: (event) => runWorkspaceSuggestionAction('decideSuggestion', event),
+  saveCorrectionSection: (event) => runWorkspaceCorrectionAction('saveCorrectionSection', event),
+  decideCorrection: (event) => runWorkspaceCorrectionAction('decideCorrection', event),
+  confirmUseful: async (event) => {
+    const formData = await event.request.formData();
+    return formData.has('flagId')
+      ? runWorkspaceCorrectionAction('confirmUseful', event, formData)
+      : runWorkspaceSuggestionAction('confirmUseful', event, formData);
+  },
   revokeContribution: (event) => runWorkspaceSuggestionAction('revokeContribution', event),
   recordConductFlag: (event) => runWorkspaceSuggestionAction('recordConductFlag', event),
   clearConductFlag: (event) => runWorkspaceSuggestionAction('clearConductFlag', event),
@@ -355,17 +363,6 @@ export const actions: Actions = {
   rejectMedia: (event) => runWorkspaceCandidateAction('rejectMedia', event),
   retireMedia: (event) => runWorkspaceCandidateAction('retireMedia', event)
 };
-
-async function runSharedWorkspaceAction(
-  action: 'resolve' | 'confirmUseful',
-  event: Parameters<NonNullable<Actions['resolve']>>[0]
-) {
-  const formData = await event.request.formData();
-  if (formData.has('flagId')) {
-    return runWorkspaceCorrectionAction(action, event, formData);
-  }
-  return runWorkspaceSuggestionAction(action, event, formData);
-}
 
 async function runWorkspaceSuggestionAction(
   action: ModerationSuggestionActionName,
@@ -409,27 +406,28 @@ async function runWorkspaceSuggestionAction(
       conflictRefreshFailed: result.error === 'conflict' && conflictReview?.status !== 'success'
     });
   }
-  if (result.status === 'refreshed') return { ...result.data, suggestionId };
-
   const lang = parseLocale(params.lang);
-  setWorkspaceNotice(cookies, lang, result.effect, url.protocol === 'https:');
+  if (result.effect.kind !== 'draft_saved') {
+    setWorkspaceNotice(cookies, lang, result.effect, url.protocol === 'https:');
+  }
   const nextState = buildModerationWorkspaceContinuation(
     'suggestions',
     suggestionId,
-    result.effect.kind === 'resolved',
+    result.terminal,
     formData
   );
   redirect(303, `/${lang}/moderation?${serializeModerationWorkspaceQuery(nextState)}`);
 }
 
 async function runWorkspaceCorrectionAction(
-  action: 'resolve' | 'confirmUseful',
-  event: Parameters<NonNullable<Actions['resolve']>>[0],
-  formData: FormData
+  action: ModerationCorrectionActionName,
+  event: Parameters<NonNullable<Actions['decideCorrection']>>[0],
+  suppliedFormData?: FormData
 ) {
-  const { cookies, locals, params, url } = event;
+  const { cookies, locals, params, request, url } = event;
   if (!locals.supabase) return fail(503, { error: 'unavailable' as const });
 
+  const formData = suppliedFormData ?? (await request.formData());
   const flagId = String(formData.get('flagId') ?? '')
     .trim()
     .toLowerCase();
@@ -439,7 +437,7 @@ async function runWorkspaceCorrectionAction(
     flagClient,
     flagId,
     requestId: locals.requestId,
-    formData: action === 'resolve' ? formData : null
+    formData: action === 'confirmUseful' ? null : formData
   });
   if (result.status === 'failure') {
     const conflictReview =
@@ -460,11 +458,13 @@ async function runWorkspaceCorrectionAction(
   }
 
   const lang = parseLocale(params.lang);
-  setWorkspaceNotice(cookies, lang, result.effect, url.protocol === 'https:');
+  if (result.effect.kind !== 'draft_saved') {
+    setWorkspaceNotice(cookies, lang, result.effect, url.protocol === 'https:');
+  }
   const nextState = buildModerationWorkspaceContinuation(
     'corrections-and-reports',
     flagId,
-    result.effect.kind === 'resolved',
+    result.terminal,
     formData
   );
   redirect(303, `/${lang}/moderation?${serializeModerationWorkspaceQuery(nextState)}`);
@@ -570,7 +570,7 @@ function candidateActionErrorMessage(
 function setWorkspaceNotice(
   cookies: Cookies,
   lang: ReturnType<typeof parseLocale>,
-  effect: ModerationSuggestionConfirmedEffect | ModerationCorrectionConfirmedEffect,
+  effect: WorkspaceNotifiableEffect,
   secure: boolean
 ): void {
   cookies.set(moderationNoticeCookie, `${effect.kind}:${effect.value}`, {
@@ -637,10 +637,11 @@ function takeWorkspaceNotice(
   return null;
 }
 
-type WorkspaceNotice =
-  | ModerationSuggestionConfirmedEffect
-  | ModerationCorrectionConfirmedEffect
-  | CandidateWorkspaceNotice;
+type WorkspaceNotice = WorkspaceNotifiableEffect | CandidateWorkspaceNotice;
+
+type WorkspaceNotifiableEffect =
+  | Exclude<ModerationSuggestionConfirmedEffect, { kind: 'draft_saved' }>
+  | Exclude<ModerationCorrectionConfirmedEffect, { kind: 'draft_saved' }>;
 
 type CandidateWorkspaceNotice = {
   readonly kind: 'candidate';
