@@ -41,6 +41,7 @@
   let { data, form = null, standalone = false }: Props = $props();
   let submitting = $state(false);
   let correctingLocation = $state(false);
+  let savingWheelchairAccessibility = $state(false);
   let alertElement = $state<HTMLElement>();
   let publishError = $derived(
     form && 'action' in form && form.action === 'publish' && 'error' in form ? form.error : null
@@ -64,12 +65,27 @@
       form.success
     )
   );
+  let wheelchairAccessibilityError = $derived(
+    form && 'action' in form && form.action === 'updateWheelchairAccessibility' && 'error' in form
+      ? form.error
+      : null
+  );
+  let wheelchairAccessibilitySucceeded = $derived(
+    Boolean(
+      form &&
+      'action' in form &&
+      form.action === 'updateWheelchairAccessibility' &&
+      'success' in form &&
+      form.success
+    )
+  );
 
   let mediaError = $derived(
     form &&
       'action' in form &&
       form.action !== 'publish' &&
       form.action !== 'correctLocation' &&
+      form.action !== 'updateWheelchairAccessibility' &&
       'error' in form
       ? form.error
       : null
@@ -80,6 +96,7 @@
       'action' in form &&
       form.action !== 'publish' &&
       form.action !== 'correctLocation' &&
+      form.action !== 'updateWheelchairAccessibility' &&
       'success' in form &&
       form.success
     )
@@ -197,6 +214,14 @@
     };
   };
 
+  const enhanceWheelchairAccessibility: SubmitFunction = () => {
+    savingWheelchairAccessibility = true;
+    return async ({ update }) => {
+      await update();
+      savingWheelchairAccessibility = false;
+    };
+  };
+
   function geometryPrecisionLabel(): string {
     const labels: Record<typeof data.review.geometryPrecision, MessageKey> = {
       moderator_confirmed_point: 'moderation.geometryPrecision.moderatorConfirmed',
@@ -273,7 +298,7 @@
   }
 
   $effect(() => {
-    if ((publishError || mediaError) && alertElement) {
+    if ((publishError || wheelchairAccessibilityError || mediaError) && alertElement) {
       void tick().then(() => alertElement?.focus());
     }
   });
@@ -356,6 +381,46 @@
     <article id="operator-category">
       <h2>{data.copy['moderation.checkOperator']}</h2>
       <p>{data.review.operatorName} · {data.review.category}</p>
+    </article>
+    <article id="wheelchair-accessibility">
+      <h2>{data.copy['moderation.wheelchairAccessibilityLabel']}</h2>
+      {#if wheelchairAccessibilityError}
+        <p class="message error" role="alert">{wheelchairAccessibilityError}</p>
+      {/if}
+      {#if wheelchairAccessibilitySucceeded}
+        <p class="message success" role="status">
+          {data.copy['moderation.wheelchairAccessibilitySaved']}
+        </p>
+      {/if}
+      <form
+        method="POST"
+        action="?/updateWheelchairAccessibility"
+        use:enhance={enhanceWheelchairAccessibility}
+        aria-busy={savingWheelchairAccessibility}
+      >
+        <input type="hidden" name="placeId" value={data.review.placeId} />
+        <input type="hidden" name="expectedVersion" value={data.review.version} />
+        <label>
+          {data.copy['moderation.wheelchairAccessibilityLabel']}
+          <select
+            name="wheelchairAccessibility"
+            required
+            value={data.review.wheelchairAccessibility}
+          >
+            <option value="accessible">{data.copy['wheelchairAccessibility.accessible']}</option>
+            <option value="not_accessible"
+              >{data.copy['wheelchairAccessibility.notAccessible']}</option
+            >
+            <option value="unknown">{data.copy['wheelchairAccessibility.unknown']}</option>
+          </select>
+        </label>
+        <small>{data.copy['moderation.wheelchairAccessibilityHelp']}</small>
+        <button type="submit" disabled={savingWheelchairAccessibility}>
+          {savingWheelchairAccessibility
+            ? data.copy['common.loading']
+            : data.copy['moderation.saveWheelchairAccessibility']}
+        </button>
+      </form>
     </article>
     <article id="location">
       <h2>{data.copy['moderation.checkLocation']}</h2>

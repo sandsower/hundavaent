@@ -43,6 +43,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 export const actions: Actions = {
   correctLocation: (event) => handleCandidateAction('correctLocation', event),
+  updateWheelchairAccessibility: (event) =>
+    handleCandidateAction('updateWheelchairAccessibility', event),
   publish: (event) => handleCandidateAction('publish', event),
   uploadEvidence: (event) => handleCandidateAction('uploadEvidence', event),
   uploadPhoto: (event) => handleCandidateAction('uploadPhoto', event),
@@ -101,13 +103,18 @@ function candidateActionErrorMessage(
   if (actionError === 'unavailable') return copy['error.unexpectedBody'];
   if (actionError === 'already_published') return copy['moderation.alreadyPublished'];
   if (actionError === 'conflict') {
-    return action === 'publish' || action === 'correctLocation'
+    return action === 'publish' ||
+      action === 'correctLocation' ||
+      action === 'updateWheelchairAccessibility'
       ? copy['moderation.versionConflict']
       : copy['moderation.media.error.conflict'];
   }
   if (
     actionError === 'incomplete' ||
-    (actionError === 'invalid' && (action === 'publish' || action === 'correctLocation'))
+    (actionError === 'invalid' &&
+      (action === 'publish' ||
+        action === 'correctLocation' ||
+        action === 'updateWheelchairAccessibility'))
   ) {
     return copy['moderation.incomplete'];
   }

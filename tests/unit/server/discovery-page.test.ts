@@ -6,7 +6,7 @@ import { catalogues } from '$i18n';
 describe('Discovery Member boundary', () => {
   it('marks Favorites unavailable instead of presenting a false empty projection', async () => {
     const rpc = vi.fn(async (name: string) => {
-      if (name === 'list_published_places_v2') return { data: [], error: null };
+      if (name === 'list_published_places_v3') return { data: [], error: null };
       if (name === 'list_current_favourite_ids') {
         return { data: null, error: { code: 'infrastructure' } };
       }
@@ -34,7 +34,7 @@ describe('Discovery Member boundary', () => {
 
   it('fails closed when the requested private Favorites projection is unavailable', async () => {
     const rpc = vi.fn(async (name: string) => {
-      if (name === 'list_published_places_v2') return { data: [], error: null };
+      if (name === 'list_published_places_v3') return { data: [], error: null };
       if (name === 'list_current_favourite_ids') {
         return { data: null, error: { code: 'infrastructure' } };
       }
@@ -82,7 +82,7 @@ describe('Discovery Member boundary', () => {
       if (name === 'list_published_place_primary_photos') {
         return { data: [], error: null };
       }
-      if (name !== 'list_published_places_v2') {
+      if (name !== 'list_published_places_v3') {
         throw new Error(`Unexpected private RPC: ${name}`);
       }
       return {
@@ -94,6 +94,7 @@ describe('Discovery Member boundary', () => {
             locality: 'Reykjavík',
             latitude: 64.14,
             longitude: -21.94,
+            wheelchair_accessibility: 'unknown',
             access_condition_count: 1,
             simple_access_summary: true,
             access_area: 'outdoors',
@@ -131,7 +132,7 @@ describe('Discovery Member boundary', () => {
     expect(result).toMatchObject({ proximityAssistEnabled: false });
     expect(result).not.toHaveProperty('favouritePlaceIds');
     expect(rpc).toHaveBeenCalledTimes(2);
-    expect(rpc).toHaveBeenCalledWith('list_published_places_v2', { requested_locale: 'en' });
+    expect(rpc).toHaveBeenCalledWith('list_published_places_v3', { requested_locale: 'en' });
     expect(rpc).toHaveBeenCalledWith('list_published_place_primary_photos', {
       requested_place_ids: ['30000000-0000-4000-8000-000000000003']
     });

@@ -340,6 +340,8 @@ export const actions: Actions = {
   recordConductFlag: (event) => runWorkspaceSuggestionAction('recordConductFlag', event),
   clearConductFlag: (event) => runWorkspaceSuggestionAction('clearConductFlag', event),
   correctLocation: (event) => runWorkspaceCandidateAction('correctLocation', event),
+  updateWheelchairAccessibility: (event) =>
+    runWorkspaceCandidateAction('updateWheelchairAccessibility', event),
   publish: (event) => runWorkspaceCandidateAction('publish', event),
   uploadEvidence: (event) => runWorkspaceCandidateAction('uploadEvidence', event),
   uploadPhoto: (event) => runWorkspaceCandidateAction('uploadPhoto', event),
@@ -529,13 +531,18 @@ function candidateActionErrorMessage(
   if (actionError === 'unavailable') return copy['error.unexpectedBody'];
   if (actionError === 'already_published') return copy['moderation.alreadyPublished'];
   if (actionError === 'conflict') {
-    return action === 'publish' || action === 'correctLocation'
+    return action === 'publish' ||
+      action === 'correctLocation' ||
+      action === 'updateWheelchairAccessibility'
       ? copy['moderation.versionConflict']
       : copy['moderation.media.error.conflict'];
   }
   if (
     actionError === 'incomplete' ||
-    (actionError === 'invalid' && (action === 'publish' || action === 'correctLocation'))
+    (actionError === 'invalid' &&
+      (action === 'publish' ||
+        action === 'correctLocation' ||
+        action === 'updateWheelchairAccessibility'))
   ) {
     return copy['moderation.incomplete'];
   }
@@ -626,6 +633,7 @@ type CandidateWorkspaceNotice = {
   readonly value:
     | 'published'
     | 'location_corrected'
+    | 'wheelchair_accessibility_updated'
     | 'evidence_uploaded'
     | 'photo_uploaded'
     | 'media_approved'
@@ -636,6 +644,7 @@ type CandidateWorkspaceNotice = {
 const moderationCandidateEffects = new Set<CandidateWorkspaceNotice['value']>([
   'published',
   'location_corrected',
+  'wheelchair_accessibility_updated',
   'evidence_uploaded',
   'photo_uploaded',
   'media_approved',

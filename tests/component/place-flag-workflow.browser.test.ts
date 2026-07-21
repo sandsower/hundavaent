@@ -15,6 +15,7 @@ const place: PublishedPlaceProfile = {
   name: 'Flagged Cafe',
   description: 'Original description.',
   category: 'cafe',
+  wheelchairAccessibility: 'unknown',
   location: {
     addressLine: 'Flag Street 1',
     locality: 'Reykjavík',

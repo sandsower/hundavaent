@@ -5,6 +5,7 @@ import type { RequestSupabaseClient } from '$server/db/clients';
 const operations = vi.hoisted(() => ({
   getCandidatePublicationReview: vi.fn(),
   updateCandidatePlaceLocation: vi.fn(),
+  updatePlaceWheelchairAccessibility: vi.fn(),
   verifyAndPublish: vi.fn(),
   getModerationPlaceMedia: vi.fn(),
   signPlaceMediaUrl: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock('$server/moderation/place-moderation', async (importOriginal) => ({
   ...(await importOriginal()),
   getCandidatePublicationReview: operations.getCandidatePublicationReview,
   updateCandidatePlaceLocation: operations.updateCandidatePlaceLocation,
+  updatePlaceWheelchairAccessibility: operations.updatePlaceWheelchairAccessibility,
   verifyAndPublish: operations.verifyAndPublish
 }));
 
@@ -48,12 +50,17 @@ const review = {
   placeId,
   version: 3,
   lifecycle: 'candidate',
+  wheelchairAccessibility: 'unknown' as const,
   operatorName: 'Candidate operator',
   category: 'cafe',
   addressLine: 'Candidate street 1',
   locality: 'Reykjavik',
   postalCode: '101',
   municipality: 'reykjavik',
+  latitude: 64.1466,
+  longitude: -21.9426,
+  geometryPrecision: 'official_address_point' as const,
+  geometrySource: 'test fixture',
   nameIs: 'Tillogustadur',
   descriptionIs: 'Lysing',
   nameEn: 'Candidate Place',
@@ -64,6 +71,7 @@ const review = {
     candidate: true,
     operatorAndCategory: true,
     capitalRegionLocation: true,
+    geometryQuality: true,
     icelandicTranslation: true,
     englishTranslation: true,
     accessCondition: false,
@@ -225,6 +233,65 @@ describe('Candidate workspace action orchestration', () => {
       }),
       'request-location'
     );
+  });
+
+  it('keeps the Place selected after saving its wheelchair accessibility', async () => {
+    operations.updatePlaceWheelchairAccessibility.mockResolvedValue({
+      status: 'success',
+      value: {
+        placeId,
+        wheelchairAccessibility: 'not_accessible',
+        version: 4
+      }
+    });
+    const formData = actionForm({
+      expectedVersion: '3',
+      wheelchairAccessibility: 'not_accessible'
+    });
+
+    await expect(
+      executeModerationCandidateAction('updateWheelchairAccessibility', {
+        client,
+        placeId,
+        requestId: 'request-accessibility',
+        formData
+      })
+    ).resolves.toEqual({
+      status: 'confirmed',
+      terminal: false,
+      effect: { kind: 'wheelchair_accessibility_updated' }
+    });
+    expect(operations.updatePlaceWheelchairAccessibility).toHaveBeenCalledWith(
+      client,
+      {
+        placeId,
+        expectedVersion: 3,
+        wheelchairAccessibility: 'not_accessible'
+      },
+      'request-accessibility'
+    );
+  });
+
+  it('rejects accessibility values outside the approved three-state contract', async () => {
+    const formData = actionForm({
+      expectedVersion: '3',
+      wheelchairAccessibility: 'partial'
+    });
+
+    await expect(
+      executeModerationCandidateAction('updateWheelchairAccessibility', {
+        client,
+        placeId,
+        requestId: 'request-accessibility-invalid',
+        formData
+      })
+    ).resolves.toEqual({
+      status: 'failure',
+      terminal: false,
+      httpStatus: 400,
+      error: 'incomplete'
+    });
+    expect(operations.updatePlaceWheelchairAccessibility).not.toHaveBeenCalled();
   });
 
   it('reports confirmed publication as terminal only after the server publishes', async () => {
