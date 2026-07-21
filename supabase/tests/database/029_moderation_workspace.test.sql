@@ -310,9 +310,23 @@ select is(
   (
     select count(*)
     from private.place_flags
-    where status in ('submitted', 'needs_information')
+    where status = 'submitted'
   ),
-  'Corrections and Reports count both unresolved statuses as actionable'
+  'Corrections and Reports keep deferred information requests out of the actionable count'
+);
+
+select is(
+  (
+    select deferred_count
+    from public.list_moderation_queue_summary()
+    where queue_id = 'corrections-and-reports'
+  ),
+  (
+    select count(*)
+    from private.place_flags
+    where status = 'needs_information'
+  ),
+  'Corrections and Reports count information requests in the deferred filter'
 );
 
 select is(
