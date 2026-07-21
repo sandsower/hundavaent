@@ -10,4 +10,4 @@
   <title>Translations | Hundavænt</title>
 </svelte:head>
 
-<TranslationWorkspace workspace={data.workspace} />
+<TranslationWorkspace workspace={data.workspace} initialSearch={data.initialSearch} />

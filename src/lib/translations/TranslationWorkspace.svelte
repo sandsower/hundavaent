@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
 
@@ -7,19 +8,33 @@
     TranslationWorkspace as WorkspaceData
   } from '$server/translations/workspace';
   import TranslationRow from './TranslationRow.svelte';
+  import {
+    provideTranslationSaveCoordinator,
+    useTranslationSaveCoordinator
+  } from './save-coordinator';
 
   type Filter = 'all' | 'missing' | 'changed';
   type Locale = 'is' | 'en';
 
   let {
     workspace,
-    saveEndpoint = '/translations/api/drafts'
-  }: { workspace: WorkspaceData; saveEndpoint?: string } = $props();
+    saveEndpoint = '/translations/api/drafts',
+    initialSearch = '',
+    navigate
+  }: {
+    workspace: WorkspaceData;
+    saveEndpoint?: string;
+    initialSearch?: string;
+    navigate?: (destination: string) => void | Promise<void>;
+  } = $props();
+
+  const saveCoordinator = useTranslationSaveCoordinator();
+  provideTranslationSaveCoordinator(saveCoordinator);
 
   let entries = $state(untrack(() => workspace.entries.map((entry) => structuredClone(entry))));
   let currentRevision = $state(untrack(() => workspace.currentRevision));
   let pendingCount = $state(untrack(() => workspace.pendingCount));
-  let search = $state('');
+  let search = $state(untrack(() => initialSearch));
   let namespace = $state('all');
   let filter = $state<Filter>('all');
   let firstLocale = $state<Locale>('is');
@@ -31,6 +46,7 @@
   const filteredEntries = $derived.by(() => {
     const query = search.trim().toLocaleLowerCase();
     return entries.filter((entry) => {
+      if (saveCoordinator.isEntryBlocking(entry.key)) return true;
       if (namespace !== 'all' && entry.namespace !== namespace) return false;
       if (
         query &&
@@ -68,6 +84,15 @@
       ? 'Review 1 unpublished change'
       : `Review ${pendingCount} unpublished changes`;
   }
+
+  async function guardReview(event: MouseEvent): Promise<void> {
+    if (!saveCoordinator.hasBlocking && !navigate) return;
+    event.preventDefault();
+    if (!(await saveCoordinator.settle())) return;
+    const destination = resolve('/translations/review');
+    if (navigate) await navigate(destination);
+    else await goto(destination);
+  }
 </script>
 
 <section
@@ -85,6 +110,8 @@
       class="review-link hv-control"
       data-intent="committed"
       href={resolve('/translations/review')}
+      aria-disabled={saveCoordinator.hasBlocking}
+      onclick={(event) => void guardReview(event)}
     >
       {reviewLabel()}
     </a>
@@ -171,7 +198,13 @@
 
   <div class="mobile-review-bar">
     <span>{pendingCount} unpublished</span>
-    <a class="hv-control" data-intent="committed" href={resolve('/translations/review')}>
+    <a
+      class="hv-control"
+      data-intent="committed"
+      href={resolve('/translations/review')}
+      aria-disabled={saveCoordinator.hasBlocking}
+      onclick={(event) => void guardReview(event)}
+    >
       {reviewLabel()}
     </a>
   </div>

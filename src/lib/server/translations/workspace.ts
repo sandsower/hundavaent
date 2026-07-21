@@ -6,6 +6,7 @@ import {
   createRestoreProof,
   createSaveDraftProof
 } from './proof';
+import { TRANSLATION_VALUE_MAX_LENGTH } from '$lib/translations/placeholders';
 
 export interface TranslationWorkspaceEntry {
   key: MessageKey;
@@ -105,7 +106,7 @@ export async function saveTranslationDraft(
     !knownKeys.has(command.key) ||
     !localeValues.has(command.locale) ||
     typeof command.value !== 'string' ||
-    command.value.length > 20_000 ||
+    command.value.length > TRANSLATION_VALUE_MAX_LENGTH ||
     !isNullableRevision(command.expectedPublicationRevision) ||
     !isNonnegativeInteger(command.expectedDraftVersion)
   ) {
@@ -337,7 +338,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isLocaleStringRecord(value: unknown): value is Record<Locale, string> {
-  return isRecord(value) && typeof value.is === 'string' && typeof value.en === 'string';
+  return (
+    isRecord(value) &&
+    typeof value.is === 'string' &&
+    value.is.length <= TRANSLATION_VALUE_MAX_LENGTH &&
+    typeof value.en === 'string' &&
+    value.en.length <= TRANSLATION_VALUE_MAX_LENGTH
+  );
 }
 
 function isLocaleNumberRecord(value: unknown): value is Record<Locale, number> {

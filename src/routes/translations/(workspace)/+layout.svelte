@@ -1,22 +1,74 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
 
+  import { provideTranslationSaveCoordinator } from '$lib/translations/save-coordinator';
   import type { LayoutProps } from './$types';
 
   let { children }: LayoutProps = $props();
+  const saveCoordinator = provideTranslationSaveCoordinator();
+
+  async function guardLink(event: MouseEvent, destination: string): Promise<void> {
+    if (!saveCoordinator.hasBlocking) return;
+    event.preventDefault();
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    if (await saveCoordinator.settle()) await goto(destination);
+  }
+
+  async function guardLock(event: SubmitEvent): Promise<void> {
+    if (!saveCoordinator.hasBlocking) return;
+    event.preventDefault();
+    if (await saveCoordinator.settle()) (event.currentTarget as HTMLFormElement).requestSubmit();
+  }
+
+  $effect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!saveCoordinator.hasBlocking) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  });
 </script>
 
 <header class="workspace-navigation" data-ui-mode="operations">
-  <a class="brand" href={resolve('/translations')}>Hundavænt translations</a>
+  <a
+    class="brand"
+    href={resolve('/translations')}
+    onclick={(event) => void guardLink(event, resolve('/translations'))}>Hundavænt translations</a
+  >
   <nav aria-label="Translation workspace">
-    <a href={resolve('/translations')}>Editor</a>
-    <a href={resolve('/translations/review')}>Review</a>
-    <a href={resolve('/translations/history')}>History</a>
+    <a
+      href={resolve('/translations')}
+      onclick={(event) => void guardLink(event, resolve('/translations'))}>Editor</a
+    >
+    <a
+      href={resolve('/translations/review')}
+      aria-disabled={saveCoordinator.hasBlocking}
+      onclick={(event) => void guardLink(event, resolve('/translations/review'))}>Review</a
+    >
+    <a
+      href={resolve('/translations/history')}
+      aria-disabled={saveCoordinator.hasBlocking}
+      onclick={(event) => void guardLink(event, resolve('/translations/history'))}>History</a
+    >
   </nav>
-  <form method="POST" action={resolve('/translations/logout')}>
+  <form method="POST" action={resolve('/translations/logout')} onsubmit={guardLock}>
     <button type="submit">Lock</button>
   </form>
 </header>
+
+{#if saveCoordinator.problemCount > 0}
+  <p class="workspace-save-warning hv-notice" data-tone="error" role="alert">
+    Resolve {saveCoordinator.problemCount} translation save problem{saveCoordinator.problemCount ===
+    1
+      ? ''
+      : 's'} before leaving the editor.
+  </p>
+{:else if saveCoordinator.hasUnsettled}
+  <p class="workspace-save-warning hv-notice" role="status">Saving edits before navigation…</p>
+{/if}
 
 {@render children()}
 
@@ -30,6 +82,15 @@
     align-items: center;
     justify-content: space-between;
     background: var(--hv-color-snow-raised);
+  }
+
+  .workspace-save-warning {
+    margin: 0.75rem auto;
+    width: min(calc(100% - 2rem), 78rem);
+  }
+
+  [aria-disabled='true'] {
+    opacity: 0.55;
   }
 
   .brand {

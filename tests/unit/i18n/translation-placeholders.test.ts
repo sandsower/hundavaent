@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { extractPlaceholders, validateTranslationPair } from '$lib/translations/placeholders';
+import {
+  extractPlaceholders,
+  validateTranslationEntry,
+  validateTranslationPair
+} from '$lib/translations/placeholders';
 
 describe('translation placeholders', () => {
   it('extracts a sorted multiset without requiring the same sentence order', () => {
@@ -33,6 +37,19 @@ describe('translation placeholders', () => {
   it('accepts complete values with matching placeholders', () => {
     expect(
       validateTranslationPair('{count} staðir fyrir {name}', '{name} has {count} places')
+    ).toEqual([]);
+  });
+
+  it('checks each locale against the bundled placeholder contract for its key', () => {
+    expect(
+      validateTranslationEntry('auth.favouriteTitle', 'Bæta í uppáhald', 'Add favorite')
+    ).toEqual(['placeholder_contract_is', 'placeholder_contract_en']);
+    expect(
+      validateTranslationEntry(
+        'auth.favouriteTitle',
+        'Bæta {name} í uppáhald',
+        'Add {name} to favorites'
+      )
     ).toEqual([]);
   });
 });

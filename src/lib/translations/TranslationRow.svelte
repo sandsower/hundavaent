@@ -1,14 +1,27 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
 
   import type {
     SavedTranslationDraft,
     TranslationWorkspaceEntry
   } from '$server/translations/workspace';
-  import { validateTranslationPair, type TranslationValidationIssue } from './placeholders';
+  import {
+    TRANSLATION_VALUE_MAX_LENGTH,
+    validateTranslationEntry,
+    type TranslationValidationIssue
+  } from './placeholders';
+  import { useTranslationSaveCoordinator, type TranslationSaveState } from './save-coordinator';
 
-  type SaveState = 'idle' | 'unsaved' | 'saving' | 'saved' | 'conflict' | 'error';
   type Locale = 'is' | 'en';
+  interface ConflictValue {
+    local: string;
+    remote: string;
+    version: number;
+    changed: boolean;
+    currentRevision: number | null;
+    pendingCount: number;
+    confirmingOverwrite: boolean;
+  }
 
   let {
     entry,
@@ -29,10 +42,20 @@
   let versions = $state(untrack(() => ({ ...entry.versions })));
   let changed = $state(untrack(() => ({ ...entry.changed })));
   let publicationRevision = $state(untrack(() => currentRevision));
-  let saveStates = $state<Record<Locale, SaveState>>({ is: 'idle', en: 'idle' });
+  const saveCoordinator = useTranslationSaveCoordinator();
+  let saveStates = $state<Record<Locale, TranslationSaveState>>({ is: 'idle', en: 'idle' });
+  let conflicts = $state<Partial<Record<Locale, ConflictValue>>>({});
   let timers: Partial<Record<Locale, ReturnType<typeof setTimeout>>> = {};
+  let pendingSaves: Partial<Record<Locale, Promise<void>>> = {};
   let requestSequence: Record<Locale, number> = { is: 0, en: 0 };
-  const issues = $derived(validateTranslationPair(isValue, enValue));
+  const issues = $derived(validateTranslationEntry(entry.key, isValue, enValue));
+
+  onMount(() => {
+    const unregister = (['is', 'en'] as const).map((locale) =>
+      saveCoordinator.register(`${entry.key}:${locale}`, () => flushSave(locale))
+    );
+    return () => unregister.forEach((remove) => remove());
+  });
 
   function valueFor(locale: Locale): string {
     return locale === 'is' ? isValue : enValue;
@@ -47,15 +70,18 @@
   function scheduleSave(locale: Locale): void {
     if (timers[locale]) clearTimeout(timers[locale]);
     const sequence = ++requestSequence[locale];
-    saveStates[locale] = 'unsaved';
+    setSaveState(locale, 'unsaved');
     timers[locale] = setTimeout(() => void save(locale, sequence), 700);
   }
 
-  function flushSave(locale: Locale): void {
-    if (!timers[locale]) return;
-    clearTimeout(timers[locale]);
-    timers[locale] = undefined;
-    void save(locale, requestSequence[locale]);
+  async function flushSave(locale: Locale): Promise<void> {
+    if (timers[locale]) {
+      clearTimeout(timers[locale]);
+      timers[locale] = undefined;
+      await save(locale, requestSequence[locale]);
+      return;
+    }
+    await pendingSaves[locale];
   }
 
   async function save(locale: Locale, requestedSequence?: number): Promise<void> {
@@ -63,75 +89,135 @@
     timers[locale] = undefined;
     const sequence = requestedSequence ?? ++requestSequence[locale];
     const value = valueFor(locale);
-    saveStates[locale] = 'saving';
+    setSaveState(locale, 'saving');
 
-    try {
-      const response = await fetch(saveEndpoint, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          key: entry.key,
-          locale,
-          value,
-          expectedPublicationRevision: publicationRevision,
-          expectedDraftVersion: versions[locale]
-        })
-      });
-      if (sequence !== requestSequence[locale]) return;
-      if (response.status === 409) {
-        saveStates[locale] = 'conflict';
-        return;
-      }
-      if (!response.ok) {
-        saveStates[locale] = 'error';
-        return;
-      }
+    const operation = (async () => {
+      try {
+        const response = await fetch(saveEndpoint, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            key: entry.key,
+            locale,
+            value,
+            expectedPublicationRevision: publicationRevision,
+            expectedDraftVersion: versions[locale]
+          })
+        });
+        if (sequence !== requestSequence[locale]) return;
+        if (response.status === 409) {
+          await loadConflict(locale, value, sequence);
+          return;
+        }
+        if (!response.ok) {
+          setSaveState(locale, 'error');
+          return;
+        }
 
-      const saved = (await response.json()) as SavedTranslationDraft;
-      if (
-        saved.key !== entry.key ||
-        saved.locale !== locale ||
-        saved.value !== value ||
-        !Number.isInteger(saved.version)
-      ) {
-        saveStates[locale] = 'error';
-        return;
+        const saved = (await response.json()) as SavedTranslationDraft;
+        if (
+          saved.key !== entry.key ||
+          saved.locale !== locale ||
+          saved.value !== value ||
+          !Number.isInteger(saved.version)
+        ) {
+          setSaveState(locale, 'error');
+          return;
+        }
+        versions[locale] = saved.version;
+        changed[locale] = saved.changed;
+        publicationRevision = saved.currentRevision;
+        conflicts[locale] = undefined;
+        setSaveState(locale, 'saved');
+        onSaved(saved);
+      } catch {
+        if (sequence === requestSequence[locale]) setSaveState(locale, 'error');
       }
-      versions[locale] = saved.version;
-      changed[locale] = saved.changed;
-      publicationRevision = saved.currentRevision;
-      saveStates[locale] = 'saved';
-      onSaved(saved);
-    } catch {
-      if (sequence === requestSequence[locale]) saveStates[locale] = 'error';
-    }
+    })();
+    pendingSaves[locale] = operation;
+    await operation;
+    if (pendingSaves[locale] === operation) pendingSaves[locale] = undefined;
   }
 
-  async function retryAfterConflict(locale: Locale): Promise<void> {
-    saveStates[locale] = 'saving';
+  async function loadConflict(locale: Locale, local: string, sequence: number): Promise<void> {
     try {
       const response = await fetch(saveEndpoint);
       if (!response.ok) {
-        saveStates[locale] = 'error';
+        setSaveState(locale, 'error');
         return;
       }
       const body = (await response.json()) as {
         workspace?: {
           currentRevision?: number | null;
+          pendingCount?: number;
           entries?: TranslationWorkspaceEntry[];
         };
       };
       const fresh = body.workspace?.entries?.find((candidate) => candidate.key === entry.key);
-      if (!fresh || body.workspace?.currentRevision === undefined) {
-        saveStates[locale] = 'error';
+      const pendingCount = body.workspace?.pendingCount;
+      if (
+        !fresh ||
+        body.workspace?.currentRevision === undefined ||
+        typeof pendingCount !== 'number' ||
+        !Number.isInteger(pendingCount)
+      ) {
+        setSaveState(locale, 'error');
         return;
       }
-      versions[locale] = fresh.versions[locale];
-      publicationRevision = body.workspace.currentRevision;
-      await save(locale);
+      if (sequence !== requestSequence[locale]) return;
+      conflicts[locale] = {
+        local,
+        remote: fresh.draft[locale],
+        version: fresh.versions[locale],
+        changed: fresh.changed[locale],
+        currentRevision: body.workspace.currentRevision,
+        pendingCount,
+        confirmingOverwrite: false
+      };
+      setSaveState(locale, 'conflict');
     } catch {
-      saveStates[locale] = 'error';
+      setSaveState(locale, 'error');
     }
+  }
+
+  function useLatest(locale: Locale): void {
+    const conflict = conflicts[locale];
+    if (!conflict) return;
+    if (locale === 'is') isValue = conflict.remote;
+    else enValue = conflict.remote;
+    versions[locale] = conflict.version;
+    changed[locale] = conflict.changed;
+    publicationRevision = conflict.currentRevision;
+    onSaved({
+      key: entry.key,
+      locale,
+      value: conflict.remote,
+      version: conflict.version,
+      changed: conflict.changed,
+      pendingCount: conflict.pendingCount,
+      currentRevision: conflict.currentRevision
+    });
+    conflicts[locale] = undefined;
+    setSaveState(locale, 'idle');
+  }
+
+  function requestOverwrite(locale: Locale): void {
+    const conflict = conflicts[locale];
+    if (conflict) conflict.confirmingOverwrite = true;
+  }
+
+  async function confirmOverwrite(locale: Locale): Promise<void> {
+    const conflict = conflicts[locale];
+    if (!conflict) return;
+    versions[locale] = conflict.version;
+    publicationRevision = conflict.currentRevision;
+    conflicts[locale] = undefined;
+    await save(locale, requestSequence[locale]);
+  }
+
+  function setSaveState(locale: Locale, state: TranslationSaveState): void {
+    saveStates[locale] = state;
+    saveCoordinator.setState(`${entry.key}:${locale}`, state);
   }
 
   function statusLabel(locale: Locale): string {
@@ -149,6 +235,12 @@
     if (issue === 'missing_en') return 'English is missing.';
     if (issue === 'malformed_is') return 'Icelandic contains malformed placeholder braces.';
     if (issue === 'malformed_en') return 'English contains malformed placeholder braces.';
+    if (issue === 'placeholder_contract_is') {
+      return 'Icelandic placeholders must match this application key.';
+    }
+    if (issue === 'placeholder_contract_en') {
+      return 'English placeholders must match this application key.';
+    }
     return 'Placeholders must match between Icelandic and English.';
   }
 </script>
@@ -180,17 +272,34 @@
           value={valueFor(locale)}
           oninput={(event) => setValue(locale, event.currentTarget.value)}
           onblur={() => flushSave(locale)}
+          maxlength={TRANSLATION_VALUE_MAX_LENGTH}
           rows="3"
           spellcheck="true"></textarea>
         {#if saveStates[locale] === 'conflict'}
           <div class="save-problem" role="alert">
-            This translation changed elsewhere. Your local value is preserved.
-            <button
-              type="button"
-              onclick={() => void retryAfterConflict(locale)}
-              aria-label={`Retry saving ${locale === 'is' ? 'Icelandic' : 'English'} for ${entry.key}`}
-              >Retry</button
-            >
+            <p>This translation changed elsewhere. Choose which value to keep.</p>
+            <dl>
+              <div>
+                <dt>Latest saved value</dt>
+                <dd>{conflicts[locale]?.remote}</dd>
+              </div>
+              <div>
+                <dt>Your value</dt>
+                <dd>{conflicts[locale]?.local}</dd>
+              </div>
+            </dl>
+            <div class="conflict-actions">
+              <button type="button" onclick={() => useLatest(locale)}>Use latest</button>
+              {#if conflicts[locale]?.confirmingOverwrite}
+                <button type="button" onclick={() => void confirmOverwrite(locale)}
+                  >Confirm overwrite with mine</button
+                >
+              {:else}
+                <button type="button" onclick={() => requestOverwrite(locale)}
+                  >Overwrite with mine</button
+                >
+              {/if}
+            </div>
           </div>
         {:else if saveStates[locale] === 'error'}
           <div class="save-problem" role="alert">
@@ -280,6 +389,34 @@
     color: var(--hv-color-danger);
     font-size: 0.85rem;
     font-weight: 700;
+  }
+
+  .save-problem p {
+    margin-top: 0;
+  }
+
+  .save-problem dl {
+    display: grid;
+    margin: 0.5rem 0;
+    gap: 0.4rem;
+  }
+
+  .save-problem dt {
+    font-size: 0.72rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .save-problem dd {
+    margin: 0;
+    color: var(--hv-color-basalt);
+    white-space: pre-wrap;
+  }
+
+  .conflict-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
   }
 
   .validation {

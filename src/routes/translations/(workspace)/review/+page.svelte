@@ -1,7 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
 
-  import { validateTranslationPair } from '$lib/translations/placeholders';
+  import { validateTranslationEntry } from '$lib/translations/placeholders';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
@@ -11,7 +11,7 @@
   );
   const invalidEntries = $derived(
     data.workspace.entries.filter(
-      (entry) => validateTranslationPair(entry.draft.is, entry.draft.en).length > 0
+      (entry) => validateTranslationEntry(entry.key, entry.draft.is, entry.draft.en).length > 0
     )
   );
 </script>
@@ -45,7 +45,10 @@
       <ul>
         {#each invalidEntries.slice(0, 20) as entry (entry.key)}
           <li>
-            <a href={resolve('/translations')}>{entry.key}</a>
+            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+            <a href={`${resolve('/translations')}?search=${encodeURIComponent(entry.key)}`}
+              >{entry.key}</a
+            >
           </li>
         {/each}
       </ul>

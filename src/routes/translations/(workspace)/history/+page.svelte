@@ -54,7 +54,11 @@
             <p class="hv-meta">Restored from revision {revision.restoredFromRevisionNumber}</p>
           {/if}
         </div>
-        {#if data.workspace.currentRevision !== revision.revisionNumber && data.workspace.currentRevision && data.workspace.pendingCount === 0}
+        {#if data.workspace.currentRevision === revision.revisionNumber}
+          <span class="hv-status" data-status="success">Current</span>
+        {:else if data.workspace.pendingCount > 0 || !data.workspace.currentRevision}
+          <span class="hv-status" data-status="attention">Restore unavailable</span>
+        {:else}
           <form method="POST" action="?/restore">
             <input type="hidden" name="targetRevision" value={revision.revisionNumber} />
             <input type="hidden" name="expectedRevision" value={data.workspace.currentRevision} />
@@ -66,8 +70,6 @@
               >Restore revision {revision.revisionNumber}</button
             >
           </form>
-        {:else}
-          <span class="hv-status" data-status="success">Current</span>
         {/if}
       </li>
     {:else}
