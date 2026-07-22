@@ -8,9 +8,10 @@
   interface Props {
     copy: Catalogue;
     value: SuggestionProposal['evidence'];
+    showExplanation?: boolean;
   }
 
-  let { copy, value = $bindable() }: Props = $props();
+  let { copy, value = $bindable(), showExplanation = true }: Props = $props();
   const initial = untrack(() => value);
   let kind = $state(initial.kind);
   let sourceUrl = $state(initial.source_url ?? '');
@@ -70,7 +71,7 @@
 <div class="field-grid">
   <label>
     {copy['suggestion.evidenceKind']}
-    <select required bind:value={kind}>
+    <select name="evidenceKind" required bind:value={kind}>
       <option value="official_website">{copy['evidence.officialWebsite']}</option>
       <option value="venue_representative">{copy['evidence.venueRepresentative']}</option>
       <option value="member_report">{copy['evidence.memberReport']}</option>
@@ -81,29 +82,32 @@
   </label>
   <label>
     {copy['suggestion.evidenceObserved']}
-    <input type="datetime-local" required bind:value={observedAt} />
+    <input name="evidenceObservedAt" type="datetime-local" required bind:value={observedAt} />
   </label>
   <label class="wide">
     {copy['suggestion.evidenceLabel']}
-    <input required bind:value={sourceLabel} />
+    <input name="evidenceSourceLabel" required bind:value={sourceLabel} />
   </label>
   <label class="wide">
     {copy['suggestion.evidenceUrl']}
-    <input type="url" bind:value={sourceUrl} />
+    <input name="evidenceUrl" type="url" bind:value={sourceUrl} />
   </label>
   <label class="wide">
     {copy['suggestion.evidenceCitation']}
-    <input bind:value={sourceCitation} />
+    <input name="evidenceCitation" bind:value={sourceCitation} />
   </label>
-  <label class="wide">
-    {copy['suggestion.evidenceExplanation']}
-    <textarea rows="3" required bind:value={explanation}></textarea>
-  </label>
+  {#if showExplanation}
+    <label class="wide">
+      {copy['suggestion.evidenceExplanation']}
+      <textarea rows="3" required bind:value={explanation}></textarea>
+    </label>
+  {/if}
   <details class="wide">
     <summary>{copy['evidenceField.sourceMetadata']}</summary>
     <label>
       {copy['evidenceField.sourceMetadata']}
       <textarea
+        name="sourceMetadataJson"
         rows="4"
         bind:value={metadataText}
         oninput={(event) => validateMetadata(event.currentTarget)}></textarea>

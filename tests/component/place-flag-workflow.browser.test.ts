@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import { catalogues } from '$i18n';
@@ -404,7 +404,7 @@ describe('Moderator Correction and Report queue', () => {
 });
 
 describe('Moderator Correction and Report detail', () => {
-  it('preserves the proposed whenever-open state when applying an Access Condition Correction', () => {
+  it('preserves the proposed whenever-open state when editing an Access Condition application', async () => {
     const accessCorrection = {
       ...correctionFlag,
       targetKind: 'access_condition' as const,
@@ -439,13 +439,15 @@ describe('Moderator Correction and Report detail', () => {
       form: null
     } as never);
 
+    await fireEvent.click(screen.getByText('Change under review'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit Change under review' }));
     expect((screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement).value).toBe(
       'whenever_open'
     );
     expect(screen.queryByLabelText('Dog access starts at')).toBeNull();
   });
 
-  it('compares the live value, snapshot, and proposed Correction, and offers the applied outcome', () => {
+  it('compares the live value, snapshot, and proposed Correction, and offers Apply', () => {
     render(FlagReviewPage, {
       params: { lang: 'en', id: correctionFlag.flagId },
       data: {
@@ -460,10 +462,10 @@ describe('Moderator Correction and Report detail', () => {
     } as never);
 
     expect(screen.getByText('+354 555 0199')).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Correction published' })).toBeTruthy();
-    expect(screen.queryByRole('option', { name: 'Confirmed as a useful Report' })).toBeNull();
-    expect(screen.queryByRole('option', { name: 'Access Dispute opened' })).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'Current verification' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Apply correction' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Confirm useful' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open dispute' })).toBeNull();
+    expect((document.querySelector('#correction-evidence') as HTMLDetailsElement).open).toBe(false);
   });
 
   it('offers dispute_opened only for an Access Condition target Report, plus the Safety Concern badge', () => {
@@ -480,13 +482,13 @@ describe('Moderator Correction and Report detail', () => {
       form: null
     } as never);
 
-    expect(screen.getByText('Safety Concern')).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Confirmed as a useful Report' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Access Dispute opened' })).toBeTruthy();
-    expect(screen.queryByRole('option', { name: 'Correction published' })).toBeNull();
-    expect(screen.getByLabelText('Private Moderator note')).toBeTruthy();
+    expect(screen.getAllByText('Safety Concern')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Confirm useful' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open dispute' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Apply correction' })).toBeNull();
+    expect(screen.getByText('Escalated informally; venue contacted.')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Current verification' })).toBeTruthy();
-    expect(screen.getByText('verified')).toBeTruthy();
+    expect(screen.getByText('Verification status: verified')).toBeTruthy();
     expect(
       screen.getByText('official_website · Original policy · 2026-01-01T00:00:00Z')
     ).toBeTruthy();
@@ -556,7 +558,7 @@ describe('Moderator Correction and Report detail', () => {
       form: null
     } as never);
 
-    expect(screen.getByText('Other Corrections and Reports on the same claim')).toBeTruthy();
+    expect(screen.getAllByText('Related claims')).toHaveLength(2);
     expect(screen.getAllByText('Correction')).toBeTruthy();
   });
 });

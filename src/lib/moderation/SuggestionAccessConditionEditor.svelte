@@ -59,7 +59,7 @@
 <div class="field-grid">
   <label>
     {copy['suggestion.accessArea']}
-    <select required bind:value={accessArea}>
+    <select name="accessArea" required bind:value={accessArea}>
       <option value="indoors">{copy['access.indoor']}</option>
       <option value="outdoors">{copy['access.outdoor']}</option>
       <option value="designated_area">{copy['access.designated']}</option>
@@ -68,11 +68,15 @@
   </label>
   <label>
     {copy['suggestion.accessAreaNote']}
-    <input bind:value={accessAreaNote} required={accessArea === 'other_bounded'} />
+    <input
+      name="accessAreaNote"
+      bind:value={accessAreaNote}
+      required={accessArea === 'other_bounded'}
+    />
   </label>
   <label>
     {copy['suggestion.restraint']}
-    <select required bind:value={restraintCondition}>
+    <select name="restraintCondition" required bind:value={restraintCondition}>
       <option value="leash_required">{copy['access.leashRequired']}</option>
       <option value="off_leash_permitted">{copy['access.offLeash']}</option>
       <option value="carrier_required">{copy['access.carrierRequired']}</option>
@@ -81,11 +85,15 @@
   </label>
   <label>
     {copy['suggestion.restraintNote']}
-    <input bind:value={restraintNote} required={restraintCondition === 'other_sourced'} />
+    <input
+      name="restraintNote"
+      bind:value={restraintNote}
+      required={restraintCondition === 'other_sourced'}
+    />
   </label>
   <label>
     {copy['moderation.availabilityStateLabel']}
-    <select required bind:value={availabilityState}>
+    <select name="availabilityState" required bind:value={availabilityState}>
       <option value="not_stated">{copy['accessSymbols.notStated']}</option>
       <option value="whenever_open">{copy['accessSymbols.wheneverOpen']}</option>
       <option value="limited">{copy['accessSymbols.limited']}</option>
@@ -93,7 +101,7 @@
   </label>
   <label>
     {copy['suggestion.permission']}
-    <select required bind:value={permissionRequirement}>
+    <select name="permissionRequirement" required bind:value={permissionRequirement}>
       <option value="standing_permission">{copy['access.standingPermission']}</option>
       <option value="ask_on_arrival">{copy['access.askOnArrival']}</option>
       <option value="advance_approval">{copy['access.advanceApproval']}</option>
@@ -102,15 +110,20 @@
   {#if availabilityState === 'limited'}
     <label>
       {copy['suggestion.availabilityDays']}
-      <input bind:value={availabilityDays} pattern="[1-7](,[1-7])*" required />
+      <input
+        name="availabilityDays"
+        bind:value={availabilityDays}
+        pattern="[1-7](,[1-7])*"
+        required
+      />
     </label>
     <label>
       {copy['suggestion.availabilityStarts']}
-      <input type="time" bind:value={availabilityStartsAt} />
+      <input name="availabilityStartsAt" type="time" bind:value={availabilityStartsAt} />
     </label>
     <label>
       {copy['suggestion.availabilityEnds']}
-      <input type="time" bind:value={availabilityEndsAt} />
+      <input name="availabilityEndsAt" type="time" bind:value={availabilityEndsAt} />
     </label>
   {/if}
 </div>

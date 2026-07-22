@@ -1,6 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import CandidateReviewPanel from '$lib/moderation/CandidateReviewPanel.svelte';
+  import CorrectionDecisionControls from '$lib/moderation/CorrectionDecisionControls.svelte';
   import CorrectionReviewPanel from '$lib/moderation/CorrectionReviewPanel.svelte';
   import ModerationWorkspace from '$lib/moderation/ModerationWorkspace.svelte';
   import ModerationConfirmDialog from '$lib/moderation/ModerationConfirmDialog.svelte';
@@ -135,36 +136,26 @@
       ? data.copy['contributor.moderation.flagRecorded']
       : data.copy['contributor.moderation.flagCleared'];
   });
-  let selectedOutcome = $state('needs_information');
   let suggestionDecisionToken = $state(0);
   let suggestionDecisionRequest = $state<{
     outcome: Exclude<SuggestionOutcome, 'submitted'>;
     token: number;
   } | null>(null);
+  let correctionDecisionToken = $state(0);
+  let correctionDecisionRequest = $state<{
+    outcome: Exclude<import('$server/place-flags/place-flags').PlaceFlagOutcome, 'submitted'>;
+    token: number;
+  } | null>(null);
   let candidateDialog = $state<'publish' | 'needs_information' | 'rejected' | null>(null);
-  $effect(() => {
-    const selectedItemId = data.workspace.itemId;
-    selectedOutcome =
-      selectedItemId && data.workspace.queue === 'corrections-and-reports' && correctionReviewData
-        ? correctionReviewData.flag.kind === 'correction'
-          ? 'applied'
-          : 'confirmed_useful'
-        : 'needs_information';
-  });
   function chooseSuggestionDecision(outcome: Exclude<SuggestionOutcome, 'submitted'>): void {
     suggestionDecisionToken += 1;
     suggestionDecisionRequest = { outcome, token: suggestionDecisionToken };
   }
-  function chooseCorrectionDecision(outcome: string): void {
-    selectedOutcome = outcome;
-    const form = document.querySelector<HTMLFormElement>('#correction-decision');
-    const select = form?.querySelector<HTMLSelectElement>('select[name="outcome"]');
-    if (select) {
-      select.value = outcome;
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    form?.querySelector<HTMLElement>('textarea[name="memberReasonIs"]')?.focus();
+  function chooseCorrectionDecision(
+    outcome: Exclude<import('$server/place-flags/place-flags').PlaceFlagOutcome, 'submitted'>
+  ): void {
+    correctionDecisionToken += 1;
+    correctionDecisionRequest = { outcome, token: correctionDecisionToken };
   }
   function submitCandidatePublication(): void {
     candidateDialog = null;
@@ -207,7 +198,11 @@
           decisionRequest={suggestionDecisionRequest}
         />
       {:else if correctionReviewData}
-        <CorrectionReviewPanel data={correctionReviewData} form={form as never} />
+        <CorrectionReviewPanel
+          data={correctionReviewData}
+          form={form as never}
+          decisionRequest={correctionDecisionRequest}
+        />
       {:else if candidateReviewData}
         <CandidateReviewPanel data={candidateReviewData} form={form as never} />
       {/if}
@@ -224,23 +219,12 @@
           ondecide={chooseSuggestionDecision}
         />
       {:else if correctionReviewData}
-        <div
-          class="decision-options correction-options"
-          role="group"
-          aria-label={data.copy['flag.resolve']}
-        >
-          {#each [correctionReviewData.flag.kind === 'correction' ? 'applied' : 'confirmed_useful', ...(correctionReviewData.flag.targetKind === 'access_condition' ? ['dispute_opened'] : []), 'place_inactivated', 'needs_information', 'rejected'] as outcome (outcome)}
-            <button
-              class="decision-option"
-              class:selected={selectedOutcome === outcome}
-              type="button"
-              aria-pressed={selectedOutcome === outcome}
-              onclick={() => chooseCorrectionDecision(outcome)}
-            >
-              {data.copy[`flag.status.${outcome}` as MessageKey]}
-            </button>
-          {/each}
-        </div>
+        <CorrectionDecisionControls
+          copy={data.copy}
+          kind={correctionReviewData.flag.kind}
+          targetKind={correctionReviewData.flag.targetKind}
+          ondecide={chooseCorrectionDecision}
+        />
       {:else if candidateReviewData}
         <div
           class="decision-options candidate-options"
@@ -428,14 +412,6 @@
     padding-inline: 0.55rem;
     font-size: 0.76rem;
     line-height: 1.15;
-  }
-  .decision-option.selected {
-    background: var(--hv-color-signal);
-    color: var(--hv-color-basalt);
-    box-shadow: inset 0 -0.22rem 0 var(--hv-color-basalt);
-  }
-  .correction-options {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
   .candidate-options {
     grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -9,6 +9,7 @@ import ModerationConfirmDialog from '$lib/moderation/ModerationConfirmDialog.sve
 import ModerationReadinessSummary from '$lib/moderation/ModerationReadinessSummary.svelte';
 import ModerationReviewSection from '$lib/moderation/ModerationReviewSection.svelte';
 import ModerationWorkspace from '$lib/moderation/ModerationWorkspace.svelte';
+import CorrectionDecisionControls from '$lib/moderation/CorrectionDecisionControls.svelte';
 import SuggestionDecisionControls from '$lib/moderation/SuggestionDecisionControls.svelte';
 
 const suggestionOne = '11111111-1111-4111-8111-111111111111';
@@ -315,6 +316,22 @@ describe('Compact moderation workspace', () => {
 });
 
 describe('Low-friction review primitives', () => {
+  it('offers direct Correction decisions without an outcome selector', async () => {
+    const decide = vi.fn();
+    render(CorrectionDecisionControls, {
+      copy: catalogues.en,
+      kind: 'report',
+      targetKind: 'access_condition',
+      ondecide: decide
+    });
+
+    expect(screen.queryByRole('combobox')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Confirm useful' }));
+    expect(decide).toHaveBeenCalledWith('confirmed_useful');
+    await fireEvent.click(screen.getByRole('button', { name: 'Open dispute' }));
+    expect(decide).toHaveBeenCalledWith('dispute_opened');
+  });
+
   it('offers direct Suggestion decisions without an outcome selector', async () => {
     const decide = vi.fn();
     render(SuggestionDecisionControls, {
