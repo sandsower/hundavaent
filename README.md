@@ -189,15 +189,12 @@ The production workflow uses the completed CI run's full head SHA and verifies t
 Automatic runs always create a recovery point, apply migrations, and deploy to Cloudflare Pages.
 The manual workflow dispatch remains available as an emergency and recovery-only path for one reviewed, full 40-character commit SHA.
 Manual clean evaluation remains the canonical deeper release proof, but it does not block the pre-launch automatic deployment path.
-The workflow always creates and restore-tests one consistent recovery point for the `public`, `private`, `security`, and Storage schemas before any requested migration or deployment.
-Managed Supabase Auth identities and tables that are hard-owned through required Auth foreign keys are intentionally excluded while the site has only disposable pre-launch test users.
-Tables reached only through nullable identity attribution remain in the recovery point, and those attribution columns are deterministically set to `NULL` in the restored data.
-This preserves core Places, Place media, Evidence, and other independent application rows without retaining disposable user identities.
-For the first cumulative deployment, the recovery archive contains one explicit schema relaxation for `private.place_media.uploaded_by` before it neutralizes that attribution; migration `202607150036_nullable_place_media_uploader.sql` then converges production to the same nullable contract.
-The workflow proves that no second schema relaxation is present.
-The same production snapshot derives the hard-excluded tables and nullable neutralization set, records only table names, column names, and counts in the encrypted bundle manifest, and proves after scratch restoration that hard-owned tables are empty, retained table counts match, every nullable identity reference is neutralized, and no unhandled or composite foreign key crosses the boundary.
-Both production provider variables must be exactly `false`, and the workflow rejects recovery or deployment if either email or Facebook sign-in is enabled.
-Provider activation therefore requires upgrading the workflow to full Auth-capable recovery or replacing this temporary guard before either provider variable can be enabled.
+The workflow always creates and restore-tests one consistent recovery point for managed Supabase Auth, the `public`, `private`, `security`, and Storage schemas before any requested migration or deployment.
+Auth schema and data are captured from the same exported transaction snapshot as identity-owned application rows, so a restored Member account keeps its Auth user, linked identities, roles, contributions, and attribution.
+The workflow parses every Auth `COPY` section, compares it with exact production table counts, restores Auth before application data, then compares restored Auth counts, columns, and constraints with production.
+The encrypted bundle manifest records only Auth table names and row counts, never identity values or provider metadata.
+Each production provider variable must be exactly `true` or `false`.
+Email and Facebook may be rolled out independently after that provider's hosted configuration and end-to-end checklist pass.
 After the scratch restore passes, the workflow creates a deterministic `tar.gz` archive, records its SHA-256 checksum, encrypts it with AES-256-CBC and PBKDF2, records the ciphertext checksum, and deletes every plaintext recovery file.
 One artifact containing only the encrypted archive and its manifest is retained for 90 days.
 For manual runs, the `migrate` and `deploy` dispatch inputs can apply the exact reviewed migration set and deploy that same SHA after recovery succeeds.
@@ -216,7 +213,7 @@ The workflow also uses the existing production Supabase URL, project ref, databa
 It binds `TRANSLATION_WORKSPACE_PASSWORD` from the existing production site-gate secret during v1.
 On manual runs, leave `migrate` or `deploy` disabled when an operator wants only the encrypted recovery point.
 
-The logical recovery artifact protects independent application data and Storage schemas but does not currently protect managed Auth identities, hard identity-owned application rows, or the original values of neutralized identity-attribution columns, and it is not a substitute for managed point-in-time recovery.
+The logical recovery artifact protects managed Auth identities, identity-owned application rows, independent application data, and Storage schema metadata, but it is not a substitute for managed point-in-time recovery or a backup of Storage object bytes.
 Until managed physical backups or PITR are enabled, recovery can restore only to the timestamp captured by the most recent successful workflow run.
 
 ### Recovery artifact validation
@@ -224,7 +221,7 @@ Until managed physical backups or PITR are enabled, recovery can restore only to
 Download the single retained artifact from the successful production workflow run and work only in a private temporary directory.
 First compare the encrypted archive's SHA-256 value with `ciphertext_sha256` in `recovery-manifest.json`.
 Then read the production recovery passphrase without echoing it, decrypt the archive, compare its SHA-256 value with `plaintext_archive_sha256`, and extract it only after both checks pass.
-Restore roles first, then the application schema, Storage schema, Storage data, and application data in that order:
+Restore roles first, then Auth schema, application schema, Storage schema, Auth data, Storage data, and application data in that order:
 
 ```bash
 expected_ciphertext_checksum="$(jq -r '.ciphertext_sha256' recovery-manifest.json)"
@@ -242,12 +239,21 @@ test "$(shasum -a 256 hundavaent-recovery.tar.gz | awk '{print $1}')" = \
 mkdir restored
 tar -xzf hundavaent-recovery.tar.gz -C restored
 psql "${RESTORE_DB_URL}" -f restored/recovery/roles.sql || true
-psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" \
+psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \
+  -c 'alter schema auth rename to scratch_auth'
+psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \
   -c 'alter schema storage rename to scratch_storage'
+psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \
+  -f restored/recovery/auth-schema.sql
 psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f restored/recovery/schema.sql
-psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f restored/recovery/storage-schema.sql
-psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f restored/recovery/storage-data.sql
-psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f restored/recovery/data.sql
+psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \
+  -f restored/recovery/storage-schema.sql
+psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \
+  -f restored/recovery/auth-data.sql
+psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \
+  -f restored/recovery/storage-data.sql
+psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \
+  -f restored/recovery/data.sql
 unset BACKUP_PASSPHRASE
 rm -rf restored hundavaent-recovery.tar.gz
 ```

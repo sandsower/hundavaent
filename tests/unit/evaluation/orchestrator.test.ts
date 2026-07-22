@@ -53,11 +53,13 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"');
   });
 
-  it('excludes hard identity rows while preserving and neutralizing core application data', () => {
+  it('preserves and restore-tests Auth identities with their application-owned rows', () => {
     const workflow = readFileSync(
       new URL('../../../.github/workflows/production.yml', import.meta.url),
       'utf8'
     );
+    const authSchema = workflow.indexOf('dump_snapshot_schema "auth" recovery/auth-schema.sql');
+    const authDump = workflow.indexOf('dump_snapshot_data "auth" recovery/auth-data.sql');
     const applicationDump = workflow.indexOf(
       'dump_snapshot_data "public|private|security" recovery/data.sql'
     );
@@ -66,50 +68,24 @@ describe('release evaluation orchestration', () => {
     );
     const storageData = workflow.indexOf('dump_snapshot_data "storage" recovery/storage-data.sql');
 
-    expect(applicationDump).toBeGreaterThan(0);
+    expect(authSchema).toBeGreaterThan(0);
+    expect(authDump).toBeGreaterThan(authSchema);
+    expect(applicationDump).toBeGreaterThan(authDump);
     expect(storageSchema).toBeGreaterThan(applicationDump);
     expect(storageData).toBeGreaterThan(storageSchema);
-    expect(workflow).not.toContain('dump_snapshot_schema "auth"');
-    expect(workflow).not.toContain('dump_snapshot_data "auth"');
-    expect(workflow).not.toContain('select count(*) from auth.users');
     expect(workflow).toContain(
-      'Managed Auth and hard identity-owned test rows: intentionally skipped'
+      'Managed Auth identities and hard identity-owned application rows: preserved and restore-tested'
     );
-    expect(workflow).toContain('with recursive hard_auth_tables(table_oid)');
-    expect(workflow).toContain("select 'auth.users'::regclass::oid");
-    expect(workflow).toContain("grep -Fxq 'private.member_accounts'");
-    expect(workflow).toContain("grep -Fxq 'private.places'");
-    expect(workflow).toContain("grep -Fxq 'private.place_media'");
-    expect(workflow).toContain('recovery/auth-hard-excluded-counts.txt');
-    expect(workflow).toContain('recovery/auth-hard-excluded-restored-counts.txt');
-    expect(workflow).toContain('recovery/auth-neutralized-references.txt');
-    expect(workflow).toContain('recovery/auth-neutralized-restored-counts.txt');
-    expect(workflow).toContain(
-      'Composite foreign keys cross the disposable Auth recovery boundary.'
-    );
-    expect(workflow).toContain('where not attribute_row.attnotnull');
-    expect(workflow).toContain('"${table}.${column}" == "private.place_media.uploaded_by"');
-    expect(workflow).toContain('constraint_row.confrelid in (${hard_parent_oids})');
-    expect(workflow).toContain('exclusion_args+=("--exclude-table-data=${table}")');
-    expect(workflow).toContain('SET "%s" = NULL WHERE "%s" IS NOT NULL');
-    expect(workflow).toContain('hard_excluded_auth_tables');
-    expect(workflow).toContain('neutralized_auth_references');
-    expect(workflow).toContain(
-      'any(.neutralized_auth_references[]; .table == "private.places" and .column == "created_by")'
-    );
-    expect(workflow).toContain(
-      'any(.neutralized_auth_references[]; .table == "private.place_media" and .column == "uploaded_by")'
-    );
-    expect(workflow).toContain(
-      'all(.hard_excluded_auth_tables[]; .table != "private.places" and .table != "private.place_media")'
-    );
-    expect(workflow).toContain('(.auth_recovery_schema_relaxations | length == 1)');
-    expect(workflow).toContain(
-      'ALTER TABLE "private"."place_media" ALTER COLUMN "uploaded_by" DROP NOT NULL;'
-    );
-    expect(workflow).toContain('Restored Place media uploader attribution is not nullable.');
-    expect(workflow).toContain("'^private\\.places [0-9]+$'");
-    expect(workflow).toContain("'^private\\.place_media [0-9]+$'");
+    expect(workflow).toContain('recovery/auth-production-counts.txt');
+    expect(workflow).toContain('recovery/auth-dump-counts.txt');
+    expect(workflow).toContain('recovery/auth-restored-counts.txt');
+    expect(workflow).toContain('recovery/auth-production-schema.txt');
+    expect(workflow).toContain('recovery/auth-restored-schema.txt');
+    expect(workflow).toContain('diff -u recovery/auth-dump-counts.txt');
+    expect(workflow).toContain('diff -u recovery/auth-production-schema.txt');
+    expect(workflow).not.toContain('auth-hard-excluded');
+    expect(workflow).not.toContain('auth-neutralized');
+    expect(workflow).not.toContain('auth-recovery-schema-relaxations');
     expect(workflow).toContain(
       'BACKUP_PASSPHRASE: ${{ secrets.HUNDAVAENT_PRODUCTION_BACKUP_PASSPHRASE }}'
     );
@@ -119,8 +95,9 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain(
       'AUTH_FACEBOOK_ENABLED: ${{ vars.HUNDAVAENT_PRODUCTION_AUTH_FACEBOOK_ENABLED }}'
     );
-    expect(workflow.match(/AUTH_EMAIL_ENABLED}" != "false"/g)).toHaveLength(2);
-    expect(workflow.match(/AUTH_FACEBOOK_ENABLED}" != "false"/g)).toHaveLength(2);
+    expect(workflow.match(/AUTH_EMAIL_ENABLED}" != "true"/g)).toHaveLength(2);
+    expect(workflow.match(/AUTH_FACEBOOK_ENABLED}" != "true"/g)).toHaveLength(2);
+    expect(workflow).toContain('Auth provider flags must be either true or false.');
   });
 
   it('retains only an encrypted, checksummed recovery archive and fail-closes plaintext upload', () => {
@@ -136,7 +113,8 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('plaintext_archive_sha256');
     expect(workflow).toContain('ciphertext_sha256');
     expect(workflow).toContain('managed_auth_mode');
-    expect(workflow).toContain('excluded-prelaunch-auth-and-hard-identity-rows-providers-disabled');
+    expect(workflow).toContain('included-and-restore-tested');
+    expect(workflow).toContain('auth_tables');
     expect(workflow).toContain('rm -rf recovery');
     expect(workflow).toContain('test ! -e recovery');
     expect(workflow).toContain('test ! -e "${plaintext_archive}"');
@@ -178,8 +156,8 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('--role "postgres"');
     expect(workflow).not.toContain('--exclude-table "auth.schema_migrations"');
     expect(workflow).not.toContain('--exclude-table "storage.migrations"');
-    expect(workflow.match(/snapshot_query/g)).toHaveLength(12);
-    expect(workflow.match(/dump_snapshot_data/g)).toHaveLength(3);
+    expect(workflow.match(/snapshot_query/g)).toHaveLength(9);
+    expect(workflow.match(/dump_snapshot_data/g)).toHaveLength(4);
     expect(exportedSnapshot).toBeGreaterThan(0);
     expect(applicationDump).toBeGreaterThan(exportedSnapshot);
     expect(storageDump).toBeGreaterThan(applicationDump);
@@ -208,7 +186,7 @@ describe('release evaluation orchestration', () => {
     );
   });
 
-  it('restores and exactly verifies Storage without preserving test Auth identities', () => {
+  it('restores and exactly verifies managed Auth before identity-owned application data', () => {
     const workflow = readFileSync(
       new URL('../../../.github/workflows/production.yml', import.meta.url),
       'utf8'
@@ -216,12 +194,14 @@ describe('release evaluation orchestration', () => {
 
     expect(workflow).toContain('dump_snapshot_schema "storage" recovery/storage-schema.sql');
     expect(workflow).toContain('dump_snapshot_data "storage" recovery/storage-data.sql');
+    expect(workflow).toContain('dump_snapshot_schema "auth" recovery/auth-schema.sql');
+    expect(workflow).toContain('dump_snapshot_data "auth" recovery/auth-data.sql');
     expect(workflow).toContain("and n.nspname = 'storage'\" |");
     expect(workflow).not.toContain("c.relname <> 'migrations'");
     expect(workflow).toContain("array_to_string(roles, ',')");
     expect(workflow).toContain('quote_nullable(with_check)');
     expect(workflow).toContain('[[ ! -s recovery/storage-schema.sql ]]');
-    expect(workflow).not.toContain("-c 'drop schema if exists auth cascade'");
+    expect(workflow).toContain("-c 'alter schema auth rename to scratch_auth'");
     expect(workflow).toContain(
       'psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \\\n' +
         "            -c 'alter schema storage rename to scratch_storage'"
@@ -230,7 +210,13 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain(
       'psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/schema.sql'
     );
-    for (const recoveryFile of ['storage-schema.sql', 'storage-data.sql', 'data.sql']) {
+    for (const recoveryFile of [
+      'auth-schema.sql',
+      'auth-data.sql',
+      'storage-schema.sql',
+      'storage-data.sql',
+      'data.sql'
+    ]) {
       expect(workflow).toContain(
         `psql -v ON_ERROR_STOP=1 "\${RESTORE_DB_URL}?user=supabase_admin" \\\n` +
           `            -f recovery/${recoveryFile}`
@@ -246,8 +232,8 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('recovery/storage-production-schema.txt');
     expect(workflow).toContain('recovery/storage-restored-schema.txt');
     expect(workflow).toContain('diff -u recovery/storage-dump-counts.txt');
-    expect(workflow).not.toContain('recovery/auth-data.sql');
-    expect(workflow).not.toContain('recovery/auth-schema.sql');
+    expect(workflow).toContain('recovery/auth-data.sql');
+    expect(workflow).toContain('recovery/auth-schema.sql');
   });
 
   it('assigns every concurrent lane a distinct runtime identity and port set', () => {
