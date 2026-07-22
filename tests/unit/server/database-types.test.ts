@@ -78,6 +78,29 @@ describe('generated public database types', () => {
     }>();
   });
 
+  it('types the public interface translation boundary without exposing private tables', () => {
+    expectTypeOf<PublicFunctions['get_interface_translation_workspace']['Args']>().toEqualTypeOf<{
+      command_issued_at: number;
+      command_proof: string;
+      command_request_id: string;
+    }>();
+    expectTypeOf<
+      PublicFunctions['get_interface_translation_workspace']['Returns']
+    >().toEqualTypeOf<Json>();
+    expectTypeOf<PublicFunctions['get_published_interface_translations']['Returns'][number]>()
+      .toHaveProperty('messages')
+      .toEqualTypeOf<Json>();
+    expectTypeOf<PublicFunctions['publish_interface_translation_drafts']['Returns'][number]>()
+      .toHaveProperty('revision_number')
+      .toEqualTypeOf<number>();
+    expectTypeOf<PublicFunctions['save_interface_translation_draft']['Args']>()
+      .toHaveProperty('requested_value')
+      .toEqualTypeOf<string>();
+    expectTypeOf<
+      PublicFunctions['retire_previous_interface_translation_capability']['Args']
+    >().toEqualTypeOf<{ command_secret: string }>();
+  });
+
   it('types caller-scoped Member account commands without provider profile fields', () => {
     type MemberAccount = PublicFunctions['get_current_member_account']['Returns'][number];
 

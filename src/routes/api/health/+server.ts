@@ -3,6 +3,10 @@ import { env } from '$env/dynamic/public';
 import { json, type RequestHandler } from '@sveltejs/kit';
 
 import { telemetryLogger } from '$server/telemetry/logger';
+import {
+  loadPublishedCatalogue,
+  type PublishedTranslationClient
+} from '$server/translations/published-catalogue';
 
 export const GET: RequestHandler = async ({ locals }) => {
   const map =
@@ -10,7 +14,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 
   if (!locals.supabase) {
     telemetryLogger.healthFailure({ requestId: locals.requestId, check: 'database' });
-    return healthResponse(503, locals.requestId, 'unavailable', map);
+    return healthResponse(503, locals.requestId, 'unavailable', map, 'fallback');
   }
 
   const { error } = await locals.supabase.rpc('list_published_places', {
@@ -18,25 +22,39 @@ export const GET: RequestHandler = async ({ locals }) => {
   });
   if (error) {
     telemetryLogger.healthFailure({ requestId: locals.requestId, check: 'database' });
-    return healthResponse(503, locals.requestId, 'unavailable', map);
+    return healthResponse(503, locals.requestId, 'unavailable', map, 'fallback');
   }
 
-  return healthResponse(200, locals.requestId, 'ready', map);
+  const translations = await loadPublishedCatalogue(
+    locals.supabase as unknown as PublishedTranslationClient,
+    'is'
+  );
+
+  return healthResponse(
+    200,
+    locals.requestId,
+    'ready',
+    map,
+    translations.source === 'bundled' ? 'fallback' : 'published'
+  );
 };
 
 function healthResponse(
   status: 200 | 503,
   requestId: string,
   database: 'ready' | 'unavailable',
-  map: 'configured' | 'fallback'
+  map: 'configured' | 'fallback',
+  translations: 'fallback' | 'published'
 ): Response {
   const evaluationServerId = privateEnv.HUNDAVAENT_EVALUATION_SERVER_ID?.trim();
+  const release = privateEnv.APP_RELEASE?.trim() || null;
 
   return json(
     {
       service: 'hundavaent',
       status: status === 200 ? 'ok' : 'unavailable',
-      checks: { database, map },
+      release,
+      checks: { database, map, translations },
       requestId
     },
     {

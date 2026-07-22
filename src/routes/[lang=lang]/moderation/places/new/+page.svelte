@@ -41,6 +41,7 @@
   let values = $state<Record<string, string>>(
     untrack(() => ({
       category: 'restaurant',
+      wheelchairAccessibility: 'unknown',
       locality: 'Reykjavík',
       municipality: 'reykjavik',
       accessArea: 'outdoors',
@@ -168,6 +169,25 @@
             <option value="service">{data.copy['category.service']}</option>
             <option value="other">{data.copy['category.other']}</option>
           </select>
+        </label>
+        <label>
+          {data.copy['moderation.wheelchairAccessibilityLabel']}
+          <select
+            name="wheelchairAccessibility"
+            required
+            bind:value={values.wheelchairAccessibility}
+            aria-label={data.copy['moderation.wheelchairAccessibilityLabel']}
+            aria-describedby="wheelchair-accessibility-help"
+          >
+            <option value="accessible">{data.copy['wheelchairAccessibility.accessible']}</option>
+            <option value="not_accessible"
+              >{data.copy['wheelchairAccessibility.notAccessible']}</option
+            >
+            <option value="unknown">{data.copy['wheelchairAccessibility.unknown']}</option>
+          </select>
+          <small id="wheelchair-accessibility-help"
+            >{data.copy['moderation.wheelchairAccessibilityHelp']}</small
+          >
         </label>
         <label>
           {data.copy['moderation.websiteLabel']}

@@ -2,7 +2,7 @@ import { env } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 
-import { parseLocale } from '$i18n';
+import { catalogues, isLocale, parseLocale, type Locale } from '$i18n';
 import {
   createRequestSupabaseClient,
   getSupabasePublicConfig,
@@ -12,6 +12,11 @@ import {
 import { GATE_COOKIE_NAME, getGateConfig, isGateCookieValid, type GateConfig } from '$server/gate';
 import { createPublicServerError, createRequestId } from '$server/telemetry/request-context';
 import { telemetryLogger, type TelemetryLogger } from '$server/telemetry/logger';
+import {
+  loadPublishedCatalogue,
+  type PublishedCatalogueResult,
+  type PublishedTranslationClient
+} from '$server/translations/published-catalogue';
 
 interface HandleDependencies {
   getPublicConfig(): SupabasePublicConfig | null;
@@ -21,6 +26,10 @@ interface HandleDependencies {
   ): RequestSupabaseClient;
   createRequestId(headers: Headers): string;
   getGateConfig(): GateConfig | null;
+  loadCatalogue?(
+    client: PublishedTranslationClient | null,
+    locale: Locale
+  ): Promise<PublishedCatalogueResult>;
   logger?: TelemetryLogger;
   now?: () => number;
 }
@@ -30,6 +39,7 @@ const defaultDependencies: HandleDependencies = {
   createClient: createRequestSupabaseClient,
   createRequestId,
   getGateConfig: () => getGateConfig(privateEnv),
+  loadCatalogue: loadPublishedCatalogue,
   logger: telemetryLogger,
   now: () => performance.now()
 };
@@ -42,12 +52,17 @@ export function createHandle(dependencies: HandleDependencies = defaultDependenc
     const logger = dependencies.logger ?? telemetryLogger;
     const now = dependencies.now ?? (() => performance.now());
     const startedAt = now();
+    const routeLocale = event.url.pathname.split('/')[1];
+    const locale = parseLocale(routeLocale);
     event.locals.requestId = dependencies.createRequestId(event.request.headers);
     event.locals.supabase = null;
+    event.locals.copy = catalogues[locale];
+    event.locals.translationRevision = null;
+    event.locals.translationSource = 'bundled';
 
     const gateConfig = dependencies.getGateConfig();
 
-    if (gateConfig && !gateExemptPathnames.has(event.url.pathname)) {
+    if (gateConfig && !isGateExemptPathname(event.url.pathname)) {
       const gateCookie = event.cookies.get(GATE_COOKIE_NAME);
 
       if (!(await isGateCookieValid(gateCookie, gateConfig))) {
@@ -73,8 +88,16 @@ export function createHandle(dependencies: HandleDependencies = defaultDependenc
       }
     }
 
-    const routeLocale = event.url.pathname.split('/')[1];
-    const locale = parseLocale(routeLocale);
+    if (isLocale(routeLocale)) {
+      const loadCatalogue = dependencies.loadCatalogue ?? loadPublishedCatalogue;
+      const publication = await loadCatalogue(
+        event.locals.supabase as unknown as PublishedTranslationClient | null,
+        locale
+      );
+      event.locals.copy = publication.copy;
+      event.locals.translationRevision = publication.revisionNumber;
+      event.locals.translationSource = publication.source;
+    }
 
     const response = await resolve(event, {
       transformPageChunk: ({ html }) => html.replace('%lang%', locale)
@@ -114,8 +137,8 @@ function finalizeResponse(
   response.headers.set('x-request-id', event.locals.requestId);
   applySecurityHeaders(event, response);
 
-  if (gateConfig) {
-    // A gated deployment is provisional and must never be indexed, authorized or not.
+  if (gateConfig || isTranslationWorkspacePath(event.url.pathname)) {
+    // Provisional deployments and the private translation workspace must never be indexed.
     response.headers.set('x-robots-tag', 'noindex, nofollow');
   }
 
@@ -159,7 +182,9 @@ function applySecurityHeaders(event: Parameters<Handle>[0]['event'], response: R
 function cacheControlFor(event: Parameters<Handle>[0]['event'], response: Response): string {
   const sensitiveRoute =
     event.url.pathname === '/gate' ||
+    isTranslationWorkspacePath(event.url.pathname) ||
     event.url.pathname.startsWith('/api/') ||
+    isLocale(event.url.pathname.split('/')[1]) ||
     event.url.pathname.includes('/moderation') ||
     event.url.pathname.includes('/account') ||
     event.url.pathname.includes('/auth/');
@@ -193,6 +218,14 @@ function appendVary(headers: Headers, value: string): void {
   );
   values.add(value);
   headers.set('vary', [...values].join(', '));
+}
+
+function isGateExemptPathname(pathname: string): boolean {
+  return gateExemptPathnames.has(pathname) || isTranslationWorkspacePath(pathname);
+}
+
+function isTranslationWorkspacePath(pathname: string): boolean {
+  return pathname === '/translations' || pathname.startsWith('/translations/');
 }
 
 function isLocalHostname(hostname: string): boolean {

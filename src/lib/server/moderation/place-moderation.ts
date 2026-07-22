@@ -10,7 +10,11 @@ import type {
 } from '$domain/access';
 import type { EvidenceKind } from '$domain/evidence';
 import { parseAvailabilityWindow, parseDogEligibility } from '$domain/access-schema';
-import type { PlaceCategory } from '$domain/place';
+import {
+  isWheelchairAccessibility,
+  type PlaceCategory,
+  type WheelchairAccessibility
+} from '$domain/place';
 import type { CommandResult } from '$domain/results';
 
 export interface CandidatePlaceCommand {
@@ -26,6 +30,7 @@ export interface CandidatePlaceCommand {
     geometry_source: string;
   };
   category: PlaceCategory;
+  wheelchair_accessibility: WheelchairAccessibility;
   website_url: string | null;
   phone: string | null;
   opening_hours: Readonly<Record<string, Json>>;
@@ -76,6 +81,18 @@ export interface LocationCorrectionCommand {
 export interface CorrectedLocation {
   placeId: string;
   geometryPrecision: LocationGeometryPrecision;
+  version: number;
+}
+
+export interface WheelchairAccessibilityCommand {
+  placeId: string;
+  expectedVersion: number;
+  wheelchairAccessibility: WheelchairAccessibility;
+}
+
+export interface UpdatedWheelchairAccessibility {
+  placeId: string;
+  wheelchairAccessibility: WheelchairAccessibility;
   version: number;
 }
 
@@ -137,6 +154,7 @@ export interface CandidatePublicationReview {
   readinessIssues: string[];
   originatingSuggestionId: string | null;
   contributorId: string | null;
+  wheelchairAccessibility: WheelchairAccessibility;
   operatorName: string;
   category: string;
   websiteUrl: string | null;
@@ -261,6 +279,40 @@ export async function updateCandidatePlaceLocation(
   }
 }
 
+export async function updatePlaceWheelchairAccessibility(
+  client: RequestSupabaseClient,
+  command: WheelchairAccessibilityCommand,
+  requestId: string
+): Promise<CommandResult<UpdatedWheelchairAccessibility>> {
+  try {
+    const { data, error } = await client.rpc('update_place_wheelchair_accessibility', {
+      command_payload: {
+        place_id: command.placeId,
+        expected_version: command.expectedVersion,
+        wheelchair_accessibility: command.wheelchairAccessibility
+      },
+      command_request_id: requestId
+    });
+
+    if (error) return mapCommandError(error.code);
+    const row = data[0];
+    if (data.length !== 1 || !isWheelchairAccessibilityRow(row)) {
+      return { status: 'infrastructure_error' };
+    }
+
+    return {
+      status: 'success',
+      value: {
+        placeId: row.place_id,
+        wheelchairAccessibility: row.wheelchair_accessibility,
+        version: row.version
+      }
+    };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
 export async function verifyAndPublish(
   client: RequestSupabaseClient,
   command: PublishPlaceCommand,
@@ -310,7 +362,7 @@ export async function getCandidatePublicationReview(
   placeId: string
 ): Promise<CandidateReviewResult> {
   try {
-    const { data, error } = await client.rpc('get_moderation_place_review', {
+    const { data, error } = await client.rpc('get_moderation_place_review_v2', {
       requested_place_id: placeId
     });
 
@@ -367,6 +419,7 @@ export async function getCandidatePublicationReview(
         readinessIssues: row.readiness_issues,
         originatingSuggestionId: row.originating_suggestion_id,
         contributorId: row.contributor_id,
+        wheelchairAccessibility: row.wheelchair_accessibility,
         operatorName: row.operator_name,
         category: row.category,
         websiteUrl: row.website_url,
@@ -481,6 +534,22 @@ function isCorrectedLocationRow(
     row !== undefined &&
     hasText(row.place_id) &&
     isLocationGeometryPrecision(row.geometry_precision) &&
+    Number.isInteger(row.version) &&
+    row.version > 0
+  );
+}
+
+function isWheelchairAccessibilityRow(
+  row: { place_id: string; wheelchair_accessibility: string; version: number } | undefined
+): row is {
+  place_id: string;
+  wheelchair_accessibility: WheelchairAccessibility;
+  version: number;
+} {
+  return (
+    row !== undefined &&
+    hasText(row.place_id) &&
+    isWheelchairAccessibility(row.wheelchair_accessibility) &&
     Number.isInteger(row.version) &&
     row.version > 0
   );
@@ -631,6 +700,7 @@ type DatabaseReviewRow = {
   readiness_issues: string[];
   originating_suggestion_id: string | null;
   contributor_id: string | null;
+  wheelchair_accessibility: WheelchairAccessibility;
   operator_name: string;
   category: string;
   website_url: string | null;
@@ -653,8 +723,12 @@ type DatabaseReviewRow = {
   evidence_records: Json;
 };
 
-type DatabaseReviewRowInput = Omit<DatabaseReviewRow, 'geometry_precision'> & {
+type DatabaseReviewRowInput = Omit<
+  DatabaseReviewRow,
+  'geometry_precision' | 'wheelchair_accessibility'
+> & {
   geometry_precision: string;
+  wheelchair_accessibility: string;
 };
 
 function isCandidateReviewRow(row: DatabaseReviewRowInput | undefined): row is DatabaseReviewRow {
@@ -677,6 +751,7 @@ function isCandidateReviewRow(row: DatabaseReviewRowInput | undefined): row is D
     row.readiness_issues.every(hasText) &&
     (row.originating_suggestion_id === null || hasText(row.originating_suggestion_id)) &&
     (row.contributor_id === null || hasText(row.contributor_id)) &&
+    isWheelchairAccessibility(row.wheelchair_accessibility) &&
     hasText(row.operator_name) &&
     hasText(row.category) &&
     (row.website_url === null || hasText(row.website_url)) &&

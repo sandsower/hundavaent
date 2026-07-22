@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/public';
 
+import { isWheelchairAccessibility } from '$domain/place';
 import type { RequestSupabaseClient } from '$server/db/clients';
 import {
   isCandidateDraftSectionId,
@@ -25,6 +26,7 @@ import {
 import {
   getCandidatePublicationReview,
   updateCandidatePlaceLocation,
+  updatePlaceWheelchairAccessibility,
   verifyAndPublish,
   type CandidatePublicationReview,
   type LocationCorrectionCommand,
@@ -76,6 +78,7 @@ export type CandidateWorkspaceLoadResult<T> =
 
 export type ModerationCandidateActionName =
   | 'correctLocation'
+  | 'updateWheelchairAccessibility'
   | 'publish'
   | 'uploadEvidence'
   | 'uploadPhoto'
@@ -123,6 +126,7 @@ export type ModerationCandidateActionResult =
         | {
             readonly kind:
               | 'location_corrected'
+              | 'wheelchair_accessibility_updated'
               | 'evidence_uploaded'
               | 'photo_uploaded'
               | 'media_approved'
@@ -219,6 +223,8 @@ export async function executeModerationCandidateAction(
   switch (action) {
     case 'correctLocation':
       return correctCandidateLocation(context);
+    case 'updateWheelchairAccessibility':
+      return updateCandidateWheelchairAccessibility(context);
     case 'publish':
       return publishCandidate(context);
     case 'uploadEvidence':
@@ -301,6 +307,43 @@ export async function executeCandidateDecision(
   if (result.status === 'resolved') return failure(409, 'resolved');
   if (result.status === 'forbidden') return failure(403, 'forbidden');
   if (result.status === 'invalid') return failure(400, 'invalid');
+  return failure(503, 'unavailable');
+}
+
+async function updateCandidateWheelchairAccessibility(
+  context: ModerationCandidateActionContext
+): Promise<ModerationCandidateActionResult> {
+  const expectedVersion = Number(context.formData.get('expectedVersion'));
+  const wheelchairAccessibility = String(
+    context.formData.get('wheelchairAccessibility') ?? ''
+  ).trim();
+  if (
+    !Number.isInteger(expectedVersion) ||
+    expectedVersion < 1 ||
+    !isWheelchairAccessibility(wheelchairAccessibility)
+  ) {
+    return failure(400, 'incomplete');
+  }
+
+  const result = await updatePlaceWheelchairAccessibility(
+    context.client,
+    {
+      placeId: context.placeId,
+      expectedVersion,
+      wheelchairAccessibility
+    },
+    context.requestId
+  );
+  if (result.status === 'success') {
+    return {
+      status: 'confirmed',
+      terminal: false,
+      effect: { kind: 'wheelchair_accessibility_updated' }
+    };
+  }
+  if (result.status === 'conflict') return failure(409, 'conflict');
+  if (result.status === 'forbidden') return failure(403, 'forbidden');
+  if (result.status === 'validation_error') return failure(400, 'incomplete');
   return failure(503, 'unavailable');
 }
 

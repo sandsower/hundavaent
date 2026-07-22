@@ -15,7 +15,9 @@ import {
   getCandidatePublicationReview,
   type LocationCorrectionCommand,
   type PublishPlaceCommand,
+  type WheelchairAccessibilityCommand,
   updateCandidatePlaceLocation,
+  updatePlaceWheelchairAccessibility,
   verifyAndPublish
 } from '$server/moderation/place-moderation';
 
@@ -113,6 +115,7 @@ const candidateCommand: CandidatePlaceCommand = {
     geometry_source: 'Moderator placed the point on the venue entrance'
   },
   category: 'restaurant',
+  wheelchair_accessibility: 'unknown',
   website_url: null,
   phone: null,
   opening_hours: {},
@@ -259,6 +262,64 @@ describe('updateCandidatePlaceLocation', () => {
       },
       command_request_id: 'request-location'
     });
+  });
+});
+
+const accessibilityCommand: WheelchairAccessibilityCommand = {
+  placeId: 'place-1',
+  expectedVersion: 1,
+  wheelchairAccessibility: 'accessible'
+};
+
+describe('updatePlaceWheelchairAccessibility', () => {
+  it('sends one version-checked accessibility update command', async () => {
+    const rpc = vi.fn(async () => ({
+      data: [{ place_id: 'place-1', wheelchair_accessibility: 'accessible', version: 2 }],
+      error: null
+    }));
+    const client = { rpc } as unknown as RequestSupabaseClient;
+
+    await expect(
+      updatePlaceWheelchairAccessibility(client, accessibilityCommand, 'request-accessibility')
+    ).resolves.toEqual({
+      status: 'success',
+      value: {
+        placeId: 'place-1',
+        wheelchairAccessibility: 'accessible',
+        version: 2
+      }
+    });
+    expect(rpc).toHaveBeenCalledWith('update_place_wheelchair_accessibility', {
+      command_payload: {
+        place_id: 'place-1',
+        expected_version: 1,
+        wheelchair_accessibility: 'accessible'
+      },
+      command_request_id: 'request-accessibility'
+    });
+  });
+
+  it.each([
+    ['40001', 'conflict'],
+    ['42501', 'forbidden'],
+    ['22023', 'validation_error'],
+    ['XX000', 'infrastructure_error']
+  ] as const)('maps database code %s without exposing details', async (code, status) => {
+    const client = {
+      rpc: vi.fn(async () => ({
+        data: null,
+        error: { code, message: 'private database detail' }
+      }))
+    } as unknown as RequestSupabaseClient;
+
+    const result = await updatePlaceWheelchairAccessibility(
+      client,
+      accessibilityCommand,
+      'request-accessibility-error'
+    );
+
+    expect(result).toEqual({ status });
+    expect(JSON.stringify(result)).not.toContain('private database detail');
   });
 });
 
@@ -413,6 +474,7 @@ function createReviewClient({
     readiness_issues: Json;
     originating_suggestion_id: string | null;
     contributor_id: string | null;
+    wheelchair_accessibility: string;
     operator_name: string;
     category: string;
     website_url: string | null;
@@ -455,6 +517,7 @@ const completeReviewRow = {
   readiness_issues: [],
   originating_suggestion_id: 'suggestion-1',
   contributor_id: 'member-1',
+  wheelchair_accessibility: 'unknown',
   operator_name: 'Candidate operator',
   category: 'restaurant',
   website_url: 'https://example.invalid/place',
@@ -524,6 +587,7 @@ describe('getCandidatePublicationReview', () => {
         phone: '+354 555 0100',
         openingHours: { monday: ['09:00', '17:00'] },
         dogAmenities: ['water_bowl'],
+        wheelchairAccessibility: 'unknown',
         latitude: 64.1466,
         longitude: -21.9426,
         geometryPrecision: 'official_address_point',
@@ -553,7 +617,7 @@ describe('getCandidatePublicationReview', () => {
         }
       }
     });
-    expect(rpc).toHaveBeenCalledWith('get_moderation_place_review', {
+    expect(rpc).toHaveBeenCalledWith('get_moderation_place_review_v2', {
       requested_place_id: 'place-1'
     });
   });

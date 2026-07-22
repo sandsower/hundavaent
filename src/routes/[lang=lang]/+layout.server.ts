@@ -3,7 +3,7 @@ import { env as privateEnv } from '$env/dynamic/private';
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
-import { catalogues, parseLocale } from '$i18n';
+import { parseLocale } from '$i18n';
 import { clearRequestAuthSession } from '$server/auth/callback';
 import { getMemberAuthConfig } from '$server/auth/member';
 import {
@@ -112,7 +112,7 @@ export const load: LayoutServerLoad = async ({ cookies, locals, params, url }) =
 
   return {
     lang,
-    copy: catalogues[lang],
+    copy: locals.copy,
     ...(providers.email || providers.facebook ? { providers } : {}),
     ...(pendingAuthRequest ? { pendingAuthRequest } : {}),
     ...(signedIn ? { signedIn: true as const } : {})

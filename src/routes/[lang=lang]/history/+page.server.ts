@@ -2,7 +2,7 @@ import { error, redirect } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/public';
 
-import { catalogues, parseLocale } from '$i18n';
+import { parseLocale } from '$i18n';
 import {
   buildPersonalCheckInPage,
   buildPersonalPlacePage,
@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
     signInRedirect();
   }
   if (!locals.supabase) {
-    error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+    error(503, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
   // Private personal-history route: session-gated above and never publicly cacheable, matching
   // the check-in API and the /favorites route's privacy posture.
@@ -57,7 +57,7 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
     }
     if (result.status !== 'success') {
       error(503, {
-        message: catalogues[lang]['error.unexpectedBody'],
+        message: locals.copy['error.unexpectedBody'],
         requestId: locals.requestId
       });
     }
@@ -84,7 +84,7 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
     const hasCursorInput = rawBeforeCheckedInAt !== null || rawBeforeCheckInId !== null;
     if (hasCursorInput && !hasValidCursor) {
       error(400, {
-        message: catalogues[lang]['error.unexpectedBody'],
+        message: locals.copy['error.unexpectedBody'],
         requestId: locals.requestId
       });
     }
@@ -98,7 +98,7 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
     }
     if (result.status !== 'success') {
       error(503, {
-        message: catalogues[lang]['error.unexpectedBody'],
+        message: locals.copy['error.unexpectedBody'],
         requestId: locals.requestId
       });
     }
@@ -112,7 +112,7 @@ export const load: PageServerLoad = async ({ locals, params, parent, setHeaders,
     };
   }
 
-  error(400, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+  error(400, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
 };
 
 function parseView(value: string | null): HistoryView {

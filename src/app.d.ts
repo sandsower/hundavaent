@@ -1,4 +1,5 @@
 import type { RequestSupabaseClient } from './lib/server/db/clients';
+import type { Catalogue } from './lib/i18n';
 
 declare global {
   namespace App {
@@ -8,8 +9,11 @@ declare global {
     }
 
     interface Locals {
+      copy: Catalogue;
       requestId: string;
       supabase: RequestSupabaseClient | null;
+      translationRevision: string | null;
+      translationSource: 'bundled' | 'published';
     }
 
     interface Platform {

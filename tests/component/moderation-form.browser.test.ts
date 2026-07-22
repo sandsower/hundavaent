@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import { catalogues } from '$i18n';
@@ -82,6 +82,7 @@ describe('Candidate Place form', () => {
     expect(screen.getByLabelText('Where dogs are allowed')).toBeTruthy();
     expect(screen.getByLabelText('Leash and restraint')).toBeTruthy();
     expect(screen.getByLabelText('Permission')).toBeTruthy();
+    expect(screen.getByLabelText('Wheelchair accessibility')).toHaveValue('unknown');
   });
 
   it('focuses a Candidate error and preserves submitted values', async () => {
@@ -128,6 +129,7 @@ const completePublicationReview = {
   readinessIssues: [],
   originatingSuggestionId: null,
   contributorId: null,
+  wheelchairAccessibility: 'unknown' as const,
   operatorName: 'Candidate operator',
   category: 'restaurant',
   websiteUrl: null,
@@ -188,7 +190,7 @@ describe('Publication checklist', () => {
     ['en', 'Review Place', 'Publication checklist', 'Verify and publish']
   ] as const)(
     'renders every publication invariant in %s',
-    (lang, heading, checklistHeading, publishLabel) => {
+    async (lang, heading, checklistHeading, publishLabel) => {
       render(PublicationReviewPage, {
         params: { lang, id: 'place-1' },
         data: {
@@ -209,9 +211,15 @@ describe('Publication checklist', () => {
       expect(screen.getByText('64.146600, -21.942600')).toBeTruthy();
       expect(screen.getByText('HMS Staðfangaskrá coordinate 10000001')).toBeTruthy();
       expect(screen.getByRole('region', { name: lang === 'is' ? 'Kort' : 'Map' })).toBeTruthy();
+
+      await fireEvent.click(
+        screen.getByRole('button', {
+          name: lang === 'is' ? 'Breyta: Staðsetning' : 'Edit Location'
+        })
+      );
       expect(
         screen.getByRole('button', {
-          name: lang === 'is' ? 'Vista leiðrétta staðsetningu' : 'Save corrected location'
+          name: lang === 'is' ? 'Vista' : 'Save'
         })
       ).toBeTruthy();
       const mapping = screen.getByRole('group', {
@@ -224,13 +232,15 @@ describe('Publication checklist', () => {
       expect(mapping.textContent).toContain(lang === 'is' ? '9. júlí 2026' : '9 July 2026');
       expect(mapping.textContent).not.toContain('official_website');
       expect(mapping.textContent).not.toContain('leash_required');
-      expect(
-        (
-          screen.getByRole('button', {
-            name: publishLabel
-          }) as HTMLButtonElement
-        ).disabled
-      ).toBe(false);
+      const publishButton = screen.getByRole('button', {
+        name: publishLabel
+      }) as HTMLButtonElement;
+      expect(publishButton.disabled).toBe(true);
+
+      await fireEvent.click(
+        screen.getByRole('button', { name: catalogues[lang]['common.cancel'] })
+      );
+      expect(publishButton.disabled).toBe(false);
     }
   );
 
@@ -509,7 +519,11 @@ describe('Media section', () => {
     expect((screen.getByLabelText('Public attribution text') as HTMLInputElement).value).toBe(
       'Pending Photo by Commons Photographer, CC BY 4.0'
     );
-    expect(screen.getByRole('button', { name: 'Reject' })).toBeTruthy();
+    expect(
+      within(screen.getByRole('article', { name: 'Photos' })).getByRole('button', {
+        name: 'Reject'
+      })
+    ).toBeTruthy();
     expect(screen.getAllByRole('button', { name: 'Retire' })).toHaveLength(2);
   });
 

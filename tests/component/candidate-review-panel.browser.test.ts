@@ -26,6 +26,7 @@ const data = {
     readinessIssues: [],
     originatingSuggestionId: null,
     contributorId: null,
+    wheelchairAccessibility: 'unknown' as const,
     operatorName: 'Candidate operator',
     category: 'cafe',
     websiteUrl: null,
@@ -138,6 +139,10 @@ describe('CandidateReviewPanel', () => {
     expect(screen.queryByRole('button', { name: 'Verify and publish' })).toBeNull();
     expect(screen.getByText('Place identity').closest('details')?.open).toBe(false);
     expect(screen.getByText('Names and descriptions').closest('details')?.open).toBe(false);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit Wheelchair accessibility' }));
+    expect(screen.getByLabelText('Wheelchair accessibility')).toHaveValue('unknown');
+    expect(screen.getByRole('button', { name: 'Save accessibility' })).toBeTruthy();
 
     const forms = [...document.querySelectorAll('form')];
     expect(forms.length).toBeGreaterThan(0);

@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
 import { catalogues, defaultLocale, parseLocale } from '$i18n';
+import englishMessages from '$lib/i18n/messages/en.json';
+import icelandicMessages from '$lib/i18n/messages/is.json';
+
+function placeholders(value: string): string[] {
+  return [...value.matchAll(/\{[^{}]+\}/g)].map(([placeholder]) => placeholder).sort();
+}
 
 describe('translation catalogues', () => {
+  it('uses the repository-managed JSON messages as the runtime catalogues', () => {
+    expect(catalogues.is).toEqual(icelandicMessages);
+    expect(catalogues.en).toEqual(englishMessages);
+  });
+
   it('keeps Icelandic and English keys complete and non-empty', () => {
     const icelandicKeys = Object.keys(catalogues.is).sort();
     const englishKeys = Object.keys(catalogues.en).sort();
@@ -14,6 +25,12 @@ describe('translation catalogues', () => {
       expect(Object.values(catalogues[locale]).every((value) => value.trim().length > 0)).toBe(
         true
       );
+    }
+  });
+
+  it('keeps placeholders aligned between Icelandic and English', () => {
+    for (const key of Object.keys(catalogues.is) as (keyof typeof catalogues.is)[]) {
+      expect(placeholders(catalogues.en[key]), key).toEqual(placeholders(catalogues.is[key]));
     }
   });
 

@@ -1,6 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 
-import { catalogues, parseLocale } from '$i18n';
+import { parseLocale } from '$i18n';
 import {
   AuthenticationRequiredError,
   AuthenticationUnavailableError,
@@ -19,15 +19,15 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   const signInUrl = accountRedirectUrl(lang, returnTo);
 
   if (!locals.supabase) {
-    error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+    error(503, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
 
   const profileResult = await getPublishedProfile(locals.supabase, params.id, lang);
   if (profileResult.status === 'not_found') {
-    error(404, { message: catalogues[lang]['error.notFoundBody'], requestId: locals.requestId });
+    error(404, { message: locals.copy['error.notFoundBody'], requestId: locals.requestId });
   }
   if (profileResult.status !== 'success') {
-    error(503, { message: catalogues[lang]['error.unexpectedBody'], requestId: locals.requestId });
+    error(503, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
 
   const presetField = url.searchParams.get('field');

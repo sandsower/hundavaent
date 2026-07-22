@@ -148,6 +148,9 @@
       if (notice.value === 'rejected') return data.copy['moderation.workbench.rejectedSaved'];
       if (notice.value === 'reopened') return data.copy['moderation.workbench.reopenedSaved'];
       if (notice.value === 'location_corrected') return data.copy['moderation.geometryCorrected'];
+      if (notice.value === 'wheelchair_accessibility_updated') {
+        return data.copy['moderation.wheelchairAccessibilitySaved'];
+      }
       if (notice.value === 'evidence_uploaded' || notice.value === 'photo_uploaded') {
         return data.copy['moderation.media.uploadSucceeded'];
       }

@@ -62,11 +62,20 @@
 
   let { data, form = null, standalone = false, oneditstatechange }: Props = $props();
   type EditableSectionId =
-    'identity' | 'details' | 'location' | 'translations' | 'access_conditions' | 'evidence_records';
+    | 'identity'
+    | 'details'
+    | 'wheelchair_accessibility'
+    | 'location'
+    | 'translations'
+    | 'access_conditions'
+    | 'evidence_records';
 
   let submitting = $state(false);
   let editingSection = $state<EditableSectionId | null>(null);
   let savingSection = $state<EditableSectionId | null>(null);
+  let savingWheelchairAccessibility = $state(false);
+  let wheelchairAccessibilityValue =
+    $state<CandidatePublicationReview['wheelchairAccessibility']>('unknown');
   let confirmingPublish = $state(false);
   let candidateDialog = $state<'needs_information' | 'rejected' | null>(null);
   let candidateDecision = $state<'needs_information' | 'rejected' | 'reopen'>('needs_information');
@@ -136,6 +145,20 @@
       }
     })
   );
+  let wheelchairAccessibilityError = $derived(
+    form && 'action' in form && form.action === 'updateWheelchairAccessibility' && 'error' in form
+      ? form.error
+      : null
+  );
+  let wheelchairAccessibilitySucceeded = $derived(
+    Boolean(
+      form &&
+      'action' in form &&
+      form.action === 'updateWheelchairAccessibility' &&
+      'success' in form &&
+      form.success
+    )
+  );
 
   let mediaError = $derived(
     form &&
@@ -144,6 +167,7 @@
       form.action !== 'correctLocation' &&
       form.action !== 'saveCandidateSection' &&
       form.action !== 'decideCandidate' &&
+      form.action !== 'updateWheelchairAccessibility' &&
       'error' in form
       ? form.error
       : null
@@ -156,6 +180,7 @@
       form.action !== 'correctLocation' &&
       form.action !== 'saveCandidateSection' &&
       form.action !== 'decideCandidate' &&
+      form.action !== 'updateWheelchairAccessibility' &&
       'success' in form &&
       form.success
     )
@@ -314,6 +339,8 @@
       translationDescriptionIs = data.review.descriptionIs ?? '';
       translationNameEn = data.review.nameEn ?? '';
       translationDescriptionEn = data.review.descriptionEn ?? '';
+    } else if (sectionId === 'wheelchair_accessibility') {
+      wheelchairAccessibilityValue = data.review.wheelchairAccessibility;
     }
     editingSection = sectionId;
   }
@@ -351,6 +378,15 @@
       : data.copy['common.save'];
   }
 
+  const enhanceWheelchairAccessibility: SubmitFunction = () => {
+    savingWheelchairAccessibility = true;
+    return async ({ result, update }) => {
+      await update();
+      savingWheelchairAccessibility = false;
+      if (result.type === 'success' || result.type === 'redirect') editingSection = null;
+    };
+  };
+
   function geometryPrecisionLabel(): string {
     const labels: Record<typeof data.review.geometryPrecision, MessageKey> = {
       moderator_confirmed_point: 'moderation.geometryPrecision.moderatorConfirmed',
@@ -360,6 +396,16 @@
     };
 
     return data.copy[labels[data.review.geometryPrecision]];
+  }
+
+  function wheelchairAccessibilityLabel(): string {
+    const labels: Record<typeof data.review.wheelchairAccessibility, MessageKey> = {
+      accessible: 'wheelchairAccessibility.accessible',
+      not_accessible: 'wheelchairAccessibility.notAccessible',
+      unknown: 'wheelchairAccessibility.unknown'
+    };
+
+    return data.copy[labels[data.review.wheelchairAccessibility]];
   }
 
   function requestPublication(): void {
@@ -460,7 +506,7 @@
   }
 
   $effect(() => {
-    if ((publishError || mediaError) && alertElement) {
+    if ((publishError || wheelchairAccessibilityError || mediaError) && alertElement) {
       void tick().then(() => alertElement?.focus());
     }
   });
@@ -729,6 +775,64 @@
             >{editLabel(data.copy['moderation.workbench.section.details'])}</button
           >
         </div>
+      {/if}
+    </ModerationReviewSection>
+
+    <ModerationReviewSection
+      id="wheelchair-accessibility"
+      title={data.copy['moderation.wheelchairAccessibilityLabel']}
+      summary={wheelchairAccessibilityLabel()}
+    >
+      {#if editingSection === 'wheelchair_accessibility'}
+        <form
+          class="section-form section-form-stack"
+          method="POST"
+          action="?/updateWheelchairAccessibility"
+          use:enhance={enhanceWheelchairAccessibility}
+          aria-busy={savingWheelchairAccessibility}
+        >
+          <input type="hidden" name="placeId" value={data.review.placeId} />
+          <input type="hidden" name="expectedVersion" value={data.review.version} />
+          <label>
+            {data.copy['moderation.wheelchairAccessibilityLabel']}
+            <select name="wheelchairAccessibility" bind:value={wheelchairAccessibilityValue}>
+              <option value="accessible">{data.copy['wheelchairAccessibility.accessible']}</option>
+              <option value="not_accessible"
+                >{data.copy['wheelchairAccessibility.notAccessible']}</option
+              >
+              <option value="unknown">{data.copy['wheelchairAccessibility.unknown']}</option>
+            </select>
+          </label>
+          <p class="field-help">{data.copy['moderation.wheelchairAccessibilityHelp']}</p>
+          <div class="section-form-actions">
+            <button type="button" class="quiet" onclick={cancelEditing}
+              >{data.copy['common.cancel']}</button
+            >
+            <button type="submit" disabled={savingWheelchairAccessibility}>
+              {savingWheelchairAccessibility
+                ? data.copy['moderation.workbench.section.saving']
+                : data.copy['moderation.saveWheelchairAccessibility']}
+            </button>
+          </div>
+        </form>
+      {:else}
+        <div class="section-view">
+          <p>{wheelchairAccessibilityLabel()}</p>
+          <button
+            type="button"
+            class="edit-section"
+            aria-label={editLabel(data.copy['moderation.wheelchairAccessibilityLabel'])}
+            onclick={() => beginEditing('wheelchair_accessibility')}
+            >{editLabel(data.copy['moderation.wheelchairAccessibilityLabel'])}</button
+          >
+        </div>
+      {/if}
+      {#if wheelchairAccessibilityError}
+        <p class="message error" role="alert">{wheelchairAccessibilityError}</p>
+      {:else if wheelchairAccessibilitySucceeded}
+        <p class="message success" role="status">
+          {data.copy['moderation.wheelchairAccessibilitySaved']}
+        </p>
       {/if}
     </ModerationReviewSection>
 

@@ -180,4 +180,40 @@ describe('gated request pipeline', () => {
       expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
     }
   });
+
+  it('bypasses the site gate for the translation workspace while preserving its own guard', async () => {
+    const handle = createGatedHandle(gate);
+    const resolve = vi.fn(
+      async () =>
+        new Response(null, {
+          status: 303,
+          headers: { location: '/translations/sign-in?redirectTo=%2Ftranslations' }
+        })
+    );
+    const response = await handle({
+      event: createGatedEvent('http://localhost/translations'),
+      resolve
+    } as never);
+
+    expect(resolve).toHaveBeenCalledOnce();
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toBe(
+      '/translations/sign-in?redirectTo=%2Ftranslations'
+    );
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
+  });
+
+  it('does not exempt unrelated paths with a similar prefix', async () => {
+    const handle = createGatedHandle(gate);
+    const resolve = vi.fn(async () => new Response('hidden'));
+    const response = await handle({
+      event: createGatedEvent('http://localhost/translations-preview'),
+      resolve
+    } as never);
+
+    expect(resolve).not.toHaveBeenCalled();
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toBe('/gate?redirectTo=%2Ftranslations-preview');
+  });
 });

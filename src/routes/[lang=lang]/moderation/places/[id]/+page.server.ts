@@ -1,6 +1,6 @@
 import { error, fail, type RequestEvent } from '@sveltejs/kit';
 
-import { catalogues, parseLocale, type Catalogue } from '$i18n';
+import type { Catalogue } from '$i18n';
 import {
   executeCandidateDecision,
   executeModerationCandidateAction,
@@ -13,11 +13,9 @@ import {
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
-  const lang = parseLocale(params.lang);
-
   if (!locals.supabase) {
     error(503, {
-      message: catalogues[lang]['error.unexpectedBody'],
+      message: locals.copy['error.unexpectedBody'],
       requestId: locals.requestId
     });
   }
@@ -25,19 +23,19 @@ export const load: PageServerLoad = async ({ locals, params }) => {
   const result = await loadModerationCandidateReview(locals.supabase, params.id);
   if (result.status === 'not_found') {
     error(404, {
-      message: catalogues[lang]['error.notFoundBody'],
+      message: locals.copy['error.notFoundBody'],
       requestId: locals.requestId
     });
   }
   if (result.status === 'forbidden') {
     error(403, {
-      message: catalogues[lang]['moderation.unauthorized'],
+      message: locals.copy['moderation.unauthorized'],
       requestId: locals.requestId
     });
   }
   if (result.status !== 'success') {
     error(503, {
-      message: catalogues[lang]['error.unexpectedBody'],
+      message: locals.copy['error.unexpectedBody'],
       requestId: locals.requestId
     });
   }
@@ -49,6 +47,8 @@ export const actions: Actions = {
   correctLocation: (event) => handleCandidateAction('correctLocation', event),
   saveCandidateSection: (event) => handleCandidateAction('saveCandidateSection', event),
   decideCandidate: (event) => handleCandidateAction('decideCandidate', event),
+  updateWheelchairAccessibility: (event) =>
+    handleCandidateAction('updateWheelchairAccessibility', event),
   publish: (event) => handleCandidateAction('publish', event),
   uploadEvidence: (event) => handleCandidateAction('uploadEvidence', event),
   uploadPhoto: (event) => handleCandidateAction('uploadPhoto', event),
@@ -61,8 +61,7 @@ async function handleCandidateAction(
   action: ModerationCandidateRouteAction,
   { locals, params, request }: RequestEvent
 ) {
-  const lang = parseLocale(params.lang);
-  const copy = catalogues[lang];
+  const copy = locals.copy;
   if (!locals.supabase) {
     return fail(503, { action, success: false, error: copy['error.unexpectedBody'] });
   }
@@ -124,7 +123,8 @@ function candidateActionErrorMessage(
     return action === 'publish' ||
       action === 'correctLocation' ||
       action === 'saveCandidateSection' ||
-      action === 'decideCandidate'
+      action === 'decideCandidate' ||
+      action === 'updateWheelchairAccessibility'
       ? copy['moderation.versionConflict']
       : copy['moderation.media.error.conflict'];
   }
@@ -134,7 +134,8 @@ function candidateActionErrorMessage(
       (action === 'publish' ||
         action === 'correctLocation' ||
         action === 'saveCandidateSection' ||
-        action === 'decideCandidate'))
+        action === 'decideCandidate' ||
+        action === 'updateWheelchairAccessibility'))
   ) {
     return copy['moderation.incomplete'];
   }

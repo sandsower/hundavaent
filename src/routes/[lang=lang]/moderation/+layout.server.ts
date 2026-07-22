@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 
-import { catalogues, parseLocale } from '$i18n';
+import { parseLocale } from '$i18n';
 import {
   AuthenticationRequiredError,
   AuthenticationUnavailableError,
@@ -35,14 +35,14 @@ export const load: LayoutServerLoad = async ({ locals, params, url }) => {
 
     if (cause instanceof RoleRequiredError) {
       error(403, {
-        message: catalogues[lang]['moderation.unauthorized'],
+        message: locals.copy['moderation.unauthorized'],
         requestId: locals.requestId
       });
     }
 
     if (cause instanceof AuthenticationUnavailableError) {
       error(503, {
-        message: catalogues[lang]['error.unexpectedBody'],
+        message: locals.copy['error.unexpectedBody'],
         requestId: locals.requestId
       });
     }

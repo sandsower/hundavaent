@@ -1,7 +1,6 @@
 import { fail } from '@sveltejs/kit';
 
-import { catalogues, parseLocale } from '$i18n';
-import type { PlaceCategory } from '$domain/place';
+import { isWheelchairAccessibility, type PlaceCategory } from '$domain/place';
 import { parseAvailabilityWindow, parseDogEligibility } from '$domain/access-schema';
 import type { Json } from '$server/db/generated.types';
 import {
@@ -53,9 +52,8 @@ export const load: PageServerLoad = () => ({
 });
 
 export const actions: Actions = {
-  default: async ({ locals, params, request }) => {
-    const lang = parseLocale(params.lang);
-    const copy = catalogues[lang];
+  default: async ({ locals, request }) => {
+    const copy = locals.copy;
     const values = readValues(await request.formData());
     const command = toCommand(values);
 
@@ -113,6 +111,7 @@ export const actions: Actions = {
 interface CandidateFormValues extends Record<string, string> {
   operatorName: string;
   category: string;
+  wheelchairAccessibility: string;
   websiteUrl: string;
   phone: string;
   nameIs: string;
@@ -163,6 +162,7 @@ function readValues(formData: FormData): CandidateFormValues {
   return {
     operatorName: value('operatorName'),
     category: value('category'),
+    wheelchairAccessibility: value('wheelchairAccessibility'),
     websiteUrl: value('websiteUrl'),
     phone: value('phone'),
     nameIs: value('nameIs'),
@@ -302,6 +302,7 @@ function toCommand(values: CandidateFormValues): CandidatePlaceCommand | null {
   const required = [
     values.operatorName,
     values.category,
+    values.wheelchairAccessibility,
     values.nameIs,
     values.descriptionIs,
     values.nameEn,
@@ -350,6 +351,7 @@ function toCommand(values: CandidateFormValues): CandidatePlaceCommand | null {
   if (
     required.some((value) => !value) ||
     !placeCategories.has(values.category as PlaceCategory) ||
+    !isWheelchairAccessibility(values.wheelchairAccessibility) ||
     !Number.isFinite(latitude) ||
     !Number.isFinite(longitude) ||
     !geometryPrecisionsAllowed.has(values.geometryPrecision) ||
@@ -376,6 +378,7 @@ function toCommand(values: CandidateFormValues): CandidatePlaceCommand | null {
       geometry_source: values.geometrySource
     },
     category: values.category as PlaceCategory,
+    wheelchair_accessibility: values.wheelchairAccessibility,
     website_url: values.websiteUrl || null,
     phone: values.phone || null,
     opening_hours: {},

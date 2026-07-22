@@ -6,7 +6,7 @@ import {
   evaluationFixtureTimes,
   evaluationModerator
 } from '$server/evaluation/fixtures';
-import { waitForHealth } from '../../../scripts/wait-for-health';
+import { parseWaitForHealthArguments, waitForHealth } from '../../../scripts/wait-for-health';
 import { assertLocalEvaluationUrl } from '../../e2e/support/local-supabase';
 
 describe('deterministic evaluation provisioning', () => {
@@ -61,6 +61,56 @@ describe('deterministic evaluation provisioning', () => {
 
     expect(response.headers.get('x-hundavaent-evaluation-server')).toBe('expected-server');
     expect(fetchImplementation).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries until the exact release and required health checks are ready', async () => {
+    const healthResponse = (release: string, translations: string) =>
+      Response.json({
+        release,
+        checks: { database: 'ready', map: 'configured', translations }
+      });
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(healthResponse('stale-release', 'published'))
+      .mockResolvedValueOnce(healthResponse('expected-release', 'fallback'))
+      .mockResolvedValueOnce(healthResponse('expected-release', 'published'));
+
+    const response = await waitForHealth({
+      url: 'https://hundavaent.is/api/health',
+      expectedRelease: 'expected-release',
+      expectedChecks: {
+        database: 'ready',
+        map: 'configured',
+        translations: 'published'
+      },
+      timeoutMs: 1_000,
+      fetchImplementation,
+      sleep: async () => undefined
+    });
+
+    expect(await response.json()).toMatchObject({ release: 'expected-release' });
+    expect(fetchImplementation).toHaveBeenCalledTimes(3);
+  });
+
+  it('parses explicit release requirements without changing the default local caller', () => {
+    expect(parseWaitForHealthArguments([], {})).toEqual({
+      url: 'http://127.0.0.1:4173/api/health'
+    });
+    expect(
+      parseWaitForHealthArguments([
+        'https://hundavaent.is/api/health',
+        '--expected-release',
+        'release-sha',
+        '--expected-check',
+        'database=ready',
+        '--expected-check',
+        'translations=published'
+      ])
+    ).toEqual({
+      url: 'https://hundavaent.is/api/health',
+      expectedRelease: 'release-sha',
+      expectedChecks: { database: 'ready', translations: 'published' }
+    });
   });
 
   it('refuses evaluation administration against a remote Supabase origin', () => {

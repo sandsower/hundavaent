@@ -47,6 +47,11 @@ test.describe('public discovery locale routes', () => {
     await expect(
       desktopResults.getByRole('button', { name: 'Select Published Place' })
     ).toBeVisible();
+    await expect(
+      desktopResults
+        .getByLabel('Published Place', { exact: true })
+        .getByText('Accessibility unknown')
+    ).toBeVisible();
     await expect(page.getByText('Candidate Place')).toHaveCount(0);
     await expect(page.getByText('Unverified Place')).toHaveCount(0);
 
@@ -58,6 +63,8 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL('/en?place=30000000-0000-4000-8000-000000000003');
     const selected = page.getByLabel('Selected place');
     await expect(selected.getByText('Published Place')).toBeVisible();
+    await expect(selected.getByRole('heading', { name: 'Mobility access' })).toBeVisible();
+    await expect(selected.getByText('Accessibility unknown')).toBeVisible();
     await expect(selected.getByText('Place details', { exact: true })).toBeVisible();
     await expect(selected.getByRole('heading', { name: 'Dog access' })).toHaveCount(0);
     await expect(selected.getByText('Last verified')).toHaveCount(0);
@@ -170,6 +177,15 @@ test.describe('public discovery locale routes', () => {
     await expect(media).toHaveCSS('min-height', '83.2px');
     await expect(media).toHaveCSS('background-image', /linear-gradient/);
     await expect(card.getByText('Outdoor place · Park')).toBeVisible();
+    const dogAccessBox = await card
+      .getByRole('group', { name: 'Dog access at Published Place' })
+      .boundingBox();
+    const wheelchairBadgeBox = await card
+      .locator('[data-wheelchair-accessibility="unknown"]')
+      .boundingBox();
+    expect(dogAccessBox).not.toBeNull();
+    expect(wheelchairBadgeBox).not.toBeNull();
+    expect(wheelchairBadgeBox!.y).toBeGreaterThanOrEqual(dogAccessBox!.y + dogAccessBox!.height);
     await expect(card.getByRole('img')).toHaveCount(0);
   });
 

@@ -10,6 +10,7 @@
   import InlineRating from '$lib/discovery/InlineRating.svelte';
   import PlacePhotos from '$lib/discovery/PlacePhotos.svelte';
   import AccessSymbols from '$lib/discovery/AccessSymbols.svelte';
+  import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
   import PhotoCredit from '$lib/discovery/PhotoCredit.svelte';
   import RefreshablePlaceImage from '$lib/discovery/RefreshablePlaceImage.svelte';
   import SharePlaceControl from '$lib/discovery/SharePlaceControl.svelte';
@@ -157,6 +158,14 @@
       />
     </section>
 
+    <section class="mobility-access" aria-labelledby={`mobility-${place.placeId}`}>
+      <h3 id={`mobility-${place.placeId}`}>{copy['wheelchairAccessibility.heading']}</h3>
+      <WheelchairAccessibilityBadge
+        state={profile?.wheelchairAccessibility ?? place.wheelchairAccessibility}
+        {copy}
+      />
+    </section>
+
     <div class="member-actions">
       {#if signedIn}
         <CheckInControl
@@ -297,6 +306,20 @@
     display: grid;
     gap: 0.45rem;
     margin-block: 0.65rem;
+  }
+
+  .mobility-access {
+    display: grid;
+    gap: 0.45rem;
+    margin-block: 0.65rem;
+    justify-items: start;
+  }
+
+  .mobility-access h3 {
+    margin: 0;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 
   .card-body > :global(.place-photos) {
