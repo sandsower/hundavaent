@@ -26,6 +26,9 @@
   } from '$server/suggestions/suggestions';
   import ModerationActionBar from './ModerationActionBar.svelte';
   import ModerationConfirmDialog from './ModerationConfirmDialog.svelte';
+  import ModerationLocationEditor, {
+    type ModerationLocationValue
+  } from './ModerationLocationEditor.svelte';
   import ModerationReadinessSummary from './ModerationReadinessSummary.svelte';
   import ModerationReasonDialog, {
     type ModerationReasonValue
@@ -49,6 +52,7 @@
     contributionRevoked?: boolean;
     conductFlagRecorded?: boolean;
     conductFlagCleared?: boolean;
+    mapStyleUrl?: string | null;
   }
 
   interface SuggestionReviewForm {
@@ -108,12 +112,16 @@
 
   let identityOperatorName = $state('');
   let identityCategory = $state<SuggestionProposal['category']>('other');
-  let locationAddressLine = $state('');
-  let locationLocality = $state('');
-  let locationPostalCode = $state('');
-  let locationMunicipality = $state('');
-  let locationLatitude = $state(0);
-  let locationLongitude = $state(0);
+  let locationValue = $state<ModerationLocationValue>({
+    addressLine: '',
+    locality: '',
+    postalCode: '',
+    municipality: 'reykjavik',
+    latitude: 64.1466,
+    longitude: -21.9426,
+    geometryPrecision: 'moderator_confirmed_point',
+    geometrySource: 'Moderator-confirmed map point'
+  });
   let translationNameIs = $state('');
   let translationDescriptionIs = $state('');
   let translationNameEn = $state('');
@@ -152,12 +160,12 @@
   const locationPayload = $derived(
     JSON.stringify({
       location: {
-        address_line: locationAddressLine,
-        locality: locationLocality,
-        postal_code: locationPostalCode,
-        municipality: locationMunicipality,
-        latitude: Number(locationLatitude),
-        longitude: Number(locationLongitude)
+        address_line: locationValue.addressLine,
+        locality: locationValue.locality,
+        postal_code: locationValue.postalCode,
+        municipality: locationValue.municipality,
+        latitude: Number(locationValue.latitude),
+        longitude: Number(locationValue.longitude)
       }
     })
   );
@@ -259,12 +267,16 @@
       identityOperatorName = proposal.operator_name;
       identityCategory = proposal.category;
     } else if (sectionId === 'location') {
-      locationAddressLine = proposal.location.address_line;
-      locationLocality = proposal.location.locality;
-      locationPostalCode = proposal.location.postal_code;
-      locationMunicipality = proposal.location.municipality;
-      locationLatitude = proposal.location.latitude;
-      locationLongitude = proposal.location.longitude;
+      locationValue = {
+        addressLine: proposal.location.address_line,
+        locality: proposal.location.locality,
+        postalCode: proposal.location.postal_code,
+        municipality: proposal.location.municipality,
+        latitude: proposal.location.latitude,
+        longitude: proposal.location.longitude,
+        geometryPrecision: 'moderator_confirmed_point',
+        geometrySource: 'Moderator-confirmed map point'
+      };
     } else if (sectionId === 'translations') {
       translationNameIs = proposal.translations.is.needs_review
         ? ''
@@ -461,47 +473,14 @@
           use:enhance={enhanceSection('location')}
         >
           {@render sectionInputs('location', locationPayload)}
-          <label
-            >{data.copy['suggestion.address']}<input
-              required
-              bind:value={locationAddressLine}
-            /></label
-          >
-          <label
-            >{data.copy['suggestion.locality']}<input
-              required
-              bind:value={locationLocality}
-            /></label
-          >
-          <label
-            >{data.copy['suggestion.postalCode']}<input
-              required
-              pattern="[0-9][0-9][0-9]"
-              bind:value={locationPostalCode}
-            /></label
-          >
-          <label
-            >{data.copy['suggestion.municipality']}<input
-              required
-              bind:value={locationMunicipality}
-            /></label
-          >
-          <label
-            >{data.copy['suggestion.latitude']}<input
-              required
-              type="number"
-              step="any"
-              bind:value={locationLatitude}
-            /></label
-          >
-          <label
-            >{data.copy['suggestion.longitude']}<input
-              required
-              type="number"
-              step="any"
-              bind:value={locationLongitude}
-            /></label
-          >
+          <div class="wide">
+            <ModerationLocationEditor
+              copy={data.copy}
+              bind:value={locationValue}
+              markerName={proposal.translations.is.name || proposal.translations.en.name}
+              mapStyleUrl={data.mapStyleUrl}
+            />
+          </div>
           {@render sectionActions('location')}
         </form>
       {:else}

@@ -4,6 +4,7 @@ export interface DomTestMapAdapter extends MapAdapter {
   readonly destroyed: boolean;
   simulateCameraChange(camera: MapCamera): void;
   simulateMapSelect(point: MapPoint): void;
+  simulateMarkerMove(placeId: string, point: MapPoint): void;
 }
 
 export function createDomTestMapAdapter(): DomTestMapAdapter {
@@ -112,6 +113,9 @@ export function createDomTestMapAdapter(): DomTestMapAdapter {
     },
     simulateMapSelect(point) {
       callbacks?.onMapSelect?.(point);
+    },
+    simulateMarkerMove(placeId, point) {
+      callbacks?.onMarkerMove?.(placeId, point);
     }
   };
 }

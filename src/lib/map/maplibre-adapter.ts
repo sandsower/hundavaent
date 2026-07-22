@@ -102,6 +102,7 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
       markerPlaceIds.set(cluster.id, cluster.placeIds);
       if (existing) {
         existing.marker.setLngLat([cluster.longitude, cluster.latitude]);
+        existing.marker.setDraggable(Boolean(place?.draggable));
         renderMarkerContent(existing.element, place, cluster.placeIds.length);
         existing.element.setAttribute('aria-label', label);
         setPressedState(existing.element, place?.placeId ?? null, selectedPlaceId);
@@ -132,9 +133,22 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
         }
       };
       // 'bottom' puts the pin tail (or the cluster bubble's base) on the coordinate.
-      const marker = new maplibreModule.Marker({ element, anchor: 'bottom' })
+      const marker = new maplibreModule.Marker({
+        element,
+        anchor: 'bottom',
+        draggable: Boolean(place?.draggable)
+      })
         .setLngLat([cluster.longitude, cluster.latitude])
         .addTo(map);
+      if (place?.draggable) {
+        marker.on('dragend', () => {
+          const point = marker.getLngLat();
+          callbacks?.onMarkerMove?.(place.placeId, {
+            latitude: point.lat,
+            longitude: point.lng
+          });
+        });
+      }
       markers.set(cluster.id, { marker, element });
     }
   }

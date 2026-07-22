@@ -65,6 +65,7 @@ export interface ModerationSuggestionReviewData {
   readonly contributionRevoked: boolean;
   readonly conductFlagRecorded: boolean;
   readonly conductFlagCleared: boolean;
+  readonly mapStyleUrl: string | null;
 }
 
 export type ModerationSuggestionActionName =
@@ -193,7 +194,8 @@ export async function loadModerationSuggestionReview(
       contributorEvidence: evidence.status === 'success' ? evidence.value : [],
       contributionRevoked: searchParams.get('contribution') === 'revoked',
       conductFlagRecorded: searchParams.get('flag') === 'recorded',
-      conductFlagCleared: searchParams.get('flag') === 'cleared'
+      conductFlagCleared: searchParams.get('flag') === 'cleared',
+      mapStyleUrl: env.PUBLIC_MAP_STYLE_URL?.trim() || null
     }
   };
 }
@@ -447,3 +449,4 @@ function applyBoundedTrustOrder(
       return a.submittedAt.localeCompare(b.submittedAt);
     });
 }
+import { env } from '$env/dynamic/public';

@@ -25,6 +25,9 @@
   import EvidenceRecordsEditor from './EvidenceRecordsEditor.svelte';
   import ModerationActionBar from './ModerationActionBar.svelte';
   import ModerationConfirmDialog from './ModerationConfirmDialog.svelte';
+  import ModerationLocationEditor, {
+    type ModerationLocationValue
+  } from './ModerationLocationEditor.svelte';
   import ModerationReadinessSummary from './ModerationReadinessSummary.svelte';
   import ModerationReasonDialog, {
     type ModerationReasonValue
@@ -125,6 +128,16 @@
   let translationDescriptionIs = $state('');
   let translationNameEn = $state('');
   let translationDescriptionEn = $state('');
+  let locationValue = $state<ModerationLocationValue>({
+    addressLine: '',
+    locality: '',
+    postalCode: '',
+    municipality: 'reykjavik',
+    latitude: 64.1466,
+    longitude: -21.9426,
+    geometryPrecision: 'municipality_anchor_pending_geocode',
+    geometrySource: ''
+  });
 
   const identitySectionPayload = $derived(
     JSON.stringify({ operator: { name: identityOperatorName }, category: identityCategory })
@@ -339,6 +352,17 @@
       translationDescriptionIs = data.review.descriptionIs ?? '';
       translationNameEn = data.review.nameEn ?? '';
       translationDescriptionEn = data.review.descriptionEn ?? '';
+    } else if (sectionId === 'location') {
+      locationValue = {
+        addressLine: data.review.addressLine,
+        locality: data.review.locality,
+        postalCode: data.review.postalCode,
+        municipality: data.review.municipality,
+        latitude: data.review.latitude,
+        longitude: data.review.longitude,
+        geometryPrecision: data.review.geometryPrecision,
+        geometrySource: data.review.geometrySource
+      };
     } else if (sectionId === 'wheelchair_accessibility') {
       wheelchairAccessibilityValue = data.review.wheelchairAccessibility;
     }
@@ -855,16 +879,18 @@
         <p>{data.review.latitude.toFixed(6)}, {data.review.longitude.toFixed(6)}</p>
         <p><strong>{geometryPrecisionLabel()}</strong></p>
         <p>{data.review.geometrySource}</p>
-        <MapSurface
-          adapter={locationMapAdapter}
-          places={locationPlaces}
-          selectedPlaceId={data.review.placeId}
-          camera={locationCamera}
-          copy={data.copy}
-          onMarkerSelect={() => undefined}
-          onCameraChange={() => undefined}
-          compact
-        />
+        {#if editingSection !== 'location'}
+          <MapSurface
+            adapter={locationMapAdapter}
+            places={locationPlaces}
+            selectedPlaceId={data.review.placeId}
+            camera={locationCamera}
+            copy={data.copy}
+            onMarkerSelect={() => undefined}
+            onCameraChange={() => undefined}
+            compact
+          />
+        {/if}
         {#if editingSection === 'location'}
           <form
             class="location-correction section-form"
@@ -878,95 +904,14 @@
             <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
             <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
             <input type="hidden" name="sectionId" value="location" />
-            <label>
-              {data.copy['moderation.addressLabel']}
-              <input name="addressLine" required value={data.review.addressLine} />
-            </label>
-            <label>
-              {data.copy['moderation.localityLabel']}
-              <input name="locality" required value={data.review.locality} />
-            </label>
-            <label>
-              {data.copy['moderation.postalCodeLabel']}
-              <input
-                name="postalCode"
-                required
-                pattern="[0-9][0-9][0-9]"
-                value={data.review.postalCode}
+            <div class="wide">
+              <ModerationLocationEditor
+                copy={data.copy}
+                bind:value={locationValue}
+                markerName={data.review.nameIs ?? data.review.nameEn ?? data.review.placeId}
+                mapStyleUrl={data.mapStyleUrl}
               />
-            </label>
-            <label>
-              {data.copy['moderation.municipalityLabel']}
-              <select
-                name="municipality"
-                required
-                value={data.review.municipality}
-                aria-label={data.copy['moderation.municipalityLabel']}
-              >
-                <option value="reykjavik">Reykjavík</option>
-                <option value="kopavogur">Kópavogur</option>
-                <option value="seltjarnarnes">Seltjarnarnes</option>
-                <option value="gardabaer">Garðabær</option>
-                <option value="hafnarfjordur">Hafnarfjörður</option>
-                <option value="mosfellsbaer">Mosfellsbær</option>
-                <option value="kjosarhreppur">Kjósarhreppur</option>
-              </select>
-            </label>
-            <label>
-              {data.copy['moderation.latitudeLabel']}
-              <input
-                name="latitude"
-                type="number"
-                min="-90"
-                max="90"
-                step="any"
-                required
-                value={data.review.latitude}
-              />
-            </label>
-            <label>
-              {data.copy['moderation.longitudeLabel']}
-              <input
-                name="longitude"
-                type="number"
-                min="-180"
-                max="180"
-                step="any"
-                required
-                value={data.review.longitude}
-              />
-            </label>
-            <label>
-              {data.copy['moderation.geometryPrecisionLabel']}
-              <select
-                name="geometryPrecision"
-                required
-                value={data.review.geometryPrecision}
-                aria-label={data.copy['moderation.geometryPrecisionLabel']}
-              >
-                <option value="moderator_confirmed_point"
-                  >{data.copy['moderation.geometryPrecision.moderatorConfirmed']}</option
-                >
-                <option value="official_address_point"
-                  >{data.copy['moderation.geometryPrecision.officialAddress']}</option
-                >
-                <option value="official_representative_centroid"
-                  >{data.copy['moderation.geometryPrecision.officialCentroid']}</option
-                >
-                <option value="municipality_anchor_pending_geocode"
-                  >{data.copy['moderation.geometryPrecision.pending']}</option
-                >
-              </select>
-            </label>
-            <label class="wide">
-              {data.copy['moderation.geometrySourceLabel']}
-              <input
-                name="geometrySource"
-                required
-                value={data.review.geometrySource}
-                aria-label={data.copy['moderation.geometrySourceLabel']}
-              />
-            </label>
+            </div>
             <div class="section-form-actions wide">
               <button type="button" class="quiet" onclick={cancelEditing}
                 >{data.copy['common.cancel']}</button
@@ -2025,7 +1970,6 @@
   input[type='tel'],
   input[type='text'],
   input[type='file'],
-  input[type='number'],
   input:not([type]),
   select {
     width: 100%;

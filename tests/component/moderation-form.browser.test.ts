@@ -62,7 +62,8 @@ describe('Candidate Place form', () => {
         lang: 'en',
         copy: catalogues.en,
         moderator: { id: 'moderator-1' },
-        defaultObservedAt: '2026-07-09T10:00'
+        defaultObservedAt: '2026-07-09T10:00',
+        mapStyleUrl: null
       },
       form: null
     });
@@ -92,7 +93,8 @@ describe('Candidate Place form', () => {
         lang: 'is',
         copy: catalogues.is,
         moderator: { id: 'moderator-1' },
-        defaultObservedAt: '2026-07-09T10:00'
+        defaultObservedAt: '2026-07-09T10:00',
+        mapStyleUrl: null
       },
       form: {
         success: false,
