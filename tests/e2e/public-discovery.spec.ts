@@ -80,6 +80,35 @@ test.describe('public discovery locale routes', () => {
     await expect(selected.getByText('Official Place website')).toHaveCount(0);
   });
 
+  test('uses the Puddle Jump production theme without lab-only controls', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/en');
+    await waitForHydration(page);
+
+    const shell = page.locator('.map-list-shell');
+    await expect(shell).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Theme lab' })).toHaveCount(0);
+
+    const theme = await page.locator('.directory-shell').evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        snow: style.getPropertyValue('--hv-color-snow').trim(),
+        basalt: style.getPropertyValue('--hv-color-basalt').trim(),
+        signal: style.getPropertyValue('--hv-color-signal').trim(),
+        controlRadius: style.getPropertyValue('--hv-radius-control').trim(),
+        panelRadius: style.getPropertyValue('--hv-radius-panel').trim()
+      };
+    });
+
+    expect(theme).toEqual({
+      snow: '#edf8fb',
+      basalt: '#163845',
+      signal: '#ffd642',
+      controlRadius: '999px',
+      panelRadius: '0.9rem'
+    });
+  });
+
   test('keeps the mobile brand, menu, and account action on one unclipped row', async ({
     page
   }) => {
