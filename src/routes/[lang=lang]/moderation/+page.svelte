@@ -1,8 +1,18 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import { tick } from 'svelte';
+  import CandidateDecisionControls, {
+    type CandidateDecisionOutcome
+  } from '$lib/moderation/CandidateDecisionControls.svelte';
   import CandidateReviewPanel from '$lib/moderation/CandidateReviewPanel.svelte';
+  import CorrectionDecisionControls from '$lib/moderation/CorrectionDecisionControls.svelte';
   import CorrectionReviewPanel from '$lib/moderation/CorrectionReviewPanel.svelte';
   import ModerationWorkspace from '$lib/moderation/ModerationWorkspace.svelte';
+  import ModerationConfirmDialog from '$lib/moderation/ModerationConfirmDialog.svelte';
+  import ModerationReasonDialog, {
+    type ModerationReasonValue
+  } from '$lib/moderation/ModerationReasonDialog.svelte';
+  import SuggestionDecisionControls from '$lib/moderation/SuggestionDecisionControls.svelte';
   import SuggestionReviewPanel from '$lib/moderation/SuggestionReviewPanel.svelte';
   import type { ModerationWorkItem } from '$lib/moderation/types';
   import type { MessageKey } from '$i18n';
@@ -24,10 +34,24 @@
     conflictRefreshFailed?: boolean;
   }
 
+  interface CandidateActionData {
+    action?: string;
+    error?: string;
+  }
+
   const conflictAction = $derived(form as ConflictActionData | null);
 
+  const activeFilter = $derived(data.workspace.filters[0] ?? 'actionable');
   const queues = $derived(
-    data.queues.map((queue) => ({ id: queue.queueId, count: queue.actionableCount }))
+    data.queues.map((queue) => ({
+      id: queue.queueId,
+      count:
+        activeFilter === 'deferred'
+          ? queue.deferredCount
+          : activeFilter === 'resolved'
+            ? queue.resolvedCount
+            : queue.actionableCount
+    }))
   );
   const items = $derived(
     data.workspace.queue === 'candidate-places'
@@ -85,14 +109,44 @@
   const candidateReviewData = $derived(
     candidateReviewSource ? { lang: data.lang, copy: data.copy, ...candidateReviewSource } : null
   );
-  const hasReviewData = $derived(
-    Boolean(reviewData || correctionReviewData || candidateReviewData)
+  const suggestionDecisionAvailable = $derived(
+    reviewData?.suggestion.outcome === 'submitted' ||
+      reviewData?.suggestion.outcome === 'needs_information'
+  );
+  const correctionDecisionAvailable = $derived(
+    correctionReviewData?.flag.outcome === 'submitted' ||
+      correctionReviewData?.flag.outcome === 'needs_information'
+  );
+  const candidateDecisionAvailable = $derived(
+    candidateReviewData?.review.candidateStatus === 'pending' ||
+      candidateReviewData?.review.candidateStatus === 'needs_information' ||
+      candidateReviewData?.review.candidateStatus === 'rejected'
+  );
+  const candidateDecisionError = $derived(
+    (form as CandidateActionData | null)?.action === 'decideCandidate'
+      ? ((form as CandidateActionData).error ?? null)
+      : null
+  );
+  const showDecisionDock = $derived(
+    Boolean(
+      suggestionDecisionAvailable ||
+      correctionDecisionAvailable ||
+      candidateDecisionAvailable ||
+      candidateDecisionError
+    )
   );
   const statusMessage = $derived.by(() => {
     const notice = data.workspaceNotice;
     if (!notice) return '';
+    if (notice.kind === 'draft') return data.copy['moderation.workbench.draftSaved'];
     if (data.workspace.queue === 'candidate-places' && notice.kind === 'candidate') {
       if (notice.value === 'published') return data.copy['moderation.published'];
+      if (notice.value === 'draft_saved') return data.copy['moderation.workbench.draftSaved'];
+      if (notice.value === 'needs_information') {
+        return data.copy['moderation.workbench.needsInformationSaved'];
+      }
+      if (notice.value === 'rejected') return data.copy['moderation.workbench.rejectedSaved'];
+      if (notice.value === 'reopened') return data.copy['moderation.workbench.reopenedSaved'];
       if (notice.value === 'location_corrected') return data.copy['moderation.geometryCorrected'];
       if (notice.value === 'wheelchair_accessibility_updated') {
         return data.copy['moderation.wheelchairAccessibilitySaved'];
@@ -121,42 +175,69 @@
       ? data.copy['contributor.moderation.flagRecorded']
       : data.copy['contributor.moderation.flagCleared'];
   });
-  let selectedOutcome = $state('needs_information');
+  let suggestionDecisionToken = $state(0);
+  let suggestionDecisionRequest = $state<{
+    outcome: Exclude<SuggestionOutcome, 'submitted'>;
+    token: number;
+  } | null>(null);
+  let correctionDecisionToken = $state(0);
+  let correctionDecisionRequest = $state<{
+    outcome: Exclude<import('$server/place-flags/place-flags').PlaceFlagOutcome, 'submitted'>;
+    token: number;
+  } | null>(null);
+  let reviewHasUnsavedEdits = $state(false);
+  let candidateDialog = $state<'publish' | 'needs_information' | 'rejected' | null>(null);
+  let candidateDecision = $state<'needs_information' | 'rejected' | 'reopen'>('needs_information');
+  let candidateReasonCode = $state('insufficient_evidence');
+  let candidateMemberReasonIs = $state('');
+  let candidateMemberReasonEn = $state('');
+  let candidatePrivateNote = $state('');
+  let candidateDecisionForm = $state<HTMLFormElement>();
   $effect(() => {
-    const selectedItemId = data.workspace.itemId;
-    selectedOutcome =
-      selectedItemId && data.workspace.queue === 'corrections-and-reports' && correctionReviewData
-        ? correctionReviewData.flag.kind === 'correction'
-          ? 'applied'
-          : 'confirmed_useful'
-        : 'needs_information';
+    if (data.workspaceNotice) reviewHasUnsavedEdits = false;
   });
-  function chooseSuggestionDecision(outcome: SuggestionOutcome): void {
-    selectedOutcome = outcome;
-    const form = document.querySelector<HTMLFormElement>('#suggestion-decision');
-    const select = form?.querySelector<HTMLSelectElement>('select[name="outcome"]');
-    if (select) {
-      select.value = outcome;
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    form?.querySelector<HTMLElement>('textarea[name="memberReasonIs"]')?.focus();
+  function handleReviewEditStateChange(editing: boolean): void {
+    reviewHasUnsavedEdits = editing;
   }
-  function chooseCorrectionDecision(outcome: string): void {
-    selectedOutcome = outcome;
-    const form = document.querySelector<HTMLFormElement>('#correction-decision');
-    const select = form?.querySelector<HTMLSelectElement>('select[name="outcome"]');
-    if (select) {
-      select.value = outcome;
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    form?.querySelector<HTMLElement>('textarea[name="memberReasonIs"]')?.focus();
+  function chooseSuggestionDecision(outcome: Exclude<SuggestionOutcome, 'submitted'>): void {
+    suggestionDecisionToken += 1;
+    suggestionDecisionRequest = { outcome, token: suggestionDecisionToken };
   }
-  function focusCandidateDecision(target: 'publication' | 'media'): void {
-    const element = document.querySelector<HTMLElement>(`#candidate-${target}`);
-    element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    element?.querySelector<HTMLElement>('input, button')?.focus();
+  function chooseCorrectionDecision(
+    outcome: Exclude<import('$server/place-flags/place-flags').PlaceFlagOutcome, 'submitted'>
+  ): void {
+    correctionDecisionToken += 1;
+    correctionDecisionRequest = { outcome, token: correctionDecisionToken };
+  }
+  function chooseCandidateDecision(outcome: CandidateDecisionOutcome): void {
+    if (reviewHasUnsavedEdits || !candidateDecisionAvailable) return;
+    if (outcome === 'publish') {
+      candidateDialog = 'publish';
+      return;
+    }
+    candidateDecision = outcome;
+    if (outcome === 'reopen') {
+      candidateDialog = null;
+      void tick().then(() => candidateDecisionForm?.requestSubmit());
+      return;
+    }
+    candidateReasonCode = 'insufficient_evidence';
+    candidateMemberReasonIs = '';
+    candidateMemberReasonEn = '';
+    candidatePrivateNote = '';
+    candidateDialog = outcome;
+  }
+  async function submitCandidateDecision(reasons: ModerationReasonValue): Promise<void> {
+    candidateMemberReasonIs = reasons.memberReasonIs;
+    candidateMemberReasonEn = reasons.memberReasonEn;
+    candidatePrivateNote = reasons.privateNote;
+    candidateDialog = null;
+    await tick();
+    candidateDecisionForm?.requestSubmit();
+  }
+  function submitCandidatePublication(): void {
+    candidateDialog = null;
+    document.querySelector<HTMLFormElement>('#candidate-publication')?.requestSubmit();
   }
 </script>
 
@@ -183,73 +264,144 @@
     reviewErrorMessage={conflictAction?.conflictRefreshFailed
       ? data.copy['moderation.workspace.conflictRefreshFailed']
       : data.reviewError}
-    actionsDisabled={Boolean(conflictAction?.conflictRefreshFailed)}
-    showDecisionDock={hasReviewData}
+    actionsDisabled={Boolean(conflictAction?.conflictRefreshFailed) || reviewHasUnsavedEdits}
+    reviewDisabled={Boolean(conflictAction?.conflictRefreshFailed)}
+    {showDecisionDock}
+    decisionHint={reviewHasUnsavedEdits
+      ? data.copy['moderation.workbench.unsavedDecisionHint']
+      : null}
     focusTargetId={null}
   >
     {#snippet reviewContent()}
       {#if reviewData}
-        <SuggestionReviewPanel data={reviewData} form={form as never} />
+        <SuggestionReviewPanel
+          data={reviewData}
+          form={form as never}
+          decisionRequest={suggestionDecisionRequest}
+          oneditstatechange={handleReviewEditStateChange}
+        />
       {:else if correctionReviewData}
-        <CorrectionReviewPanel data={correctionReviewData} form={form as never} />
+        <CorrectionReviewPanel
+          data={correctionReviewData}
+          form={form as never}
+          decisionRequest={correctionDecisionRequest}
+          oneditstatechange={handleReviewEditStateChange}
+        />
       {:else if candidateReviewData}
-        <CandidateReviewPanel data={candidateReviewData} form={form as never} />
+        <CandidateReviewPanel
+          data={candidateReviewData}
+          form={form as never}
+          oneditstatechange={handleReviewEditStateChange}
+        />
       {/if}
     {/snippet}
     {#snippet decisionContent()}
-      {#if reviewData}
-        <div class="decision-options" role="group" aria-label={data.copy['suggestion.resolve']}>
-          {#each ['needs_information', 'accepted', 'duplicate', 'rejected'] as outcome (outcome)}
-            <button
-              class="decision-option"
-              class:selected={selectedOutcome === outcome}
-              type="button"
-              aria-pressed={selectedOutcome === outcome}
-              onclick={() => chooseSuggestionDecision(outcome as SuggestionOutcome)}
-            >
-              {data.copy[`suggestion.status.${outcome}` as MessageKey]}
-            </button>
-          {/each}
-        </div>
-      {:else if correctionReviewData}
-        <div
-          class="decision-options correction-options"
-          role="group"
-          aria-label={data.copy['flag.resolve']}
-        >
-          {#each [correctionReviewData.flag.kind === 'correction' ? 'applied' : 'confirmed_useful', ...(correctionReviewData.flag.targetKind === 'access_condition' ? ['dispute_opened'] : []), 'place_inactivated', 'needs_information', 'rejected'] as outcome (outcome)}
-            <button
-              class="decision-option"
-              class:selected={selectedOutcome === outcome}
-              type="button"
-              aria-pressed={selectedOutcome === outcome}
-              onclick={() => chooseCorrectionDecision(outcome)}
-            >
-              {data.copy[`flag.status.${outcome}` as MessageKey]}
-            </button>
-          {/each}
-        </div>
-      {:else if candidateReviewData}
-        <div
-          class="decision-options candidate-options"
-          role="group"
-          aria-label={data.copy['moderation.reviewTitle']}
-        >
-          <button
-            class="decision-option"
-            type="button"
-            onclick={() => focusCandidateDecision('publication')}
+      {#if reviewData && suggestionDecisionAvailable}
+        <SuggestionDecisionControls
+          copy={data.copy}
+          disabled={reviewHasUnsavedEdits}
+          acceptDisabled={Boolean(
+            reviewData.suggestion.effectiveProposal.translations.is.needs_review ||
+            reviewData.suggestion.effectiveProposal.translations.en.needs_review
+          )}
+          ondecide={chooseSuggestionDecision}
+        />
+      {:else if correctionReviewData && correctionDecisionAvailable}
+        <CorrectionDecisionControls
+          copy={data.copy}
+          kind={correctionReviewData.flag.kind}
+          targetKind={correctionReviewData.flag.targetKind}
+          disabled={reviewHasUnsavedEdits}
+          ondecide={chooseCorrectionDecision}
+        />
+      {:else if candidateReviewData && (candidateDecisionAvailable || candidateDecisionError)}
+        {#if candidateDecisionError}
+          <p class="candidate-decision-error" role="alert">{candidateDecisionError}</p>
+        {/if}
+        <CandidateDecisionControls
+          copy={data.copy}
+          status={candidateReviewData.review.candidateStatus}
+          ready={candidateReviewData.review.ready}
+          disabled={reviewHasUnsavedEdits}
+          ondecide={chooseCandidateDecision}
+        />
+
+        {#if candidateDecisionAvailable}
+          <form
+            class="decision-form"
+            bind:this={candidateDecisionForm}
+            method="POST"
+            action="?/decideCandidate"
           >
-            {data.copy['moderation.checklistTitle']}
-          </button>
-          <button
-            class="decision-option"
-            type="button"
-            onclick={() => focusCandidateDecision('media')}
+            <input type="hidden" name="placeId" value={candidateReviewData.review.placeId} />
+            <input
+              type="hidden"
+              name="expectedItemVersion"
+              value={candidateReviewData.review.itemVersion}
+            />
+            <input
+              type="hidden"
+              name="expectedDraftVersion"
+              value={candidateReviewData.review.draftVersion}
+            />
+            <input type="hidden" name="decision" value={candidateDecision} />
+            <input type="hidden" name="confirmedDecision" value={candidateDecision} />
+            <input type="hidden" name="reasonCode" value={candidateReasonCode} />
+            <input type="hidden" name="memberReasonIs" value={candidateMemberReasonIs} />
+            <input type="hidden" name="memberReasonEn" value={candidateMemberReasonEn} />
+            <input type="hidden" name="privateNote" value={candidatePrivateNote} />
+          </form>
+        {/if}
+
+        <ModerationConfirmDialog
+          open={candidateDialog === 'publish'}
+          title={data.copy['moderation.workbench.publishConfirmTitle']}
+          description={data.copy['moderation.workbench.publishConfirmBody']}
+          confirmLabel={data.copy['moderation.verifyAndPublish']}
+          cancelLabel={data.copy['moderation.workbench.keepReviewing']}
+          onconfirm={submitCandidatePublication}
+          oncancel={() => (candidateDialog = null)}
+        />
+
+        {#if candidateDialog === 'needs_information' || candidateDialog === 'rejected'}
+          <ModerationReasonDialog
+            open
+            title={candidateDialog === 'rejected'
+              ? data.copy['moderation.workbench.rejectTitle']
+              : data.copy['moderation.workbench.needsInformationTitle']}
+            description={data.copy['moderation.workbench.decisionHelp']}
+            confirmLabel={candidateDialog === 'rejected'
+              ? data.copy['moderation.workbench.reject']
+              : data.copy['moderation.workbench.needsInformation']}
+            cancelLabel={data.copy['moderation.workbench.keepReviewing']}
+            reasonIsLabel={data.copy['suggestion.memberReasonIs']}
+            reasonEnLabel={data.copy['suggestion.memberReasonEn']}
+            privateNoteLabel={data.copy['suggestion.privateNote']}
+            tone={candidateDialog === 'rejected' ? 'danger' : 'primary'}
+            onconfirm={submitCandidateDecision}
+            oncancel={() => (candidateDialog = null)}
           >
-            {data.copy['moderation.media.title']}
-          </button>
-        </div>
+            {#if candidateDialog === 'rejected'}
+              <label>
+                {data.copy['moderation.workbench.reasonCode']}
+                <select bind:value={candidateReasonCode} required>
+                  <option value="insufficient_evidence"
+                    >{data.copy['moderation.workbench.reason.insufficientEvidence']}</option
+                  >
+                  <option value="inaccurate"
+                    >{data.copy['moderation.workbench.reason.inaccurate']}</option
+                  >
+                  <option value="out_of_scope"
+                    >{data.copy['moderation.workbench.reason.outOfScope']}</option
+                  >
+                  <option value="unsafe">{data.copy['moderation.workbench.reason.unsafe']}</option>
+                  <option value="spam">{data.copy['moderation.workbench.reason.spam']}</option>
+                  <option value="other">{data.copy['moderation.workbench.reason.other']}</option>
+                </select>
+              </label>
+            {/if}
+          </ModerationReasonDialog>
+        {/if}
       {/if}
     {/snippet}
   </ModerationWorkspace>
@@ -276,8 +428,7 @@
     gap: 0.7rem;
     margin-top: 1.2rem;
   }
-  .workspace-actions a,
-  .decision-option {
+  .workspace-actions a {
     display: inline-block;
     border: 1px solid var(--hv-color-basalt);
     border-radius: var(--hv-radius-control);
@@ -289,41 +440,25 @@
     text-decoration: none;
     cursor: pointer;
   }
-  .workspace-actions a:focus-visible,
-  .decision-option:focus-visible {
+  .workspace-actions a:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
     box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
-  .decision-options {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.45rem;
+  .candidate-decision-error {
+    margin: 0 0 0.55rem;
+    border: 1px solid var(--hv-color-danger);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-danger-soft);
+    padding: 0.55rem;
   }
-  .decision-option {
-    min-width: 0;
-    padding-inline: 0.55rem;
-    font-size: 0.76rem;
-    line-height: 1.15;
-  }
-  .decision-option.selected {
-    background: var(--hv-color-signal);
-    color: var(--hv-color-basalt);
-    box-shadow: inset 0 -0.22rem 0 var(--hv-color-basalt);
-  }
-  .correction-options {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-  .candidate-options {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .decision-form {
+    display: none;
   }
   @media (max-width: 44rem) {
     .workspace-shell {
       width: calc(100% - 0.75rem);
       margin-top: 0.4rem;
-    }
-    .decision-options {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 </style>

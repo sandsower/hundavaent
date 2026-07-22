@@ -57,10 +57,15 @@ test('a Member sees a private Contributor status that recalculates as history ch
   const moderatorPage = await moderatorContext.newPage();
   await signInModerator(moderatorPage);
   await moderatorPage.goto(`/en/moderation/suggestions/${fixture.suggestionId}`);
+  await waitForHydration(moderatorPage);
+  const contributorSection = moderatorPage.locator('#suggestion-contributor');
+  await contributorSection.locator(':scope > summary').click();
+  await expect(contributorSection).toHaveAttribute('open', '');
+  await contributorSection.getByRole('button', { name: 'Revoke this Contribution' }).click();
   await moderatorPage
     .getByLabel('Revocation reason')
     .fill('End-to-end contributor downgrade proof.');
-  await moderatorPage.getByRole('button', { name: 'Revoke this Contribution' }).click();
+  await contributorSection.getByRole('button', { name: 'Save' }).click();
   await expect(moderatorPage.getByText('The Contribution has been revoked.')).toBeVisible();
   await moderatorContext.close();
 
@@ -130,11 +135,18 @@ async function signInMember(page: Page, email: string): Promise<void> {
 }
 
 async function signInModerator(page: Page): Promise<void> {
-  await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fsuggestions');
+  const moderationPath = '/en/moderation?queue=suggestions&filter=actionable';
+  await page.goto(`/en/moderation/sign-in?returnTo=${encodeURIComponent(moderationPath)}`);
   await waitForHydration(page);
   await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
   await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
   await page.goto(magicLink);
-  await expect(page).toHaveURL('/en/moderation/suggestions');
+  await expect(page).toHaveURL((url) => {
+    return (
+      url.pathname === '/en/moderation' &&
+      url.searchParams.get('queue') === 'suggestions' &&
+      url.searchParams.get('filter') === 'actionable'
+    );
+  });
 }

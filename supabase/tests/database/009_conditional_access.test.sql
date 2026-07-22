@@ -86,7 +86,8 @@ select is(
     'sourceUrl', 'https://example.invalid/indoor',
     'sourceCitation', null,
     'sourceLabel', 'Indoor policy',
-    'observedAt', '2026-07-09T10:00:00Z'::timestamptz
+    'observedAt', '2026-07-09T10:00:00Z'::timestamptz,
+    'sourceMetadata', '{}'::jsonb
   ),
   'Moderation review retains complete Evidence provenance for condition mapping'
 );
@@ -97,13 +98,16 @@ select throws_ok(
     jsonb_build_object(
       'place_id', (select place_id from conditional_candidate),
       'expected_version', 1,
+      'expected_item_version', 1,
+      'expected_draft_version', 0,
       'condition_verifications', jsonb_build_array(
         jsonb_build_object(
           'access_condition_id', (select id from condition_ids where area = 'indoors'),
           'evidence_ids', jsonb_build_array((select id from evidence_ids where source_label = 'Indoor policy'))
         )
       ),
-      'freshness_until', '2099-01-01T00:00:00Z'
+      'freshness_until', '2099-01-01T00:00:00Z',
+      'decision_metadata', '{}'::jsonb
     )::text,
     '84000000-0000-4000-8000-000000000003'
   ),
@@ -135,6 +139,8 @@ select lives_ok(
     jsonb_build_object(
       'place_id', (select place_id from conditional_candidate),
       'expected_version', 1,
+      'expected_item_version', 1,
+      'expected_draft_version', 0,
       'condition_verifications', jsonb_build_array(
         jsonb_build_object(
           'access_condition_id', (select id from condition_ids where area = 'indoors'),
@@ -145,7 +151,8 @@ select lives_ok(
           'evidence_ids', jsonb_build_array((select id from evidence_ids where source_label = 'Outdoor policy'))
         )
       ),
-      'freshness_until', '2099-01-01T00:00:00Z'
+      'freshness_until', '2099-01-01T00:00:00Z',
+      'decision_metadata', '{}'::jsonb
     )::text,
     '84000000-0000-4000-8000-000000000002'
   ),

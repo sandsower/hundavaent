@@ -86,9 +86,73 @@ select ok(
 select has_function(
   'public',
   'resolve_place_suggestion',
-  array['uuid', 'text', 'text', 'text', 'text', 'jsonb', 'uuid', 'uuid', 'uuid', 'boolean', 'uuid'],
+  array[
+    'uuid', 'text', 'bigint', 'bigint', 'text', 'text', 'text', 'jsonb',
+    'uuid', 'uuid', 'uuid', 'boolean', 'uuid'
+  ],
   'Moderators resolve Suggestions through one atomic command'
 );
+
+create function pg_temp.resolve_place_suggestion(
+  requested_suggestion_id uuid,
+  requested_outcome text,
+  member_reason_is text,
+  member_reason_en text,
+  private_note text,
+  reviewed_payload jsonb,
+  requested_duplicate_place_id uuid,
+  requested_operator_identity_place_id uuid,
+  requested_location_identity_place_id uuid,
+  confirm_useful boolean,
+  command_request_id uuid
+)
+returns table (
+  suggestion_id uuid,
+  status text,
+  candidate_place_id uuid,
+  duplicate_place_id uuid,
+  contribution_id uuid
+)
+language plpgsql
+as $$
+declare
+  current_item_version bigint;
+  current_draft_version bigint;
+begin
+  select detail.item_version, detail.draft_version
+  into current_item_version, current_draft_version
+  from public.get_moderation_place_suggestion(requested_suggestion_id) detail;
+
+  if reviewed_payload is not null then
+    select saved.draft_version into current_draft_version
+    from public.save_place_suggestion_moderation_draft(
+      requested_suggestion_id,
+      current_item_version,
+      current_draft_version,
+      'proposal',
+      reviewed_payload,
+      gen_random_uuid()
+    ) saved;
+  end if;
+
+  return query
+  select * from public.resolve_place_suggestion(
+    requested_suggestion_id,
+    requested_outcome,
+    current_item_version,
+    current_draft_version,
+    member_reason_is,
+    member_reason_en,
+    private_note,
+    null,
+    requested_duplicate_place_id,
+    requested_operator_identity_place_id,
+    requested_location_identity_place_id,
+    confirm_useful,
+    command_request_id
+  );
+end;
+$$;
 
 select has_function(
   'public',
@@ -756,7 +820,7 @@ select is(
 
 select throws_ok(
   $$
-    select * from public.resolve_place_suggestion(
+    select * from pg_temp.resolve_place_suggestion(
       '65000000-0000-4000-8000-000000000004',
       'accepted',
       'Leiðrétt staðsetning.',
@@ -785,7 +849,7 @@ select throws_ok(
 
 select throws_ok(
   $$
-    select * from public.resolve_place_suggestion(
+    select * from pg_temp.resolve_place_suggestion(
       '65000000-0000-4000-8000-000000000004',
       'accepted',
       'Leiðrétt staðsetning.',
@@ -814,7 +878,7 @@ select throws_ok(
 
 select lives_ok(
   $$
-    select * from public.resolve_place_suggestion(
+    select * from pg_temp.resolve_place_suggestion(
       '65000000-0000-4000-8000-000000000004',
       'accepted',
       'Leiðrétt staðsetning.',
@@ -868,7 +932,7 @@ set local role authenticated;
 
 select lives_ok(
   $$
-    select * from public.resolve_place_suggestion(
+    select * from pg_temp.resolve_place_suggestion(
       (select suggestion_id from public.list_moderation_place_suggestions() where name_en = 'Garden'),
       'rejected',
       'Ekki nægar heimildir.',
@@ -919,7 +983,7 @@ set local role authenticated;
 
 select throws_ok(
   $$
-    select * from public.resolve_place_suggestion(
+    select * from pg_temp.resolve_place_suggestion(
       (select suggestion_id from public.list_moderation_place_suggestions() where name_en = 'Suggestion cafe'),
       'duplicate',
       'Staðurinn er þegar skráður.',
@@ -939,7 +1003,7 @@ select throws_ok(
 
 select lives_ok(
   $$
-    select * from public.resolve_place_suggestion(
+    select * from pg_temp.resolve_place_suggestion(
       (select suggestion_id from public.list_moderation_place_suggestions() where name_en = 'Suggestion cafe'),
       'duplicate',
       'Staðurinn er þegar skráður.',
@@ -992,7 +1056,7 @@ set local role authenticated;
 
 select throws_ok(
   $$
-    select * from public.resolve_place_suggestion(
+    select * from pg_temp.resolve_place_suggestion(
       '65000000-0000-4000-8000-000000000003',
       'accepted',
       'Tillagan var samþykkt.',
@@ -1012,7 +1076,7 @@ select throws_ok(
 
 select throws_ok(
   $$
-    select * from public.resolve_place_suggestion(
+    select * from pg_temp.resolve_place_suggestion(
       '65000000-0000-4000-8000-000000000003',
       'accepted',
       'Tillagan var samþykkt.',
@@ -1032,7 +1096,7 @@ select throws_ok(
 
 select lives_ok(
   $$
-    select * from public.resolve_place_suggestion(
+    select * from pg_temp.resolve_place_suggestion(
       '65000000-0000-4000-8000-000000000003',
       'accepted',
       'Tillagan var samþykkt.',
@@ -1190,7 +1254,7 @@ set local role authenticated;
 
 select lives_ok(
   $$
-    select * from public.resolve_place_suggestion(
+    select * from pg_temp.resolve_place_suggestion(
       '65000000-0000-4000-8000-000000000003',
       'accepted',
       'Tillagan var samþykkt.',
@@ -1233,7 +1297,7 @@ set local role authenticated;
 
 select throws_ok(
   $$
-    select * from public.resolve_place_suggestion(
+    select * from pg_temp.resolve_place_suggestion(
       '65000000-0000-4000-8000-000000000003',
       'rejected',
       'Breytt niðurstaða.',

@@ -85,6 +85,11 @@ export interface ModerationPlaceFlagSummary {
   submittedAt: string;
   updatedAt: string;
   priority: number;
+  itemVersion: number;
+  draftVersion: number;
+  draftUpdatedBy: string | null;
+  draftUpdatedAt: string | null;
+  readinessState: 'ready' | 'needs_attention';
 }
 
 export interface ModerationPlaceFlag {
@@ -119,6 +124,17 @@ export interface ModerationPlaceFlag {
   contributionId: string | null;
   submittedAt: string;
   updatedAt: string;
+  itemVersion: number;
+  draftVersion: number;
+  draftPayload: PlaceFlagModerationDraftEnvelope | null;
+  draftUpdatedBy: string | null;
+  draftUpdatedAt: string | null;
+}
+
+export interface PlaceFlagModerationDraftEnvelope {
+  application_payload?: Record<string, unknown> | null;
+  dispute_command?: Record<string, unknown> | null;
+  transition_command?: Record<string, unknown> | null;
 }
 
 export interface ModerationEvidenceSource {
@@ -138,7 +154,10 @@ export interface RelatedPlaceFlag {
 
 export type PlaceFlagCommandResult<T> =
   | { status: 'success'; value: T }
-  | { status: 'policy_unavailable' | 'rate_limited' | 'forbidden' | 'invalid' | 'conflict' }
+  | {
+      status:
+        'policy_unavailable' | 'rate_limited' | 'forbidden' | 'invalid' | 'conflict' | 'resolved';
+    }
   | { status: 'infrastructure_error' };
 
 export async function submitCorrection(
@@ -237,13 +256,15 @@ export async function listMemberPlaceFlags(
 export async function listModerationPlaceFlags(
   client: PlaceFlagRpcClient,
   cursor: ModerationPlaceFlagCursor | null = null,
-  limit = 20
+  limit = 20,
+  filter: 'actionable' | 'deferred' | 'resolved' = 'actionable'
 ): Promise<
   PlaceFlagCommandResult<PlaceFlagPage<ModerationPlaceFlagSummary, ModerationPlaceFlagCursor>>
 > {
   try {
     const pageSize = boundedPageSize(limit);
     const { data, error } = await client.rpc('list_moderation_place_flags', {
+      requested_filter: filter,
       cursor_priority: cursor?.priority ?? null,
       cursor_submitted_at: cursor?.submittedAt ?? null,
       cursor_flag_id: cursor?.flagId ?? null,
@@ -273,7 +294,12 @@ export async function listModerationPlaceFlags(
           isSafetyConcern: row.is_safety_concern,
           submittedAt: row.submitted_at,
           updatedAt: row.updated_at,
-          priority: row.priority
+          priority: row.priority,
+          itemVersion: row.item_version,
+          draftVersion: row.draft_version,
+          draftUpdatedBy: row.draft_updated_by,
+          draftUpdatedAt: row.draft_updated_at,
+          readinessState: row.readiness_state
         }),
         (row) => ({ priority: row.priority, submittedAt: row.submitted_at, flagId: row.flag_id })
       )
@@ -334,7 +360,12 @@ export async function getModerationPlaceFlag(
         transitionId: row.transition_id,
         contributionId: row.contribution_id,
         submittedAt: row.submitted_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
+        itemVersion: row.item_version,
+        draftVersion: row.draft_version,
+        draftPayload: row.draft_payload as PlaceFlagModerationDraftEnvelope | null,
+        draftUpdatedBy: row.draft_updated_by,
+        draftUpdatedAt: row.draft_updated_at
       }
     };
   } catch {
@@ -371,12 +402,11 @@ export async function listRelatedPlaceFlags(
 export interface ResolvePlaceFlagCommand {
   flagId: string;
   outcome: Exclude<PlaceFlagOutcome, 'submitted'>;
-  memberReasonIs: string;
-  memberReasonEn: string;
+  expectedItemVersion: number;
+  expectedDraftVersion: number;
+  memberReasonIs: string | null;
+  memberReasonEn: string | null;
   privateNote: string | null;
-  applicationPayload: Record<string, unknown> | null;
-  disputeCommand: Record<string, unknown> | null;
-  transitionCommand: Record<string, unknown> | null;
 }
 
 export async function resolvePlaceFlag(
@@ -394,15 +424,17 @@ export async function resolvePlaceFlag(
     const { data, error } = await client.rpc('resolve_place_flag', {
       requested_flag_id: command.flagId,
       requested_outcome: command.outcome,
+      expected_item_version: command.expectedItemVersion,
+      expected_draft_version: command.expectedDraftVersion,
       member_reason_is: command.memberReasonIs,
       member_reason_en: command.memberReasonEn,
       private_note: command.privateNote,
-      application_payload: command.applicationPayload as unknown as Json,
-      dispute_command: command.disputeCommand as unknown as Json,
-      transition_command: command.transitionCommand as unknown as Json,
+      application_payload: null,
+      dispute_command: null,
+      transition_command: null,
       command_request_id: requestId
     });
-    if (error) return { status: mapError(error.code) };
+    if (error) return { status: mapResolutionError(error.code) };
     if (!Array.isArray(data) || data.length !== 1 || !isResolutionRow(data[0])) {
       return { status: 'infrastructure_error' };
     }
@@ -446,12 +478,17 @@ function mapError(
   code: string | undefined
 ): Exclude<PlaceFlagCommandResult<never>['status'], 'success'> {
   if (code === '55000') return 'policy_unavailable';
-  if (code === '55006' || code === '23505') return 'conflict';
+  if (code === '55006' || code === '23505' || code === '40001') return 'conflict';
   if (code === '54000') return 'rate_limited';
   if (code === '42501') return 'forbidden';
   if (code === '22023') return 'invalid';
-  if (code === '40001') return 'conflict';
   return 'infrastructure_error';
+}
+
+function mapResolutionError(
+  code: string | undefined
+): Exclude<PlaceFlagCommandResult<never>['status'], 'success'> {
+  return code === '55006' ? 'resolved' : mapError(code);
 }
 
 function isOutcome(value: unknown): value is PlaceFlagOutcome {
@@ -571,6 +608,11 @@ function isModerationRow(value: unknown): value is Record<string, unknown> & {
   submitted_at: string;
   updated_at: string;
   priority: number;
+  item_version: number;
+  draft_version: number;
+  draft_updated_by: string | null;
+  draft_updated_at: string | null;
+  readiness_state: 'ready' | 'needs_attention';
 } {
   return (
     isRecord(value) &&
@@ -588,7 +630,12 @@ function isModerationRow(value: unknown): value is Record<string, unknown> & {
     typeof value.is_safety_concern === 'boolean' &&
     typeof value.submitted_at === 'string' &&
     typeof value.updated_at === 'string' &&
-    Number.isInteger(value.priority)
+    Number.isInteger(value.priority) &&
+    Number.isInteger(value.item_version) &&
+    Number.isInteger(value.draft_version) &&
+    isStringOrNull(value.draft_updated_by) &&
+    isStringOrNull(value.draft_updated_at) &&
+    (value.readiness_state === 'ready' || value.readiness_state === 'needs_attention')
   );
 }
 
@@ -624,6 +671,11 @@ function isModerationDetailRow(value: unknown): value is Record<string, unknown>
   contribution_id: string | null;
   submitted_at: string;
   updated_at: string;
+  item_version: number;
+  draft_version: number;
+  draft_payload: Record<string, unknown> | null;
+  draft_updated_by: string | null;
+  draft_updated_at: string | null;
 } {
   return (
     isRecord(value) &&
@@ -659,7 +711,12 @@ function isModerationDetailRow(value: unknown): value is Record<string, unknown>
     isStringOrNull(value.transition_id) &&
     isStringOrNull(value.contribution_id) &&
     typeof value.submitted_at === 'string' &&
-    typeof value.updated_at === 'string'
+    typeof value.updated_at === 'string' &&
+    Number.isInteger(value.item_version) &&
+    Number.isInteger(value.draft_version) &&
+    (value.draft_payload === null || isRecord(value.draft_payload)) &&
+    isStringOrNull(value.draft_updated_by) &&
+    isStringOrNull(value.draft_updated_at)
   );
 }
 

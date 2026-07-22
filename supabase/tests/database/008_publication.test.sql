@@ -305,6 +305,8 @@ select throws_ok(
       '{
         "place_id":"33000000-0000-4000-8000-000000000001",
         "expected_version":1,
+        "expected_item_version":1,
+        "expected_draft_version":0,
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000001","evidence_ids":["53000000-0000-4000-8000-000000000001"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{"basis":"contract"}
@@ -357,6 +359,8 @@ select throws_ok(
       '{
         "place_id":"33000000-0000-4000-8000-000000000002",
         "expected_version":1,
+        "expected_item_version":1,
+        "expected_draft_version":0,
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000002","evidence_ids":["53000000-0000-4000-8000-000000000001"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{}
@@ -392,6 +396,8 @@ select throws_ok(
       '{
         "place_id":"33000000-0000-4000-8000-000000000003",
         "expected_version":1,
+        "expected_item_version":1,
+        "expected_draft_version":0,
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000003","evidence_ids":["53000000-0000-4000-8000-000000000001"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{}
@@ -411,6 +417,8 @@ select throws_ok(
       '{
         "place_id":"33000000-0000-4000-8000-000000000001",
         "expected_version":2,
+        "expected_item_version":1,
+        "expected_draft_version":0,
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000001","evidence_ids":["53000000-0000-4000-8000-000000000001"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{}
@@ -430,6 +438,8 @@ select throws_ok(
       '{
         "place_id":"33000000-0000-4000-8000-000000000001",
         "expected_version":1,
+        "expected_item_version":1,
+        "expected_draft_version":0,
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000001","evidence_ids":[]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{}
@@ -449,6 +459,8 @@ select throws_ok(
       '{
         "place_id":"33000000-0000-4000-8000-000000000001",
         "expected_version":1,
+        "expected_item_version":1,
+        "expected_draft_version":0,
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000001","evidence_ids":["53000000-0000-4000-8000-000000000004"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{}
@@ -468,6 +480,8 @@ select throws_ok(
       '{
         "place_id":"33000000-0000-4000-8000-000000000004",
         "expected_version":1,
+        "expected_item_version":1,
+        "expected_draft_version":0,
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000004","evidence_ids":["53000000-0000-4000-8000-000000000004"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{"basis":"rollback"}
@@ -534,6 +548,8 @@ select lives_ok(
       '{
         "place_id":"33000000-0000-4000-8000-000000000001",
         "expected_version":1,
+        "expected_item_version":1,
+        "expected_draft_version":0,
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000001","evidence_ids":["53000000-0000-4000-8000-000000000001"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{"basis":"official_source"}

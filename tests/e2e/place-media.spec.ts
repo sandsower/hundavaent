@@ -8,6 +8,7 @@ import {
   waitForLocalMagicLink
 } from './support/local-supabase';
 import { fixturePngFile } from './support/fixture-image';
+import { waitForHydration } from './support/hydration';
 
 const moderatorEmail = 'place-media-moderator@example.invalid';
 const candidate = {
@@ -80,7 +81,9 @@ test('a Moderator uploads Evidence and a Photo, approves the Photo, and it rende
 
   await page.getByRole('link', { name: 'Review Place' }).click();
   await expect(page).toHaveURL(`/en/moderation/places/${candidateId}`);
-  await expect(page.getByRole('heading', { name: 'Media', exact: true })).toBeVisible();
+  const mediaSection = page.locator('#candidate-media');
+  await mediaSection.locator('summary').click();
+  await expect(mediaSection).toHaveAttribute('open', '');
 
   // --- Evidence screenshot, uploaded while the Place is still a Candidate. ---
   const evidenceColumn = page.locator('[data-media-column="evidence"]');
@@ -106,9 +109,15 @@ test('a Moderator uploads Evidence and a Photo, approves the Photo, and it rende
     .getAttribute('data-storage-object-path');
 
   // --- Publish the Place through the existing checklist form. ---
+  const publicationSection = page.locator('#publication-evidence');
+  await publicationSection.locator('summary').click();
+  await expect(publicationSection).toHaveAttribute('open', '');
   const conditionGroup = page.getByRole('group', { name: /Evidence supporting condition/ });
   await conditionGroup.getByLabel(candidate.evidenceSourceLabel).check();
   await page.getByRole('button', { name: 'Verify and publish' }).click();
+  const publishDialog = page.getByRole('dialog', { name: 'Publish this Place?' });
+  await expect(publishDialog).toBeVisible();
+  await publishDialog.getByRole('button', { name: 'Verify and publish' }).click();
   await expect(page.getByText('The Place has been published.')).toBeVisible();
 
   // --- Photo, uploaded after publication. ---
@@ -169,6 +178,9 @@ test('a Moderator uploads Evidence and a Photo, approves the Photo, and it rende
 
   // --- Retiring the Photo removes it from the public profile immediately. ---
   await page.goto(`/en/moderation/places/${candidateId}`);
+  await waitForHydration(page);
+  await mediaSection.locator('summary').click();
+  await expect(mediaSection).toHaveAttribute('open', '');
   const retirePhotoItem = page.locator('[data-media-column="photo"] li[data-media-item]').first();
   await retirePhotoItem.getByRole('button', { name: 'Retire' }).click();
   await expect(page.getByText('Media retired.')).toBeVisible();

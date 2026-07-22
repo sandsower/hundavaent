@@ -65,6 +65,11 @@ export interface ModerationSuggestionSummary {
   submittedAt: string;
   updatedAt: string;
   queueRank: number;
+  itemVersion: number;
+  draftVersion: number;
+  draftUpdatedBy: string | null;
+  draftUpdatedAt: string | null;
+  readinessState: 'ready' | 'blocked';
 }
 
 export interface ModerationSuggestion {
@@ -81,6 +86,12 @@ export interface ModerationSuggestion {
   updatedAt: string;
   proposal: SuggestionProposal;
   reviewedProposal: SuggestionProposal | null;
+  draftProposal: SuggestionProposal | null;
+  effectiveProposal: SuggestionProposal;
+  itemVersion: number;
+  draftVersion: number;
+  draftUpdatedBy: string | null;
+  draftUpdatedAt: string | null;
   privateNote: string | null;
   contributionId: string | null;
   operatorIdentityPlaceId: string | null;
@@ -101,7 +112,10 @@ export interface SuggestionPlaceMatch {
 
 export type SuggestionCommandResult<T> =
   | { status: 'success'; value: T }
-  | { status: 'policy_unavailable' | 'rate_limited' | 'forbidden' | 'invalid' | 'conflict' }
+  | {
+      status:
+        'policy_unavailable' | 'rate_limited' | 'forbidden' | 'invalid' | 'conflict' | 'resolved';
+    }
   | { status: 'infrastructure_error' };
 
 export async function submitSuggestion(
@@ -177,13 +191,15 @@ export async function listMemberSuggestions(
 export async function listModerationSuggestions(
   client: SuggestionRpcClient,
   cursor: ModerationSuggestionCursor | null = null,
-  limit = 20
+  limit = 20,
+  filter: 'actionable' | 'deferred' | 'resolved' = 'actionable'
 ): Promise<
   SuggestionCommandResult<SuggestionPage<ModerationSuggestionSummary, ModerationSuggestionCursor>>
 > {
   try {
     const pageSize = boundedPageSize(limit);
     const { data, error } = await client.rpc('list_moderation_place_suggestions', {
+      requested_filter: filter,
       cursor_queue_rank: cursor?.queueRank ?? null,
       cursor_submitted_at: cursor?.submittedAt ?? null,
       cursor_suggestion_id: cursor?.suggestionId ?? null,
@@ -210,7 +226,12 @@ export async function listModerationSuggestions(
           locality: row.locality,
           submittedAt: row.submitted_at,
           updatedAt: row.updated_at,
-          queueRank: row.queue_rank
+          queueRank: row.queue_rank,
+          itemVersion: row.item_version,
+          draftVersion: row.draft_version,
+          draftUpdatedBy: row.draft_updated_by,
+          draftUpdatedAt: row.draft_updated_at,
+          readinessState: row.readiness_state
         }),
         (row) => ({
           queueRank: row.queue_rank,
@@ -254,6 +275,14 @@ export async function getModerationSuggestion(
         updatedAt: row.updated_at,
         proposal: row.proposal as unknown as SuggestionProposal,
         reviewedProposal: row.reviewed_proposal as unknown as SuggestionProposal | null,
+        draftProposal: row.draft_payload as unknown as SuggestionProposal | null,
+        effectiveProposal: (row.reviewed_proposal ??
+          row.draft_payload ??
+          row.proposal) as unknown as SuggestionProposal,
+        itemVersion: row.item_version,
+        draftVersion: row.draft_version,
+        draftUpdatedBy: row.draft_updated_by,
+        draftUpdatedAt: row.draft_updated_at,
         privateNote: row.private_note,
         contributionId: row.contribution_id,
         operatorIdentityPlaceId: row.operator_identity_place_id,
@@ -306,10 +335,11 @@ export async function resolveSuggestion(
   command: {
     suggestionId: string;
     outcome: Exclude<SuggestionOutcome, 'submitted'>;
-    memberReasonIs: string;
-    memberReasonEn: string;
+    expectedItemVersion: number;
+    expectedDraftVersion: number;
+    memberReasonIs: string | null;
+    memberReasonEn: string | null;
     privateNote: string | null;
-    candidatePayload: SuggestionProposal | null;
     duplicatePlaceId: string | null;
     operatorIdentityPlaceId: string | null;
     locationIdentityPlaceId: string | null;
@@ -321,17 +351,19 @@ export async function resolveSuggestion(
     const { data, error } = await client.rpc('resolve_place_suggestion', {
       requested_suggestion_id: command.suggestionId,
       requested_outcome: command.outcome,
+      expected_item_version: command.expectedItemVersion,
+      expected_draft_version: command.expectedDraftVersion,
       member_reason_is: command.memberReasonIs,
       member_reason_en: command.memberReasonEn,
       private_note: command.privateNote,
-      moderator_candidate_payload: command.candidatePayload as unknown as Json,
+      moderator_candidate_payload: null,
       requested_duplicate_place_id: command.duplicatePlaceId,
       requested_operator_identity_place_id: command.operatorIdentityPlaceId,
       requested_location_identity_place_id: command.locationIdentityPlaceId,
       confirm_useful: command.confirmUseful,
       command_request_id: requestId
     });
-    if (error) return { status: mapError(error.code) };
+    if (error) return { status: mapResolutionError(error.code) };
     if (!Array.isArray(data) || data.length !== 1 || !isResolutionRow(data[0])) {
       return { status: 'infrastructure_error' };
     }
@@ -371,11 +403,17 @@ function mapError(
   code: string | undefined
 ): Exclude<SuggestionCommandResult<never>['status'], 'success'> {
   if (code === '55000') return 'policy_unavailable';
-  if (code === '55006' || code === '23505') return 'conflict';
+  if (code === '55006' || code === '23505' || code === '40001') return 'conflict';
   if (code === '54000') return 'rate_limited';
   if (code === '42501') return 'forbidden';
   if (code === '22023') return 'invalid';
   return 'infrastructure_error';
+}
+
+function mapResolutionError(
+  code: string | undefined
+): Exclude<SuggestionCommandResult<never>['status'], 'success'> {
+  return code === '55006' ? 'resolved' : mapError(code);
 }
 
 function isOutcome(value: unknown): value is SuggestionOutcome {
@@ -475,6 +513,11 @@ function isModerationRow(value: unknown): value is Record<string, unknown> & {
   submitted_at: string;
   updated_at: string;
   queue_rank: number;
+  item_version: number;
+  draft_version: number;
+  draft_updated_by: string | null;
+  draft_updated_at: string | null;
+  readiness_state: 'ready' | 'blocked';
 } {
   return (
     isRecord(value) &&
@@ -489,7 +532,12 @@ function isModerationRow(value: unknown): value is Record<string, unknown> & {
     typeof value.locality === 'string' &&
     typeof value.submitted_at === 'string' &&
     typeof value.updated_at === 'string' &&
-    Number.isInteger(value.queue_rank)
+    Number.isInteger(value.queue_rank) &&
+    Number.isInteger(value.item_version) &&
+    Number.isInteger(value.draft_version) &&
+    isStringOrNull(value.draft_updated_by) &&
+    isStringOrNull(value.draft_updated_at) &&
+    (value.readiness_state === 'ready' || value.readiness_state === 'blocked')
   );
 }
 
@@ -511,6 +559,11 @@ function isModerationDetailRow(value: unknown): value is Record<string, unknown>
   contribution_id: string | null;
   operator_identity_place_id: string | null;
   location_identity_place_id: string | null;
+  item_version: number;
+  draft_version: number;
+  draft_payload: Record<string, unknown> | null;
+  draft_updated_by: string | null;
+  draft_updated_at: string | null;
 } {
   return (
     isRecord(value) &&
@@ -530,7 +583,12 @@ function isModerationDetailRow(value: unknown): value is Record<string, unknown>
     isStringOrNull(value.private_note) &&
     isStringOrNull(value.contribution_id) &&
     isStringOrNull(value.operator_identity_place_id) &&
-    isStringOrNull(value.location_identity_place_id)
+    isStringOrNull(value.location_identity_place_id) &&
+    Number.isInteger(value.item_version) &&
+    Number.isInteger(value.draft_version) &&
+    (value.draft_payload === null || isRecord(value.draft_payload)) &&
+    isStringOrNull(value.draft_updated_by) &&
+    isStringOrNull(value.draft_updated_at)
   );
 }
 

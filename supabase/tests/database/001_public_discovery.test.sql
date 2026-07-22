@@ -25,6 +25,26 @@ where place_id in (
   '30000000-0000-4000-8000-000000000003'
 );
 
+alter table private.candidate_review_events
+  disable trigger candidate_review_events_reject_row_mutation;
+
+delete from private.candidate_review_events
+where place_id in (
+  '30000000-0000-4000-8000-000000000001',
+  '30000000-0000-4000-8000-000000000002',
+  '30000000-0000-4000-8000-000000000003'
+);
+
+alter table private.candidate_review_events
+  enable trigger candidate_review_events_reject_row_mutation;
+
+delete from private.candidate_reviews
+where place_id in (
+  '30000000-0000-4000-8000-000000000001',
+  '30000000-0000-4000-8000-000000000002',
+  '30000000-0000-4000-8000-000000000003'
+);
+
 delete from private.places
 where id in (
   '30000000-0000-4000-8000-000000000001',

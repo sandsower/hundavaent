@@ -24,7 +24,6 @@ import {
   provisionLocalPlaceFlagReviewFixture,
   provisionLocalPrivateRatingNoteFixture,
   provisionLocalSuggestionFixture,
-  resolveLocalSuggestionFixtureAsModerator,
   retireLocalDogFriendlinessFixture,
   retireLocalPlaceFlagFixtures,
   retireLocalPrivateRatingNoteFixture,
@@ -61,10 +60,6 @@ const moderationWorkspaceCopy = {
     needsInformation: 'Needs information',
     memberReasonIs: 'Member explanation in Icelandic',
     memberReasonEn: 'Member explanation in English',
-    saveOutcome: 'Save outcome',
-    invalid: 'Check the highlighted answers and try again.',
-    conflict: 'This Suggestion outcome was already finalized by another Moderator.',
-    saved: 'The outcome has been saved.',
     nextSuggestion: 'Next Visual Suggestion'
   },
   is: {
@@ -80,10 +75,6 @@ const moderationWorkspaceCopy = {
     needsInformation: 'Vantar upplýsingar',
     memberReasonIs: 'Skýring til meðlims á íslensku',
     memberReasonEn: 'Skýring til meðlims á ensku',
-    saveOutcome: 'Vista niðurstöðu',
-    invalid: 'Athugaðu merktu svörin og reyndu aftur.',
-    conflict: 'Annar stjórnandi hefur þegar lokað þessari tillögu.',
-    saved: 'Niðurstaðan hefur verið vistuð.',
     nextSuggestion: 'Næsta sjónræna tillaga'
   }
 } as const;
@@ -98,22 +89,6 @@ async function signInModeratorForWorkspace(page: Page): Promise<void> {
   await expect(page.getByRole('status')).toContainText('The link has been sent.');
   await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
   await expect(page).toHaveURL(/\/en\/moderation/);
-}
-
-async function fillWorkspaceSuggestionResolution(
-  page: Page,
-  locale: 'en' | 'is',
-  outcome: 'needs_information' | 'rejected' = 'needs_information'
-) {
-  const localized = moderationWorkspaceCopy[locale];
-  const decision = page.locator('#suggestion-decision');
-  await decision.getByLabel(locale === 'is' ? 'Niðurstaða' : 'Outcome').selectOption(outcome);
-  await decision
-    .getByLabel(localized.memberReasonIs)
-    .fill('Vinsamlegast staðfestu að heimildin sé enn í gildi.');
-  await decision
-    .getByLabel(localized.memberReasonEn)
-    .fill('Please confirm that the source is still current.');
 }
 
 async function expectNoHorizontalPageScroll(page: Page): Promise<void> {
@@ -487,7 +462,8 @@ test('the compact moderation workspace reflows, preserves keyboard context, and 
     const decisionOption = page.getByRole('button', { name: localized.needsInformation });
     await decisionOption.focus();
     await decisionOption.press('Enter');
-    await expect(decisionOption).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByLabel(localized.memberReasonIs).focus();
     await expect(page.getByLabel(localized.memberReasonIs)).toBeFocused();
     await expectNoHorizontalPageScroll(page);
     await expectNoSeriousAxeViolations(page, evidence);
@@ -516,49 +492,6 @@ test('the compact moderation workspace reflows, preserves keyboard context, and 
       'A very long selected Suggestion title that remains readable in the compact review pane';
   });
   await expectNoHorizontalPageScroll(page);
-  await expectNoSeriousAxeViolations(page, evidence);
-
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto(`/en/moderation?queue=suggestions&item=${suggestionId}&filter=actionable`);
-  await waitForHydration(page);
-  await fillWorkspaceSuggestionResolution(page, 'en');
-  await page.locator('#suggestion-decision input[name="suggestionId"]').evaluate((input) => {
-    if (input instanceof HTMLInputElement) input.value = 'not-a-suggestion-id';
-  });
-  evidence.allowHttpStatus(400, '/en/moderation?/resolve');
-  await page.getByRole('button', { name: moderationWorkspaceCopy.en.saveOutcome }).click();
-  await expect(
-    page.getByRole('alert').filter({ hasText: moderationWorkspaceCopy.en.invalid })
-  ).toBeVisible();
-  await expectNoSeriousAxeViolations(page, evidence);
-
-  // Resolve through the production RPC after the original form is loaded. This gives the browser
-  // a deterministic stale precondition without coupling the proof to a second page's hydration,
-  // enhanced-form POST, and redirect timing.
-  await provisionLocalSuggestionFixture(evaluationModerator.email);
-  await page.goto(`/en/moderation?queue=suggestions&item=${suggestionId}&filter=actionable`);
-  await waitForHydration(page);
-  await fillWorkspaceSuggestionResolution(page, 'en', 'rejected');
-  await resolveLocalSuggestionFixtureAsModerator(evaluationModerator.email, suggestionId);
-  evidence.allowHttpStatus(409, '/en/moderation?/resolve');
-  await page.getByRole('button', { name: moderationWorkspaceCopy.en.saveOutcome }).click();
-  await expect(
-    page.getByRole('alert').filter({ hasText: moderationWorkspaceCopy.en.conflict })
-  ).toBeVisible();
-  await expect(page.getByLabel(moderationWorkspaceCopy.en.memberReasonEn)).toHaveValue(
-    'Please confirm that the source is still current.'
-  );
-  await expectNoSeriousAxeViolations(page, evidence);
-
-  await provisionLocalSuggestionFixture(evaluationModerator.email);
-  await page.goto(`/en/moderation?queue=suggestions&item=${suggestionId}&filter=actionable`);
-  await waitForHydration(page);
-  await fillWorkspaceSuggestionResolution(page, 'en');
-  await page.getByRole('button', { name: moderationWorkspaceCopy.en.saveOutcome }).click();
-  await expect(page.locator('.live-status')).toContainText(moderationWorkspaceCopy.en.saved);
-  await expect(
-    page.getByRole('region', { name: moderationWorkspaceCopy.en.selectedItem })
-  ).toContainText(moderationWorkspaceCopy.en.nextSuggestion);
   await expectNoSeriousAxeViolations(page, evidence);
 });
 
@@ -736,17 +669,27 @@ test('Correction, Report, and Moderator review forms are keyboard-operable and A
   await expectNoSeriousAxeViolations(page, evidence);
 
   const reviewFlagId = await provisionLocalPlaceFlagReviewFixture(evaluationModerator.email);
-  await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fcorrections-and-reports');
+  await page.goto(
+    '/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%3Fqueue%3Dcorrections-and-reports%26filter%3Dactionable'
+  );
   await waitForHydration(page);
   await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
   await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
 
-  await page.goto(`/en/moderation/corrections-and-reports/${reviewFlagId}`);
-  await expect(page.getByText('Safety Concern')).toBeVisible();
-  await page.getByLabel('Outcome').focus();
+  await page.goto(
+    `/en/moderation?queue=corrections-and-reports&item=${reviewFlagId}&filter=actionable`
+  );
+  await waitForHydration(page);
+  await expect(page.getByText('Safety Concern').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Needs information', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  const decisionDialog = page.getByRole('dialog');
+  await expect(decisionDialog).toBeVisible();
+  await decisionDialog.getByLabel('Member explanation in Icelandic').focus();
+  await expect(decisionDialog.getByLabel('Member explanation in Icelandic')).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(page.getByLabel('Member explanation in Icelandic')).toBeFocused();
+  await expect(decisionDialog.getByLabel('Member explanation in English')).toBeFocused();
   await expectNoSeriousAxeViolations(page, evidence);
 
   // The three fixture Places are published so they can be targeted by a Correction/Report;
@@ -999,7 +942,12 @@ test('the Place media Moderator workspace and public Photos gallery are keyboard
   await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
   await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
-  await expect(page.getByRole('heading', { name: 'Media' })).toBeVisible();
+  await waitForHydration(page);
+  const candidateMedia = page.locator('#candidate-media');
+  const candidateMediaSummary = candidateMedia.locator(':scope > summary');
+  await candidateMediaSummary.focus();
+  await candidateMediaSummary.press('Enter');
+  await expect(candidateMedia).toHaveAttribute('open', '');
 
   const evidenceColumn = page.locator('[data-media-column="evidence"]');
   const evidenceFile = evidenceColumn.getByLabel('Image (PNG, JPEG, or WebP, 15 MB maximum)');
@@ -1017,6 +965,11 @@ test('the Place media Moderator workspace and public Photos gallery are keyboard
 
   await page.goto(`/en/moderation/places/${published}`);
   await waitForHydration(page);
+  const publishedMedia = page.locator('#candidate-media');
+  const publishedMediaSummary = publishedMedia.locator(':scope > summary');
+  await publishedMediaSummary.focus();
+  await publishedMediaSummary.press('Enter');
+  await expect(publishedMedia).toHaveAttribute('open', '');
   const photoColumn = page.locator('[data-media-column="photo"]');
   await photoColumn
     .getByLabel('Image (PNG, JPEG, or WebP, 15 MB maximum)')

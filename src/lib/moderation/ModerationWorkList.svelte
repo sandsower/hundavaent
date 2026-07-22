@@ -3,6 +3,7 @@
 
   import {
     buildModerationWorkspaceHref,
+    moderationFilterIds,
     type ModerationFilterId,
     type ModerationQueueId,
     type ModerationWorkItem
@@ -43,6 +44,11 @@
   const previousCursor = $derived(cursorTrail.at(-1) ?? null);
   const previousTrail = $derived(cursorTrail.slice(0, -1));
   const nextTrail = $derived([...cursorTrail, cursor]);
+  const filterLabels = {
+    actionable: 'moderation.workspace.filter.actionable',
+    deferred: 'moderation.workspace.filter.deferred',
+    resolved: 'moderation.workspace.filter.resolved'
+  } as const;
 </script>
 
 <section class="work-list" aria-label={copy['moderation.workspace.selectedQueueLabel']}>
@@ -53,9 +59,21 @@
       <h2>{activeQueueLabel}</h2>
       <span>{copy['moderation.workspace.openCount'].replace('{count}', String(activeCount))}</span>
     </div>
+    <nav class="filters" aria-label={copy['moderation.workspace.filter.label']}>
+      {#each moderationFilterIds as filter (filter)}
+        <a
+          class:active={filters.includes(filter)}
+          aria-current={filters.includes(filter) ? 'page' : undefined}
+          href={buildModerationWorkspaceHref(baseHref, {
+            queue: activeQueueId,
+            filters: [filter]
+          })}>{copy[filterLabels[filter]]}</a
+        >
+      {/each}
+    </nav>
   </header>
 
-  <div class="items">
+  <div class="items" data-work-list-scroll>
     {#if errorMessage}
       <div class="error" role="alert">
         <strong>{copy['moderation.workspace.errorTitle']}</strong>
@@ -134,14 +152,16 @@
 
 <style>
   .work-list {
+    display: grid;
     min-width: 0;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    overflow: hidden;
     border-right: 1px solid var(--hv-border-subtle);
     background: var(--hv-color-snow-raised);
   }
   header {
-    position: sticky;
     z-index: 2;
-    top: 0;
     border-bottom: 1px solid var(--hv-border-subtle);
     background: var(--hv-color-snow-raised);
     padding: 1rem;
@@ -151,6 +171,26 @@
     gap: 0.7rem;
     align-items: baseline;
     justify-content: space-between;
+  }
+  .filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
+    margin-top: 0.75rem;
+  }
+  .filters a {
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-control);
+    padding: 0.42rem 0.3rem;
+    color: var(--hv-color-basalt);
+    font-size: 0.72rem;
+    font-weight: 850;
+    text-align: center;
+    text-decoration: none;
+  }
+  .filters a.active {
+    border-color: var(--hv-color-basalt);
+    background: var(--hv-color-signal);
   }
   h2,
   h3,
@@ -180,6 +220,12 @@
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+  .items {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
   li + li {
     border-top: 1px solid var(--hv-border-subtle);
@@ -270,18 +316,14 @@
   .pagination a:last-child {
     margin-left: auto;
   }
-  @media (max-width: 44rem) {
+  @media (max-width: 60rem) {
     .work-list {
       border-right: 0;
+    }
+  }
+  @media (max-width: 44rem) {
+    .work-list {
       border-bottom: 1px solid var(--hv-border-subtle);
-    }
-    header {
-      position: static;
-    }
-    .items {
-      max-height: 15rem;
-      overflow-y: auto;
-      overscroll-behavior: contain;
     }
   }
 </style>

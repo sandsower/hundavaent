@@ -3,11 +3,26 @@ import { env } from '$env/dynamic/public';
 import { isWheelchairAccessibility } from '$domain/place';
 import type { RequestSupabaseClient } from '$server/db/clients';
 import {
+  isCandidateDraftSectionId,
+  parseCandidateDraftSectionPatch,
+  type CandidateDraftSectionId
+} from '$server/moderation/candidate-draft-input';
+import {
   listModerationCandidatePlaces,
   type CandidateQueueCursor,
   type CandidateQueueRpcClient,
   type ModerationCandidatePlace
 } from '$server/moderation/candidate-queue';
+import {
+  isCandidateDecisionOutcome,
+  isCandidateRejectionReasonCode,
+  type CandidateRejectionReasonCode,
+  type ModerationFilterId
+} from '$server/moderation/moderation-contract';
+import {
+  decideCandidatePlace,
+  saveCandidateModerationDraft
+} from '$server/moderation/moderation-drafts';
 import {
   getCandidatePublicationReview,
   updateCandidatePlaceLocation,
@@ -75,14 +90,16 @@ export type ModerationCandidateActionError =
   | 'invalid'
   | 'incomplete'
   | 'conflict'
-  | 'already_published'
+  | 'not_publishable'
   | 'forbidden'
   | 'unavailable'
   | 'media_incomplete'
   | 'media_invalid'
   | 'media_file_type'
   | 'media_file_size'
-  | 'media_upload';
+  | 'media_upload'
+  | 'resolved'
+  | 'confirmation_required';
 
 export interface ModerationCandidateActionContext {
   readonly client: RequestSupabaseClient;
@@ -97,6 +114,15 @@ export type ModerationCandidateActionResult =
       readonly terminal: boolean;
       readonly effect:
         | { readonly kind: 'published'; readonly publishedAt: string }
+        | {
+            readonly kind: 'draft_saved';
+            readonly sectionId: CandidateDraftSectionId;
+            readonly draftVersion: number;
+          }
+        | {
+            readonly kind: 'needs_information' | 'rejected' | 'reopened';
+            readonly itemVersion: number;
+          }
         | {
             readonly kind:
               | 'location_corrected'
@@ -114,6 +140,8 @@ export type ModerationCandidateActionResult =
       readonly httpStatus: 400 | 403 | 409 | 502 | 503;
       readonly error: ModerationCandidateActionError;
     };
+
+export type { CandidateDraftSectionId } from '$server/moderation/candidate-draft-input';
 
 export function parseModerationCandidateQueueCursor(
   params: URLSearchParams
@@ -135,9 +163,10 @@ export function parseModerationCandidateQueueCursor(
 
 export async function loadModerationCandidateQueue(
   client: CandidateQueueRpcClient,
+  filter: ModerationFilterId,
   cursorState: ModerationCandidateQueueCursorState
 ): Promise<CandidateWorkspaceLoadResult<ModerationCandidateQueueData>> {
-  const result = await listModerationCandidatePlaces(client, cursorState.cursor);
+  const result = await listModerationCandidatePlaces(client, filter, cursorState.cursor);
   if (result.status !== 'success') return { status: result.status };
 
   return {
@@ -209,6 +238,76 @@ export async function executeModerationCandidateAction(
     case 'retireMedia':
       return retireCandidateMedia(context);
   }
+}
+
+export async function saveCandidateDraftSection(
+  context: ModerationCandidateActionContext
+): Promise<ModerationCandidateActionResult> {
+  if (String(context.formData.get('placeId') ?? '').trim() !== context.placeId) {
+    return failure(400, 'invalid');
+  }
+  const command = readCandidateDraftCommand(context);
+  if (!command) return failure(400, 'incomplete');
+
+  const result = await saveCandidateModerationDraft(
+    context.client as unknown as Parameters<typeof saveCandidateModerationDraft>[0],
+    command
+  );
+  if (result.status === 'success') {
+    return {
+      status: 'confirmed',
+      terminal: false,
+      effect: {
+        kind: 'draft_saved',
+        sectionId: command.sectionId,
+        draftVersion: result.value.version
+      }
+    };
+  }
+  if (result.status === 'conflict') return failure(409, 'conflict');
+  if (result.status === 'resolved') return failure(409, 'resolved');
+  if (result.status === 'forbidden') return failure(403, 'forbidden');
+  if (result.status === 'invalid') return failure(400, 'invalid');
+  return failure(503, 'unavailable');
+}
+
+export async function executeCandidateDecision(
+  context: ModerationCandidateActionContext
+): Promise<ModerationCandidateActionResult> {
+  if (String(context.formData.get('placeId') ?? '').trim() !== context.placeId) {
+    return failure(400, 'invalid');
+  }
+  const command = readCandidateDecisionCommand(context);
+  if (!command) return failure(400, 'incomplete');
+  if (
+    command.outcome === 'rejected' &&
+    String(context.formData.get('confirmedDecision') ?? '') !== 'rejected'
+  ) {
+    return failure(400, 'confirmation_required');
+  }
+
+  const result = await decideCandidatePlace(
+    context.client as unknown as Parameters<typeof decideCandidatePlace>[0],
+    command
+  );
+  if (result.status === 'success') {
+    const kind =
+      command.outcome === 'reopen'
+        ? 'reopened'
+        : command.outcome === 'rejected'
+          ? 'rejected'
+          : 'needs_information';
+    return {
+      status: 'confirmed',
+      terminal: true,
+      effect: { kind, itemVersion: result.value.itemVersion }
+    };
+  }
+  if (result.status === 'conflict') return failure(409, 'conflict');
+  if (result.status === 'resolved') return failure(409, 'resolved');
+  if (result.status === 'forbidden') return failure(403, 'forbidden');
+  if (result.status === 'invalid') return failure(400, 'invalid');
+  return failure(503, 'unavailable');
 }
 
 async function updateCandidateWheelchairAccessibility(
@@ -283,7 +382,7 @@ async function publishCandidate(
     };
   }
   if (result.status === 'stale') return failure(409, 'conflict');
-  if (result.status === 'already_published') return failure(409, 'already_published');
+  if (result.status === 'not_publishable') return failure(409, 'not_publishable');
   if (result.status === 'forbidden') return failure(403, 'forbidden');
   if (result.status === 'incomplete') return failure(400, 'incomplete');
   return failure(503, 'unavailable');
@@ -407,8 +506,85 @@ function failure(
   return { status: 'failure', terminal: false, httpStatus, error };
 }
 
+function readCandidateDraftCommand(context: ModerationCandidateActionContext) {
+  const expectedItemVersion = Number(context.formData.get('expectedItemVersion'));
+  const expectedDraftVersion = Number(context.formData.get('expectedDraftVersion'));
+  const sectionId = String(context.formData.get('sectionId') ?? '').trim();
+  if (
+    !Number.isInteger(expectedItemVersion) ||
+    expectedItemVersion < 1 ||
+    !Number.isInteger(expectedDraftVersion) ||
+    expectedDraftVersion < 0 ||
+    !isCandidateDraftSectionId(sectionId)
+  ) {
+    return null;
+  }
+
+  const sectionPayload = parseCandidateDraftSectionPatch(sectionId, context.formData);
+  if (!sectionPayload) return null;
+
+  return {
+    placeId: context.placeId,
+    expectedItemVersion,
+    expectedDraftVersion,
+    sectionId,
+    payload: sectionPayload,
+    requestId: context.requestId
+  };
+}
+
+function readCandidateDecisionCommand(context: ModerationCandidateActionContext) {
+  const outcome = String(context.formData.get('decision') ?? '').trim();
+  const expectedItemVersion = Number(context.formData.get('expectedItemVersion'));
+  const expectedDraftVersion = Number(context.formData.get('expectedDraftVersion'));
+  if (
+    !isCandidateDecisionOutcome(outcome) ||
+    !Number.isInteger(expectedItemVersion) ||
+    expectedItemVersion < 1 ||
+    !Number.isInteger(expectedDraftVersion) ||
+    expectedDraftVersion < 0
+  ) {
+    return null;
+  }
+  if (outcome === 'reopen') {
+    return {
+      placeId: context.placeId,
+      outcome,
+      expectedItemVersion,
+      expectedDraftVersion,
+      reasonCode: null,
+      contributorExplanationIs: null,
+      contributorExplanationEn: null,
+      privateNote: null,
+      requestId: context.requestId
+    };
+  }
+
+  const contributorExplanationIs = String(context.formData.get('memberReasonIs') ?? '').trim();
+  const contributorExplanationEn = String(context.formData.get('memberReasonEn') ?? '').trim();
+  const requestedReason = String(context.formData.get('reasonCode') ?? '').trim();
+  if (!contributorExplanationIs || !contributorExplanationEn) return null;
+  if (outcome === 'rejected' && !isCandidateRejectionReasonCode(requestedReason)) return null;
+
+  const reasonCode: CandidateRejectionReasonCode | null =
+    outcome === 'rejected' ? (requestedReason as CandidateRejectionReasonCode) : null;
+  return {
+    placeId: context.placeId,
+    outcome,
+    expectedItemVersion,
+    expectedDraftVersion,
+    reasonCode,
+    contributorExplanationIs,
+    contributorExplanationEn,
+    privateNote: String(context.formData.get('privateNote') ?? '').trim() || null,
+    requestId: context.requestId
+  };
+}
+
 function readPublicationCommand(placeId: string, formData: FormData): PublishPlaceCommand | null {
   const expectedVersion = Number(formData.get('expectedVersion'));
+  const expectedItemVersion = Number(formData.get('expectedItemVersion'));
+  const expectedDraftVersion = Number(formData.get('expectedDraftVersion'));
   const accessConditionIds = formData
     .getAll('accessConditionId')
     .map(String)
@@ -428,6 +604,10 @@ function readPublicationCommand(placeId: string, formData: FormData): PublishPla
     !uuidPattern.test(placeId) ||
     !Number.isInteger(expectedVersion) ||
     expectedVersion < 1 ||
+    !Number.isInteger(expectedItemVersion) ||
+    expectedItemVersion < 1 ||
+    !Number.isInteger(expectedDraftVersion) ||
+    expectedDraftVersion < 0 ||
     conditionVerifications.length === 0 ||
     conditionVerifications.some(
       (verification) =>
@@ -443,6 +623,8 @@ function readPublicationCommand(placeId: string, formData: FormData): PublishPla
   return {
     placeId,
     expectedVersion,
+    expectedItemVersion,
+    expectedDraftVersion,
     conditionVerifications,
     freshnessUntil: `${freshnessDate}T23:59:59.999Z`,
     decisionMetadata: { source: 'moderation_checklist' }

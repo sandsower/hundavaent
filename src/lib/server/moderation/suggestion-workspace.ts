@@ -15,7 +15,6 @@ import {
   confirmSuggestionContribution,
   getModerationSuggestion,
   listModerationSuggestions,
-  listSuggestionPlaceMatches,
   listSuggestionPlaceMatchesForPayload,
   resolveSuggestion,
   type ModerationSuggestion,
@@ -26,11 +25,12 @@ import {
   type SuggestionPlaceMatch,
   type SuggestionRpcClient
 } from '$server/suggestions/suggestions';
+import type { SuggestionInputError } from '$server/suggestions/suggestion-input';
+import { saveSuggestionModerationDraft } from '$server/moderation/moderation-drafts';
 import {
-  parseSuggestionFormData,
-  type SuggestionInputError,
-  type SuggestionProposal
-} from '$server/suggestions/suggestion-input';
+  parseSuggestionDraftSection,
+  type SuggestionDraftSectionId
+} from '$server/moderation/suggestion-draft-input';
 
 type SuggestionCommandFailureStatus = Exclude<
   SuggestionCommandResult<never>,
@@ -68,8 +68,8 @@ export interface ModerationSuggestionReviewData {
 }
 
 export type ModerationSuggestionActionName =
-  | 'refreshMatches'
-  | 'resolve'
+  | 'saveSuggestionSection'
+  | 'decideSuggestion'
   | 'confirmUseful'
   | 'revokeContribution'
   | 'recordConductFlag'
@@ -81,6 +81,7 @@ export type ModerationSuggestionActionError =
   | 'incomplete'
   | 'not_found'
   | 'conflict'
+  | 'resolved'
   | 'forbidden'
   | 'unavailable';
 
@@ -92,27 +93,25 @@ export interface ModerationSuggestionActionContext {
   readonly formData: FormData | null;
 }
 
-export interface ModerationSuggestionRefreshedData {
-  readonly matchesRefreshed: true;
-  readonly refreshedMatches: SuggestionPlaceMatch[];
-  readonly refreshedProposal: SuggestionProposal;
-  readonly refreshedOutcome: 'accepted';
-  readonly refreshedMemberReasonIs: string;
-  readonly refreshedMemberReasonEn: string;
-  readonly refreshedPrivateNote: string;
-}
-
 export type ModerationSuggestionConfirmedEffect =
   | {
       readonly kind: 'resolved';
       readonly value: Exclude<SuggestionOutcome, 'submitted'>;
     }
   | { readonly kind: 'contribution'; readonly value: 'confirmed' | 'revoked' }
-  | { readonly kind: 'flag'; readonly value: 'recorded' | 'cleared' };
+  | { readonly kind: 'flag'; readonly value: 'recorded' | 'cleared' }
+  | {
+      readonly kind: 'draft_saved';
+      readonly sectionId: SuggestionDraftSectionId;
+      readonly draftVersion: number;
+    };
 
 export type ModerationSuggestionActionResult =
-  | { readonly status: 'refreshed'; readonly data: ModerationSuggestionRefreshedData }
-  | { readonly status: 'confirmed'; readonly effect: ModerationSuggestionConfirmedEffect }
+  | {
+      readonly status: 'confirmed';
+      readonly terminal: boolean;
+      readonly effect: ModerationSuggestionConfirmedEffect;
+    }
   | {
       readonly status: 'failure';
       readonly httpStatus: 400 | 403 | 404 | 409 | 503;
@@ -139,9 +138,10 @@ export function parseModerationSuggestionQueueCursor(
 export async function loadModerationSuggestionQueue(
   suggestionClient: SuggestionRpcClient,
   contributorClient: ContributorRpcClient,
-  cursorState: ModerationSuggestionQueueCursorState
+  cursorState: ModerationSuggestionQueueCursorState,
+  filter: 'actionable' | 'deferred' | 'resolved' = 'actionable'
 ): Promise<SuggestionWorkspaceLoadResult<ModerationSuggestionQueueData>> {
-  const result = await listModerationSuggestions(suggestionClient, cursorState.cursor);
+  const result = await listModerationSuggestions(suggestionClient, cursorState.cursor, 20, filter);
   if (result.status !== 'success') return { status: result.status };
 
   const memberIds = [...new Set(result.value.items.map((item) => item.memberId))];
@@ -166,15 +166,16 @@ export async function loadModerationSuggestionReview(
   suggestionId: string,
   searchParams: URLSearchParams
 ): Promise<SuggestionWorkspaceLoadResult<ModerationSuggestionReviewData>> {
-  const [detail, matches] = await Promise.all([
-    getModerationSuggestion(suggestionClient, suggestionId),
-    listSuggestionPlaceMatches(suggestionClient, suggestionId)
-  ]);
+  const detail = await getModerationSuggestion(suggestionClient, suggestionId);
   if (detail.status !== 'success') return { status: detail.status };
-  if (matches.status !== 'success') return { status: matches.status };
 
   const suggestion = detail.value;
   if (!suggestion) return { status: 'not_found' };
+  const matches = await listSuggestionPlaceMatchesForPayload(
+    suggestionClient,
+    suggestion.effectiveProposal
+  );
+  if (matches.status !== 'success') return { status: matches.status };
 
   const [contributorStatus, evidence] = await Promise.all([
     getModerationContributorStatus(contributorClient, suggestion.memberId),
@@ -202,10 +203,10 @@ export async function executeModerationSuggestionAction(
   context: ModerationSuggestionActionContext
 ): Promise<ModerationSuggestionActionResult> {
   switch (action) {
-    case 'refreshMatches':
-      return refreshSuggestionMatches(context);
-    case 'resolve':
-      return resolveModerationSuggestion(context);
+    case 'saveSuggestionSection':
+      return saveSuggestionSection(context);
+    case 'decideSuggestion':
+      return decideSuggestion(context);
     case 'confirmUseful':
       return confirmUsefulSuggestion(context);
     case 'revokeContribution':
@@ -217,80 +218,57 @@ export async function executeModerationSuggestionAction(
   }
 }
 
-async function refreshSuggestionMatches(
+async function saveSuggestionSection(
   context: ModerationSuggestionActionContext
 ): Promise<ModerationSuggestionActionResult> {
   const form = context.formData ?? new FormData();
-  const parsedProposal = parseSuggestionFormData(form);
-  if (!parsedProposal.ok) return failure(400, parsedProposal.error);
-
-  const matches = await listSuggestionPlaceMatchesForPayload(
-    context.suggestionClient,
-    parsedProposal.proposal
-  );
-  if (matches.status !== 'success') {
-    return matches.status === 'forbidden' ? failure(403, 'forbidden') : failure(503, 'unavailable');
-  }
-
+  const versions = readVersions(form);
+  const sectionId = String(form.get('sectionId') ?? '').trim();
+  const parsed = parseSuggestionDraftSection(sectionId, form);
+  if (!versions || !parsed.ok) return failure(400, parsed.ok ? 'invalid' : parsed.error);
+  const result = await saveSuggestionModerationDraft(context.suggestionClient, {
+    suggestionId: context.suggestionId,
+    expectedItemVersion: versions.expectedItemVersion,
+    expectedDraftVersion: versions.expectedDraftVersion,
+    sectionId: parsed.sectionId,
+    payload: parsed.payload,
+    requestId: context.requestId
+  });
+  if (result.status !== 'success') return commandFailure(result.status);
   return {
-    status: 'refreshed',
-    data: {
-      matchesRefreshed: true,
-      refreshedMatches: matches.value,
-      refreshedProposal: parsedProposal.proposal,
-      refreshedOutcome: 'accepted',
-      refreshedMemberReasonIs: String(form.get('memberReasonIs') ?? ''),
-      refreshedMemberReasonEn: String(form.get('memberReasonEn') ?? ''),
-      refreshedPrivateNote: String(form.get('privateNote') ?? '')
-    }
+    status: 'confirmed',
+    terminal: false,
+    effect: { kind: 'draft_saved', sectionId: parsed.sectionId, draftVersion: result.value.version }
   };
 }
 
-async function resolveModerationSuggestion(
+async function decideSuggestion(
   context: ModerationSuggestionActionContext
 ): Promise<ModerationSuggestionActionResult> {
   const form = context.formData ?? new FormData();
   const outcome = String(form.get('outcome') ?? '') as SuggestionOutcome;
   if (!isModerationOutcome(outcome)) return failure(400, 'invalid');
-
-  const reasonIs = String(form.get('memberReasonIs') ?? '').trim();
-  const reasonEn = String(form.get('memberReasonEn') ?? '').trim();
-  if (!reasonIs || !reasonEn) return failure(400, 'incomplete');
-
-  const detail = await getModerationSuggestion(context.suggestionClient, context.suggestionId);
-  if (detail.status !== 'success') return failure(503, 'unavailable');
-  const suggestion = detail.value;
-  if (!suggestion) return failure(404, 'not_found');
+  const versions = readVersions(form);
+  const reasons = readPairedReasons(form, outcome !== 'accepted');
+  if (!versions || !reasons) return failure(400, 'incomplete');
 
   const duplicatePlaceId = String(form.get('duplicatePlaceId') ?? '').trim() || null;
-  const parsedProposal = outcome === 'accepted' ? parseSuggestionFormData(form) : null;
-  if (parsedProposal && !parsedProposal.ok) return failure(400, parsedProposal.error);
-
   const operatorIdentity = String(form.get('operatorIdentityPlaceId') ?? '').trim();
   const locationIdentity = String(form.get('locationIdentityPlaceId') ?? '').trim();
-  const matches = parsedProposal?.ok
-    ? await listSuggestionPlaceMatchesForPayload(context.suggestionClient, parsedProposal.proposal)
-    : { status: 'success' as const, value: [] };
-  if (matches.status !== 'success') return failure(503, 'unavailable');
-
-  const matchIds = new Set(matches.value.map((match) => match.placeId));
-  if (
-    outcome === 'accepted' &&
-    ((operatorIdentity !== 'new' && !matchIds.has(operatorIdentity)) ||
-      (locationIdentity !== 'new' && !matchIds.has(locationIdentity)))
-  ) {
+  if (outcome === 'duplicate' && !isUuid(duplicatePlaceId)) return failure(400, 'incomplete');
+  if (outcome === 'accepted' && (!isNewOrUuid(operatorIdentity) || !isNewOrUuid(locationIdentity)))
     return failure(400, 'invalid');
-  }
 
   const result = await resolveSuggestion(
     context.suggestionClient,
     {
-      suggestionId: suggestion.suggestionId,
+      suggestionId: context.suggestionId,
       outcome,
-      memberReasonIs: reasonIs,
-      memberReasonEn: reasonEn,
+      expectedItemVersion: versions.expectedItemVersion,
+      expectedDraftVersion: versions.expectedDraftVersion,
+      memberReasonIs: reasons.is,
+      memberReasonEn: reasons.en,
       privateNote: String(form.get('privateNote') ?? '').trim() || null,
-      candidatePayload: parsedProposal?.ok ? parsedProposal.proposal : null,
       duplicatePlaceId: outcome === 'duplicate' ? duplicatePlaceId : null,
       operatorIdentityPlaceId:
         outcome === 'accepted' && operatorIdentity !== 'new' ? operatorIdentity : null,
@@ -302,7 +280,7 @@ async function resolveModerationSuggestion(
   );
   if (result.status !== 'success') return commandFailure(result.status);
 
-  return { status: 'confirmed', effect: { kind: 'resolved', value: outcome } };
+  return { status: 'confirmed', terminal: true, effect: { kind: 'resolved', value: outcome } };
 }
 
 async function confirmUsefulSuggestion(
@@ -314,7 +292,11 @@ async function confirmUsefulSuggestion(
     context.requestId
   );
   if (result.status !== 'success') return commandFailure(result.status);
-  return { status: 'confirmed', effect: { kind: 'contribution', value: 'confirmed' } };
+  return {
+    status: 'confirmed',
+    terminal: false,
+    effect: { kind: 'contribution', value: 'confirmed' }
+  };
 }
 
 async function revokeSuggestionContribution(
@@ -332,7 +314,11 @@ async function revokeSuggestionContribution(
     context.requestId
   );
   if (result.status !== 'success') return commandFailure(result.status);
-  return { status: 'confirmed', effect: { kind: 'contribution', value: 'revoked' } };
+  return {
+    status: 'confirmed',
+    terminal: false,
+    effect: { kind: 'contribution', value: 'revoked' }
+  };
 }
 
 async function recordSuggestionConductFlag(
@@ -353,7 +339,7 @@ async function recordSuggestionConductFlag(
     context.requestId
   );
   if (result.status !== 'success') return commandFailure(result.status);
-  return { status: 'confirmed', effect: { kind: 'flag', value: 'recorded' } };
+  return { status: 'confirmed', terminal: false, effect: { kind: 'flag', value: 'recorded' } };
 }
 
 async function clearSuggestionConductFlag(
@@ -371,7 +357,7 @@ async function clearSuggestionConductFlag(
     context.requestId
   );
   if (result.status !== 'success') return commandFailure(result.status);
-  return { status: 'confirmed', effect: { kind: 'flag', value: 'cleared' } };
+  return { status: 'confirmed', terminal: false, effect: { kind: 'flag', value: 'cleared' } };
 }
 
 function isModerationOutcome(
@@ -391,9 +377,43 @@ function isConductFlagKind(kind: string): kind is ConductFlagKind {
 
 function commandFailure(status: SuggestionCommandFailureStatus): ModerationSuggestionActionResult {
   if (status === 'conflict') return failure(409, 'conflict');
+  if (status === 'resolved') return failure(409, 'resolved');
   if (status === 'forbidden') return failure(403, 'forbidden');
   if (status === 'invalid') return failure(400, 'invalid');
   return failure(503, 'unavailable');
+}
+
+function readVersions(
+  form: FormData
+): { expectedItemVersion: number; expectedDraftVersion: number } | null {
+  const expectedItemVersion = Number(form.get('expectedItemVersion'));
+  const expectedDraftVersion = Number(form.get('expectedDraftVersion'));
+  return Number.isInteger(expectedItemVersion) &&
+    expectedItemVersion > 0 &&
+    Number.isInteger(expectedDraftVersion) &&
+    expectedDraftVersion >= 0
+    ? { expectedItemVersion, expectedDraftVersion }
+    : null;
+}
+
+function readPairedReasons(
+  form: FormData,
+  required: boolean
+): { is: string | null; en: string | null } | null {
+  const is = String(form.get('memberReasonIs') ?? '').trim() || null;
+  const en = String(form.get('memberReasonEn') ?? '').trim() || null;
+  if ((is === null) !== (en === null) || (required && (!is || !en))) return null;
+  return { is, en };
+}
+
+function isNewOrUuid(value: string): boolean {
+  return value === 'new' || isUuid(value);
+}
+function isUuid(value: string | null): value is string {
+  return (
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+  );
 }
 
 function failure(

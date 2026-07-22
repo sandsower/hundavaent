@@ -61,9 +61,9 @@ describe('moderation workspace query state', () => {
     const params = new URLSearchParams({ queue: 'suggestions', cursor: 'next_page-2.token_3~' });
     params.append('filter', 'priority');
     params.append('filter', 'actionable');
-    params.append('filter', 'priority');
+    params.append('filter', 'deferred');
     params.append('filter', 'unsupported');
-    params.append('filter', 'oldest');
+    params.append('filter', 'resolved');
 
     expect(parseModerationWorkspaceQuery(params)).toEqual({
       queue: 'suggestions',
@@ -158,6 +158,16 @@ describe('moderation workspace query state', () => {
     });
   });
 
+  it('preserves the selected bucket after a moderation action', () => {
+    const formData = new FormData();
+    formData.set('workspaceFilter', 'deferred');
+
+    expect(
+      buildModerationWorkspaceContinuation('candidate-places', suggestionId, false, formData)
+        .filters
+    ).toEqual(['deferred']);
+  });
+
   it('continues onto the next queue page after resolving its final visible item', () => {
     const formData = new FormData();
     formData.set('workspaceCursor', 'page_2');
@@ -193,9 +203,14 @@ describe('moderation queue summary', () => {
   it('maps every implemented actionable queue count in workspace order', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: [
-        { queue_id: 'suggestions', actionable_count: 3 },
-        { queue_id: 'corrections-and-reports', actionable_count: 2 },
-        { queue_id: 'candidate-places', actionable_count: 1 }
+        { queue_id: 'suggestions', actionable_count: 3, deferred_count: 2, resolved_count: 8 },
+        {
+          queue_id: 'corrections-and-reports',
+          actionable_count: 2,
+          deferred_count: 1,
+          resolved_count: 6
+        },
+        { queue_id: 'candidate-places', actionable_count: 1, deferred_count: 4, resolved_count: 5 }
       ],
       error: null
     });
@@ -205,9 +220,14 @@ describe('moderation queue summary', () => {
     ).resolves.toEqual({
       status: 'success',
       value: [
-        { queueId: 'suggestions', actionableCount: 3 },
-        { queueId: 'corrections-and-reports', actionableCount: 2 },
-        { queueId: 'candidate-places', actionableCount: 1 }
+        { queueId: 'suggestions', actionableCount: 3, deferredCount: 2, resolvedCount: 8 },
+        {
+          queueId: 'corrections-and-reports',
+          actionableCount: 2,
+          deferredCount: 1,
+          resolvedCount: 6
+        },
+        { queueId: 'candidate-places', actionableCount: 1, deferredCount: 4, resolvedCount: 5 }
       ]
     });
     expect(rpc).toHaveBeenCalledWith('list_moderation_queue_summary');

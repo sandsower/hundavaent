@@ -326,6 +326,8 @@ describe('updatePlaceWheelchairAccessibility', () => {
 const publishCommand: PublishPlaceCommand = {
   placeId: 'place-1',
   expectedVersion: 1,
+  expectedItemVersion: 3,
+  expectedDraftVersion: 2,
   conditionVerifications: [{ accessConditionId: 'condition-1', evidenceIds: ['evidence-1'] }],
   freshnessUntil: '2099-01-01T00:00:00.000Z',
   decisionMetadata: { basis: 'official_source' }
@@ -374,6 +376,8 @@ describe('verifyAndPublish', () => {
       command_payload: {
         place_id: 'place-1',
         expected_version: 1,
+        expected_item_version: 3,
+        expected_draft_version: 2,
         condition_verifications: [
           { access_condition_id: 'condition-1', evidence_ids: ['evidence-1'] }
         ],
@@ -418,13 +422,13 @@ describe('verifyAndPublish', () => {
     });
   });
 
-  it('maps Candidate lifecycle failure to already published', async () => {
+  it('maps Candidate lifecycle failure to not publishable', async () => {
     const { client } = createPublicationClient({
       error: { code: '55000', message: 'private lifecycle detail' }
     });
 
     await expect(verifyAndPublish(client, publishCommand, 'request-11')).resolves.toEqual({
-      status: 'already_published'
+      status: 'not_publishable'
     });
   });
 
@@ -460,9 +464,23 @@ function createReviewClient({
     place_id: string;
     version: number;
     lifecycle: string;
+    candidate_status: string;
+    item_version: number;
+    draft_version: number;
+    draft_payload: Json | null;
+    draft_updated_by: string | null;
+    draft_updated_at: string | null;
+    readiness_state: string;
+    readiness_issues: Json;
+    originating_suggestion_id: string | null;
+    contributor_id: string | null;
     wheelchair_accessibility: string;
     operator_name: string;
     category: string;
+    website_url: string | null;
+    phone: string | null;
+    opening_hours: Json;
+    dog_amenities: Json;
     address_line: string;
     locality: string;
     postal_code: string;
@@ -489,9 +507,23 @@ const completeReviewRow = {
   place_id: 'place-1',
   version: 1,
   lifecycle: 'candidate',
+  candidate_status: 'pending',
+  item_version: 2,
+  draft_version: 1,
+  draft_payload: { translations: { en: { name: 'Candidate venue' } } },
+  draft_updated_by: 'moderator-1',
+  draft_updated_at: '2026-07-21T20:00:00Z',
+  readiness_state: 'ready',
+  readiness_issues: [],
+  originating_suggestion_id: 'suggestion-1',
+  contributor_id: 'member-1',
   wheelchair_accessibility: 'unknown',
   operator_name: 'Candidate operator',
   category: 'restaurant',
+  website_url: 'https://example.invalid/place',
+  phone: '+354 555 0100',
+  opening_hours: { monday: ['09:00', '17:00'] },
+  dog_amenities: ['water_bowl'],
   address_line: 'Tillögugata 7',
   locality: 'Reykjavík',
   postal_code: '101',
@@ -523,7 +555,8 @@ const completeReviewRow = {
       sourceUrl: 'https://example.invalid/source',
       sourceCitation: 'Section 4, patio rule',
       sourceLabel: 'Official website',
-      observedAt: '2026-07-09T10:00:00Z'
+      observedAt: '2026-07-09T10:00:00Z',
+      sourceMetadata: { section: 'dogs' }
     }
   ]
 };
@@ -540,6 +573,20 @@ describe('getCandidatePublicationReview', () => {
         placeId: 'place-1',
         version: 1,
         lifecycle: 'candidate',
+        candidateStatus: 'pending',
+        itemVersion: 2,
+        draftVersion: 1,
+        draftPayload: { translations: { en: { name: 'Candidate venue' } } },
+        draftUpdatedBy: 'moderator-1',
+        draftUpdatedAt: '2026-07-21T20:00:00Z',
+        readinessState: 'ready',
+        readinessIssues: [],
+        originatingSuggestionId: 'suggestion-1',
+        contributorId: 'member-1',
+        websiteUrl: 'https://example.invalid/place',
+        phone: '+354 555 0100',
+        openingHours: { monday: ['09:00', '17:00'] },
+        dogAmenities: ['water_bowl'],
         wheelchairAccessibility: 'unknown',
         latitude: 64.1466,
         longitude: -21.9426,
@@ -553,7 +600,8 @@ describe('getCandidatePublicationReview', () => {
             sourceUrl: 'https://example.invalid/source',
             sourceCitation: 'Section 4, patio rule',
             sourceLabel: 'Official website',
-            observedAt: '2026-07-09T10:00:00Z'
+            observedAt: '2026-07-09T10:00:00Z',
+            sourceMetadata: { section: 'dogs' }
           }
         ],
         ready: true,
@@ -571,6 +619,58 @@ describe('getCandidatePublicationReview', () => {
     });
     expect(rpc).toHaveBeenCalledWith('get_moderation_place_review_v2', {
       requested_place_id: 'place-1'
+    });
+  });
+
+  it('normalizes canonical snake-case draft children into the review DTO', async () => {
+    const draftRow = {
+      ...completeReviewRow,
+      access_conditions: [
+        {
+          id: 'condition-1',
+          access_area: 'outdoors',
+          access_area_note: null,
+          restraint_condition: 'leash_required',
+          restraint_note: null,
+          dog_eligibility: { scope: 'all_dogs' },
+          availability_state: 'whenever_open',
+          availability_window: {},
+          permission_requirement: 'standing_permission'
+        }
+      ],
+      evidence_records: [
+        {
+          id: 'evidence-1',
+          kind: 'official_website',
+          source_url: 'https://example.invalid/source',
+          source_citation: 'Section 4',
+          source_label: 'Official website',
+          observed_at: '2026-07-09T10:00:00Z',
+          source_metadata: { section: 'dogs' }
+        }
+      ]
+    };
+
+    await expect(
+      getCandidatePublicationReview(createReviewClient({ data: [draftRow] }).client, 'place-1')
+    ).resolves.toMatchObject({
+      status: 'success',
+      value: {
+        accessConditions: [
+          {
+            id: 'condition-1',
+            accessArea: 'outdoors',
+            availabilityState: 'whenever_open'
+          }
+        ],
+        evidenceRecords: [
+          {
+            id: 'evidence-1',
+            sourceUrl: 'https://example.invalid/source',
+            sourceMetadata: { section: 'dogs' }
+          }
+        ]
+      }
     });
   });
 

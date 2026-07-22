@@ -50,6 +50,9 @@
 <style>
   .queue-rail {
     min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     border-right: 1px solid var(--hv-border-subtle);
     background: var(--hv-color-snow);
     padding: 0.9rem;
@@ -67,6 +70,7 @@
   }
   a {
     display: grid;
+    box-sizing: border-box;
     min-width: 0;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.55rem;
@@ -102,9 +106,10 @@
     font-weight: 900;
     text-align: center;
   }
-  @media (max-width: 44rem) {
+  @media (max-width: 60rem) {
     .queue-rail {
       overflow-x: auto;
+      overflow-y: hidden;
       border-right: 0;
       border-bottom: 1px solid var(--hv-border-subtle);
       padding: 0.65rem;
@@ -127,6 +132,36 @@
       width: auto;
       flex: none;
       white-space: nowrap;
+    }
+  }
+  @media (max-width: 44rem) {
+    .queue-rail {
+      overflow-x: hidden;
+      padding: 0.55rem;
+    }
+    .queue-links {
+      display: grid;
+      width: 100%;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.35rem;
+    }
+    a {
+      width: 100%;
+      min-height: 4.25rem;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: 1fr auto;
+      gap: 0.25rem;
+      justify-items: center;
+      padding: 0.45rem 0.25rem;
+      font-size: 0.75rem;
+      line-height: 1.15;
+      text-align: center;
+      white-space: normal;
+    }
+    .count {
+      min-width: 1.5rem;
+      padding: 0.12rem 0.35rem;
+      font-size: 0.66rem;
     }
   }
 </style>

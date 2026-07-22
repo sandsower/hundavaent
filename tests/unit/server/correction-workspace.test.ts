@@ -23,7 +23,12 @@ const summaryRow = {
   is_safety_concern: true,
   submitted_at: '2026-07-11T09:00:00Z',
   updated_at: '2026-07-11T09:00:00Z',
-  priority: 0
+  priority: 0,
+  item_version: 1,
+  draft_version: 0,
+  draft_updated_by: null,
+  draft_updated_at: null,
+  readiness_state: 'ready'
 };
 
 const detailRow = {
@@ -59,7 +64,8 @@ const detailRow = {
   applied_access_condition_id: null,
   dispute_id: null,
   transition_id: null,
-  contribution_id: null
+  contribution_id: null,
+  draft_payload: null
 };
 
 const relatedRow = {
@@ -91,6 +97,20 @@ function client(
         error: null
       };
     }
+    if (name === 'save_place_flag_moderation_draft') {
+      return {
+        data: [
+          {
+            target_id: detailRow.flag_id,
+            draft_version: 1,
+            payload: {},
+            updated_by: 'moderator-1',
+            updated_at: '2026-07-11T12:00:00Z'
+          }
+        ],
+        error: null
+      };
+    }
     if (name === 'confirm_place_flag_contribution') {
       return {
         data: [{ contribution_id: 'contribution-1', confirmed_at: '2026-07-11T12:00:00Z' }],
@@ -105,6 +125,8 @@ function client(
 function form(entries: Record<string, string> = {}): FormData {
   const data = new FormData();
   data.set('outcome', 'rejected');
+  data.set('expectedItemVersion', '1');
+  data.set('expectedDraftVersion', '0');
   data.set('memberReasonIs', 'Ástæða');
   data.set('memberReasonEn', 'Reason');
   for (const [key, value] of Object.entries(entries)) data.set(key, value);
@@ -163,6 +185,7 @@ describe('Corrections and Reports workspace queue assembly', () => {
       }
     });
     expect(rpc).toHaveBeenCalledWith('list_moderation_place_flags', {
+      requested_filter: 'actionable',
       cursor_priority: cursor.priority,
       cursor_submitted_at: cursor.submittedAt,
       cursor_flag_id: cursor.flagId,
@@ -234,7 +257,7 @@ describe('Corrections and Reports workspace action orchestration', () => {
   it('validates bilingual reasons after the mandatory detail read and before resolution', async () => {
     const { flagClient, rpc } = client();
 
-    const result = await executeModerationCorrectionAction('resolve', {
+    const result = await executeModerationCorrectionAction('decideCorrection', {
       flagClient,
       flagId: detailRow.flag_id,
       requestId: 'request-1',
@@ -242,20 +265,18 @@ describe('Corrections and Reports workspace action orchestration', () => {
     });
 
     expect(result).toEqual({ status: 'failure', httpStatus: 400, error: 'incomplete' });
-    expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc).toHaveBeenCalledWith('get_moderation_place_flag', {
-      requested_flag_id: detailRow.flag_id
-    });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('preserves verification concurrency and evidence when opening an Access Dispute', async () => {
     const { flagClient, rpc } = client();
-    const result = await executeModerationCorrectionAction('resolve', {
+    const result = await executeModerationCorrectionAction('saveCorrectionSection', {
       flagClient,
       flagId: detailRow.flag_id,
       requestId: 'request-1',
       formData: form({
         outcome: 'dispute_opened',
+        sectionId: 'dispute',
         expectedVerificationId: detailRow.current_verification_id,
         disputeReason: 'The live policy conflicts with the report.',
         evidenceKind: 'official_website',
@@ -267,28 +288,28 @@ describe('Corrections and Reports workspace action orchestration', () => {
 
     expect(result).toEqual({
       status: 'confirmed',
-      effect: { kind: 'resolved', value: 'dispute_opened' }
+      terminal: false,
+      effect: { kind: 'draft_saved', sectionId: 'dispute', draftVersion: 1 }
     });
-    expect(rpc).toHaveBeenCalledWith('resolve_place_flag', {
+    expect(rpc).toHaveBeenCalledWith('save_place_flag_moderation_draft', {
       requested_flag_id: detailRow.flag_id,
-      requested_outcome: 'dispute_opened',
-      member_reason_is: 'Ástæða',
-      member_reason_en: 'Reason',
-      private_note: null,
-      application_payload: null,
-      dispute_command: {
-        expected_verification_id: detailRow.current_verification_id,
-        reason: 'The live policy conflicts with the report.',
-        evidence: {
-          kind: 'official_website',
-          source_url: 'https://example.invalid/policy',
-          source_citation: null,
-          source_label: 'Venue policy',
-          observed_at: '2026-07-11T09:00:00.000Z',
-          source_metadata: {}
+      expected_item_version: 1,
+      expected_draft_version: 0,
+      requested_section_id: 'dispute',
+      requested_payload: {
+        dispute_command: {
+          expected_verification_id: detailRow.current_verification_id,
+          reason: 'The live policy conflicts with the report.',
+          evidence: {
+            kind: 'official_website',
+            source_url: 'https://example.invalid/policy',
+            source_citation: null,
+            source_label: 'Venue policy',
+            observed_at: '2026-07-11T09:00:00.000Z',
+            source_metadata: {}
+          }
         }
       },
-      transition_command: null,
       command_request_id: 'request-1'
     });
   });
@@ -311,12 +332,13 @@ describe('Corrections and Reports workspace action orchestration', () => {
       get_moderation_place_flag: { data: [correctionDetail], error: null }
     });
 
-    const result = await executeModerationCorrectionAction('resolve', {
+    const result = await executeModerationCorrectionAction('saveCorrectionSection', {
       flagClient,
       flagId: detailRow.flag_id,
       requestId: 'request-1',
       formData: form({
         outcome: 'applied',
+        sectionId: 'application',
         expectedVersion: '4',
         fieldValueText: '+354 555 0111'
       })
@@ -324,14 +346,17 @@ describe('Corrections and Reports workspace action orchestration', () => {
 
     expect(result).toEqual({
       status: 'confirmed',
-      effect: { kind: 'resolved', value: 'applied' }
+      terminal: false,
+      effect: { kind: 'draft_saved', sectionId: 'application', draftVersion: 1 }
     });
     expect(rpc).toHaveBeenCalledWith(
-      'resolve_place_flag',
+      'save_place_flag_moderation_draft',
       expect.objectContaining({
-        application_payload: {
-          expected_version: 4,
-          field_value: { value: '+354 555 0111' }
+        requested_payload: {
+          application_payload: {
+            expected_version: 4,
+            field_value: { value: '+354 555 0111' }
+          }
         }
       })
     );
@@ -357,12 +382,13 @@ describe('Corrections and Reports workspace action orchestration', () => {
       get_moderation_place_flag: { data: [accessCorrectionDetail], error: null }
     });
 
-    const result = await executeModerationCorrectionAction('resolve', {
+    const result = await executeModerationCorrectionAction('saveCorrectionSection', {
       flagClient,
       flagId: detailRow.flag_id,
       requestId: 'request-1',
       formData: form({
         outcome: 'applied',
+        sectionId: 'application',
         accessArea: 'indoors',
         restraintCondition: 'off_leash_permitted',
         permissionRequirement: 'standing_permission',
@@ -379,17 +405,20 @@ describe('Corrections and Reports workspace action orchestration', () => {
 
     expect(result).toEqual({
       status: 'confirmed',
-      effect: { kind: 'resolved', value: 'applied' }
+      terminal: false,
+      effect: { kind: 'draft_saved', sectionId: 'application', draftVersion: 1 }
     });
     expect(rpc).toHaveBeenCalledWith(
-      'resolve_place_flag',
+      'save_place_flag_moderation_draft',
       expect.objectContaining({
-        application_payload: expect.objectContaining({
-          replacement_condition: expect.objectContaining({
-            availability_state: 'whenever_open',
-            availability_window: {}
+        requested_payload: {
+          application_payload: expect.objectContaining({
+            replacement_condition: expect.objectContaining({
+              availability_state: 'whenever_open',
+              availability_window: {}
+            })
           })
-        })
+        }
       })
     );
   });
@@ -407,13 +436,39 @@ describe('Corrections and Reports workspace action orchestration', () => {
       });
 
       await expect(
-        executeModerationCorrectionAction('resolve', {
+        executeModerationCorrectionAction('decideCorrection', {
           flagClient,
           flagId: detailRow.flag_id,
           requestId: 'request-1',
           formData: form()
         })
       ).resolves.toEqual({ status: 'failure', httpStatus, error });
+    }
+  );
+
+  it.each(['applied', 'confirmed_useful'] as const)(
+    'allows %s to omit paired Member explanations and sends null inline content',
+    async (outcome) => {
+      const { flagClient, rpc } = client();
+      const result = await executeModerationCorrectionAction('decideCorrection', {
+        flagClient,
+        flagId: detailRow.flag_id,
+        requestId: 'request-1',
+        formData: form({ outcome, memberReasonIs: '', memberReasonEn: '' })
+      });
+      expect(result).toMatchObject({ status: 'confirmed', terminal: true });
+      expect(rpc).toHaveBeenCalledWith(
+        'resolve_place_flag',
+        expect.objectContaining({
+          expected_item_version: 1,
+          expected_draft_version: 0,
+          member_reason_is: null,
+          member_reason_en: null,
+          application_payload: null,
+          dispute_command: null,
+          transition_command: null
+        })
+      );
     }
   );
 
@@ -429,6 +484,7 @@ describe('Corrections and Reports workspace action orchestration', () => {
       })
     ).resolves.toEqual({
       status: 'confirmed',
+      terminal: false,
       effect: { kind: 'contribution', value: 'confirmed' }
     });
   });

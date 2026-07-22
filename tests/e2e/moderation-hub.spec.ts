@@ -1,199 +1,335 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { evaluationModerator } from '../evaluation/fixtures';
 import { waitForHydration } from './support/hydration';
 import {
+  clearLocalEvaluationMailbox,
+  getLocalSuggestionStates,
+  localPlaceFlagFixtures,
+  provisionLocalModerationWorkbenchFixtures,
   provisionLocalModerator,
-  provisionLocalPlaceFlagFixtures,
-  provisionLocalPlaceFlagReviewFixture,
-  provisionLocalSuggestionFixture,
-  waitForLocalMagicLink
+  waitForLocalMagicLink,
+  type LocalModerationWorkbenchFixtures
 } from './support/local-supabase';
 
-let suggestionId: string;
-let flagId: string;
-const nextSuggestionId = '65000000-0000-4000-8000-000000000094';
+let fixtures: LocalModerationWorkbenchFixtures;
+
+test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
   await provisionLocalModerator(evaluationModerator.email);
-  provisionLocalPlaceFlagFixtures();
-  flagId = await provisionLocalPlaceFlagReviewFixture(evaluationModerator.email);
-  suggestionId = await provisionLocalSuggestionFixture(evaluationModerator.email);
 });
 
-test('a Moderator signs in and opens a query-backed compact Suggestions workspace', async ({
+test.beforeEach(async () => {
+  fixtures = await provisionLocalModerationWorkbenchFixtures(evaluationModerator.email);
+});
+
+test('the queue and review columns scroll independently while decisions stay available', async ({
   page
 }) => {
-  test.setTimeout(90_000);
-  await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation');
-  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
-  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
-  await expect(page.getByText('The link has been sent.')).toBeVisible();
-
-  const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
-  await page.goto(magicLink);
-  await expect(page).toHaveURL(
-    `/en/moderation?queue=suggestions&item=${suggestionId}&filter=actionable`
-  );
-  await expect(page.getByRole('heading', { name: 'Moderation board', level: 1 })).toBeVisible();
-
-  const queues = page.getByRole('navigation', { name: 'Moderation queues' });
-  await expect(queues.getByRole('link', { name: /Suggestions/ })).toHaveAttribute(
-    'aria-current',
-    'page'
-  );
-  await expect(queues.getByRole('link', { name: /Corrections and reports/ })).toBeVisible();
-  await expect(queues.getByRole('link', { name: /Candidate places/ })).toBeVisible();
-
-  const workList = page.getByRole('region', { name: 'Selected moderation queue' });
-  await expect(workList.getByRole('link', { name: /^Visual Suggestion / })).toHaveAttribute(
-    'aria-current',
-    'true'
-  );
-  await expect(page.getByRole('region', { name: 'Selected moderation item' })).toContainText(
-    'Visual Suggestion'
+  await page.setViewportSize({ width: 1280, height: 560 });
+  await signInModerator(
+    page,
+    `/en/moderation?queue=suggestions&item=${fixtures.suggestionId}&filter=actionable`
   );
 
-  await waitForHydration(page);
-  await page.keyboard.press('j');
-  await expect(page).toHaveURL(
-    `/en/moderation?queue=suggestions&item=${nextSuggestionId}&filter=actionable`
-  );
-  await page.keyboard.press('k');
-  await expect(page).toHaveURL(
-    `/en/moderation?queue=suggestions&item=${suggestionId}&filter=actionable`
-  );
-  await expect(page.getByRole('link', { name: 'Add a Candidate Place' })).toHaveAttribute(
-    'href',
-    '/en/moderation/places/new'
-  );
-
-  await page.reload();
-  await expect(page).toHaveURL(
-    `/en/moderation?queue=suggestions&item=${suggestionId}&filter=actionable`
-  );
-  await expect(page.getByRole('region', { name: 'Selected moderation item' })).toContainText(
-    'Visual Suggestion'
-  );
-
-  const suggestionQueueLink = queues.getByRole('link', { name: /Suggestions/ });
-  const countBefore = Number((await suggestionQueueLink.textContent())?.match(/\d+/)?.[0]);
-  expect(countBefore).toBeGreaterThanOrEqual(2);
-
+  const workList = page.locator('[data-work-list-scroll]');
+  const review = page.locator('[data-review-scroll]');
   const decisionDock = page.getByRole('region', { name: 'Decision controls' });
-  await decisionDock.getByRole('button', { name: 'Needs information' }).click();
-  await expect(page.locator('select[name="outcome"]')).toHaveValue('needs_information');
-  await page.getByLabel('Member explanation in Icelandic').fill('Vinsamlegast bættu við heimild.');
-  await page.getByLabel('Member explanation in English').fill('Please add a supporting source.');
-  await page.getByLabel('Private Moderator note').fill('Reviewed in the compact workspace.');
-  await page.getByRole('button', { name: 'Save outcome' }).click();
+  const reviewHeading = page.locator('.review-head');
 
-  await expect(page).toHaveURL(
-    `/en/moderation?queue=suggestions&item=${nextSuggestionId}&filter=actionable`
+  await expect(workList).toBeVisible();
+  await expect(review).toBeVisible();
+  await expect(decisionDock).toBeVisible();
+  await expect
+    .poll(() => workList.evaluate((element) => element.scrollHeight > element.clientHeight))
+    .toBe(true);
+  await expect
+    .poll(() => review.evaluate((element) => element.scrollHeight > element.clientHeight))
+    .toBe(true);
+
+  const headingTop = (await reviewHeading.boundingBox())?.y;
+  const dockBottom = (await decisionDock.boundingBox())?.y;
+  expect(headingTop).toBeDefined();
+  expect(dockBottom).toBeDefined();
+
+  await workList.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect.poll(() => workList.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await expect.poll(() => review.evaluate((element) => element.scrollTop)).toBe(0);
+
+  const workListScrollTop = await workList.evaluate((element) => element.scrollTop);
+  await review.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect.poll(() => review.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await expect
+    .poll(() => workList.evaluate((element) => element.scrollTop))
+    .toBe(workListScrollTop);
+  await expect(reviewHeading).toBeInViewport();
+  await expect(decisionDock).toBeInViewport();
+  expect((await reviewHeading.boundingBox())?.y).toBeCloseTo(headingTop!, 0);
+  expect((await decisionDock.boundingBox())?.y).toBeCloseTo(dockBottom!, 0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+    await page.evaluate(() => window.innerWidth)
   );
-  await expect(page.getByRole('status')).toContainText(
-    'Needs information. The outcome has been saved.'
+});
+
+test('a Moderator edits a Candidate, reloads it, and publishes it', async ({ page }) => {
+  test.setTimeout(90_000);
+  await signInModerator(
+    page,
+    `/en/moderation?queue=candidate-places&item=${fixtures.candidatePlaceId}&filter=actionable`
   );
-  await expect(page.getByRole('region', { name: 'Selected moderation item' })).toContainText(
-    'Next Visual Suggestion'
-  );
-  expect(
-    await page
-      .locator(`[data-work-item-id="${nextSuggestionId}"]`)
-      .evaluate((element) => element === document.activeElement)
-  ).toBe(true);
-  const countAfter = Number(
-    (await queues.getByRole('link', { name: /Suggestions/ }).textContent())?.match(/\d+/)?.[0]
-  );
-  expect(countAfter).toBe(countBefore - 1);
+
+  const identity = page.locator('#candidate-overview');
+  await expandSection(identity);
+  await identity.getByRole('button', { name: 'Edit Place identity' }).click();
+  const identityForm = identity.locator('form[data-section-form="identity"]');
+  await identityForm.getByLabel('Operator').fill('Low-friction Candidate operator');
+  await identityForm.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status')).toContainText('Draft changes saved.');
 
   await page.reload();
-  await expect(page).toHaveURL(
-    `/en/moderation?queue=suggestions&item=${nextSuggestionId}&filter=actionable`
-  );
-  await expect(page.getByRole('region', { name: 'Selected moderation item' })).toContainText(
-    'Next Visual Suggestion'
-  );
+  await waitForHydration(page);
+  await expect(identity).toContainText('Low-friction Candidate operator');
 
-  const stalePage = await page.context().newPage();
-  await stalePage.goto(
-    `/en/moderation?queue=suggestions&item=${nextSuggestionId}&filter=actionable`
-  );
-  for (const moderatorPage of [page, stalePage]) {
-    await moderatorPage
-      .getByRole('region', { name: 'Decision controls' })
-      .getByRole('button', { name: 'Rejected' })
-      .click();
-    await moderatorPage
-      .getByLabel('Member explanation in Icelandic')
-      .fill('Tillagan var yfirfarin samhliða.');
-    await moderatorPage
-      .getByLabel('Member explanation in English')
-      .fill('The Suggestion was reviewed concurrently.');
-    await moderatorPage
-      .getByLabel('Private Moderator note')
-      .fill('This entered note must survive a conflict.');
+  const access = page.locator('#access-condition');
+  await expandSection(access);
+  await access.getByRole('button', { name: 'Edit Current Access Condition' }).click();
+  const accessForm = access.locator('form[data-section-form="access_conditions"]');
+  if ((await accessForm.getByRole('group').count()) === 0) {
+    await accessForm.getByRole('button', { name: 'Add another condition' }).click();
   }
-  await page.getByLabel('Private Moderator note').fill('The winning Moderator note.');
-  await page.getByRole('button', { name: 'Save outcome' }).click();
-  await stalePage.getByRole('button', { name: 'Save outcome' }).click();
-  await expect(stalePage.getByRole('alert')).toContainText(
-    'This Suggestion outcome was already finalized by another Moderator.'
-  );
-  await expect(stalePage).toHaveURL(
-    `/en/moderation?queue=suggestions&item=${nextSuggestionId}&filter=actionable`
-  );
-  await expect(stalePage.getByLabel('Member explanation in English')).toHaveValue(
-    'The Suggestion was reviewed concurrently.'
-  );
-  await expect(stalePage.getByLabel('Private Moderator note')).toHaveValue(
-    'This entered note must survive a conflict.'
-  );
-  await expect(stalePage.getByText('The winning Moderator note.')).toBeVisible();
-  await expect(stalePage.getByRole('button', { name: 'Save outcome' })).toBeDisabled();
-  await stalePage.close();
+  await accessForm.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status')).toContainText('Draft changes saved.');
 
-  const correctionQueue = page
-    .getByRole('navigation', { name: 'Moderation queues' })
-    .getByRole('link', { name: /Corrections and reports/ });
-  const correctionCountBefore = Number((await correctionQueue.textContent())?.match(/\d+/)?.[0]);
-  await correctionQueue.click();
-  await expect(page).toHaveURL(
-    `/en/moderation?queue=corrections-and-reports&item=${flagId}&filter=actionable`
+  const evidence = page.locator('#evidence');
+  await expandSection(evidence);
+  await evidence.getByRole('button', { name: 'Edit Supporting Evidence' }).click();
+  const evidenceForm = evidence.locator('form[data-section-form="evidence_records"]');
+  if ((await evidenceForm.getByRole('group').count()) === 0) {
+    await evidenceForm.getByRole('button', { name: 'Add another Evidence source' }).click();
+    await evidenceForm.getByLabel('Evidence source title').fill('Moderator-confirmed source');
+    await evidenceForm
+      .getByLabel('Evidence URL')
+      .fill('https://example.invalid/moderator-confirmed-source');
+  }
+  await evidenceForm.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status')).toContainText('Draft changes saved.');
+
+  await expandSection(page.locator('#publication-evidence'));
+  const evidenceGroups = page.getByRole('group', { name: /Evidence supporting condition/ });
+  await expect(evidenceGroups).not.toHaveCount(0);
+  for (let index = 0; index < (await evidenceGroups.count()); index += 1) {
+    await evidenceGroups.nth(index).getByRole('checkbox').first().check();
+  }
+
+  const publishTrigger = page
+    .getByRole('region', { name: 'Decision controls' })
+    .getByRole('button', { name: 'Verify and publish' });
+  await publishTrigger.focus();
+  await publishTrigger.click();
+  const publishDialog = page.getByRole('dialog', { name: 'Publish this Place?' });
+  await expect(publishDialog).toBeVisible();
+  await expect(publishDialog).toHaveJSProperty('open', true);
+  expect(await publishDialog.evaluate((dialog) => dialog.matches(':modal'))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(publishDialog).toBeHidden();
+  await expect(publishTrigger).toBeFocused();
+
+  await publishTrigger.click();
+  await expect(publishDialog).toBeVisible();
+  await publishDialog.getByRole('button', { name: 'Verify and publish' }).click();
+  await expect(page.getByRole('status')).toContainText('The Place has been published.');
+
+  const response = await page.request.get(`/api/places/${fixtures.candidatePlaceId}?lang=en`);
+  expect(response.status()).toBe(200);
+  expect(await response.json()).toMatchObject({
+    placeId: fixtures.candidatePlaceId,
+    name: 'Candidate Place',
+    accessConditions: [expect.objectContaining({ accessArea: 'outdoors' })]
+  });
+});
+
+test('a Moderator edits a Suggestion and accepts the edited draft as a Candidate', async ({
+  page
+}) => {
+  await signInModerator(
+    page,
+    `/en/moderation?queue=suggestions&item=${fixtures.suggestionId}&filter=actionable`
   );
-  const correctionReview = page.getByRole('region', { name: 'Selected moderation item' });
-  await expect(correctionReview).toContainText('Flag E2E Cafe');
-  await expect(correctionReview).toContainText('Safety Concern');
-  await expect(correctionReview).toContainText('Current value now');
-  await expect(correctionReview).toContainText('Value when submitted');
+
+  const identity = page.locator('#suggestion-identity');
+  await expandSection(identity);
+  await identity.getByRole('button', { name: 'Edit Place identity' }).click();
+  const identityForm = identity.locator('form[data-section-form="identity"]');
+  await identityForm.getByLabel('Operator').fill('Low-friction Suggestion operator');
+  await identityForm.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status')).toContainText('Draft changes saved.');
+
+  await page.reload();
+  await waitForHydration(page);
+  await expect(identity).toContainText('Low-friction Suggestion operator');
 
   await page
     .getByRole('region', { name: 'Decision controls' })
-    .getByRole('button', { name: 'Rejected' })
+    .getByRole('button', { name: 'Accept as Candidate' })
     .click();
-  await expect(page.locator('#correction-decision select[name="outcome"]')).toHaveValue('rejected');
-  await page.getByLabel('Member explanation in Icelandic').fill('Ábendingin var yfirfarin.');
-  await page.getByLabel('Member explanation in English').fill('The report was reviewed.');
-  await page.getByLabel('Private Moderator note').fill('Resolved inline in the workspace.');
-  await page.getByRole('button', { name: 'Save outcome' }).click();
-
-  await expect(page).toHaveURL(/\/en\/moderation\?queue=corrections-and-reports/);
-  await expect(page.getByRole('status')).toContainText('Rejected. The outcome has been saved.');
-  const correctionCountAfter = Number(
-    (
-      await page
-        .getByRole('navigation', { name: 'Moderation queues' })
-        .getByRole('link', { name: /Corrections and reports/ })
-        .textContent()
-    )?.match(/\d+/)?.[0]
+  const acceptDialog = page.getByRole('dialog', { name: 'Accept this Suggestion?' });
+  await expect(acceptDialog).toBeVisible();
+  await acceptDialog.getByRole('button', { name: 'Accept as Candidate' }).click();
+  await expect(page.getByRole('status')).toContainText(
+    'Accepted as a Candidate. The outcome has been saved.'
   );
-  expect(correctionCountAfter).toBe(correctionCountBefore - 1);
 
-  const extremeCursor = `${Number.MAX_SAFE_INTEGER.toString(36)}~30000000-0000-4000-8000-000000000003`;
+  const accepted = getLocalSuggestionStates().find((item) => item.nameEn === 'Visual Suggestion');
+  expect(accepted?.candidatePlaceId).toMatch(/^[0-9a-f-]{36}$/i);
   await page.goto(
-    `/en/moderation?queue=candidate-places&filter=actionable&cursor=${extremeCursor}`
+    `/en/moderation?queue=candidate-places&item=${accepted!.candidatePlaceId}&filter=actionable`
   );
-  await expect(page).toHaveURL((url) => {
-    return url.searchParams.get('queue') === 'candidate-places' && !url.searchParams.has('cursor');
-  });
+  await expect(page.locator('#candidate-overview')).toContainText(
+    'Low-friction Suggestion operator'
+  );
 });
+
+test('a Moderator edits and applies a Correction, then confirms a Report as useful', async ({
+  page
+}) => {
+  await signInModerator(
+    page,
+    `/en/moderation?queue=corrections-and-reports&item=${fixtures.correctionFlagId}&filter=actionable`
+  );
+
+  const change = page.locator('#correction-change');
+  await expandSection(change);
+  await change.getByRole('button', { name: 'Edit Change under review' }).click();
+  const applicationForm = change.locator('form[data-section-form="application"]');
+  await applicationForm.getByLabel('Name in Icelandic').fill('Lágviðnáms kaffihús');
+  await applicationForm.getByLabel('Name in English').fill('Low-friction corrected cafe');
+  await applicationForm.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status')).toContainText('Draft changes saved.');
+
+  await page.reload();
+  await waitForHydration(page);
+  await expect(change).toContainText('Low-friction corrected cafe');
+  await page
+    .getByRole('region', { name: 'Decision controls' })
+    .getByRole('button', { name: 'Apply correction' })
+    .click();
+  const applyDialog = page.getByRole('dialog', { name: 'Apply this correction?' });
+  await expect(applyDialog).toBeVisible();
+  await applyDialog.getByRole('button', { name: 'Apply correction' }).click();
+  await expect(applyDialog).toBeHidden();
+  await expect(page.getByRole('status')).toContainText(
+    'Correction published. The outcome has been saved.'
+  );
+
+  const publicResponse = await page.request.get(
+    `/api/places/${localPlaceFlagFixtures.correctable.placeId}?lang=en`
+  );
+  expect(publicResponse.status()).toBe(200);
+  expect(await publicResponse.text()).toContain('Low-friction corrected cafe');
+
+  await page.goto(
+    `/en/moderation?queue=corrections-and-reports&item=${fixtures.flagId}&filter=actionable`
+  );
+  await waitForHydration(page);
+  await expect(page.getByRole('region', { name: 'Selected moderation item' })).toContainText(
+    'Safety Concern'
+  );
+  await page
+    .getByRole('region', { name: 'Decision controls' })
+    .getByRole('button', { name: 'Confirm useful' })
+    .click();
+  const usefulDialog = page.getByRole('dialog', { name: 'Confirm this report as useful?' });
+  await expect(usefulDialog).toBeVisible();
+  await usefulDialog.getByRole('button', { name: 'Confirm useful' }).click();
+  await expect(usefulDialog).toBeHidden();
+  await expect(page.getByRole('status')).toContainText(
+    'Confirmed as a useful Report. The outcome has been saved.'
+  );
+});
+
+test('a Moderator can defer, reject, and reopen a Candidate without losing it', async ({
+  page
+}) => {
+  await signInModerator(
+    page,
+    `/en/moderation?queue=candidate-places&item=${fixtures.candidatePlaceId}&filter=actionable`
+  );
+
+  await page
+    .getByRole('region', { name: 'Decision controls' })
+    .getByRole('button', { name: 'Needs information' })
+    .click();
+  await submitReasonDialog(page, 'Needs information');
+  await expect(page.getByRole('status')).toContainText('Information request sent.');
+
+  await chooseQueueStatus(page, 'Deferred');
+  await selectWorkItem(page, fixtures.candidatePlaceId);
+  await page
+    .getByRole('region', { name: 'Decision controls' })
+    .getByRole('button', { name: 'Reject' })
+    .click();
+  const rejectDialog = page.getByRole('dialog', { name: 'Reject this Candidate?' });
+  await rejectDialog.getByLabel('Reason').selectOption('insufficient_evidence');
+  await submitReasonDialog(page, 'Reject');
+  await expect(page.getByRole('status')).toContainText('Candidate rejected.');
+
+  await chooseQueueStatus(page, 'Resolved');
+  await selectWorkItem(page, fixtures.candidatePlaceId);
+  const decisionDock = page.getByRole('region', { name: 'Decision controls' });
+  await expect(decisionDock.getByRole('button')).toHaveCount(1);
+  await decisionDock.getByRole('button', { name: 'Reopen' }).click();
+  await expect(page.getByRole('status')).toContainText('Candidate reopened.');
+
+  await chooseQueueStatus(page, 'Actionable');
+  await expect(page.locator(`[data-work-item-id="${fixtures.candidatePlaceId}"]`)).toBeVisible();
+});
+
+async function signInModerator(page: Page, returnTo: string): Promise<void> {
+  page.setDefaultTimeout(10_000);
+  await clearLocalEvaluationMailbox();
+  await page.goto(`/en/moderation/sign-in?returnTo=${encodeURIComponent(returnTo)}`);
+  await waitForHydration(page);
+  await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
+  await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
+  await expect(page.getByText('The link has been sent.')).toBeVisible();
+  const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
+  await page.goto(magicLink);
+  await expect(page).toHaveURL(returnTo);
+  await waitForHydration(page);
+  await expect(page.getByRole('heading', { name: 'Moderation board', level: 1 })).toBeVisible();
+}
+
+async function submitReasonDialog(page: Page, confirmLabel: string): Promise<void> {
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Member explanation in Icelandic').fill('Yfirfarið af stjórnanda.');
+  await dialog.getByLabel('Member explanation in English').fill('Reviewed by a Moderator.');
+  await dialog.getByLabel('Private Moderator note').fill('Reviewed in the moderation workspace.');
+  await dialog.getByRole('button', { name: confirmLabel, exact: true }).click();
+}
+
+async function selectWorkItem(page: Page, itemId: string): Promise<void> {
+  const item = page.locator(`[data-work-item-id="${itemId}"]`);
+  await expect(item).toBeVisible();
+  await item.click();
+  await expect(page).toHaveURL((url) => url.searchParams.get('item') === itemId);
+}
+
+async function chooseQueueStatus(
+  page: Page,
+  status: 'Actionable' | 'Deferred' | 'Resolved'
+): Promise<void> {
+  const filters = page.getByRole('navigation', { name: 'Queue status' });
+  await filters.getByRole('link', { name: status }).click();
+  await expect(filters.getByRole('link', { name: status })).toHaveAttribute('aria-current', 'page');
+}
+
+async function expandSection(section: Locator): Promise<void> {
+  if ((await section.getAttribute('open')) === null) {
+    await section.locator('summary').click();
+  }
+}

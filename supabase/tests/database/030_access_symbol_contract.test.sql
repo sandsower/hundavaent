@@ -90,7 +90,7 @@ select ok(
         ('private.create_candidate_place_pre_geometry(jsonb,uuid)'::regprocedure),
         ('private.create_suggestion_candidate(jsonb,uuid,uuid,uuid,uuid)'::regprocedure),
         ('public.resolve_access_dispute(jsonb,uuid)'::regprocedure),
-        ('public.resolve_place_flag(uuid,text,text,text,text,jsonb,jsonb,jsonb,uuid)'::regprocedure)
+        ('public.resolve_place_flag(uuid,text,bigint,bigint,text,text,text,jsonb,jsonb,jsonb,uuid)'::regprocedure)
     ) as writer(procedure_id)
     where position('availability_state' in pg_get_functiondef(writer.procedure_id)) = 0
       or position('resolve_access_availability' in pg_get_functiondef(writer.procedure_id)) = 0

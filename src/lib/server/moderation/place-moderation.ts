@@ -104,6 +104,8 @@ export interface CreatedCandidate {
 export interface PublishPlaceCommand {
   placeId: string;
   expectedVersion: number;
+  expectedItemVersion: number;
+  expectedDraftVersion: number;
   conditionVerifications: ReadonlyArray<{
     accessConditionId: string;
     evidenceIds: readonly string[];
@@ -124,7 +126,7 @@ export type PublicationResult =
   | { status: 'incomplete' }
   | { status: 'stale' }
   | { status: 'forbidden' }
-  | { status: 'already_published' }
+  | { status: 'not_publishable' }
   | { status: 'infrastructure_error' };
 
 export interface PublicationChecks {
@@ -142,9 +144,23 @@ export interface CandidatePublicationReview {
   placeId: string;
   version: number;
   lifecycle: string;
+  candidateStatus: 'pending' | 'needs_information' | 'rejected' | 'published';
+  itemVersion: number;
+  draftVersion: number;
+  draftPayload: Json | null;
+  draftUpdatedBy: string | null;
+  draftUpdatedAt: string | null;
+  readinessState: 'ready' | 'blocked';
+  readinessIssues: string[];
+  originatingSuggestionId: string | null;
+  contributorId: string | null;
   wheelchairAccessibility: WheelchairAccessibility;
   operatorName: string;
   category: string;
+  websiteUrl: string | null;
+  phone: string | null;
+  openingHours: Readonly<Record<string, Json>>;
+  dogAmenities: string[];
   addressLine: string;
   locality: string;
   postalCode: string;
@@ -182,6 +198,7 @@ export interface ModerationEvidence {
   sourceCitation: string | null;
   sourceLabel: string;
   observedAt: string;
+  sourceMetadata: Readonly<Record<string, Json>>;
 }
 
 export type CandidateReviewResult =
@@ -306,6 +323,8 @@ export async function verifyAndPublish(
       command_payload: {
         place_id: command.placeId,
         expected_version: command.expectedVersion,
+        expected_item_version: command.expectedItemVersion,
+        expected_draft_version: command.expectedDraftVersion,
         condition_verifications: command.conditionVerifications.map((verification) => ({
           access_condition_id: verification.accessConditionId,
           evidence_ids: [...verification.evidenceIds]
@@ -355,11 +374,12 @@ export async function getCandidatePublicationReview(
       return { status: 'not_found' };
     }
 
-    if (data.length !== 1 || !isCandidateReviewRow(data[0])) {
+    const candidateRow = data[0] as unknown as DatabaseReviewRowInput | undefined;
+    if (data.length !== 1 || !isCandidateReviewRow(candidateRow)) {
       return { status: 'infrastructure_error' };
     }
 
-    const row = data[0];
+    const row = candidateRow;
     const accessConditions = parseModerationConditions(row.access_conditions);
     const evidenceRecords = parseModerationEvidence(row.evidence_records);
     if (!accessConditions || !evidenceRecords) return { status: 'infrastructure_error' };
@@ -389,9 +409,23 @@ export async function getCandidatePublicationReview(
         placeId: row.place_id,
         version: row.version,
         lifecycle: row.lifecycle,
+        candidateStatus: row.candidate_status,
+        itemVersion: row.item_version,
+        draftVersion: row.draft_version,
+        draftPayload: row.draft_payload,
+        draftUpdatedBy: row.draft_updated_by,
+        draftUpdatedAt: row.draft_updated_at,
+        readinessState: row.readiness_state,
+        readinessIssues: row.readiness_issues,
+        originatingSuggestionId: row.originating_suggestion_id,
+        contributorId: row.contributor_id,
         wheelchairAccessibility: row.wheelchair_accessibility,
         operatorName: row.operator_name,
         category: row.category,
+        websiteUrl: row.website_url,
+        phone: row.phone,
+        openingHours: row.opening_hours,
+        dogAmenities: row.dog_amenities,
         addressLine: row.address_line,
         locality: row.locality,
         postalCode: row.postal_code,
@@ -407,7 +441,7 @@ export async function getCandidatePublicationReview(
         accessConditions,
         evidenceRecords,
         checks,
-        ready: Object.values(checks).every(Boolean)
+        ready: row.readiness_state === 'ready' && Object.values(checks).every(Boolean)
       }
     };
   } catch {
@@ -441,7 +475,7 @@ function mapPublicationError(code: string): PublicationResult {
   }
 
   if (code === '55000') {
-    return { status: 'already_published' };
+    return { status: 'not_publishable' };
   }
 
   if (code === '22007' || code === '22023' || code === '23502' || code === '23514') {
@@ -525,22 +559,38 @@ function parseModerationConditions(value: Json): ModerationAccessCondition[] | n
   if (!Array.isArray(value)) return null;
   const conditions: ModerationAccessCondition[] = [];
   for (const item of value) {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) return null;
+    const accessArea = item.accessArea ?? item.access_area;
+    const accessAreaNote = item.accessAreaNote ?? item.access_area_note;
+    const restraintCondition = item.restraintCondition ?? item.restraint_condition;
+    const restraintNote = item.restraintNote ?? item.restraint_note;
+    const dogEligibility = item.dogEligibility ?? item.dog_eligibility;
+    const availabilityWindow = item.availabilityWindow ?? item.availability_window;
+    const availabilityState = item.availabilityState ?? item.availability_state;
+    const permissionRequirement = item.permissionRequirement ?? item.permission_requirement;
     if (
-      typeof item !== 'object' ||
-      item === null ||
-      Array.isArray(item) ||
       !hasText(item.id) ||
-      !isAccessArea(item.accessArea) ||
-      !isOptionalText(item.accessAreaNote) ||
-      !isRestraint(item.restraintCondition) ||
-      !isOptionalText(item.restraintNote) ||
-      parseDogEligibility(item.dogEligibility) === null ||
-      parseAvailabilityWindow(item.availabilityWindow) === null ||
-      (item.availabilityState !== undefined && !isAvailabilityState(item.availabilityState)) ||
-      !isPermission(item.permissionRequirement)
+      !isAccessArea(accessArea) ||
+      !isOptionalText(accessAreaNote) ||
+      !isRestraint(restraintCondition) ||
+      !isOptionalText(restraintNote) ||
+      parseDogEligibility(dogEligibility) === null ||
+      parseAvailabilityWindow(availabilityWindow) === null ||
+      (availabilityState !== undefined && !isAvailabilityState(availabilityState)) ||
+      !isPermission(permissionRequirement)
     )
       return null;
-    conditions.push(item as unknown as ModerationAccessCondition);
+    conditions.push({
+      id: item.id,
+      accessArea,
+      accessAreaNote: accessAreaNote ?? null,
+      restraintCondition,
+      restraintNote: restraintNote ?? null,
+      dogEligibility: parseDogEligibility(dogEligibility) as DogEligibility,
+      availabilityWindow: parseAvailabilityWindow(availabilityWindow) as AvailabilityWindow,
+      ...(availabilityState === undefined ? {} : { availabilityState }),
+      permissionRequirement
+    });
   }
   return conditions;
 }
@@ -549,20 +599,32 @@ function parseModerationEvidence(value: Json): ModerationEvidence[] | null {
   if (!Array.isArray(value)) return null;
   const records: ModerationEvidence[] = [];
   for (const item of value) {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) return null;
+    const sourceUrl = item.sourceUrl ?? item.source_url;
+    const sourceCitation = item.sourceCitation ?? item.source_citation;
+    const sourceLabel = item.sourceLabel ?? item.source_label;
+    const observedAt = item.observedAt ?? item.observed_at;
+    const sourceMetadata = item.sourceMetadata ?? item.source_metadata;
     if (
-      typeof item !== 'object' ||
-      item === null ||
-      Array.isArray(item) ||
       !hasText(item.id) ||
       !isEvidenceKind(item.kind) ||
-      !isOptionalText(item.sourceUrl) ||
-      !isOptionalText(item.sourceCitation) ||
-      !hasText(item.sourceLabel) ||
-      !hasText(item.observedAt) ||
-      !Number.isFinite(Date.parse(item.observedAt))
+      !isOptionalText(sourceUrl) ||
+      !isOptionalText(sourceCitation) ||
+      !hasText(sourceLabel) ||
+      !hasText(observedAt) ||
+      !Number.isFinite(Date.parse(observedAt)) ||
+      !isJsonObject(sourceMetadata)
     )
       return null;
-    records.push(item as unknown as ModerationEvidence);
+    records.push({
+      id: item.id,
+      kind: item.kind,
+      sourceUrl: sourceUrl ?? null,
+      sourceCitation: sourceCitation ?? null,
+      sourceLabel,
+      observedAt,
+      sourceMetadata
+    });
   }
   return records;
 }
@@ -628,9 +690,23 @@ type DatabaseReviewRow = {
   place_id: string;
   version: number;
   lifecycle: string;
+  candidate_status: 'pending' | 'needs_information' | 'rejected' | 'published';
+  item_version: number;
+  draft_version: number;
+  draft_payload: Json | null;
+  draft_updated_by: string | null;
+  draft_updated_at: string | null;
+  readiness_state: 'ready' | 'blocked';
+  readiness_issues: string[];
+  originating_suggestion_id: string | null;
+  contributor_id: string | null;
   wheelchair_accessibility: WheelchairAccessibility;
   operator_name: string;
   category: string;
+  website_url: string | null;
+  phone: string | null;
+  opening_hours: Readonly<Record<string, Json>>;
+  dog_amenities: string[];
   address_line: string;
   locality: string;
   postal_code: string;
@@ -662,9 +738,27 @@ function isCandidateReviewRow(row: DatabaseReviewRowInput | undefined): row is D
     Number.isInteger(row.version) &&
     row.version > 0 &&
     hasText(row.lifecycle) &&
+    isCandidateReviewStatus(row.candidate_status) &&
+    Number.isInteger(row.item_version) &&
+    row.item_version > 0 &&
+    Number.isInteger(row.draft_version) &&
+    row.draft_version >= 0 &&
+    (row.draft_payload === null || isJsonObject(row.draft_payload)) &&
+    (row.draft_updated_by === null || hasText(row.draft_updated_by)) &&
+    (row.draft_updated_at === null || hasText(row.draft_updated_at)) &&
+    (row.readiness_state === 'ready' || row.readiness_state === 'blocked') &&
+    Array.isArray(row.readiness_issues) &&
+    row.readiness_issues.every(hasText) &&
+    (row.originating_suggestion_id === null || hasText(row.originating_suggestion_id)) &&
+    (row.contributor_id === null || hasText(row.contributor_id)) &&
     isWheelchairAccessibility(row.wheelchair_accessibility) &&
     hasText(row.operator_name) &&
     hasText(row.category) &&
+    (row.website_url === null || hasText(row.website_url)) &&
+    (row.phone === null || hasText(row.phone)) &&
+    isJsonObject(row.opening_hours) &&
+    Array.isArray(row.dog_amenities) &&
+    row.dog_amenities.every(hasText) &&
     hasText(row.address_line) &&
     hasText(row.locality) &&
     hasText(row.postal_code) &&
@@ -676,6 +770,19 @@ function isCandidateReviewRow(row: DatabaseReviewRowInput | undefined): row is D
     Array.isArray(row.access_conditions) &&
     Array.isArray(row.evidence_records)
   );
+}
+
+function isCandidateReviewStatus(value: unknown): value is DatabaseReviewRow['candidate_status'] {
+  return (
+    value === 'pending' ||
+    value === 'needs_information' ||
+    value === 'rejected' ||
+    value === 'published'
+  );
+}
+
+function isJsonObject(value: unknown): value is Readonly<Record<string, Json>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isLocationGeometryPrecision(value: unknown): value is LocationGeometryPrecision {

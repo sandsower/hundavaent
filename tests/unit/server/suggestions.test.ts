@@ -195,7 +195,12 @@ describe('Suggestion RPC adapter', () => {
       locality: 'Reykjavík',
       submitted_at: '2026-07-11T09:00:00Z',
       updated_at: '2026-07-11T09:00:00Z',
-      queue_rank: 0
+      queue_rank: 0,
+      item_version: 1,
+      draft_version: 0,
+      draft_updated_by: null,
+      draft_updated_at: null,
+      readiness_state: 'ready'
     };
     const rpc = vi
       .fn()
@@ -224,6 +229,7 @@ describe('Suggestion RPC adapter', () => {
       200
     );
     expect(rpc).toHaveBeenLastCalledWith('list_moderation_place_suggestions', {
+      requested_filter: 'actionable',
       cursor_queue_rank: 0,
       cursor_submitted_at: queueRow.submitted_at,
       cursor_suggestion_id: 'suggestion-2',
@@ -287,7 +293,12 @@ describe('Suggestion RPC adapter', () => {
         locality: 'Reykjavík',
         submitted_at: '2026-07-11T09:00:00Z',
         updated_at: '2026-07-11T09:00:00Z',
-        queue_rank: 0
+        queue_rank: 0,
+        item_version: 1,
+        draft_version: 0,
+        draft_updated_by: null,
+        draft_updated_at: null,
+        readiness_state: 'ready'
       }));
       const rpc = vi.fn().mockResolvedValue({ data: rows, error: null });
 
@@ -298,6 +309,7 @@ describe('Suggestion RPC adapter', () => {
       expect(result.value.items).toHaveLength(Math.min(rowCount, 2));
       expect(Boolean(result.value.nextCursor)).toBe(hasNext);
       expect(rpc).toHaveBeenCalledWith('list_moderation_place_suggestions', {
+        requested_filter: 'actionable',
         cursor_queue_rank: null,
         cursor_submitted_at: null,
         cursor_suggestion_id: null,
@@ -330,10 +342,11 @@ describe('Suggestion RPC adapter', () => {
       {
         suggestionId: 'suggestion-1',
         outcome: 'accepted',
+        expectedItemVersion: 2,
+        expectedDraftVersion: 1,
         memberReasonIs: 'Samþykkt.',
         memberReasonEn: 'Accepted.',
         privateNote: null,
-        candidatePayload: proposal,
         duplicatePlaceId: null,
         operatorIdentityPlaceId: 'inactive-place',
         locationIdentityPlaceId: 'inactive-place',
@@ -345,7 +358,9 @@ describe('Suggestion RPC adapter', () => {
     expect(rpc).toHaveBeenCalledWith(
       'resolve_place_suggestion',
       expect.objectContaining({
-        moderator_candidate_payload: proposal,
+        expected_item_version: 2,
+        expected_draft_version: 1,
+        moderator_candidate_payload: null,
         requested_operator_identity_place_id: 'inactive-place',
         requested_location_identity_place_id: 'inactive-place'
       })

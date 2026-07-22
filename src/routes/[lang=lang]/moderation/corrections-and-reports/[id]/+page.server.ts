@@ -26,25 +26,46 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   if (result.status !== 'success') {
     error(503, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
-  return result.value;
+  return {
+    ...result.value,
+    draftSaved: url.searchParams.get('draft') === 'saved'
+  };
 };
 
 async function runAction(
   action: ModerationCorrectionActionName,
   event: Parameters<NonNullable<Actions[ModerationCorrectionActionName]>>[0]
 ) {
-  const { locals, params, request } = event;
+  const { locals, params, request, url } = event;
   if (!locals.supabase) return fail(503, { error: 'unavailable' as const });
 
   const result = await executeModerationCorrectionAction(action, {
     flagClient: locals.supabase as unknown as PlaceFlagRpcClient,
     flagId: params.id,
     requestId: locals.requestId,
-    formData: action === 'resolve' ? await request.formData() : null
+    formData: action === 'confirmUseful' ? null : await request.formData()
   });
-  if (result.status === 'failure') return fail(result.httpStatus, { error: result.error });
+  if (result.status === 'failure') {
+    const conflictReview =
+      result.error === 'conflict'
+        ? await loadModerationCorrectionReview(
+            locals.supabase as unknown as PlaceFlagRpcClient,
+            params.id,
+            url.searchParams
+          )
+        : null;
+    return fail(result.httpStatus, {
+      error: result.error,
+      ...(result.error === 'conflict' ? { conflict: true } : {}),
+      ...(conflictReview?.status === 'success' ? { conflictReview: conflictReview.value } : {}),
+      conflictRefreshFailed: result.error === 'conflict' && conflictReview?.status !== 'success'
+    });
+  }
 
   const lang = parseLocale(params.lang);
+  if (result.effect.kind === 'draft_saved') {
+    redirect(303, `/${lang}/moderation/corrections-and-reports/${params.id}?draft=saved`);
+  }
   if (result.effect.kind === 'resolved') {
     redirect(
       303,
@@ -56,6 +77,7 @@ async function runAction(
 
 // Each action below is itself enforced by security.require_moderator() inside the RPC.
 export const actions: Actions = {
-  resolve: (event) => runAction('resolve', event),
+  saveCorrectionSection: (event) => runAction('saveCorrectionSection', event),
+  decideCorrection: (event) => runAction('decideCorrection', event),
   confirmUseful: (event) => runAction('confirmUseful', event)
 };

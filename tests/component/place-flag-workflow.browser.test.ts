@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import { catalogues } from '$i18n';
@@ -6,7 +6,6 @@ import type { PublishedPlaceProfile } from '$server/discovery/public-places';
 import type { ModerationPlaceFlag } from '$server/place-flags/place-flags';
 import MemberFlagsPage from '../../src/routes/[lang=lang]/account/corrections-and-reports/+page.svelte';
 import FlagReviewPage from '../../src/routes/[lang=lang]/moderation/corrections-and-reports/[id]/+page.svelte';
-import FlagQueuePage from '../../src/routes/[lang=lang]/moderation/corrections-and-reports/+page.svelte';
 import CorrectionPage from '../../src/routes/[lang=lang]/places/[id]/correct/+page.svelte';
 import ReportPage from '../../src/routes/[lang=lang]/places/[id]/report/+page.svelte';
 
@@ -54,6 +53,11 @@ const place: PublishedPlaceProfile = {
 };
 
 const correctionFlag: ModerationPlaceFlag = {
+  itemVersion: 1,
+  draftVersion: 0,
+  draftPayload: null,
+  draftUpdatedBy: null,
+  draftUpdatedAt: null,
   flagId: '90000000-0000-4000-8000-000000000001',
   memberId: '76000000-0000-4000-8000-000000000001',
   kind: 'correction',
@@ -359,48 +363,8 @@ describe('Member Correction and Report outcome history', () => {
   });
 });
 
-describe('Moderator Correction and Report queue', () => {
-  it('renders the queue with a Safety Concern badge and a stable review link', () => {
-    render(FlagQueuePage, {
-      params: { lang: 'en' },
-      data: {
-        lang: 'en',
-        copy: catalogues.en,
-        flags: [
-          {
-            flagId: reportFlag.flagId,
-            memberId: reportFlag.memberId,
-            kind: 'report',
-            outcome: 'submitted',
-            placeId: reportFlag.placeId,
-            placeNameIs: reportFlag.placeNameIs,
-            placeNameEn: reportFlag.placeNameEn,
-            targetKind: 'access_condition',
-            targetField: null,
-            accessConditionId: reportFlag.accessConditionId,
-            reportReason: 'unsafe',
-            isSafetyConcern: true,
-            submittedAt: reportFlag.submittedAt,
-            updatedAt: reportFlag.updatedAt,
-            priority: 0
-          }
-        ],
-        nextCursor: null,
-        hasPrevious: false
-      },
-      form: null
-    } as never);
-
-    expect(screen.getByRole('heading', { name: 'Community Corrections and Reports' })).toBeTruthy();
-    expect(screen.getByText('Safety Concern')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Review' }).getAttribute('href')).toBe(
-      `/en/moderation/corrections-and-reports/${reportFlag.flagId}`
-    );
-  });
-});
-
 describe('Moderator Correction and Report detail', () => {
-  it('preserves the proposed whenever-open state when applying an Access Condition Correction', () => {
+  it('preserves the proposed whenever-open state when editing an Access Condition application', async () => {
     const accessCorrection = {
       ...correctionFlag,
       targetKind: 'access_condition' as const,
@@ -435,13 +399,15 @@ describe('Moderator Correction and Report detail', () => {
       form: null
     } as never);
 
+    await fireEvent.click(screen.getByText('Change under review'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit Change under review' }));
     expect((screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement).value).toBe(
       'whenever_open'
     );
     expect(screen.queryByLabelText('Dog access starts at')).toBeNull();
   });
 
-  it('compares the live value, snapshot, and proposed Correction, and offers the applied outcome', () => {
+  it('compares the live value, snapshot, and proposed Correction, and offers Apply', () => {
     render(FlagReviewPage, {
       params: { lang: 'en', id: correctionFlag.flagId },
       data: {
@@ -456,10 +422,10 @@ describe('Moderator Correction and Report detail', () => {
     } as never);
 
     expect(screen.getByText('+354 555 0199')).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Correction published' })).toBeTruthy();
-    expect(screen.queryByRole('option', { name: 'Confirmed as a useful Report' })).toBeNull();
-    expect(screen.queryByRole('option', { name: 'Access Dispute opened' })).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'Current verification' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Apply correction' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Confirm useful' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open dispute' })).toBeNull();
+    expect((document.querySelector('#correction-evidence') as HTMLDetailsElement).open).toBe(false);
   });
 
   it('offers dispute_opened only for an Access Condition target Report, plus the Safety Concern badge', () => {
@@ -476,13 +442,13 @@ describe('Moderator Correction and Report detail', () => {
       form: null
     } as never);
 
-    expect(screen.getByText('Safety Concern')).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Confirmed as a useful Report' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Access Dispute opened' })).toBeTruthy();
-    expect(screen.queryByRole('option', { name: 'Correction published' })).toBeNull();
-    expect(screen.getByLabelText('Private Moderator note')).toBeTruthy();
+    expect(screen.getAllByText('Safety Concern')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Confirm useful' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open dispute' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Apply correction' })).toBeNull();
+    expect(screen.getByText('Escalated informally; venue contacted.')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Current verification' })).toBeTruthy();
-    expect(screen.getByText('verified')).toBeTruthy();
+    expect(screen.getByText('Verification status: verified')).toBeTruthy();
     expect(
       screen.getByText('official_website · Original policy · 2026-01-01T00:00:00Z')
     ).toBeTruthy();
@@ -552,7 +518,7 @@ describe('Moderator Correction and Report detail', () => {
       form: null
     } as never);
 
-    expect(screen.getByText('Other Corrections and Reports on the same claim')).toBeTruthy();
+    expect(screen.getAllByText('Related claims')).toHaveLength(2);
     expect(screen.getAllByText('Correction')).toBeTruthy();
   });
 });

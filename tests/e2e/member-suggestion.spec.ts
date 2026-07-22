@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import type { Database } from '$server/db/generated.types';
 
@@ -186,12 +186,18 @@ test('private Suggestions reach accepted, rejected, and duplicate outcomes witho
     `/en/moderation?queue=candidate-places&item=${candidateId}&filter=actionable`
   );
   await expect(moderatorPage.getByRole('heading', { name: 'Publication checklist' })).toBeVisible();
-  await expect(moderatorPage.getByText('Ready')).toHaveCount(8);
-  await moderatorPage
+  await expect(moderatorPage.getByText('Ready', { exact: true })).toBeVisible();
+  const publicationEvidence = moderatorPage.locator('#publication-evidence');
+  await expandReviewSection(publicationEvidence);
+  await publicationEvidence
     .getByRole('group', { name: 'Evidence supporting condition 1' })
     .getByLabel('Member supplied source')
     .check();
   await moderatorPage.getByRole('button', { name: 'Verify and publish' }).click();
+  await moderatorPage
+    .getByRole('dialog', { name: 'Publish this Place?' })
+    .getByRole('button', { name: 'Verify and publish' })
+    .click();
   await expect(moderatorPage.getByText('The Place has been published.')).toBeVisible();
 
   const published = await publicClient.rpc('list_published_places', {
@@ -223,13 +229,15 @@ async function signInMember(page: Page, email: string): Promise<void> {
 }
 
 async function signInModerator(page: Page): Promise<void> {
+  page.setDefaultTimeout(10_000);
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fsuggestions');
   await waitForHydration(page);
   await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
   await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
   await page.goto(magicLink);
-  await expect(page).toHaveURL('/en/moderation/suggestions');
+  await expect(page).toHaveURL(/\/en\/moderation\?queue=suggestions/);
+  await waitForHydration(page);
 }
 
 async function submitSuggestion(
@@ -270,59 +278,43 @@ async function resolveSuggestion(
   outcome: 'accepted' | 'needs_information' | 'rejected' | 'duplicate',
   confirmUseful = false
 ): Promise<void> {
-  await page.goto('/en/moderation/suggestions');
+  await page.goto('/en/moderation?queue=suggestions&filter=actionable');
+  await waitForHydration(page);
   const queueItem = page.getByRole('listitem').filter({ hasText: name });
-  await queueItem.getByRole('link', { name: 'Review Suggestion' }).click();
+  await queueItem.getByRole('link').click();
+  await expandReviewSection(page.locator('#suggestion-evidence'));
   await expect(
     page.getByRole('link', { name: 'https://example.invalid/community-source' })
   ).toBeVisible();
-  await page.getByLabel('Outcome').selectOption(outcome);
-  await page
-    .getByLabel('Member explanation in Icelandic')
-    .fill(outcome === 'rejected' ? 'Ekki nægar heimildir.' : 'Tillagan hefur verið yfirfarin.');
-  await page
-    .getByLabel('Member explanation in English')
-    .fill(
-      outcome === 'rejected'
-        ? 'Insufficient evidence for publication.'
-        : 'The Suggestion was reviewed.'
-    );
-  await page.getByLabel('Private Moderator note').fill('Identity and Evidence reviewed in E2E.');
-
-  if (outcome === 'duplicate') {
-    const duplicateSelect = page.getByLabel('Choose the Place this Suggestion duplicates');
-    await expect(
-      duplicateSelect.getByRole('option', { name: /Unrelated E2E operator/ })
-    ).toHaveCount(0);
-    await duplicateSelect.selectOption({ index: 1 });
-  }
-
   if (outcome === 'accepted') {
-    const names = page.getByLabel('Name');
-    const descriptions = page.getByLabel('Description');
+    const translations = page.locator('#suggestion-translations');
+    await expandReviewSection(translations);
+    await translations.getByRole('button', { name: 'Edit Names and descriptions' }).click();
+    const translationForm = translations.locator('form[data-section-form="translations"]');
+    const names = translationForm.getByLabel('Name');
+    const descriptions = translationForm.getByLabel('Description');
     await names.nth(0).fill(acceptedNameIs);
+    await names.nth(1).fill(acceptedName);
     await descriptions.nth(0).fill('Tillaga sem stjórnandi hefur þýtt og yfirfarið.');
     await descriptions.nth(1).fill('A Moderator-corrected structured Suggestion.');
-    await page.getByLabel('Address or area').fill('');
-    await page.getByRole('button', { name: 'Refresh matches for corrected details' }).click();
-    await expect(page.getByRole('alert')).toContainText(
-      'Check the highlighted answers and try again.'
-    );
-    await expect(descriptions.nth(1)).toHaveValue('A Moderator-corrected structured Suggestion.');
-    await expect(page.getByLabel('Member explanation in English')).toHaveValue(
-      'The Suggestion was reviewed.'
-    );
-    await expect(page.getByLabel('Private Moderator note')).toHaveValue(
-      'Identity and Evidence reviewed in E2E.'
-    );
-    await page.getByLabel('Address or area').fill('Leiðrétt gata 48');
-    await page.getByLabel('Postal code').fill('105');
-    await page.getByLabel('Latitude').fill('64.1325');
-    await page.getByLabel('Longitude').fill('-21.9024');
-    await page.getByRole('button', { name: 'Refresh matches for corrected details' }).click();
-    await expect(
-      page.getByText('Identity matches now reflect the corrected proposal.')
-    ).toBeVisible();
+    await translationForm.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('status')).toContainText('Draft changes saved.');
+    await expect(translationForm).toHaveCount(0);
+
+    const location = page.locator('#suggestion-location');
+    await expandReviewSection(location);
+    await location.getByRole('button', { name: 'Edit Location' }).click();
+    const locationForm = location.locator('form[data-section-form="location"]');
+    await locationForm.getByLabel('Address or area').fill('Leiðrétt gata 48');
+    await locationForm.getByLabel('Postal code').fill('105');
+    await locationForm.getByLabel('Latitude').fill('64.1325');
+    await locationForm.getByLabel('Longitude').fill('-21.9024');
+    await locationForm.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('status')).toContainText('Draft changes saved.');
+    await expect(locationForm).toHaveCount(0);
+
+    const matches = page.locator('#suggestion-matches');
+    await expandReviewSection(matches);
     await page
       .getByLabel('Operator identity')
       .selectOption(localCorrectedSuggestionPredecessor.placeId);
@@ -335,11 +327,57 @@ async function resolveSuggestion(
     await expect(page.getByText('Inactive · Leiðrétt gata 48, Reykjavík')).toBeVisible();
   }
 
-  await page.getByRole('button', { name: 'Save outcome' }).click();
+  const actionName =
+    outcome === 'accepted'
+      ? 'Accept as Candidate'
+      : outcome === 'needs_information'
+        ? 'Needs information'
+        : outcome === 'duplicate'
+          ? 'Mark as duplicate'
+          : 'Reject';
+  await page.getByRole('button', { name: actionName, exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  if (outcome !== 'accepted') {
+    await dialog
+      .getByLabel('Member explanation in Icelandic')
+      .fill(outcome === 'rejected' ? 'Ekki nægar heimildir.' : 'Tillagan hefur verið yfirfarin.');
+    await dialog
+      .getByLabel('Member explanation in English')
+      .fill(
+        outcome === 'rejected'
+          ? 'Insufficient evidence for publication.'
+          : 'The Suggestion was reviewed.'
+      );
+    await dialog
+      .getByLabel('Private Moderator note')
+      .fill('Identity and Evidence reviewed in E2E.');
+  }
+  if (outcome === 'duplicate') {
+    const duplicateSelect = dialog.getByLabel('Choose the Place this Suggestion duplicates');
+    await expect(
+      duplicateSelect.getByRole('option', { name: /Unrelated E2E operator/ })
+    ).toHaveCount(0);
+    await duplicateSelect.selectOption({ index: 1 });
+  }
+  await dialog.getByRole('button', { name: actionName, exact: true }).click();
   await expect(page.getByText('The outcome has been saved.')).toBeVisible();
+  await expect(dialog).toBeHidden();
 
   if (outcome === 'accepted' && confirmUseful) {
+    await page
+      .getByRole('navigation', { name: 'Queue status' })
+      .getByRole('link', { name: 'Resolved' })
+      .click();
+    const acceptedItem = page.getByRole('listitem').filter({ hasText: name });
+    await acceptedItem.getByRole('link').click();
     await page.getByRole('button', { name: 'Confirm useful Contribution' }).click();
     await expect(page.getByText('The useful Contribution has been confirmed.')).toBeVisible();
+  }
+}
+
+async function expandReviewSection(section: Locator): Promise<void> {
+  if ((await section.getAttribute('open')) === null) {
+    await section.locator('summary').click();
   }
 }

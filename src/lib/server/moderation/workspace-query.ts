@@ -6,7 +6,7 @@ export const moderationWorkspaceQueueIds = [
 
 export type ModerationWorkspaceQueueId = (typeof moderationWorkspaceQueueIds)[number];
 
-export const moderationWorkspaceFilterIds = ['actionable'] as const;
+export const moderationWorkspaceFilterIds = ['actionable', 'deferred', 'resolved'] as const;
 
 export type ModerationWorkspaceFilterId = (typeof moderationWorkspaceFilterIds)[number];
 
@@ -92,7 +92,13 @@ export function buildModerationWorkspaceContinuation(
 ): ModerationWorkspaceQuery {
   const params = new URLSearchParams();
   params.set('queue', queue);
-  params.append('filter', 'actionable');
+  const workspaceFilter = String(formData.get('workspaceFilter') ?? '').trim();
+  params.append(
+    'filter',
+    moderationWorkspaceFilterIds.some((filter) => filter === workspaceFilter)
+      ? workspaceFilter
+      : 'actionable'
+  );
 
   const currentCursor = String(formData.get('workspaceCursor') ?? '').trim();
   if (currentCursor) params.set('cursor', currentCursor);

@@ -1,9 +1,17 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
+import { page as browserPage } from 'vitest/browser';
 
 import { catalogues } from '$i18n';
+import CandidateDecisionControls from '$lib/moderation/CandidateDecisionControls.svelte';
+import ModerationActionBar from '$lib/moderation/ModerationActionBar.svelte';
+import ModerationConfirmDialog from '$lib/moderation/ModerationConfirmDialog.svelte';
+import ModerationReadinessSummary from '$lib/moderation/ModerationReadinessSummary.svelte';
+import ModerationReviewSection from '$lib/moderation/ModerationReviewSection.svelte';
 import ModerationWorkspace from '$lib/moderation/ModerationWorkspace.svelte';
+import CorrectionDecisionControls from '$lib/moderation/CorrectionDecisionControls.svelte';
+import SuggestionDecisionControls from '$lib/moderation/SuggestionDecisionControls.svelte';
 
 const suggestionOne = '11111111-1111-4111-8111-111111111111';
 const suggestionTwo = '22222222-2222-4222-8222-222222222222';
@@ -95,6 +103,25 @@ describe('Compact moderation workspace', () => {
     expect(screen.getByRole('button', { name: 'Resolve and next' })).toBeTruthy();
   });
 
+  it('disables the persistent dock and explains that an open section must be saved or cancelled', () => {
+    render(ModerationWorkspace, {
+      ...readyProps(),
+      statusMessage: '',
+      actionsDisabled: true,
+      decisionHint: 'Save or cancel this section before choosing a decision.',
+      reviewContent: createRawSnippet(() => ({
+        render: () => '<label>Operator<input value="Editable operator" /></label>'
+      }))
+    });
+
+    const dock = screen.getByRole('region', { name: 'Decision controls' });
+    expect(
+      within(dock).getByText('Save or cancel this section before choosing a decision.')
+    ).toBeTruthy();
+    expect(within(dock).getByRole('button', { name: 'Resolve and next' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Operator' })).not.toBeDisabled();
+  });
+
   it('preserves cursor history across item selection and previous/next page links', () => {
     render(ModerationWorkspace, {
       ...readyProps(),
@@ -180,6 +207,7 @@ describe('Compact moderation workspace', () => {
       statusMessage: '',
       reviewErrorMessage: 'Current facts could not be loaded after the conflict.',
       actionsDisabled: true,
+      reviewDisabled: true,
       reviewContent: createRawSnippet(() => ({
         render: () => '<form method="POST"><button type="submit">Save outcome</button></form>'
       }))
@@ -254,5 +282,233 @@ describe('Compact moderation workspace', () => {
     expect(screen.getByRole('link', { name: 'Try again' }).getAttribute('href')).toBe(
       '/en/moderation?queue=suggestions&filter=actionable'
     );
+  });
+
+  it('gives the inbox and review independent desktop scroll containers', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1280, 800);
+
+    try {
+      const longItems = Array.from({ length: 30 }, (_, index) => ({
+        ...items[index % items.length],
+        id: `${String(index + 1).padStart(8, '0')}-1111-4111-8111-111111111111`,
+        title: `Moderation item ${index + 1}`
+      }));
+      const { container } = render(ModerationWorkspace, {
+        ...readyProps(),
+        items: longItems,
+        selectedItemId: longItems[0].id,
+        statusMessage: '',
+        reviewContent: createRawSnippet(() => ({
+          render: () =>
+            '<div style="height: 90rem"><button type="button" style="margin-top: 85rem">Last review control</button></div>'
+        }))
+      });
+
+      const workspace = container.querySelector<HTMLElement>('[data-moderation-workspace]');
+      const workListScroll = container.querySelector<HTMLElement>('[data-work-list-scroll]');
+      const reviewScroll = container.querySelector<HTMLElement>('[data-review-scroll]');
+      const reviewHeader = screen
+        .getByRole('heading', { name: 'Moderation item 1' })
+        .closest('header');
+      const actionBar = screen.getByRole('region', { name: 'Decision controls' });
+
+      expect(workspace).toBeTruthy();
+      expect(workListScroll).toBeTruthy();
+      expect(reviewScroll).toBeTruthy();
+      expect(workListScroll!.scrollHeight).toBeGreaterThan(workListScroll!.clientHeight);
+      expect(reviewScroll!.scrollHeight).toBeGreaterThan(reviewScroll!.clientHeight);
+
+      const headerTop = reviewHeader!.getBoundingClientRect().top;
+      const actionBottom = actionBar.getBoundingClientRect().bottom;
+      workListScroll!.scrollTop = 200;
+      reviewScroll!.scrollTop = 300;
+      await waitFor(() => {
+        expect(workListScroll!.scrollTop).toBeGreaterThan(0);
+        expect(reviewScroll!.scrollTop).toBeGreaterThan(0);
+      });
+      expect(reviewHeader!.getBoundingClientRect().top).toBeCloseTo(headerTop, 0);
+      expect(actionBar.getBoundingClientRect().bottom).toBeCloseTo(actionBottom, 0);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+
+  it('keeps all three queue tabs fully visible in a 390px viewport', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(390, 844);
+
+    try {
+      render(ModerationWorkspace, {
+        ...readyProps(),
+        activeQueueId: 'corrections-and-reports',
+        statusMessage: ''
+      });
+
+      const queueNavigation = screen.getByRole('navigation', { name: 'Moderation queues' });
+      const navigationBox = queueNavigation.getBoundingClientRect();
+      const queueLinks = within(queueNavigation).getAllByRole('link');
+
+      expect(queueLinks).toHaveLength(3);
+      for (const link of queueLinks) {
+        const box = link.getBoundingClientRect();
+        expect(box.left).toBeGreaterThanOrEqual(navigationBox.left);
+        expect(box.right).toBeLessThanOrEqual(navigationBox.right);
+        expect(box.width).toBeGreaterThan(80);
+      }
+      expect(
+        within(queueNavigation)
+          .getByRole('link', { name: 'Corrections and reports 2' })
+          .getAttribute('aria-current')
+      ).toBe('page');
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+});
+
+describe('Low-friction review primitives', () => {
+  it('derives Candidate decisions from refreshed review status', () => {
+    const decide = vi.fn();
+    const { rerender } = render(CandidateDecisionControls, {
+      copy: catalogues.en,
+      status: 'pending',
+      ready: true,
+      ondecide: decide
+    });
+
+    expect(screen.getByRole('button', { name: 'Verify and publish' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Needs information' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeTruthy();
+
+    rerender({
+      copy: catalogues.en,
+      status: 'rejected',
+      ready: true,
+      ondecide: decide
+    });
+    expect(screen.getByRole('button', { name: 'Reopen' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Verify and publish' })).toBeNull();
+
+    rerender({
+      copy: catalogues.en,
+      status: 'published',
+      ready: true,
+      ondecide: decide
+    });
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('offers direct Correction decisions without an outcome selector', async () => {
+    const decide = vi.fn();
+    render(CorrectionDecisionControls, {
+      copy: catalogues.en,
+      kind: 'report',
+      targetKind: 'access_condition',
+      ondecide: decide
+    });
+
+    expect(screen.queryByRole('combobox')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Confirm useful' }));
+    expect(decide).toHaveBeenCalledWith('confirmed_useful');
+    await fireEvent.click(screen.getByRole('button', { name: 'Open dispute' }));
+    expect(decide).toHaveBeenCalledWith('dispute_opened');
+  });
+
+  it('offers direct Suggestion decisions without an outcome selector', async () => {
+    const decide = vi.fn();
+    render(SuggestionDecisionControls, {
+      copy: catalogues.en,
+      ondecide: decide
+    });
+
+    expect(screen.queryByRole('combobox')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Accept as Candidate' }));
+    expect(decide).toHaveBeenCalledWith('accepted');
+    await fireEvent.click(screen.getByRole('button', { name: 'Needs information' }));
+    expect(decide).toHaveBeenCalledWith('needs_information');
+  });
+
+  it('summarizes readiness by exception and links only the issues needing attention', () => {
+    render(ModerationReadinessSummary, {
+      label: 'Publication readiness',
+      state: 'attention',
+      stateLabel: 'Needs attention',
+      summary: 'Two details need review before publishing.',
+      issues: [
+        { sectionId: 'location', label: 'Confirm the map point', severity: 'warning' },
+        { sectionId: 'evidence', label: 'Add a current source', severity: 'blocking' }
+      ]
+    });
+
+    const summary = screen.getByRole('region', { name: 'Publication readiness' });
+    expect(within(summary).getByText('Needs attention')).toBeTruthy();
+    expect(within(summary).getAllByRole('link')).toHaveLength(2);
+    expect(
+      within(summary).getByRole('link', { name: 'Add a current source' }).getAttribute('href')
+    ).toBe('#evidence');
+    expect(summary.getAttribute('data-readiness-state')).toBe('attention');
+  });
+
+  it('keeps complete supporting detail collapsed while opening a problem section', () => {
+    const detail = createRawSnippet(() => ({ render: () => '<p>Full supporting detail</p>' }));
+    const { rerender } = render(ModerationReviewSection, {
+      id: 'identity',
+      title: 'Place details',
+      summary: 'Names and operator are complete.',
+      state: 'complete',
+      children: detail
+    });
+
+    const disclosure = screen.getByText('Place details').closest('details');
+    expect(disclosure?.open).toBe(false);
+
+    rerender({
+      id: 'identity',
+      title: 'Place details',
+      summary: 'The English description is missing.',
+      state: 'blocking',
+      children: detail
+    });
+    expect(screen.getByText('Place details').closest('details')?.open).toBe(true);
+    expect(screen.getByText('Full supporting detail')).toBeTruthy();
+  });
+
+  it('presents primary actions persistently and confirms consequential decisions', async () => {
+    const confirm = vi.fn();
+    const cancel = vi.fn();
+    const actions = createRawSnippet(() => ({
+      render: () => '<button type="button">Publish Place</button>'
+    }));
+    render(ModerationActionBar, {
+      label: 'Candidate decisions',
+      children: actions
+    });
+    render(ModerationConfirmDialog, {
+      open: true,
+      title: 'Publish this Place?',
+      description: 'The Place will become visible to the public.',
+      confirmLabel: 'Publish Place',
+      cancelLabel: 'Keep reviewing',
+      onconfirm: confirm,
+      oncancel: cancel
+    });
+
+    expect(screen.getByRole('region', { name: 'Candidate decisions' })).toBeTruthy();
+    const dialog = screen.getByRole('dialog', { name: 'Publish this Place?' });
+    await waitFor(() => expect(dialog.matches(':modal')).toBe(true));
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    const backgroundAction = screen.getAllByRole('button', { name: 'Publish Place' })[0];
+    backgroundAction.focus();
+    expect(document.activeElement).not.toBe(backgroundAction);
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    await fireEvent.click(screen.getAllByRole('button', { name: 'Publish Place' }).at(-1)!);
+    expect(confirm).toHaveBeenCalledOnce();
+    await fireEvent.click(screen.getByRole('button', { name: 'Keep reviewing' }));
+    expect(cancel).toHaveBeenCalledOnce();
   });
 });

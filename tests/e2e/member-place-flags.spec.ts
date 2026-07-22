@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import type { Database } from '$server/db/generated.types';
 
@@ -43,12 +43,17 @@ test('private Corrections and Reports reach applied, confirmed-useful, and rejec
   const memberEmail = `place-flag-member-${Date.now()}@example.invalid`;
   await signInMember(page, memberEmail);
 
-  await submitCorrection(page, correctable.placeId, 'phone', '+354 555 0199');
-  await submitAccessConditionReport(page, correctable.placeId, correctable.accessConditionId, {
-    reason: 'unsafe',
-    safetyConcern: true
-  });
-  await submitCorrection(
+  const phoneFlagId = await submitCorrection(page, correctable.placeId, 'phone', '+354 555 0199');
+  const reportFlagId = await submitAccessConditionReport(
+    page,
+    correctable.placeId,
+    correctable.accessConditionId,
+    {
+      reason: 'unsafe',
+      safetyConcern: true
+    }
+  );
+  const websiteFlagId = await submitCorrection(
     page,
     correctable.placeId,
     'website_url',
@@ -59,17 +64,12 @@ test('private Corrections and Reports reach applied, confirmed-useful, and rejec
   const moderatorPage = await moderatorContext.newPage();
   await signInModerator(moderatorPage);
 
-  await resolveLatestFlag(moderatorPage, correctable.nameEn, 'Phone', 'applied', {
+  await resolveLatestFlag(moderatorPage, phoneFlagId, 'applied', {
     fieldValueText: '+354 555 0199'
   });
-  await resolveLatestFlag(
-    moderatorPage,
-    correctable.nameEn,
-    'An Access Condition',
-    'confirmed_useful'
-  );
-  await confirmUsefulContribution(moderatorPage);
-  await resolveLatestFlag(moderatorPage, correctable.nameEn, 'Website', 'rejected');
+  await resolveLatestFlag(moderatorPage, reportFlagId, 'confirmed_useful');
+  await confirmUsefulContribution(moderatorPage, reportFlagId);
+  await resolveLatestFlag(moderatorPage, websiteFlagId, 'rejected');
   await moderatorContext.close();
 
   await page.goto('/en/account/corrections-and-reports');
@@ -103,31 +103,31 @@ test('a Moderator can open an Access Dispute or retire a Place directly from a R
   const memberEmail = `place-flag-lifecycle-${Date.now()}@example.invalid`;
   await signInMember(page, memberEmail);
 
-  await submitAccessConditionReport(page, disputable.placeId, disputable.accessConditionId, {
-    reason: 'misleading',
-    safetyConcern: false
-  });
-  await submitAccessConditionReport(page, retirable.placeId, retirable.accessConditionId, {
-    reason: 'closed',
-    safetyConcern: false
-  });
+  const disputeFlagId = await submitAccessConditionReport(
+    page,
+    disputable.placeId,
+    disputable.accessConditionId,
+    {
+      reason: 'misleading',
+      safetyConcern: false
+    }
+  );
+  const inactivationFlagId = await submitAccessConditionReport(
+    page,
+    retirable.placeId,
+    retirable.accessConditionId,
+    {
+      reason: 'closed',
+      safetyConcern: false
+    }
+  );
 
   const moderatorContext = await browser.newContext();
   const moderatorPage = await moderatorContext.newPage();
   await signInModerator(moderatorPage);
 
-  await resolveLatestFlag(
-    moderatorPage,
-    disputable.nameEn,
-    disputable.accessConditionId,
-    'dispute_opened'
-  );
-  await resolveLatestFlag(
-    moderatorPage,
-    retirable.nameEn,
-    retirable.accessConditionId,
-    'place_inactivated'
-  );
+  await resolveLatestFlag(moderatorPage, disputeFlagId, 'dispute_opened');
+  await resolveLatestFlag(moderatorPage, inactivationFlagId, 'place_inactivated');
   await moderatorContext.close();
 
   const status = getLocalSupabaseStatus();
@@ -168,16 +168,26 @@ async function signInMember(page: Page, email: string): Promise<void> {
 }
 
 async function signInModerator(page: Page): Promise<void> {
+  page.setDefaultTimeout(10_000);
   // The shared Moderator email is signed in once per test in this file; clearing first keeps
   // waitForLocalMagicLink from matching a still-present message from an earlier sign-in.
   await clearLocalEvaluationMailbox();
-  await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fcorrections-and-reports');
+  await page.goto(
+    '/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%3Fqueue%3Dcorrections-and-reports%26filter%3Dactionable'
+  );
   await waitForHydration(page);
   await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
   await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   const magicLink = await waitForLocalMagicLink(evaluationModerator.email);
   await page.goto(magicLink);
-  await expect(page).toHaveURL('/en/moderation/corrections-and-reports');
+  await expect(page).toHaveURL((url) => {
+    return (
+      url.pathname === '/en/moderation' &&
+      url.searchParams.get('queue') === 'corrections-and-reports' &&
+      url.searchParams.get('filter') === 'actionable'
+    );
+  });
+  await waitForHydration(page);
 }
 
 async function submitCorrection(
@@ -185,7 +195,7 @@ async function submitCorrection(
   placeId: string,
   field: 'phone' | 'website_url',
   newValue: string
-): Promise<void> {
+): Promise<string> {
   await page.goto(`/en/places/${placeId}/correct?field=${field}`);
   await page.getByLabel('New value').fill(newValue);
   await fillEvidence(page, `Correction source for ${field}`);
@@ -194,6 +204,7 @@ async function submitCorrection(
     .fill(`The ${field.replace('_', ' ')} changed.`);
   await page.getByRole('button', { name: 'Send private Correction' }).click();
   await expect(page.getByText('Your submission has been received for review.')).toBeVisible();
+  return submittedFlagId(page);
 }
 
 async function submitAccessConditionReport(
@@ -201,7 +212,7 @@ async function submitAccessConditionReport(
   placeId: string,
   accessConditionId: string,
   options: { reason: string; safetyConcern: boolean }
-): Promise<void> {
+): Promise<string> {
   await page.goto(`/en/places/${placeId}/report?conditionId=${accessConditionId}`);
   await page.getByLabel('What kind of problem is this?').selectOption(options.reason);
   if (options.safetyConcern) {
@@ -211,58 +222,124 @@ async function submitAccessConditionReport(
   await page.getByLabel('Private explanation to the Moderator').fill('Witnessed in person.');
   await page.getByRole('button', { name: 'Send private Report' }).click();
   await expect(page.getByText('Your submission has been received for review.')).toBeVisible();
+  return submittedFlagId(page);
 }
 
-async function fillEvidence(page: Page, label: string): Promise<void> {
-  await page.getByLabel('How did you find out?').selectOption('direct_observation');
-  await page.getByLabel('Short title').fill(label);
-  await page.getByLabel('Link, if you have one').fill('https://example.invalid/e2e-source');
-  await page.getByLabel('When did you find out?').fill('2026-07-11T09:00');
+async function fillEvidence(container: Page | Locator, label: string): Promise<void> {
+  await container.getByLabel('How did you find out?').selectOption('direct_observation');
+  await container.getByLabel('Short title').fill(label);
+  await container.getByLabel('Link, if you have one').fill('https://example.invalid/e2e-source');
+  await container.getByLabel('When did you find out?').fill('2026-07-11T09:00');
 }
 
 async function resolveLatestFlag(
   page: Page,
-  placeName: string,
-  targetHint: string,
+  flagId: string,
   outcome: 'applied' | 'confirmed_useful' | 'rejected' | 'dispute_opened' | 'place_inactivated',
   applied?: { fieldValueText: string }
 ): Promise<void> {
-  await page.goto('/en/moderation/corrections-and-reports');
-  const rows = page.getByRole('listitem').filter({ hasText: placeName });
-  const matchingRow =
-    (await rows.count()) > 1 ? rows.filter({ hasText: targetHint }).first() : rows.first();
-  await matchingRow.getByRole('link', { name: 'Review' }).click();
-
-  await page.getByLabel('Outcome').selectOption(outcome);
-  await page.getByLabel('Member explanation in Icelandic').fill('Yfirfarið af stjórnanda.');
-  await page.getByLabel('Member explanation in English').fill('Reviewed by a Moderator.');
-
-  if (outcome === 'rejected') {
-    await page.getByLabel('Private Moderator note').fill('The venue confirmed this URL is unused.');
-  } else {
-    await page.getByLabel('Private Moderator note').fill('Escalated informally; venue contacted.');
-  }
+  await page.goto(`/en/moderation?queue=corrections-and-reports&item=${flagId}&filter=actionable`);
+  await waitForHydration(page);
+  await expect(page).toHaveURL((url) => url.searchParams.get('item') === flagId);
 
   if (outcome === 'applied' && applied) {
-    await page.getByLabel('New value').fill(applied.fieldValueText);
+    const changeSection = page.locator('#correction-change');
+    await expandReviewSection(changeSection);
+    await changeSection.getByRole('button', { name: 'Edit Change under review' }).click();
+    const applicationForm = changeSection.locator('[data-section-form="application"]');
+    await applicationForm.getByLabel('New value').fill(applied.fieldValueText);
+    await applicationForm.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByText('Draft changes saved.')).toBeVisible();
+    await expect(applicationForm).toHaveCount(0);
   }
 
   if (outcome === 'dispute_opened') {
-    await page
+    const alternativesSection = page.locator('#correction-alternatives');
+    await expandReviewSection(alternativesSection);
+    await alternativesSection.getByRole('button', { name: 'Edit Open an access dispute' }).click();
+    const disputeForm = alternativesSection.locator('[data-section-form="dispute"]');
+    await disputeForm
       .getByLabel('Reason for the dispute')
       .fill('A Member Report contradicts the currently posted policy.');
-    await fillEvidence(page, 'Dispute source');
+    await fillReviewEvidence(disputeForm, 'Dispute source');
+    await disputeForm.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByText('Draft changes saved.')).toBeVisible();
+    await expect(disputeForm).toHaveCount(0);
   }
 
   if (outcome === 'place_inactivated') {
-    await page.getByLabel("Moderator's decision notes").fill('Business permanently closed.');
+    const alternativesSection = page.locator('#correction-alternatives');
+    await expandReviewSection(alternativesSection);
+    await alternativesSection.getByRole('button', { name: 'Edit Inactivate this Place' }).click();
+    const transitionForm = alternativesSection.locator('[data-section-form="transition"]');
+    await transitionForm
+      .getByLabel("Moderator's decision notes")
+      .fill('Business permanently closed.');
+    await transitionForm.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByText('Draft changes saved.')).toBeVisible();
+    await expect(transitionForm).toHaveCount(0);
   }
 
-  await page.getByRole('button', { name: 'Save outcome' }).click();
-  await expect(page.getByText('The outcome has been saved.')).toBeVisible();
+  const actionName =
+    outcome === 'applied'
+      ? 'Apply correction'
+      : outcome === 'confirmed_useful'
+        ? 'Confirm useful'
+        : outcome === 'dispute_opened'
+          ? 'Open dispute'
+          : outcome === 'place_inactivated'
+            ? 'Inactivate Place'
+            : 'Reject';
+  await page.getByRole('button', { name: actionName, exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  if (outcome !== 'applied' && outcome !== 'confirmed_useful') {
+    await dialog.getByLabel('Member explanation in Icelandic').fill('Yfirfarið af stjórnanda.');
+    await dialog.getByLabel('Member explanation in English').fill('Reviewed by a Moderator.');
+    await dialog
+      .getByLabel('Private Moderator note')
+      .fill(
+        outcome === 'rejected'
+          ? 'The venue confirmed this URL is unused.'
+          : 'Escalated informally; venue contacted.'
+      );
+  }
+  const responsePromise = page.waitForResponse((response) => {
+    return response.request().method() === 'POST' && response.url().includes('?/decideCorrection');
+  });
+  await dialog.getByRole('button', { name: actionName, exact: true }).click();
+  const decisionResponse = await responsePromise;
+  const decisionBody = await decisionResponse.text();
+  expect(decisionResponse.status(), decisionBody).toBe(200);
+  await expect(page.locator('.live-status'), `Decision response: ${decisionBody}`).toContainText(
+    'The outcome has been saved.',
+    { timeout: 10_000 }
+  );
 }
 
-async function confirmUsefulContribution(page: Page): Promise<void> {
+async function confirmUsefulContribution(page: Page, flagId: string): Promise<void> {
+  await page.goto(`/en/moderation?queue=corrections-and-reports&item=${flagId}&filter=resolved`);
+  await waitForHydration(page);
+  await expect(page).toHaveURL((url) => url.searchParams.get('item') === flagId);
   await page.getByRole('button', { name: 'Confirm useful Contribution' }).click();
   await expect(page.getByText('The useful Contribution has been confirmed.')).toBeVisible();
+}
+
+function submittedFlagId(page: Page): string {
+  const flagId = new URL(page.url()).searchParams.get('submitted');
+  expect(flagId).toMatch(/^[0-9a-f-]{36}$/i);
+  return flagId!;
+}
+
+async function fillReviewEvidence(form: Locator, label: string): Promise<void> {
+  await form.getByLabel('Evidence type').selectOption('direct_observation');
+  await form.getByLabel('Source label').fill(label);
+  await form.getByLabel('Source URL').fill('https://example.invalid/e2e-source');
+  await form.getByLabel('When was this source observed?').fill('2026-07-11T09:00');
+}
+
+async function expandReviewSection(section: Locator): Promise<void> {
+  if ((await section.getAttribute('open')) === null) {
+    await section.locator('summary').click();
+  }
 }

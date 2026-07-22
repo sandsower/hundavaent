@@ -22,6 +22,8 @@ export type ImplementedModerationQueueId = (typeof implementedModerationQueueIds
 export interface ModerationQueueSummaryItem {
   queueId: ImplementedModerationQueueId;
   actionableCount: number;
+  deferredCount: number;
+  resolvedCount: number;
 }
 
 export type ModerationQueueSummaryResult =
@@ -41,12 +43,19 @@ export async function listModerationQueueSummary(
       return { status: 'infrastructure_error' };
     }
 
-    const rows = new Map<ImplementedModerationQueueId, number>();
+    const rows = new Map<
+      ImplementedModerationQueueId,
+      { actionableCount: number; deferredCount: number; resolvedCount: number }
+    >();
     for (const value of data) {
       if (!isQueueSummaryRow(value) || rows.has(value.queue_id)) {
         return { status: 'infrastructure_error' };
       }
-      rows.set(value.queue_id, value.actionable_count);
+      rows.set(value.queue_id, {
+        actionableCount: value.actionable_count,
+        deferredCount: value.deferred_count,
+        resolvedCount: value.resolved_count
+      });
     }
 
     if (rows.size !== implementedModerationQueueIds.length) {
@@ -57,7 +66,11 @@ export async function listModerationQueueSummary(
       status: 'success',
       value: implementedModerationQueueIds.map((queueId) => ({
         queueId,
-        actionableCount: rows.get(queueId) as number
+        ...(rows.get(queueId) as {
+          actionableCount: number;
+          deferredCount: number;
+          resolvedCount: number;
+        })
       }))
     };
   } catch {
@@ -68,13 +81,13 @@ export async function listModerationQueueSummary(
 function isQueueSummaryRow(value: unknown): value is {
   queue_id: ImplementedModerationQueueId;
   actionable_count: number;
+  deferred_count: number;
+  resolved_count: number;
 } {
   if (!isRecord(value) || !isImplementedQueueId(value.queue_id)) return false;
 
-  return (
-    typeof value.actionable_count === 'number' &&
-    Number.isSafeInteger(value.actionable_count) &&
-    value.actionable_count >= 0
+  return [value.actionable_count, value.deferred_count, value.resolved_count].every(
+    (count) => typeof count === 'number' && Number.isSafeInteger(count) && count >= 0
   );
 }
 

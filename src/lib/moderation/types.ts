@@ -10,7 +10,7 @@ export const moderationQueueIds = [
 
 export type ModerationQueueId = (typeof moderationQueueIds)[number];
 
-export const moderationFilterIds = ['actionable'] as const;
+export const moderationFilterIds = ['actionable', 'deferred', 'resolved'] as const;
 
 export type ModerationFilterId = (typeof moderationFilterIds)[number];
 
@@ -26,6 +26,16 @@ export interface ModerationWorkItem {
   readonly statusLabel: string;
   readonly meta: string;
   readonly priority?: boolean;
+}
+
+export type ModerationReadinessState = 'ready' | 'attention' | 'blocked';
+
+export type ModerationReviewSectionState = 'complete' | 'warning' | 'blocking';
+
+export interface ModerationReviewIssue {
+  readonly sectionId: string;
+  readonly label: string;
+  readonly severity: Exclude<ModerationReviewSectionState, 'complete'>;
 }
 
 export interface ModerationWorkspaceProps {
@@ -44,7 +54,9 @@ export interface ModerationWorkspaceProps {
   errorMessage?: string | null;
   reviewErrorMessage?: string | null;
   actionsDisabled?: boolean;
+  reviewDisabled?: boolean;
   showDecisionDock?: boolean;
+  decisionHint?: string | null;
   focusTargetId?: string | null;
   reviewContent?: Snippet;
   decisionContent?: Snippet;

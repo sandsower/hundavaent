@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { MessageKey } from '$i18n';
 
-  import ModerationDecisionDock from './ModerationDecisionDock.svelte';
+  import ModerationActionBar from './ModerationActionBar.svelte';
   import ModerationQueueRail from './ModerationQueueRail.svelte';
   import ModerationWorkList from './ModerationWorkList.svelte';
   import {
@@ -26,7 +26,9 @@
     errorMessage = null,
     reviewErrorMessage = null,
     actionsDisabled = false,
+    reviewDisabled = false,
     showDecisionDock = true,
+    decisionHint = null,
     focusTargetId = null,
     reviewContent,
     decisionContent
@@ -62,7 +64,8 @@
       cursor,
       cursorTrail,
       nextItemId,
-      nextCursor
+      nextCursor,
+      filter: filters[0] ?? 'actionable'
     });
   });
 
@@ -113,7 +116,13 @@
 
   function handleSubmit(event: SubmitEvent): void {
     if (!(event.target instanceof HTMLFormElement)) return;
-    synchronizeForm(event.target, { cursor, cursorTrail, nextItemId, nextCursor });
+    synchronizeForm(event.target, {
+      cursor,
+      cursorTrail,
+      nextItemId,
+      nextCursor,
+      filter: filters[0] ?? 'actionable'
+    });
   }
 
   function isTypingTarget(target: EventTarget | null): boolean {
@@ -131,6 +140,7 @@
       cursorTrail: readonly (string | null)[];
       nextItemId: string | null;
       nextCursor: string | null;
+      filter: string;
     }
   ): void {
     for (const form of workspace.querySelectorAll<HTMLFormElement>('form[method="POST" i]')) {
@@ -145,6 +155,7 @@
       cursorTrail: readonly (string | null)[];
       nextItemId: string | null;
       nextCursor: string | null;
+      filter: string;
     }
   ): void {
     form.querySelectorAll('[data-workspace-context]').forEach((input) => input.remove());
@@ -154,6 +165,7 @@
     }
     appendWorkspaceInput(form, 'workspaceNextItemId', context.nextItemId);
     appendWorkspaceInput(form, 'workspaceNextCursor', context.nextCursor);
+    appendWorkspaceInput(form, 'workspaceFilter', context.filter);
   }
 
   function appendWorkspaceInput(form: HTMLFormElement, name: string, value: string | null): void {
@@ -172,6 +184,7 @@
 <section
   class="workspace hv-panel"
   aria-labelledby="moderation-workspace-title"
+  data-moderation-workspace
   bind:this={workspaceElement}
   onsubmitcapture={handleSubmit}
 >
@@ -221,7 +234,7 @@
         <p class="live-status" role="status" aria-live="polite">{statusMessage}</p>
       </header>
 
-      <div class="review-scroll">
+      <div class="review-scroll" data-review-scroll>
         {#if reviewErrorMessage}
           <div class="review-error" role="alert">
             <p>{reviewErrorMessage}</p>
@@ -230,7 +243,7 @@
           </div>
         {/if}
         {#if selectedItem}
-          <fieldset class="review-content" disabled={actionsDisabled}>
+          <fieldset class="review-content" disabled={reviewDisabled}>
             {#if reviewContent}
               {@render reviewContent()}
             {:else}
@@ -244,9 +257,10 @@
       </div>
 
       {#if selectedItem && !errorMessage && showDecisionDock && decisionContent}
-        <ModerationDecisionDock
+        <ModerationActionBar
           label={copy['moderation.workspace.decisionLabel']}
           disabled={actionsDisabled}
+          hint={decisionHint}
           children={decisionContent}
         />
       {/if}
@@ -257,8 +271,8 @@
 <style>
   .workspace {
     display: grid;
-    height: calc(100dvh - 7.5rem);
-    min-height: 40rem;
+    height: calc(100dvh - var(--hv-app-header-height, 4.4rem) - 1rem);
+    min-height: 0;
     grid-template-rows: auto minmax(0, 1fr);
     overflow: hidden;
     border-color: var(--hv-color-basalt);
@@ -303,9 +317,11 @@
     display: grid;
     grid-template-columns: minmax(11rem, 0.7fr) minmax(15rem, 0.95fr) minmax(24rem, 1.55fr);
     min-height: 0;
+    overflow: hidden;
   }
   .workspace-body > :global(*) {
     min-width: 0;
+    min-height: 0;
   }
   .review {
     display: grid;
@@ -375,6 +391,8 @@
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
     padding: 1rem 1.2rem;
   }
   .review-summary {
@@ -414,16 +432,17 @@
   }
   @media (max-width: 60rem) and (min-width: 44.01rem) {
     .workspace-body {
-      grid-template-columns: 11rem 15rem minmax(23rem, 1fr);
-      overflow-x: auto;
+      grid-template-columns: minmax(15rem, 0.8fr) minmax(24rem, 1.4fr);
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+    .workspace-body > :global(nav:first-child) {
+      grid-column: 1 / -1;
     }
   }
   @media (max-width: 44rem) {
     .workspace {
-      display: block;
-      height: auto;
+      height: calc(100dvh - var(--hv-app-header-height, 4.4rem) - 0.8rem);
       min-height: 0;
-      overflow: visible;
       border-radius: var(--hv-radius-shell);
       box-shadow: var(--hv-shadow-raised);
     }
@@ -434,20 +453,18 @@
       white-space: nowrap;
     }
     .workspace-body {
-      display: block;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(8rem, 24dvh) minmax(0, 1fr);
       min-height: 0;
     }
     .review {
-      display: block;
-      min-height: 30rem;
-      overflow: visible;
+      min-height: 0;
     }
     .review-head {
       position: relative;
     }
     .review-scroll {
-      min-height: 18rem;
-      overflow: visible;
+      min-height: 0;
     }
     .shortcut {
       display: none;
