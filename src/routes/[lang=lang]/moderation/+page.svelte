@@ -138,6 +138,7 @@
   const statusMessage = $derived.by(() => {
     const notice = data.workspaceNotice;
     if (!notice) return '';
+    if (notice.kind === 'draft') return data.copy['moderation.workbench.draftSaved'];
     if (data.workspace.queue === 'candidate-places' && notice.kind === 'candidate') {
       if (notice.value === 'published') return data.copy['moderation.published'];
       if (notice.value === 'draft_saved') return data.copy['moderation.workbench.draftSaved'];
@@ -189,6 +190,12 @@
   let candidateMemberReasonEn = $state('');
   let candidatePrivateNote = $state('');
   let candidateDecisionForm = $state<HTMLFormElement>();
+  $effect(() => {
+    if (data.workspaceNotice) reviewHasUnsavedEdits = false;
+  });
+  function handleReviewEditStateChange(editing: boolean): void {
+    reviewHasUnsavedEdits = editing;
+  }
   function chooseSuggestionDecision(outcome: Exclude<SuggestionOutcome, 'submitted'>): void {
     suggestionDecisionToken += 1;
     suggestionDecisionRequest = { outcome, token: suggestionDecisionToken };
@@ -255,6 +262,7 @@
       ? data.copy['moderation.workspace.conflictRefreshFailed']
       : data.reviewError}
     actionsDisabled={Boolean(conflictAction?.conflictRefreshFailed) || reviewHasUnsavedEdits}
+    reviewDisabled={Boolean(conflictAction?.conflictRefreshFailed)}
     {showDecisionDock}
     decisionHint={reviewHasUnsavedEdits
       ? data.copy['moderation.workbench.unsavedDecisionHint']
@@ -267,20 +275,20 @@
           data={reviewData}
           form={form as never}
           decisionRequest={suggestionDecisionRequest}
-          oneditstatechange={(editing) => (reviewHasUnsavedEdits = editing)}
+          oneditstatechange={handleReviewEditStateChange}
         />
       {:else if correctionReviewData}
         <CorrectionReviewPanel
           data={correctionReviewData}
           form={form as never}
           decisionRequest={correctionDecisionRequest}
-          oneditstatechange={(editing) => (reviewHasUnsavedEdits = editing)}
+          oneditstatechange={handleReviewEditStateChange}
         />
       {:else if candidateReviewData}
         <CandidateReviewPanel
           data={candidateReviewData}
           form={form as never}
-          oneditstatechange={(editing) => (reviewHasUnsavedEdits = editing)}
+          oneditstatechange={handleReviewEditStateChange}
         />
       {/if}
     {/snippet}

@@ -241,7 +241,7 @@
       return async ({ result, update }) => {
         await update();
         savingSection = null;
-        if (result.type === 'success') editingSection = null;
+        if (result.type === 'success' || result.type === 'redirect') editingSection = null;
       };
     };
   }

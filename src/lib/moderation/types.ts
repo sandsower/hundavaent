@@ -54,6 +54,7 @@ export interface ModerationWorkspaceProps {
   errorMessage?: string | null;
   reviewErrorMessage?: string | null;
   actionsDisabled?: boolean;
+  reviewDisabled?: boolean;
   showDecisionDock?: boolean;
   decisionHint?: string | null;
   focusTargetId?: string | null;

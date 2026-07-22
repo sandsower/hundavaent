@@ -108,7 +108,10 @@ describe('Compact moderation workspace', () => {
       ...readyProps(),
       statusMessage: '',
       actionsDisabled: true,
-      decisionHint: 'Save or cancel this section before choosing a decision.'
+      decisionHint: 'Save or cancel this section before choosing a decision.',
+      reviewContent: createRawSnippet(() => ({
+        render: () => '<label>Operator<input value="Editable operator" /></label>'
+      }))
     });
 
     const dock = screen.getByRole('region', { name: 'Decision controls' });
@@ -116,6 +119,7 @@ describe('Compact moderation workspace', () => {
       within(dock).getByText('Save or cancel this section before choosing a decision.')
     ).toBeTruthy();
     expect(within(dock).getByRole('button', { name: 'Resolve and next' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Operator' })).not.toBeDisabled();
   });
 
   it('preserves cursor history across item selection and previous/next page links', () => {
@@ -203,6 +207,7 @@ describe('Compact moderation workspace', () => {
       statusMessage: '',
       reviewErrorMessage: 'Current facts could not be loaded after the conflict.',
       actionsDisabled: true,
+      reviewDisabled: true,
       reviewContent: createRawSnippet(() => ({
         render: () => '<form method="POST"><button type="submit">Save outcome</button></form>'
       }))

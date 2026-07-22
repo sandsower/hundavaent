@@ -407,7 +407,9 @@ async function runWorkspaceSuggestionAction(
     });
   }
   const lang = parseLocale(params.lang);
-  if (result.effect.kind !== 'draft_saved') {
+  if (result.effect.kind === 'draft_saved') {
+    setRawWorkspaceNotice(cookies, lang, 'draft:saved', url.protocol === 'https:');
+  } else {
     setWorkspaceNotice(cookies, lang, result.effect, url.protocol === 'https:');
   }
   const nextState = buildModerationWorkspaceContinuation(
@@ -458,7 +460,9 @@ async function runWorkspaceCorrectionAction(
   }
 
   const lang = parseLocale(params.lang);
-  if (result.effect.kind !== 'draft_saved') {
+  if (result.effect.kind === 'draft_saved') {
+    setRawWorkspaceNotice(cookies, lang, 'draft:saved', url.protocol === 'https:');
+  } else {
     setWorkspaceNotice(cookies, lang, result.effect, url.protocol === 'https:');
   }
   const nextState = buildModerationWorkspaceContinuation(
@@ -614,6 +618,9 @@ function takeWorkspaceNotice(
   ) {
     return { kind, value: effectValue as CandidateWorkspaceNotice['value'] };
   }
+  if (kind === 'draft' && effectValue === 'saved' && detail === undefined) {
+    return { kind, value: effectValue };
+  }
   if (detail !== undefined || actionDetail !== undefined) return null;
   if (
     kind === 'resolved' &&
@@ -637,7 +644,12 @@ function takeWorkspaceNotice(
   return null;
 }
 
-type WorkspaceNotice = WorkspaceNotifiableEffect | CandidateWorkspaceNotice;
+type WorkspaceNotice = WorkspaceNotifiableEffect | CandidateWorkspaceNotice | DraftWorkspaceNotice;
+
+type DraftWorkspaceNotice = {
+  readonly kind: 'draft';
+  readonly value: 'saved';
+};
 
 type WorkspaceNotifiableEffect =
   | Exclude<ModerationSuggestionConfirmedEffect, { kind: 'draft_saved' }>

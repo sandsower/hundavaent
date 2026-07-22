@@ -135,6 +135,13 @@
       ? data.copy['flag.reviewAttentionSummary']
       : data.copy['flag.reviewReadySummary']
   );
+  const effectiveProposedValue = $derived.by(() => {
+    const application = data.flag.draftPayload?.application_payload;
+    if (!application) return data.flag.proposedValue;
+    return data.flag.targetKind === 'place_field'
+      ? (application.field_value ?? data.flag.proposedValue)
+      : (application.replacement_condition ?? data.flag.proposedValue);
+  });
 
   $effect(() => {
     if (decisionRequest && decisionRequest.token !== handledDecisionToken) {
@@ -162,7 +169,7 @@
       return async ({ result, update }) => {
         await update();
         savingSection = null;
-        if (result.type === 'success') editingSection = null;
+        if (result.type === 'success' || result.type === 'redirect') editingSection = null;
       };
     };
   }
@@ -495,7 +502,7 @@
           </article>
           <article>
             <span>{data.copy['flag.proposedValueLabel']}</span><strong
-              >{describeValue(data.flag.proposedValue)}</strong
+              >{describeValue(effectiveProposedValue)}</strong
             >
           </article>
         </div>

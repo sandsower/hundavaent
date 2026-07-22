@@ -26,6 +26,7 @@
     errorMessage = null,
     reviewErrorMessage = null,
     actionsDisabled = false,
+    reviewDisabled = false,
     showDecisionDock = true,
     decisionHint = null,
     focusTargetId = null,
@@ -242,7 +243,7 @@
           </div>
         {/if}
         {#if selectedItem}
-          <fieldset class="review-content" disabled={actionsDisabled}>
+          <fieldset class="review-content" disabled={reviewDisabled}>
             {#if reviewContent}
               {@render reviewContent()}
             {:else}

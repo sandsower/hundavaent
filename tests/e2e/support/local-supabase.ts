@@ -1412,12 +1412,83 @@ export function provisionLocalCandidateReviewFixture(): string {
     where place_id = '${localModerationCandidatePlaceId}'::uuid
       or place_id::text like '39000000-0000-4000-8000-%';
 
+    delete from private.access_disputes
+    where place_id = '${localModerationCandidatePlaceId}'::uuid;
+
+    delete from private.freshness_tasks
+    where place_id = '${localModerationCandidatePlaceId}'::uuid;
+
+    delete from private.verification_evidence as evidence_link
+    where evidence_link.verification_id in (
+      select verification_record.id
+      from private.verifications as verification_record
+      join private.access_conditions as access_condition
+        on access_condition.id = verification_record.access_condition_id
+      where access_condition.place_id = '${localModerationCandidatePlaceId}'::uuid
+    );
+
+    delete from private.verifications as verification_record
+    where verification_record.access_condition_id in (
+      select access_condition.id
+      from private.access_conditions as access_condition
+      where access_condition.place_id = '${localModerationCandidatePlaceId}'::uuid
+    );
+
+    delete from private.access_conditions
+    where place_id = '${localModerationCandidatePlaceId}'::uuid;
+
+    delete from private.evidence
+    where place_id = '${localModerationCandidatePlaceId}'::uuid;
+
+    update private.operators
+    set name = 'Hundavænt fixture operator'
+    where id = (
+      select place_record.operator_id
+      from private.places as place_record
+      where place_record.id = '${localModerationCandidatePlaceId}'::uuid
+    );
+
     update private.places
     set lifecycle = 'candidate',
         published_at = null,
+        website_url = null,
+        phone = null,
+        opening_hours = '{}'::jsonb,
         version = 1,
         updated_at = '2026-07-11T08:00:00Z'::timestamptz
     where id = '${localModerationCandidatePlaceId}'::uuid;
+
+    insert into private.operators (id, name)
+    select
+      ('19000000-0000-4000-8000-' || lpad(fixture_number::text, 12, '0'))::uuid,
+      'Candidate overflow operator ' || fixture_number
+    from generate_series(1, 7) as fixture_number
+    on conflict (id) do update set name = excluded.name;
+
+    insert into private.locations (
+      id, address_line, locality, postal_code, municipality, latitude, longitude,
+      geometry_precision, geometry_source
+    )
+    select
+      ('29000000-0000-4000-8000-' || lpad(fixture_number::text, 12, '0'))::uuid,
+      'Frambjóðandagata ' || fixture_number,
+      'Reykjavík',
+      '101',
+      'reykjavik',
+      64.14 + fixture_number * 0.001,
+      -21.94 - fixture_number * 0.001,
+      'moderator_confirmed_point',
+      'Deterministic Candidate overflow fixture'
+    from generate_series(1, 7) as fixture_number
+    on conflict (id) do update set
+      address_line = excluded.address_line,
+      locality = excluded.locality,
+      postal_code = excluded.postal_code,
+      municipality = excluded.municipality,
+      latitude = excluded.latitude,
+      longitude = excluded.longitude,
+      geometry_precision = excluded.geometry_precision,
+      geometry_source = excluded.geometry_source;
 
     insert into private.places (
       id, operator_id, location_id, purpose, lifecycle, category, version,
@@ -1425,8 +1496,8 @@ export function provisionLocalCandidateReviewFixture(): string {
     )
     select
       ('39000000-0000-4000-8000-' || lpad(fixture_number::text, 12, '0'))::uuid,
-      '10000000-0000-4000-8000-000000000001'::uuid,
-      '20000000-0000-4000-8000-000000000001'::uuid,
+      ('19000000-0000-4000-8000-' || lpad(fixture_number::text, 12, '0'))::uuid,
+      ('29000000-0000-4000-8000-' || lpad(fixture_number::text, 12, '0'))::uuid,
       'dog_access_destination',
       'candidate',
       'restaurant',
@@ -1444,7 +1515,7 @@ export function provisionLocalCandidateReviewFixture(): string {
     insert into private.place_translations (place_id, locale, name, description)
     select
       ('39000000-0000-4000-8000-' || lpad(fixture_number::text, 12, '0'))::uuid,
-      locale,
+      locale::private.locale_code,
       case locale
         when 'is' then 'Frambjóðandi ' || fixture_number
         else 'Candidate overflow ' || fixture_number
@@ -1623,6 +1694,36 @@ export async function provisionLocalPlaceCorrectionReviewFixtures(email: string)
     .map((fixture) => `'${fixture.accessConditionId}'::uuid`)
     .join(', ');
   const sql = `
+    begin;
+    set local session_replication_role = replica;
+
+    delete from private.moderation_draft_revisions as revision
+    using private.moderation_drafts as draft
+    where revision.draft_id = draft.id
+      and draft.flag_id between
+        '97000000-0000-4000-8000-000000000091'::uuid and
+        '97000000-0000-4000-8000-000000000096'::uuid;
+
+    delete from private.moderation_drafts
+    where flag_id between
+      '97000000-0000-4000-8000-000000000091'::uuid and
+      '97000000-0000-4000-8000-000000000096'::uuid;
+
+    delete from private.contributions
+    where place_flag_id between
+      '97000000-0000-4000-8000-000000000091'::uuid and
+      '97000000-0000-4000-8000-000000000096'::uuid;
+
+    delete from private.place_flag_status_events
+    where flag_id between
+      '97000000-0000-4000-8000-000000000091'::uuid and
+      '97000000-0000-4000-8000-000000000096'::uuid;
+
+    delete from private.place_flags
+    where id between
+      '97000000-0000-4000-8000-000000000091'::uuid and
+      '97000000-0000-4000-8000-000000000096'::uuid;
+
     insert into private.place_flags (
       id, member_id, kind, place_id, target_kind, target_field, access_condition_id,
       current_value_snapshot, proposed_value, explanation, evidence, request_id,
@@ -1633,7 +1734,10 @@ export async function provisionLocalPlaceCorrectionReviewFixtures(email: string)
       '${member.id}'::uuid,
       'correction',
       fixture.place_id,
-      case when fixture_number <= 3 then 'place_field' else 'access_condition' end,
+      case when fixture_number <= 3
+        then 'place_field'::private.place_flag_target_kind
+        else 'access_condition'::private.place_flag_target_kind
+      end,
       case when fixture_number <= 3 then 'name'::private.place_field end,
       case when fixture_number > 3 then fixture.access_condition_id end,
       case when fixture_number <= 3
@@ -1679,6 +1783,8 @@ export async function provisionLocalPlaceCorrectionReviewFixtures(email: string)
       'submitted',
       '2026-07-11T08:30:00Z'::timestamptz + fixture_number * interval '1 minute'
     from generate_series(1, 6) as fixture_number;
+
+    commit;
   `;
   execFileSync(
     'docker',
