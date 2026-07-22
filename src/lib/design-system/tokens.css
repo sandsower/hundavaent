@@ -1,16 +1,17 @@
 @layer hundavaent.tokens {
+  :root,
   [data-ui-mode] {
-    --hv-color-snow: #f2f5f1;
-    --hv-color-snow-raised: #fbfcf9;
-    --hv-color-basalt: #1e2d31;
-    --hv-color-basalt-muted: #5e6c70;
-    --hv-color-moss: #58705b;
-    --hv-color-moss-soft: #e2e9e2;
-    --hv-color-fjord: #2f6f86;
-    --hv-color-fjord-soft: #dce8ed;
-    --hv-color-signal: #f2c94c;
-    --hv-color-signal-soft: #fbefbd;
-    --hv-color-brand-paw: #d85b2b;
+    --hv-color-snow: #edf8fb;
+    --hv-color-snow-raised: #fbfeff;
+    --hv-color-basalt: #163845;
+    --hv-color-basalt-muted: #546e79;
+    --hv-color-moss: #287e91;
+    --hv-color-moss-soft: #d4f0f3;
+    --hv-color-fjord: #136d9c;
+    --hv-color-fjord-soft: #c8edf4;
+    --hv-color-signal: #ffd642;
+    --hv-color-signal-soft: #fff0a8;
+    --hv-color-brand-paw: #ef5f56;
     --hv-color-danger: #9b3d32;
     --hv-color-danger-soft: #f6e1dc;
     --hv-color-success: #356246;
@@ -25,10 +26,10 @@
     --hv-access-unknown-foreground: #66716f;
     --hv-access-symbol-border: var(--hv-color-basalt);
     --hv-access-detail-accent: var(--hv-color-signal);
-    --hv-border-subtle: #a8b2ac;
+    --hv-border-subtle: #92bac5;
     --hv-border-strong: var(--hv-color-basalt);
-    --hv-shadow-raised: 0 0.7rem 1.8rem rgb(30 45 49 / 12%);
-    --hv-shadow-floating: 0 1rem 2.6rem rgb(30 45 49 / 16%);
+    --hv-shadow-raised: 0 0.55rem 1.2rem rgb(17 86 108 / 13%);
+    --hv-shadow-floating: 0 1rem 2.2rem rgb(17 86 108 / 19%);
     --hv-font-display:
       'Source Serif 4 Variable', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
     --hv-font-ui: var(--font-sans);
@@ -40,9 +41,9 @@
     --hv-control-height: 2.75rem;
     --hv-content-narrow: 42rem;
     --hv-content-wide: 72rem;
-    --hv-radius-control: 0.35rem;
-    --hv-radius-panel: 0.55rem;
-    --hv-radius-shell: 0.75rem;
+    --hv-radius-control: 999px;
+    --hv-radius-panel: 0.9rem;
+    --hv-radius-shell: 1rem;
     color: var(--hv-color-basalt);
     font-family: var(--hv-font-ui);
   }

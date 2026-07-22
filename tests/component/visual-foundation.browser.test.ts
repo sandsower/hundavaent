@@ -46,12 +46,12 @@ test('place and operations modes share semantic colours while changing density',
   const placeStyles = getComputedStyle(placeMode);
   const operationsStyles = getComputedStyle(operationsMode);
 
-  expect(placeStyles.getPropertyValue('--hv-color-snow').trim()).toBe('#f2f5f1');
-  expect(placeStyles.getPropertyValue('--hv-color-basalt').trim()).toBe('#1e2d31');
-  expect(placeStyles.getPropertyValue('--hv-color-moss').trim()).toBe('#58705b');
-  expect(placeStyles.getPropertyValue('--hv-color-fjord').trim()).toBe('#2f6f86');
-  expect(placeStyles.getPropertyValue('--hv-color-signal').trim()).toBe('#f2c94c');
-  expect(placeStyles.getPropertyValue('--hv-color-brand-paw').trim()).toBe('#d85b2b');
+  expect(placeStyles.getPropertyValue('--hv-color-snow').trim()).toBe('#edf8fb');
+  expect(placeStyles.getPropertyValue('--hv-color-basalt').trim()).toBe('#163845');
+  expect(placeStyles.getPropertyValue('--hv-color-moss').trim()).toBe('#287e91');
+  expect(placeStyles.getPropertyValue('--hv-color-fjord').trim()).toBe('#136d9c');
+  expect(placeStyles.getPropertyValue('--hv-color-signal').trim()).toBe('#ffd642');
+  expect(placeStyles.getPropertyValue('--hv-color-brand-paw').trim()).toBe('#ef5f56');
   expect(placeStyles.getPropertyValue('--hv-access-area').trim()).toBe('#dce7e1');
   expect(placeStyles.getPropertyValue('--hv-access-restraint').trim()).toBe('#f7dd9a');
   expect(placeStyles.getPropertyValue('--hv-access-permission').trim()).toBe('#cfe5ed');
@@ -82,7 +82,7 @@ test('selected map markers stay compact and reveal labels only on direct interac
   const label = marker.querySelector<HTMLElement>('.marker-label')!;
   expect(getComputedStyle(pin).width).toBe('36px');
   expect(getComputedStyle(label).display).toBe('none');
-  expect(getComputedStyle(marker.querySelector('.pin-body')!).fill).toBe('rgb(242, 201, 76)');
+  expect(getComputedStyle(marker.querySelector('.pin-body')!).fill).toBe('rgb(255, 214, 66)');
 
   marker.remove();
 });
