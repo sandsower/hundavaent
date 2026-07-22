@@ -70,6 +70,35 @@ describe('deterministic evaluation provisioning', () => {
     );
   });
 
+  it('keeps moderation fixture cleanup and cross-queue provisioning deterministic', () => {
+    const helper = readFileSync(
+      resolve(import.meta.dirname, '../../e2e/support/local-supabase.ts'),
+      'utf8'
+    );
+
+    expect(helper).toContain('export function provisionLocalCandidateReviewFixture(): string');
+    expect(helper).toContain('export async function provisionLocalModerationWorkbenchFixtures(');
+    expect(helper).toContain('correctionFlagId: string');
+    expect(helper).toContain('from generate_series(1, 7) as fixture_number');
+    expect(helper).toContain('from generate_series(1, 6) as fixture_number');
+    expect(helper).toContain('makeLocalSuggestionFixturesActionable();');
+    expect(helper).toContain('set local session_replication_role = replica');
+    expect(helper).toContain('delete from private.moderation_draft_revisions');
+    expect(helper).toContain('delete from private.moderation_drafts');
+    expect(helper).toContain('delete from private.candidate_review_events');
+    expect(helper).toContain('delete from private.candidate_reviews');
+    expect(helper).toContain("'99000000-0000-4000-8000-000000000001'::uuid");
+    expect(helper).toContain("'2026-07-11T08:30:00Z'::timestamptz");
+    expect(helper).toContain("'rejected',\n      1,\n      0,");
+
+    expect(helper.indexOf('delete from private.moderation_draft_revisions')).toBeLessThan(
+      helper.indexOf('delete from private.moderation_drafts')
+    );
+    expect(helper.indexOf('delete from private.candidate_review_events')).toBeLessThan(
+      helper.indexOf('delete from private.candidate_reviews')
+    );
+  });
+
   it('binds fail-closed auth flags and the database capability into exact-SHA production releases', () => {
     const workflow = readFileSync(
       resolve(import.meta.dirname, '../../../.github/workflows/production.yml'),

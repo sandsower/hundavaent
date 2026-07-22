@@ -137,41 +137,15 @@ export async function provisionLocalModerator(email: string): Promise<void> {
   }
 
   const sql = `
-    delete from private.access_dispute_evidence as evidence_link
-    where evidence_link.dispute_id in (
-      select dispute_record.id
-      from private.access_disputes as dispute_record
-      join private.places as place_record on place_record.id = dispute_record.place_id
-      where place_record.created_by = '${user.id}'::uuid
-    );
+    begin;
+    set local session_replication_role = replica;
 
-    delete from private.place_identity_transitions as transition_record
-    where transition_record.predecessor_place_id in (
-      select place_record.id
-      from private.places as place_record
-      where place_record.created_by = '${user.id}'::uuid
-    ) or transition_record.successor_place_id in (
-      select place_record.id
-      from private.places as place_record
-      where place_record.created_by = '${user.id}'::uuid
-    );
+    create temporary table test_place_cleanup_ids on commit drop as
+    select place_record.id
+    from private.places as place_record
+    where place_record.created_by = '${user.id}'::uuid;
 
-    delete from private.freshness_tasks as freshness_task
-    where freshness_task.place_id in (
-      select place_record.id
-      from private.places as place_record
-      where place_record.created_by = '${user.id}'::uuid
-    );
-
-    delete from private.access_disputes as dispute_record
-    where dispute_record.place_id in (
-      select place_record.id
-      from private.places as place_record
-      where place_record.created_by = '${user.id}'::uuid
-    );
-
-    set session_replication_role = replica;
-    create temporary table test_suggestion_cleanup_ids as
+    create temporary table test_suggestion_cleanup_ids on commit drop as
     select distinct suggestion.id
     from private.place_suggestions as suggestion
     left join private.suggestion_status_events as status_event
@@ -186,55 +160,116 @@ export async function provisionLocalModerator(email: string): Promise<void> {
       or suggestion.proposal #>> '{evidence,source_url}' =
         'https://example.invalid/community-source';
 
+    create temporary table test_flag_cleanup_ids on commit drop as
+    select distinct flag_record.id
+    from private.place_flags as flag_record
+    left join private.place_flag_status_events as status_event
+      on status_event.flag_id = flag_record.id
+    where flag_record.place_id in (select id from test_place_cleanup_ids)
+      or status_event.moderator_id = '${user.id}'::uuid;
+
+    create temporary table test_dispute_cleanup_ids on commit drop as
+    select dispute_record.id
+    from private.access_disputes as dispute_record
+    where dispute_record.place_id in (select id from test_place_cleanup_ids)
+      or dispute_record.id in (
+        select flag_record.dispute_id
+        from private.place_flags as flag_record
+        where flag_record.id in (select id from test_flag_cleanup_ids)
+          and flag_record.dispute_id is not null
+      );
+
+    create temporary table test_transition_cleanup_ids on commit drop as
+    select transition_record.id
+    from private.place_identity_transitions as transition_record
+    where transition_record.predecessor_place_id in (select id from test_place_cleanup_ids)
+      or transition_record.successor_place_id in (select id from test_place_cleanup_ids)
+      or transition_record.id in (
+        select flag_record.transition_id
+        from private.place_flags as flag_record
+        where flag_record.id in (select id from test_flag_cleanup_ids)
+          and flag_record.transition_id is not null
+      );
+
+    delete from private.access_dispute_evidence as evidence_link
+    where evidence_link.dispute_id in (select id from test_dispute_cleanup_ids);
+
+    delete from private.freshness_tasks as freshness_task
+    where freshness_task.place_id in (select id from test_place_cleanup_ids);
+
+    delete from private.moderation_draft_revisions as revision
+    using private.moderation_drafts as draft
+    where revision.draft_id = draft.id
+      and (
+        draft.candidate_place_id in (select id from test_place_cleanup_ids)
+        or draft.suggestion_id in (select id from test_suggestion_cleanup_ids)
+        or draft.flag_id in (select id from test_flag_cleanup_ids)
+      );
+
+    delete from private.moderation_drafts as draft
+    where draft.candidate_place_id in (select id from test_place_cleanup_ids)
+      or draft.suggestion_id in (select id from test_suggestion_cleanup_ids)
+      or draft.flag_id in (select id from test_flag_cleanup_ids);
+
     delete from private.contributions as contribution
-    where contribution.suggestion_id in (select id from test_suggestion_cleanup_ids);
+    where contribution.suggestion_id in (select id from test_suggestion_cleanup_ids)
+      or contribution.place_flag_id in (select id from test_flag_cleanup_ids);
 
     delete from private.suggestion_status_events as status_event
     where status_event.suggestion_id in (select id from test_suggestion_cleanup_ids);
 
+    delete from private.place_flag_status_events as status_event
+    where status_event.flag_id in (select id from test_flag_cleanup_ids);
+
     delete from private.place_suggestions as suggestion
     where suggestion.id in (select id from test_suggestion_cleanup_ids);
 
-    drop table test_suggestion_cleanup_ids;
+    delete from private.place_flags as flag_record
+    where flag_record.id in (select id from test_flag_cleanup_ids);
+
+    delete from private.candidate_review_events as review_event
+    where review_event.place_id in (select id from test_place_cleanup_ids);
+
+    delete from private.candidate_reviews as review
+    where review.place_id in (select id from test_place_cleanup_ids);
+
+    delete from private.place_identity_transitions as transition_record
+    where transition_record.id in (select id from test_transition_cleanup_ids);
+
+    delete from private.access_disputes as dispute_record
+    where dispute_record.id in (select id from test_dispute_cleanup_ids);
+
+    delete from private.verification_evidence as evidence_link
+    where evidence_link.verification_id in (
+      select verification_record.id
+      from private.verifications as verification_record
+      join private.access_conditions as access_condition
+        on access_condition.id = verification_record.access_condition_id
+      where access_condition.place_id in (select id from test_place_cleanup_ids)
+    );
 
     delete from private.verifications as verification_record
     where verification_record.access_condition_id in (
       select access_condition.id
       from private.access_conditions as access_condition
-      join private.places as place_record on place_record.id = access_condition.place_id
-        where place_record.created_by = '${user.id}'::uuid
-      );
-
-    delete from private.access_conditions as access_condition
-    where access_condition.place_id in (
-      select place_record.id
-      from private.places as place_record
-      where place_record.created_by = '${user.id}'::uuid
-    ) and access_condition.supersedes_condition_id is not null;
-
-    delete from private.access_conditions as access_condition
-    where access_condition.place_id in (
-      select place_record.id
-      from private.places as place_record
-      where place_record.created_by = '${user.id}'::uuid
+      where access_condition.place_id in (select id from test_place_cleanup_ids)
     );
+
+    delete from private.access_conditions as access_condition
+    where access_condition.place_id in (select id from test_place_cleanup_ids)
+      and access_condition.supersedes_condition_id is not null;
+
+    delete from private.access_conditions as access_condition
+    where access_condition.place_id in (select id from test_place_cleanup_ids);
 
     delete from private.evidence as evidence_record
-    where evidence_record.place_id in (
-      select place_record.id
-      from private.places as place_record
-      where place_record.created_by = '${user.id}'::uuid
-    );
+    where evidence_record.place_id in (select id from test_place_cleanup_ids);
 
     delete from private.place_translations as translation_record
-    where translation_record.place_id in (
-      select place_record.id
-      from private.places as place_record
-      where place_record.created_by = '${user.id}'::uuid
-    );
+    where translation_record.place_id in (select id from test_place_cleanup_ids);
 
     delete from private.places
-    where created_by = '${user.id}'::uuid;
+    where id in (select id from test_place_cleanup_ids);
 
     delete from private.evidence as evidence_record
     where evidence_record.recorded_by = '${user.id}'::uuid
@@ -258,7 +293,7 @@ export async function provisionLocalModerator(email: string): Promise<void> {
       where place_record.operator_id = operator_record.id
     );
 
-    set session_replication_role = origin;
+    commit;
 
     select public.provision_moderator('${user.id}'::uuid);
   `;
@@ -805,7 +840,8 @@ export function provisionLocalPlaceFlagFixtures(): void {
     -- re-publish the Places but can never undo that moderation state, so the report form would
     -- find no current verified Access Condition on a second run. Reset every derived record for
     -- these three deterministic fixture Places before provisioning them fresh.
-    set session_replication_role = replica;
+    begin;
+    set local session_replication_role = replica;
 
     delete from private.access_dispute_evidence as evidence_link
     where evidence_link.dispute_id in (
@@ -813,6 +849,17 @@ export function provisionLocalPlaceFlagFixtures(): void {
       from private.access_disputes as dispute_record
       where dispute_record.place_id in (${placeIdList})
     );
+
+    delete from private.moderation_draft_revisions as revision
+    using private.moderation_drafts as draft
+    join private.place_flags as flag_record on flag_record.id = draft.flag_id
+    where revision.draft_id = draft.id
+      and flag_record.place_id in (${placeIdList});
+
+    delete from private.moderation_drafts as draft
+    using private.place_flags as flag_record
+    where draft.flag_id = flag_record.id
+      and flag_record.place_id in (${placeIdList});
 
     delete from private.contributions as contribution
     where contribution.place_flag_id in (
@@ -862,7 +909,7 @@ export function provisionLocalPlaceFlagFixtures(): void {
     set superseded_at = null
     where id in (${conditionIdList});
 
-    set session_replication_role = origin;
+    commit;
 
     insert into private.operators (id, name) values
       ('${localPlaceFlagFixtures.correctable.operatorId}'::uuid, '${localPlaceFlagFixtures.correctable.nameEn} operator'),
@@ -1338,18 +1385,150 @@ export async function grantLocalVenueRepresentativeRole(email: string): Promise<
   );
 }
 
+const localModerationCandidatePlaceId = '30000000-0000-4000-8000-000000000001';
+
+export function provisionLocalCandidateReviewFixture(): string {
+  const sql = `
+    begin;
+    set local session_replication_role = replica;
+
+    delete from private.moderation_draft_revisions as revision
+    using private.moderation_drafts as draft
+    where revision.draft_id = draft.id
+      and (
+        draft.candidate_place_id = '${localModerationCandidatePlaceId}'::uuid
+        or draft.candidate_place_id::text like '39000000-0000-4000-8000-%'
+      );
+
+    delete from private.moderation_drafts
+    where candidate_place_id = '${localModerationCandidatePlaceId}'::uuid
+      or candidate_place_id::text like '39000000-0000-4000-8000-%';
+
+    delete from private.candidate_review_events
+    where place_id = '${localModerationCandidatePlaceId}'::uuid
+      or place_id::text like '39000000-0000-4000-8000-%';
+
+    delete from private.candidate_reviews
+    where place_id = '${localModerationCandidatePlaceId}'::uuid
+      or place_id::text like '39000000-0000-4000-8000-%';
+
+    update private.places
+    set lifecycle = 'candidate',
+        published_at = null,
+        version = 1,
+        updated_at = '2026-07-11T08:00:00Z'::timestamptz
+    where id = '${localModerationCandidatePlaceId}'::uuid;
+
+    insert into private.places (
+      id, operator_id, location_id, purpose, lifecycle, category, version,
+      created_at, updated_at
+    )
+    select
+      ('39000000-0000-4000-8000-' || lpad(fixture_number::text, 12, '0'))::uuid,
+      '10000000-0000-4000-8000-000000000001'::uuid,
+      '20000000-0000-4000-8000-000000000001'::uuid,
+      'dog_access_destination',
+      'candidate',
+      'restaurant',
+      1,
+      '2026-07-11T08:00:00Z'::timestamptz + fixture_number * interval '1 minute',
+      '2026-07-11T08:00:00Z'::timestamptz + fixture_number * interval '1 minute'
+    from generate_series(1, 7) as fixture_number
+    on conflict (id) do update set
+      lifecycle = excluded.lifecycle,
+      published_at = null,
+      version = excluded.version,
+      created_at = excluded.created_at,
+      updated_at = excluded.updated_at;
+
+    insert into private.place_translations (place_id, locale, name, description)
+    select
+      ('39000000-0000-4000-8000-' || lpad(fixture_number::text, 12, '0'))::uuid,
+      locale,
+      case locale
+        when 'is' then 'Frambjóðandi ' || fixture_number
+        else 'Candidate overflow ' || fixture_number
+      end,
+      case locale
+        when 'is' then 'Deterministic frambjóðandi fyrir skrunprófun.'
+        else 'Deterministic Candidate for scroll testing.'
+      end
+    from generate_series(1, 7) as fixture_number
+    cross join (values ('is'), ('en')) as locales(locale)
+    on conflict (place_id, locale) do update set
+      name = excluded.name,
+      description = excluded.description;
+
+    insert into private.candidate_reviews (place_id, status, version, updated_at)
+    select fixture.place_id, 'pending', 1, fixture.updated_at
+    from (
+      values
+        ('${localModerationCandidatePlaceId}'::uuid, '2026-07-11T08:00:00Z'::timestamptz)
+      union all
+      select
+        ('39000000-0000-4000-8000-' || lpad(fixture_number::text, 12, '0'))::uuid,
+        '2026-07-11T08:00:00Z'::timestamptz + fixture_number * interval '1 minute'
+      from generate_series(1, 7) as fixture_number
+    ) as fixture(place_id, updated_at);
+
+    insert into private.candidate_review_events (id, place_id, event_kind, occurred_at)
+    select fixture.event_id, fixture.place_id, 'pending', fixture.occurred_at
+    from (
+      values (
+        '99000000-0000-4000-8000-000000000001'::uuid,
+        '${localModerationCandidatePlaceId}'::uuid,
+        '2026-07-11T08:00:00Z'::timestamptz
+      )
+      union all
+      select
+        ('99000000-0000-4000-8001-' || lpad(fixture_number::text, 12, '0'))::uuid,
+        ('39000000-0000-4000-8000-' || lpad(fixture_number::text, 12, '0'))::uuid,
+        '2026-07-11T08:00:00Z'::timestamptz + fixture_number * interval '1 minute'
+      from generate_series(1, 7) as fixture_number
+    ) as fixture(event_id, place_id, occurred_at);
+
+    commit;
+  `;
+  execFileSync(
+    'docker',
+    [
+      'exec',
+      localDatabaseContainer,
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      sql
+    ],
+    { stdio: 'ignore' }
+  );
+
+  return localModerationCandidatePlaceId;
+}
+
 const localPlaceFlagReviewFixtureId = '97000000-0000-4000-8000-000000000099';
 
 export function clearLocalPlaceFlagReviewFixture(): void {
   const sql = `
-    set session_replication_role = replica;
+    begin;
+    set local session_replication_role = replica;
+    delete from private.moderation_draft_revisions as revision
+    using private.moderation_drafts as draft
+    where revision.draft_id = draft.id
+      and draft.flag_id = '${localPlaceFlagReviewFixtureId}'::uuid;
+    delete from private.moderation_drafts
+    where flag_id = '${localPlaceFlagReviewFixtureId}'::uuid;
     delete from private.contributions
     where place_flag_id = '${localPlaceFlagReviewFixtureId}'::uuid;
     delete from private.place_flag_status_events
     where flag_id = '${localPlaceFlagReviewFixtureId}'::uuid;
     delete from private.place_flags
     where id = '${localPlaceFlagReviewFixtureId}'::uuid;
-    set session_replication_role = origin;
+    commit;
   `;
   execFileSync(
     'docker',
@@ -1388,18 +1567,21 @@ export async function provisionLocalPlaceFlagReviewFixture(email: string): Promi
   const sql = `
     insert into private.place_flags (
       id, member_id, kind, place_id, target_kind, access_condition_id,
-      current_value_snapshot, report_reason, is_safety_concern, explanation, evidence, request_id
+      current_value_snapshot, report_reason, is_safety_concern, explanation, evidence, request_id,
+      submitted_at, updated_at
     ) values (
       '${flagId}'::uuid, '${member.id}'::uuid, 'report', '${correctable.placeId}'::uuid,
       'access_condition', '${correctable.accessConditionId}'::uuid,
       '{"access_area":"indoors","access_area_note":null,"restraint_condition":"leash_required","restraint_note":null,"dog_eligibility":{"scope":"all_dogs"},"availability_window":{},"permission_requirement":"standing_permission"}'::jsonb,
       'unsafe', true, 'A dog was turned away despite the posted policy.',
       '{"kind":"member_report","source_url":null,"source_citation":"Personal visit","source_label":"Witnessed in person","observed_at":"2026-07-11T09:00:00Z","source_metadata":{}}'::jsonb,
-      '98000000-0000-4000-8000-000000000099'::uuid
+      '98000000-0000-4000-8000-000000000099'::uuid,
+      '2026-07-11T08:30:00Z'::timestamptz,
+      '2026-07-11T08:30:00Z'::timestamptz
     );
 
-    insert into private.place_flag_status_events (flag_id, status)
-    values ('${flagId}'::uuid, 'submitted');
+    insert into private.place_flag_status_events (flag_id, status, occurred_at)
+    values ('${flagId}'::uuid, 'submitted', '2026-07-11T08:30:00Z'::timestamptz);
   `;
   execFileSync(
     'docker',
@@ -1421,6 +1603,104 @@ export async function provisionLocalPlaceFlagReviewFixture(email: string): Promi
   return flagId;
 }
 
+const localPlaceCorrectionReviewFixtureId = '97000000-0000-4000-8000-000000000091';
+
+export async function provisionLocalPlaceCorrectionReviewFixtures(email: string): Promise<string> {
+  const status = getLocalSupabaseStatus();
+  const admin = createClient(status.apiUrl, status.secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const member = data.users.find((candidate) => candidate.email === email);
+
+  if (error || !member || !/^[0-9a-f-]{36}$/i.test(member.id)) {
+    throw new Error('Could not identify the local Correction fixture Member');
+  }
+
+  const fixturePlaces = Object.values(localPlaceFlagFixtures);
+  const placeIds = fixturePlaces.map((fixture) => `'${fixture.placeId}'::uuid`).join(', ');
+  const conditionIds = fixturePlaces
+    .map((fixture) => `'${fixture.accessConditionId}'::uuid`)
+    .join(', ');
+  const sql = `
+    insert into private.place_flags (
+      id, member_id, kind, place_id, target_kind, target_field, access_condition_id,
+      current_value_snapshot, proposed_value, explanation, evidence, request_id,
+      submitted_at, updated_at
+    )
+    select
+      ('97000000-0000-4000-8000-' || lpad((90 + fixture_number)::text, 12, '0'))::uuid,
+      '${member.id}'::uuid,
+      'correction',
+      fixture.place_id,
+      case when fixture_number <= 3 then 'place_field' else 'access_condition' end,
+      case when fixture_number <= 3 then 'name'::private.place_field end,
+      case when fixture_number > 3 then fixture.access_condition_id end,
+      case when fixture_number <= 3
+        then jsonb_build_object('is', fixture.name_is, 'en', fixture.name_en)
+        else '{"access_area":"indoors","access_area_note":null,"restraint_condition":"leash_required","restraint_note":null,"dog_eligibility":{"scope":"all_dogs"},"availability_window":{},"permission_requirement":"standing_permission"}'::jsonb
+      end,
+      case when fixture_number <= 3
+        then jsonb_build_object(
+          'is', fixture.name_is || ' leiðrétt',
+          'en', fixture.name_en || ' corrected'
+        )
+        else '{"access_area":"outdoors","access_area_note":"Patio only","restraint_condition":"leash_required","restraint_note":null,"dog_eligibility":{"scope":"all_dogs"},"availability_window":{},"permission_requirement":"standing_permission"}'::jsonb
+      end,
+      'Deterministic Correction for moderation scroll testing.',
+      jsonb_build_object(
+        'kind', 'member_report',
+        'source_url', null,
+        'source_citation', 'Personal visit',
+        'source_label', 'Witnessed in person',
+        'observed_at', '2026-07-11T09:00:00Z',
+        'source_metadata', '{}'::jsonb
+      ),
+      ('98000000-0000-4000-8000-' || lpad((90 + fixture_number)::text, 12, '0'))::uuid,
+      '2026-07-11T08:30:00Z'::timestamptz + fixture_number * interval '1 minute',
+      '2026-07-11T08:30:00Z'::timestamptz + fixture_number * interval '1 minute'
+    from generate_series(1, 6) as fixture_number
+    cross join lateral (
+      select
+        (array[${placeIds}])[((fixture_number - 1) % 3) + 1] place_id,
+        (array[${conditionIds}])[((fixture_number - 1) % 3) + 1] access_condition_id,
+        (array['${localPlaceFlagFixtures.correctable.nameIs}', '${localPlaceFlagFixtures.disputable.nameIs}', '${localPlaceFlagFixtures.retirable.nameIs}'])[
+          ((fixture_number - 1) % 3) + 1
+        ] name_is,
+        (array['${localPlaceFlagFixtures.correctable.nameEn}', '${localPlaceFlagFixtures.disputable.nameEn}', '${localPlaceFlagFixtures.retirable.nameEn}'])[
+          ((fixture_number - 1) % 3) + 1
+        ] name_en
+    ) as fixture;
+
+    insert into private.place_flag_status_events (id, flag_id, status, occurred_at)
+    select
+      ('99200000-0000-4000-8000-' || lpad((90 + fixture_number)::text, 12, '0'))::uuid,
+      ('97000000-0000-4000-8000-' || lpad((90 + fixture_number)::text, 12, '0'))::uuid,
+      'submitted',
+      '2026-07-11T08:30:00Z'::timestamptz + fixture_number * interval '1 minute'
+    from generate_series(1, 6) as fixture_number;
+  `;
+  execFileSync(
+    'docker',
+    [
+      'exec',
+      localDatabaseContainer,
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      sql
+    ],
+    { stdio: 'ignore' }
+  );
+
+  return localPlaceCorrectionReviewFixtureId;
+}
+
 export async function provisionLocalSuggestionFixture(email: string): Promise<string> {
   const status = getLocalSupabaseStatus();
   const admin = createClient(status.apiUrl, status.secretKey, {
@@ -1435,7 +1715,18 @@ export async function provisionLocalSuggestionFixture(email: string): Promise<st
 
   const suggestionId = '65000000-0000-4000-8000-000000000099';
   const sql = `
-    set session_replication_role = replica;
+    begin;
+    set local session_replication_role = replica;
+    delete from private.moderation_draft_revisions as revision
+    using private.moderation_drafts as draft
+    where revision.draft_id = draft.id
+      and draft.suggestion_id between
+        '65000000-0000-4000-8000-000000000094'::uuid and
+        '65000000-0000-4000-8000-000000000099'::uuid;
+    delete from private.moderation_drafts
+    where suggestion_id between
+      '65000000-0000-4000-8000-000000000094'::uuid and
+      '65000000-0000-4000-8000-000000000099'::uuid;
     delete from private.contributions
     where suggestion_id between
       '65000000-0000-4000-8000-000000000094'::uuid and
@@ -1448,7 +1739,7 @@ export async function provisionLocalSuggestionFixture(email: string): Promise<st
     where id between
       '65000000-0000-4000-8000-000000000094'::uuid and
       '65000000-0000-4000-8000-000000000099'::uuid;
-    set session_replication_role = origin;
+    commit;
 
     insert into private.place_suggestions (id, member_id, request_id, proposal, submitted_at)
     values (
@@ -1559,6 +1850,80 @@ export async function provisionLocalSuggestionFixture(email: string): Promise<st
   return suggestionId;
 }
 
+function makeLocalSuggestionFixturesActionable(): void {
+  const sql = `
+    begin;
+    set local session_replication_role = replica;
+
+    delete from private.suggestion_status_events
+    where suggestion_id between
+      '65000000-0000-4000-8000-000000000095'::uuid and
+      '65000000-0000-4000-8000-000000000098'::uuid;
+
+    update private.place_suggestions
+    set status = 'submitted',
+        candidate_place_id = null,
+        duplicate_place_id = null,
+        reviewed_proposal = null,
+        operator_identity_place_id = null,
+        location_identity_place_id = null,
+        resolution_request_id = null,
+        resolved_at = null,
+        version = 1,
+        updated_at = submitted_at
+    where id between
+      '65000000-0000-4000-8000-000000000095'::uuid and
+      '65000000-0000-4000-8000-000000000098'::uuid;
+
+    insert into private.suggestion_status_events (id, suggestion_id, status, occurred_at)
+    select
+      ('99300000-0000-4000-8000-' || lpad(fixture_number::text, 12, '0'))::uuid,
+      ('65000000-0000-4000-8000-' || lpad(fixture_number::text, 12, '0'))::uuid,
+      'submitted',
+      '2026-07-11T10:00:00Z'::timestamptz
+    from generate_series(95, 98) as fixture_number;
+
+    commit;
+  `;
+  execFileSync(
+    'docker',
+    [
+      'exec',
+      localDatabaseContainer,
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      sql
+    ],
+    { stdio: 'ignore' }
+  );
+}
+
+export interface LocalModerationWorkbenchFixtures {
+  candidatePlaceId: string;
+  suggestionId: string;
+  flagId: string;
+  correctionFlagId: string;
+}
+
+export async function provisionLocalModerationWorkbenchFixtures(
+  memberEmail: string
+): Promise<LocalModerationWorkbenchFixtures> {
+  const candidatePlaceId = provisionLocalCandidateReviewFixture();
+  provisionLocalPlaceFlagFixtures();
+  const flagId = await provisionLocalPlaceFlagReviewFixture(memberEmail);
+  const correctionFlagId = await provisionLocalPlaceCorrectionReviewFixtures(memberEmail);
+  const suggestionId = await provisionLocalSuggestionFixture(memberEmail);
+  makeLocalSuggestionFixturesActionable();
+
+  return { candidatePlaceId, suggestionId, flagId, correctionFlagId };
+}
+
 export async function resolveLocalSuggestionFixtureAsModerator(
   moderatorEmail: string,
   suggestionId: string
@@ -1584,6 +1949,8 @@ export async function resolveLocalSuggestionFixtureAsModerator(
     from public.resolve_place_suggestion(
       '${suggestionId}'::uuid,
       'rejected',
+      1,
+      0,
       'Tillagan var yfirfarin samhliða.',
       'The Suggestion was reviewed concurrently.',
       'The winning Moderator note.',
