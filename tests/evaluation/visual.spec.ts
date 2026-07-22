@@ -345,6 +345,16 @@ async function normalizeCandidateReviewForVisualEvidence(
   await normalizeNativeInputsForVisualEvidence(page);
 }
 
+async function openModerationReviewSection(page: Page, selector: string): Promise<void> {
+  const section = page.locator(selector);
+  if ((await section.getAttribute('open')) === null) {
+    const summary = section.locator(':scope > summary');
+    await summary.focus();
+    await summary.press('Enter');
+  }
+  await expect(section).toHaveAttribute('open', '');
+}
+
 async function signIn(
   page: Page,
   evidence: EvaluationEvidenceRecorder,
@@ -831,7 +841,12 @@ for (const locale of ['is', 'en'] as const) {
 
     const reviewFlagId = await provisionLocalPlaceFlagReviewFixture(evaluationModerator.email);
     await page.goto(`/${locale}/moderation/corrections-and-reports/${reviewFlagId}`);
-    await expect(page.getByText(locale === 'is' ? 'Öryggismál' : 'Safety Concern')).toBeVisible();
+    await expect(
+      page.getByRole('link', {
+        name: locale === 'is' ? 'Öryggismál' : 'Safety Concern',
+        exact: true
+      })
+    ).toBeVisible();
     await capture(page, evidence, `corrections-and-reports-review-${locale}-desktop.png`);
 
     // The three fixture Places are published so they can be targeted by a Correction/Report;
@@ -972,7 +987,7 @@ for (const locale of ['is', 'en'] as const) {
     // Place media: empty, evidence-registered, pending-photo, and approved-photo states
     // on the Media section, plus the public Photos gallery. The candidate fixture Place's Media
     // section starts empty at this point in the flow.
-    await expect(page.getByRole('heading', { name: copy[locale].mediaTitle })).toBeVisible();
+    await openModerationReviewSection(page, '#candidate-media');
     await capture(page, evidence, `media-section-empty-${locale}-desktop.png`, {
       prepare: () => normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness)
     });
@@ -1042,6 +1057,7 @@ for (const locale of ['is', 'en'] as const) {
     // locale's earlier captures of the same Place unaffected.
     await page.goto(`/${locale}/moderation/places/${publishedPlaceId}`);
     await waitForHydration(page);
+    await openModerationReviewSection(page, '#candidate-media');
     const publishedPhotoColumn = page.locator('[data-media-column="photo"]');
     await publishedPhotoColumn
       .getByLabel(copy[locale].mediaFileLabel)

@@ -942,7 +942,12 @@ test('the Place media Moderator workspace and public Photos gallery are keyboard
   await page.locator('main').getByLabel('Email address').fill(evaluationModerator.email);
   await page.locator('main').getByRole('button', { name: 'Send sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(evaluationModerator.email));
-  await expect(page.getByRole('heading', { name: 'Media' })).toBeVisible();
+  await waitForHydration(page);
+  const candidateMedia = page.locator('#candidate-media');
+  const candidateMediaSummary = candidateMedia.locator(':scope > summary');
+  await candidateMediaSummary.focus();
+  await candidateMediaSummary.press('Enter');
+  await expect(candidateMedia).toHaveAttribute('open', '');
 
   const evidenceColumn = page.locator('[data-media-column="evidence"]');
   const evidenceFile = evidenceColumn.getByLabel('Image (PNG, JPEG, or WebP, 15 MB maximum)');
@@ -960,6 +965,11 @@ test('the Place media Moderator workspace and public Photos gallery are keyboard
 
   await page.goto(`/en/moderation/places/${published}`);
   await waitForHydration(page);
+  const publishedMedia = page.locator('#candidate-media');
+  const publishedMediaSummary = publishedMedia.locator(':scope > summary');
+  await publishedMediaSummary.focus();
+  await publishedMediaSummary.press('Enter');
+  await expect(publishedMedia).toHaveAttribute('open', '');
   const photoColumn = page.locator('[data-media-column="photo"]');
   await photoColumn
     .getByLabel('Image (PNG, JPEG, or WebP, 15 MB maximum)')

@@ -221,6 +221,7 @@ test('a Moderator edits and applies a Correction, then confirms a Report as usef
   const applyDialog = page.getByRole('dialog', { name: 'Apply this correction?' });
   await expect(applyDialog).toBeVisible();
   await applyDialog.getByRole('button', { name: 'Apply correction' }).click();
+  await expect(applyDialog).toBeHidden();
   await expect(page.getByRole('status')).toContainText(
     'Correction published. The outcome has been saved.'
   );
@@ -234,6 +235,7 @@ test('a Moderator edits and applies a Correction, then confirms a Report as usef
   await page.goto(
     `/en/moderation?queue=corrections-and-reports&item=${fixtures.flagId}&filter=actionable`
   );
+  await waitForHydration(page);
   await expect(page.getByRole('region', { name: 'Selected moderation item' })).toContainText(
     'Safety Concern'
   );
@@ -244,6 +246,7 @@ test('a Moderator edits and applies a Correction, then confirms a Report as usef
   const usefulDialog = page.getByRole('dialog', { name: 'Confirm this report as useful?' });
   await expect(usefulDialog).toBeVisible();
   await usefulDialog.getByRole('button', { name: 'Confirm useful' }).click();
+  await expect(usefulDialog).toBeHidden();
   await expect(page.getByRole('status')).toContainText(
     'Confirmed as a useful Report. The outcome has been saved.'
   );

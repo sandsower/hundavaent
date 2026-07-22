@@ -362,6 +362,7 @@ async function resolveSuggestion(
   }
   await dialog.getByRole('button', { name: actionName, exact: true }).click();
   await expect(page.getByText('The outcome has been saved.')).toBeVisible();
+  await expect(dialog).toBeHidden();
 
   if (outcome === 'accepted' && confirmUseful) {
     await page

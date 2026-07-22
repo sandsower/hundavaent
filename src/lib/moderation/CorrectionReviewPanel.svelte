@@ -248,6 +248,7 @@
     }
     await tick();
     document.querySelector<HTMLFormElement>('#correction-decision')?.requestSubmit();
+    pendingDecision = null;
   }
 
   function cancelDecision(): void {

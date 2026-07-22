@@ -330,6 +330,7 @@
     }
     await tick();
     document.querySelector<HTMLFormElement>('#suggestion-decision')?.requestSubmit();
+    pendingDecision = null;
   }
 
   function removeAmenity(index: number): void {

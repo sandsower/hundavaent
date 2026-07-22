@@ -18,6 +18,7 @@ import {
   resolveEveryLocalAccessDispute,
   waitForLocalMagicLink
 } from './support/local-supabase';
+import { waitForHydration } from './support/hydration';
 
 test.beforeAll(async () => {
   await provisionLocalModerator(evaluationPublisher.email);
@@ -80,8 +81,15 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   expect(candidateId).toMatch(/^[0-9a-f-]{36}$/i);
   await page.getByRole('link', { name: 'Review Place' }).click();
   await expect(page).toHaveURL(`/en/moderation/places/${candidateId}`);
+  await waitForHydration(page);
   await expect(page.getByRole('heading', { name: 'Publication checklist' })).toBeVisible();
-  await expect(page.getByText('Ready')).toHaveCount(8);
+  const readiness = page.getByRole('region', { name: 'Publication checklist' });
+  await expect(readiness).toHaveAttribute('data-readiness-state', 'ready');
+  await expect(readiness.getByText('Ready', { exact: true })).toHaveCount(1);
+
+  const publicationSection = page.locator('#publication-evidence');
+  await publicationSection.locator('summary').click();
+  await expect(publicationSection).toHaveAttribute('open', '');
 
   const conditionGroups = page.getByRole('group', { name: /Evidence supporting condition/ });
   const unrestrictedCondition = conditionGroups.filter({
@@ -108,6 +116,9 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   await expect(secondCondition.getByLabel('Contradictory member report')).not.toBeChecked();
 
   await page.getByRole('button', { name: 'Verify and publish' }).click();
+  const publishDialog = page.getByRole('dialog', { name: 'Publish this Place?' });
+  await expect(publishDialog).toBeVisible();
+  await publishDialog.getByRole('button', { name: 'Verify and publish' }).click();
   await expect(page.getByText('The Place has been published.')).toBeVisible();
 
   const status = getLocalSupabaseStatus();
