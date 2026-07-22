@@ -48,7 +48,7 @@ describe('AuthDialog', () => {
     expect(facebookStyles.paddingInlineStart).toBe('13.6px');
     expect(facebookStyles.paddingInlineEnd).toBe('13.6px');
     expect(facebookStyles.borderTopStyle).toBe('none');
-    expect(facebookStyles.borderRadius).toBe('5.6px');
+    expect(facebookStyles.borderRadius).toBe('999px');
     expect(facebookStyles.fontWeight).toBe('800');
     expect(getComputedStyle(dialogContent).paddingInlineStart).toBe('16px');
     expect(getComputedStyle(dialogContent).paddingInlineEnd).toBe('16px');
