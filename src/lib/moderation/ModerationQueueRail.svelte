@@ -70,6 +70,7 @@
   }
   a {
     display: grid;
+    box-sizing: border-box;
     min-width: 0;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.55rem;
@@ -131,6 +132,36 @@
       width: auto;
       flex: none;
       white-space: nowrap;
+    }
+  }
+  @media (max-width: 44rem) {
+    .queue-rail {
+      overflow-x: hidden;
+      padding: 0.55rem;
+    }
+    .queue-links {
+      display: grid;
+      width: 100%;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.35rem;
+    }
+    a {
+      width: 100%;
+      min-height: 4.25rem;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: 1fr auto;
+      gap: 0.25rem;
+      justify-items: center;
+      padding: 0.45rem 0.25rem;
+      font-size: 0.75rem;
+      line-height: 1.15;
+      text-align: center;
+      white-space: normal;
+    }
+    .count {
+      min-width: 1.5rem;
+      padding: 0.12rem 0.35rem;
+      font-size: 0.66rem;
     }
   }
 </style>

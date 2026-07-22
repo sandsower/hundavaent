@@ -325,6 +325,23 @@ describe('Moderator Suggestion workflow', () => {
       category: 'cafe'
     });
 
+    await beginSuggestionEdit('Names and descriptions');
+    const translations = suggestionSectionForm(container, 'translations');
+    expect(JSON.parse(hiddenValue(translations, 'sectionPayload'))).toEqual({
+      translations: {
+        is: {
+          name: proposal.translations.is.name,
+          description: proposal.translations.is.description,
+          needs_review: false
+        },
+        en: {
+          name: proposal.translations.en.name,
+          description: proposal.translations.en.description,
+          needs_review: false
+        }
+      }
+    });
+
     await beginSuggestionEdit('Contact, hours and amenities');
     expect(container.querySelector('[data-section-form="identity"]')).toBeNull();
     const details = suggestionSectionForm(container, 'hours-and-amenities');

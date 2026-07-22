@@ -84,6 +84,26 @@ values
   ('93330000-0000-4000-8000-000000000001', 'is', 'Leiðrétting', 'Lýsing'),
   ('93330000-0000-4000-8000-000000000001', 'en', 'Correction', 'Description');
 
+insert into private.access_conditions (
+  id, place_id, access_area, restraint_condition, permission_requirement, created_by, created_at
+)
+values (
+  '93370000-0000-4000-8000-000000000001',
+  '93330000-0000-4000-8000-000000000001',
+  'indoors', 'leash_required', 'standing_permission',
+  '93300000-0000-4000-8000-000000000002', '2026-07-01T00:00:00Z'
+);
+
+insert into private.verifications (
+  id, access_condition_id, status, verified_by, verified_at, freshness_until
+)
+values (
+  '93371000-0000-4000-8000-000000000001',
+  '93370000-0000-4000-8000-000000000001',
+  'verified', '93300000-0000-4000-8000-000000000002',
+  '2026-07-01T00:00:00Z', '2030-07-01T00:00:00Z'
+);
+
 insert into private.place_suggestions (id, member_id, request_id, proposal)
 values (
   '93340000-0000-4000-8000-000000000001',
@@ -126,15 +146,16 @@ values (
 );
 
 insert into private.place_flags (
-  id, member_id, kind, place_id, target_kind, target_field, current_value_snapshot,
-  proposed_value, explanation, evidence, request_id
+  id, member_id, kind, place_id, target_kind, target_field, access_condition_id,
+  current_value_snapshot, proposed_value, report_reason, explanation, evidence, request_id
 )
 values (
   '93350000-0000-4000-8000-000000000001',
   '93300000-0000-4000-8000-000000000001', 'correction',
-  '93330000-0000-4000-8000-000000000001', 'place_field', 'phone',
+  '93330000-0000-4000-8000-000000000001', 'place_field', 'phone', null,
   '{"value":"+354 555 0100"}'::jsonb,
   '{"value":"+354 555 0199"}'::jsonb,
+  null,
   'The phone number changed.',
   '{
     "kind":"direct_observation",
@@ -144,6 +165,23 @@ values (
     "source_metadata":{}
   }'::jsonb,
   '93351000-0000-4000-8000-000000000001'
+), (
+  '93350000-0000-4000-8000-000000000002',
+  '93300000-0000-4000-8000-000000000001', 'report',
+  '93330000-0000-4000-8000-000000000001', 'access_condition', null,
+  '93370000-0000-4000-8000-000000000001',
+  '{"access_area":"indoors","restraint_condition":"leash_required"}'::jsonb,
+  null,
+  'inaccurate',
+  'The posted access condition is inaccurate.',
+  '{
+    "kind":"member_report",
+    "source_url":"https://example.invalid/report",
+    "source_label":"Member report",
+    "observed_at":"2026-07-15T00:00:00Z",
+    "source_metadata":{}
+  }'::jsonb,
+  '93351000-0000-4000-8000-000000000002'
 );
 
 select set_config('request.jwt.claim.sub', '93300000-0000-4000-8000-000000000002', true);
@@ -345,6 +383,67 @@ select is(
   ),
   true,
   'Routine Correction application does not fabricate Member-safe reasons'
+);
+
+set local role authenticated;
+
+select is(
+  (
+    select draft_version
+    from public.save_place_flag_moderation_draft(
+      '93350000-0000-4000-8000-000000000002', 1, 0, 'dispute',
+      jsonb_build_object(
+        'dispute_command', jsonb_build_object(
+          'expected_verification_id', '93371000-0000-4000-8000-000000000001',
+          'reason', 'The current verification conflicts with direct observation.',
+          'evidence', jsonb_build_object(
+            'kind', 'direct_observation',
+            'source_url', 'https://example.invalid/dispute',
+            'source_citation', null,
+            'source_label', 'Dispute source',
+            'observed_at', '2026-07-15T12:00:00Z',
+            'source_metadata', '{}'::jsonb
+          )
+        )
+      ),
+      '93360000-0000-4000-8000-000000000008'
+    )
+  ),
+  1::bigint,
+  'A Report dispute edit creates draft version one'
+);
+
+reset role;
+
+select is(
+  (
+    select payload #> '{dispute_command,evidence,source_metadata}'
+    from private.moderation_drafts
+    where flag_id = '93350000-0000-4000-8000-000000000002'
+  ),
+  '{}'::jsonb,
+  'Deep draft merging preserves an empty evidence metadata object'
+);
+
+set local role authenticated;
+
+create temporary table dispute_resolution as
+select * from public.resolve_place_flag(
+  '93350000-0000-4000-8000-000000000002', 'dispute_opened', 1, 1,
+  'Málið var opnað eftir yfirferð.', 'The dispute was opened after review.',
+  null, null, null, null,
+  '93360000-0000-4000-8000-000000000009'
+);
+
+select is(
+  (select status from dispute_resolution),
+  'dispute_opened',
+  'A dispute decision consumes evidence with empty source metadata'
+);
+
+select ok(
+  (select dispute_id is not null from dispute_resolution),
+  'A successful dispute decision records the opened dispute'
 );
 
 select * from finish();

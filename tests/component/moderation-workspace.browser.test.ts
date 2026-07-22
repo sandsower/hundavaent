@@ -334,6 +334,39 @@ describe('Compact moderation workspace', () => {
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }
   });
+
+  it('keeps all three queue tabs fully visible in a 390px viewport', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(390, 844);
+
+    try {
+      render(ModerationWorkspace, {
+        ...readyProps(),
+        activeQueueId: 'corrections-and-reports',
+        statusMessage: ''
+      });
+
+      const queueNavigation = screen.getByRole('navigation', { name: 'Moderation queues' });
+      const navigationBox = queueNavigation.getBoundingClientRect();
+      const queueLinks = within(queueNavigation).getAllByRole('link');
+
+      expect(queueLinks).toHaveLength(3);
+      for (const link of queueLinks) {
+        const box = link.getBoundingClientRect();
+        expect(box.left).toBeGreaterThanOrEqual(navigationBox.left);
+        expect(box.right).toBeLessThanOrEqual(navigationBox.right);
+        expect(box.width).toBeGreaterThan(80);
+      }
+      expect(
+        within(queueNavigation)
+          .getByRole('link', { name: 'Corrections and reports 2' })
+          .getAttribute('aria-current')
+      ).toBe('page');
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
 });
 
 describe('Low-friction review primitives', () => {

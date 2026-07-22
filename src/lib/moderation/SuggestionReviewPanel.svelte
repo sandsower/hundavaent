@@ -164,8 +164,16 @@
   const translationsPayload = $derived(
     JSON.stringify({
       translations: {
-        is: { name: translationNameIs, description: translationDescriptionIs },
-        en: { name: translationNameEn, description: translationDescriptionEn }
+        is: {
+          name: translationNameIs,
+          description: translationDescriptionIs,
+          needs_review: false
+        },
+        en: {
+          name: translationNameEn,
+          description: translationDescriptionEn,
+          needs_review: false
+        }
       }
     })
   );

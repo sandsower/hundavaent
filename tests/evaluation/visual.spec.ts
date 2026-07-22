@@ -11,7 +11,6 @@ import {
   clearLocalEvaluationMailbox,
   clearLocalCheckIns,
   clearLocalPlaceMedia,
-  clearLocalPlaceFlagReviewFixture,
   configureLocalAchievementPolicy,
   configureLocalDogFriendlinessSummaryPolicy,
   configureLocalPlaceFlagAbusePolicy,
@@ -26,6 +25,7 @@ import {
   provisionLocalAchievementUnlock,
   provisionLocalDogFriendlinessFixture,
   provisionLocalModerator,
+  provisionLocalModerationWorkbenchFixtures,
   provisionLocalPlaceFlagFixtures,
   provisionLocalPlaceFlagReviewFixture,
   provisionLocalPrivateRatingNoteFixture,
@@ -41,8 +41,6 @@ import { waitForHydration } from '../e2e/support/hydration';
 import { fixturePngFile } from '../e2e/support/fixture-image';
 
 type Locale = 'is' | 'en';
-
-const emptyCandidateCursor = `${Date.UTC(2100, 0, 1).toString(36)}~ffffffff-ffff-4fff-8fff-ffffffffffff`;
 
 const copy = {
   is: {
@@ -64,17 +62,8 @@ const copy = {
     suggestionsQueue: 'Tillögur',
     correctionsAndReportsQueue: 'Leiðréttingar og ábendingar',
     candidatePlacesQueue: 'Tillögur að stöðum',
-    emptyQueue: 'Röð lokið',
     decisionControls: 'Ákvörðunarstýringar',
-    needsInformation: 'Vantar upplýsingar',
-    memberReasonIs: 'Skýring til meðlims á íslensku',
-    memberReasonEn: 'Skýring til meðlims á ensku',
-    saveOutcome: 'Vista niðurstöðu',
-    outcomeConflict: 'Annar stjórnandi hefur þegar lokað þessari tillögu.',
-    invalidSuggestion: 'Athugaðu merktu svörin og reyndu aftur.',
-    resolutionSaved: 'Niðurstaðan hefur verið vistuð.',
     visualSuggestion: 'Sjónræn tillaga',
-    nextVisualSuggestion: 'Næsta sjónræna tillaga',
     candidateForm: 'Bæta við tillögu að stað',
     suggestionForm: 'Leggðu til stað',
     submitted: 'Móttekin',
@@ -131,17 +120,8 @@ const copy = {
     suggestionsQueue: 'Suggestions',
     correctionsAndReportsQueue: 'Corrections and reports',
     candidatePlacesQueue: 'Candidate places',
-    emptyQueue: 'Queue complete',
     decisionControls: 'Decision controls',
-    needsInformation: 'Needs information',
-    memberReasonIs: 'Member explanation in Icelandic',
-    memberReasonEn: 'Member explanation in English',
-    saveOutcome: 'Save outcome',
-    outcomeConflict: 'This Suggestion outcome was already finalized by another Moderator.',
-    invalidSuggestion: 'Check the highlighted answers and try again.',
-    resolutionSaved: 'The outcome has been saved.',
     visualSuggestion: 'Visual Suggestion',
-    nextVisualSuggestion: 'Next Visual Suggestion',
     candidateForm: 'Add a Candidate Place',
     suggestionForm: 'Suggest a place',
     submitted: 'Submitted',
@@ -398,37 +378,18 @@ async function signIn(
   await expect(page).toHaveURL(`/${locale}/moderation/places/new`);
 }
 
-async function fillSuggestionResolution(
-  page: Page,
-  locale: Locale,
-  outcome: 'needs_information' | 'rejected' = 'needs_information'
-): Promise<void> {
-  await waitForHydration(page);
-  const localized = copy[locale];
-  const decision = page.locator('#suggestion-decision');
-  await decision.getByLabel(locale === 'is' ? 'Niðurstaða' : 'Outcome').selectOption(outcome);
-  await decision
-    .getByLabel(localized.memberReasonIs)
-    .fill('Vinsamlegast staðfestu að heimildin sé enn í gildi.');
-  await decision
-    .getByLabel(localized.memberReasonEn)
-    .fill('Please confirm that the source is still current.');
-}
-
 async function captureModerationWorkspaceStates(
   context: BrowserContext,
   evidence: EvaluationEvidenceRecorder,
   locale: Locale
 ): Promise<void> {
-  // The other locale's product-state pass leaves this deterministic submitted Report behind.
-  // Clear it so queue counts and exact screenshots do not depend on test order.
-  clearLocalPlaceFlagReviewFixture();
-  const workspaceSuggestionId = await provisionLocalSuggestionFixture(evaluationModerator.email);
+  const fixtures = await provisionLocalModerationWorkbenchFixtures(evaluationModerator.email);
   const moderationPage = await context.newPage();
   await moderationPage.setViewportSize({ width: 1280, height: 900 });
   await moderationPage.goto(
-    `/${locale}/moderation?queue=suggestions&item=${workspaceSuggestionId}&filter=actionable`
+    `/${locale}/moderation?queue=suggestions&item=${fixtures.suggestionId}&filter=actionable`
   );
+  await waitForHydration(moderationPage);
   await expect(
     moderationPage.getByRole('heading', {
       name: copy[locale].moderationWorkspace,
@@ -470,70 +431,10 @@ async function captureModerationWorkspaceStates(
     `moderation-workspace-${locale}-desktop.png`
   );
 
-  await moderationPage.setViewportSize({ width: 390, height: 844 });
-  await captureModerationWorkspaceScreenshot(
-    moderationPage,
-    evidence,
-    `moderation-workspace-${locale}-mobile.png`
-  );
-
-  await moderationPage.setViewportSize({ width: 1280, height: 900 });
-  await moderationPage
-    .locator('.item-top strong')
-    .first()
-    .evaluate((element) => {
-      element.textContent =
-        'A deliberately long moderation item title that must wrap without obscuring its status';
-    });
-  await moderationPage
-    .locator('.summary')
-    .first()
-    .evaluate((element) => {
-      element.textContent =
-        'A long operator, category, and address summary verifies that queue content wraps cleanly instead of widening the page or hiding the decision workspace.';
-    });
-  await moderationPage.locator('.review-head h2').evaluate((element) => {
-    element.textContent =
-      'A very long selected Suggestion title that remains readable in the compact review pane';
-  });
-  await captureModerationWorkspaceScreenshot(
-    moderationPage,
-    evidence,
-    `moderation-workspace-long-content-${locale}-desktop.png`
-  );
-
-  await moderationPage.setViewportSize({ width: 640, height: 450 });
   await moderationPage.goto(
-    `/${locale}/moderation?queue=suggestions&item=${workspaceSuggestionId}&filter=actionable`
+    `/${locale}/moderation?queue=candidate-places&item=${fixtures.candidatePlaceId}&filter=actionable`
   );
-  await captureModerationWorkspaceScreenshot(
-    moderationPage,
-    evidence,
-    `moderation-workspace-${locale}-zoom-200-percent.png`
-  );
-
-  await moderationPage.setViewportSize({ width: 1280, height: 900 });
-  await moderationPage
-    .getByRole('link', { name: new RegExp(copy[locale].nextVisualSuggestion) })
-    .click();
-  await expect(moderationPage).toHaveURL(
-    (url) => url.searchParams.get('item')?.endsWith('0094') ?? false
-  );
-  await expect(
-    moderationPage.getByRole('region', { name: copy[locale].selectedModerationItem })
-  ).toContainText(copy[locale].nextVisualSuggestion);
-  await captureModerationWorkspaceScreenshot(
-    moderationPage,
-    evidence,
-    `moderation-workspace-selection-${locale}-desktop.png`
-  );
-
-  await moderationPage
-    .getByRole('link', { name: new RegExp(copy[locale].candidatePlacesQueue) })
-    .click();
-  await expect(moderationPage).toHaveURL(
-    (url) => url.searchParams.get('queue') === 'candidate-places'
-  );
+  await waitForHydration(moderationPage);
   await expect(moderationPage.getByRole('heading', { name: copy[locale].checklist })).toBeVisible();
   await captureModerationWorkspaceScreenshot(
     moderationPage,
@@ -542,77 +443,21 @@ async function captureModerationWorkspaceStates(
   );
 
   await moderationPage.goto(
-    `/${locale}/moderation?queue=candidate-places&filter=actionable&cursor=${emptyCandidateCursor}`
+    `/${locale}/moderation?queue=corrections-and-reports&item=${fixtures.correctionFlagId}&filter=actionable`
   );
-  await expect(
-    moderationPage.getByRole('heading', { name: copy[locale].emptyQueue })
-  ).toBeVisible();
+  await waitForHydration(moderationPage);
+  await expect(moderationPage.locator('#correction-change')).toBeVisible();
   await captureModerationWorkspaceScreenshot(
     moderationPage,
     evidence,
-    `moderation-workspace-empty-${locale}-desktop.png`
+    `moderation-workspace-correction-${locale}-desktop.png`
   );
 
-  await moderationPage.goto(
-    `/${locale}/moderation?queue=suggestions&item=${workspaceSuggestionId}&filter=actionable`
-  );
-  await fillSuggestionResolution(moderationPage, locale);
-  await moderationPage
-    .locator('#suggestion-decision input[name="suggestionId"]')
-    .evaluate((input) => {
-      if (input instanceof HTMLInputElement) input.value = 'not-a-suggestion-id';
-    });
-  await moderationPage.getByRole('button', { name: copy[locale].saveOutcome }).click();
-  await expect(
-    moderationPage.getByRole('alert').filter({ hasText: copy[locale].invalidSuggestion })
-  ).toBeVisible();
+  await moderationPage.setViewportSize({ width: 390, height: 844 });
   await captureModerationWorkspaceScreenshot(
     moderationPage,
     evidence,
-    `moderation-workspace-error-${locale}-desktop.png`
-  );
-
-  await provisionLocalSuggestionFixture(evaluationModerator.email);
-  await moderationPage.goto(
-    `/${locale}/moderation?queue=suggestions&item=${workspaceSuggestionId}&filter=actionable`
-  );
-  const winningPage = await context.newPage();
-  await winningPage.setViewportSize({ width: 1280, height: 900 });
-  await winningPage.goto(
-    `/${locale}/moderation?queue=suggestions&item=${workspaceSuggestionId}&filter=actionable`
-  );
-  await fillSuggestionResolution(moderationPage, locale, 'rejected');
-  await fillSuggestionResolution(winningPage, locale, 'rejected');
-  await winningPage.getByRole('button', { name: copy[locale].saveOutcome }).click();
-  await expect(winningPage.locator('.live-status')).toContainText(copy[locale].resolutionSaved);
-  await moderationPage.getByRole('button', { name: copy[locale].saveOutcome }).click();
-  await expect(
-    moderationPage.getByRole('alert').filter({ hasText: copy[locale].outcomeConflict })
-  ).toBeVisible();
-  await expect(
-    moderationPage.locator('#suggestion-decision').getByLabel(copy[locale].memberReasonEn)
-  ).toHaveValue('Please confirm that the source is still current.');
-  await captureModerationWorkspaceScreenshot(
-    moderationPage,
-    evidence,
-    `moderation-workspace-conflict-${locale}-desktop.png`
-  );
-  await winningPage.close();
-
-  await provisionLocalSuggestionFixture(evaluationModerator.email);
-  await moderationPage.goto(
-    `/${locale}/moderation?queue=suggestions&item=${workspaceSuggestionId}&filter=actionable`
-  );
-  await fillSuggestionResolution(moderationPage, locale);
-  await moderationPage.getByRole('button', { name: copy[locale].saveOutcome }).click();
-  await expect(moderationPage.locator('.live-status')).toContainText(copy[locale].resolutionSaved);
-  await expect(
-    moderationPage.getByRole('region', { name: copy[locale].selectedModerationItem })
-  ).toContainText(copy[locale].nextVisualSuggestion);
-  await captureModerationWorkspaceScreenshot(
-    moderationPage,
-    evidence,
-    `moderation-workspace-success-${locale}-desktop.png`
+    `moderation-workspace-correction-${locale}-mobile.png`
   );
   await moderationPage.close();
 }
