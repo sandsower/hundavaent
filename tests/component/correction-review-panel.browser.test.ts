@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import CorrectionReviewPanel from '$lib/moderation/CorrectionReviewPanel.svelte';
 import { catalogues } from '$i18n';
 import type { ModerationPlaceFlag } from '$server/place-flags/place-flags';
+import CorrectionReviewPage from '../../src/routes/[lang=lang]/moderation/corrections-and-reports/[id]/+page.svelte';
 
 const flag: ModerationPlaceFlag = {
   itemVersion: 1,
@@ -88,6 +89,38 @@ const data = {
 };
 
 describe('CorrectionReviewPanel', () => {
+  it('uses refreshed direct-route conflict data and disables stale actions when refresh fails', () => {
+    const refreshedFlag = {
+      ...flag,
+      itemVersion: 7,
+      draftVersion: 3,
+      privateNote: 'The winning Moderator note.',
+      outcome: 'rejected' as const
+    };
+    const { container, unmount } = render(CorrectionReviewPage, {
+      data,
+      form: {
+        error: 'conflict',
+        conflict: true,
+        conflictReview: { flag: refreshedFlag, resolved: true }
+      }
+    } as never);
+
+    expect(container.querySelector('[name="expectedItemVersion"]')).toBeNull();
+    expect(screen.getByText('The winning Moderator note.')).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain(catalogues.en['flag.outcomeConflict']);
+    expect(screen.queryByRole('button', { name: 'Confirm useful' })).toBeNull();
+    unmount();
+
+    const failed = render(CorrectionReviewPage, {
+      data,
+      form: { error: 'conflict', conflict: true, conflictRefreshFailed: true }
+    } as never);
+    expect(
+      failed.container.querySelector('fieldset[data-route-review]')?.hasAttribute('disabled')
+    ).toBe(true);
+  });
+
   it('uses the shared compact shell and keeps the final decision form metadata-only', () => {
     const { container } = render(CorrectionReviewPanel, { data, form: null });
 

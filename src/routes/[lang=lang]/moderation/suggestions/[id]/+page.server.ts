@@ -48,7 +48,7 @@ async function runFallbackAction(
   action: ModerationSuggestionActionName,
   event: Parameters<NonNullable<Actions[ModerationSuggestionActionName]>>[0]
 ) {
-  const { locals, params, request } = event;
+  const { locals, params, request, url } = event;
   if (!locals.supabase) return fail(503, { error: 'unavailable' as const });
 
   const result = await executeModerationSuggestionAction(action, {
@@ -59,7 +59,21 @@ async function runFallbackAction(
     formData: action === 'confirmUseful' ? null : await request.formData()
   });
   if (result.status === 'failure') {
-    return fail(result.httpStatus, { error: result.error });
+    const conflictReview =
+      result.error === 'conflict'
+        ? await loadModerationSuggestionReview(
+            locals.supabase as unknown as SuggestionRpcClient,
+            locals.supabase as unknown as ContributorRpcClient,
+            params.id,
+            url.searchParams
+          )
+        : null;
+    return fail(result.httpStatus, {
+      error: result.error,
+      ...(result.error === 'conflict' ? { conflict: true } : {}),
+      ...(conflictReview?.status === 'success' ? { conflictReview: conflictReview.value } : {}),
+      conflictRefreshFailed: result.error === 'conflict' && conflictReview?.status !== 'success'
+    });
   }
   const lang = parseLocale(params.lang);
   if (result.effect.kind === 'draft_saved') {

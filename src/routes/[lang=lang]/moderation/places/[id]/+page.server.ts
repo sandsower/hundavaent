@@ -96,12 +96,19 @@ async function handleCandidateAction(
     return { action, success: true, terminal: result.terminal };
   }
 
+  const conflictReview =
+    result.error === 'conflict'
+      ? await loadModerationCandidateReview(locals.supabase, placeId)
+      : null;
+
   return fail(result.httpStatus, {
     action,
     success: false,
     error: candidateActionErrorMessage(action, result.error, copy),
-    ...(result.error === 'conflict' && action === 'publish' ? { conflict: true } : {}),
-    ...(result.error === 'not_publishable' ? { notPublishable: true } : {})
+    ...(result.error === 'conflict' ? { conflict: true } : {}),
+    ...(result.error === 'not_publishable' ? { notPublishable: true } : {}),
+    ...(conflictReview?.status === 'success' ? { conflictReview: conflictReview.value } : {}),
+    conflictRefreshFailed: result.error === 'conflict' && conflictReview?.status !== 'success'
   });
 }
 

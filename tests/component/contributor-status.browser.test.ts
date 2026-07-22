@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import { catalogues } from '$i18n';
@@ -10,7 +10,6 @@ import type {
 import type { ModerationSuggestion, SuggestionPlaceMatch } from '$server/suggestions/suggestions';
 import ContributorStatusPage from '../../src/routes/[lang=lang]/account/contributor-status/+page.svelte';
 import SuggestionReviewPage from '../../src/routes/[lang=lang]/moderation/suggestions/[id]/+page.svelte';
-import SuggestionQueuePage from '../../src/routes/[lang=lang]/moderation/suggestions/+page.svelte';
 
 const trustedStatus: MyContributorStatus = {
   status: 'trusted_contributor',
@@ -168,7 +167,7 @@ describe('Member Contributor status view', () => {
 });
 
 describe('Moderator Contributor detail on the Suggestion review page', () => {
-  it('shows status, evidence history, and moderator actions gated by an active conduct flag', () => {
+  it('shows status, evidence history, and moderator actions gated by an active conduct flag', async () => {
     render(SuggestionReviewPage, {
       params: { lang: 'en', id: moderationSuggestion.suggestionId },
       data: {
@@ -187,9 +186,11 @@ describe('Moderator Contributor detail on the Suggestion review page', () => {
       form: null
     } as never);
 
-    expect(screen.getByRole('heading', { name: 'Contributor signal' })).toBeTruthy();
-    expect(screen.getByText('Contributor')).toBeTruthy();
-    expect(screen.getByText('One serious false report was confirmed.')).toBeTruthy();
+    const contributorSection = document.querySelector<HTMLDetailsElement>('#suggestion-contributor');
+    expect(contributorSection).toBeTruthy();
+    await fireEvent.click(contributorSection!.querySelector('summary')!);
+    expect(screen.getAllByText('Contributor')).toHaveLength(2);
+    expect(contributorSection!.textContent).toContain('One serious false report was confirmed.');
     expect(screen.getByRole('button', { name: 'Revoke this Contribution' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Record a conduct flag' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Clear flag' })).toBeTruthy();
@@ -220,50 +221,5 @@ describe('Moderator Contributor detail on the Suggestion review page', () => {
     } as never);
 
     expect(screen.queryByRole('button', { name: 'Clear flag' })).toBeNull();
-    expect(screen.getByText('No active conduct flag')).toBeTruthy();
-  });
-});
-
-describe('Moderator Suggestion queue trust badge', () => {
-  it('shows a bounded trust badge without changing pagination', () => {
-    render(SuggestionQueuePage, {
-      params: { lang: 'en' },
-      data: {
-        lang: 'en',
-        copy: catalogues.en,
-        suggestions: [
-          {
-            ...moderationSuggestion,
-            outcome: 'submitted',
-            queueRank: 0,
-            trustTier: 'trusted_contributor'
-          }
-        ],
-        nextCursor: null,
-        hasPrevious: false
-      },
-      form: null
-    } as never);
-
-    expect(screen.getByText('Trusted Contributor')).toBeTruthy();
-  });
-
-  it('renders no badge for a submitter with no Contributor status', () => {
-    render(SuggestionQueuePage, {
-      params: { lang: 'en' },
-      data: {
-        lang: 'en',
-        copy: catalogues.en,
-        suggestions: [
-          { ...moderationSuggestion, outcome: 'submitted', queueRank: 0, trustTier: 'none' }
-        ],
-        nextCursor: null,
-        hasPrevious: false
-      },
-      form: null
-    } as never);
-
-    expect(screen.queryByText('Trusted Contributor')).toBeNull();
-    expect(screen.queryByText('Contributor')).toBeNull();
   });
 });

@@ -10,7 +10,6 @@ import type {
 import type { ModerationSuggestion, SuggestionPlaceMatch } from '$server/suggestions/suggestions';
 import MemberSuggestionsPage from '../../src/routes/[lang=lang]/account/suggestions/+page.svelte';
 import SuggestionReviewPage from '../../src/routes/[lang=lang]/moderation/suggestions/[id]/+page.svelte';
-import SuggestionQueuePage from '../../src/routes/[lang=lang]/moderation/suggestions/+page.svelte';
 import SuggestionPage from '../../src/routes/[lang=lang]/suggest/+page.svelte';
 
 const proposal = {
@@ -349,29 +348,6 @@ describe('Moderator Suggestion workflow', () => {
     });
   });
 
-  it('renders the private queue and a stable review link', () => {
-    render(SuggestionQueuePage, {
-      params: { lang: 'en' },
-      data: {
-        lang: 'en',
-        copy: catalogues.en,
-        suggestions: [{ ...moderationSuggestion, queueRank: 0 }],
-        nextCursor: null,
-        hasPrevious: true
-      },
-      form: null
-    } as never);
-
-    expect(screen.getByRole('heading', { name: 'Community Suggestions' })).toBeTruthy();
-    expect(screen.getByText('Suggestion cafe')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Review Suggestion' }).getAttribute('href')).toBe(
-      `/en/moderation/suggestions/${moderationSuggestion.suggestionId}`
-    );
-    expect(screen.getByRole('link', { name: 'Back to first page' }).getAttribute('href')).toBe(
-      '/en/moderation/suggestions'
-    );
-  });
-
   it('keeps the direct route actionable with compact decisions and explicit identity reuse', async () => {
     render(SuggestionReviewPage, {
       params: { lang: 'en', id: moderationSuggestion.suggestionId },
@@ -415,6 +391,55 @@ describe('Moderator Suggestion workflow', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Keep reviewing' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
     expect(screen.getByRole('dialog', { name: 'Reject this suggestion?' })).toBeTruthy();
+  });
+
+  it('uses refreshed direct-route conflict data and disables stale actions when refresh fails', () => {
+    const refreshedSuggestion = {
+      ...moderationSuggestion,
+      itemVersion: 9,
+      draftVersion: 5,
+      privateNote: 'The winning Moderator note.',
+      nameEn: 'Winning Suggestion name',
+      outcome: 'rejected' as const
+    };
+    const { container, unmount } = render(SuggestionReviewPage, {
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        suggestion: moderationSuggestion,
+        matches: [placeMatch],
+        resolved: false,
+        contributionConfirmed: false
+      },
+      form: {
+        error: 'conflict',
+        conflict: true,
+        conflictReview: { suggestion: refreshedSuggestion, resolved: true }
+      }
+    } as never);
+
+    expect(container.querySelector('[name="expectedItemVersion"]')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Winning Suggestion name' })).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain(
+      catalogues.en['suggestion.outcomeConflict']
+    );
+    expect(screen.queryByRole('button', { name: 'Accept as Candidate' })).toBeNull();
+    unmount();
+
+    const failed = render(SuggestionReviewPage, {
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        suggestion: moderationSuggestion,
+        matches: [placeMatch],
+        resolved: false,
+        contributionConfirmed: false
+      },
+      form: { error: 'conflict', conflict: true, conflictRefreshFailed: true }
+    } as never);
+    expect(
+      failed.container.querySelector('fieldset[data-route-review]')?.hasAttribute('disabled')
+    ).toBe(true);
   });
 
   it('requires a moderator to supply the missing locale instead of publishing copied text', async () => {

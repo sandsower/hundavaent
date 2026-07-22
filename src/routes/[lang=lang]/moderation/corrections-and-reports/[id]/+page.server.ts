@@ -34,7 +34,7 @@ async function runAction(
   action: ModerationCorrectionActionName,
   event: Parameters<NonNullable<Actions[ModerationCorrectionActionName]>>[0]
 ) {
-  const { locals, params, request } = event;
+  const { locals, params, request, url } = event;
   if (!locals.supabase) return fail(503, { error: 'unavailable' as const });
 
   const result = await executeModerationCorrectionAction(action, {
@@ -43,7 +43,22 @@ async function runAction(
     requestId: locals.requestId,
     formData: action === 'confirmUseful' ? null : await request.formData()
   });
-  if (result.status === 'failure') return fail(result.httpStatus, { error: result.error });
+  if (result.status === 'failure') {
+    const conflictReview =
+      result.error === 'conflict'
+        ? await loadModerationCorrectionReview(
+            locals.supabase as unknown as PlaceFlagRpcClient,
+            params.id,
+            url.searchParams
+          )
+        : null;
+    return fail(result.httpStatus, {
+      error: result.error,
+      ...(result.error === 'conflict' ? { conflict: true } : {}),
+      ...(conflictReview?.status === 'success' ? { conflictReview: conflictReview.value } : {}),
+      conflictRefreshFailed: result.error === 'conflict' && conflictReview?.status !== 'success'
+    });
+  }
 
   const lang = parseLocale(params.lang);
   if (result.effect.kind === 'draft_saved') {

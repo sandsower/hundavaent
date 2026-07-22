@@ -4,6 +4,7 @@ import { page as browserPage } from 'vitest/browser';
 
 import { catalogues } from '$i18n';
 import CandidateReviewPanel from '$lib/moderation/CandidateReviewPanel.svelte';
+import CandidateReviewPage from '../../src/routes/[lang=lang]/moderation/places/[id]/+page.svelte';
 
 const placeId = '70000000-0000-4000-8000-000000000001';
 
@@ -82,6 +83,49 @@ const data = {
 };
 
 describe('CandidateReviewPanel', () => {
+  it('uses refreshed direct-route conflict data and disables stale actions when refresh fails', () => {
+    const refreshedReview = {
+      ...data.review,
+      itemVersion: 8,
+      draftVersion: 4,
+      lifecycle: 'published' as const,
+      candidateStatus: 'published' as const
+    };
+    const { container, unmount } = render(CandidateReviewPage, {
+      data,
+      form: {
+        action: 'publish',
+        success: false,
+        error: 'The information changed while you were working.',
+        conflict: true,
+        conflictReview: { review: refreshedReview }
+      }
+    } as never);
+
+    expect(container.querySelector<HTMLInputElement>('[name="expectedItemVersion"]')?.value).toBe(
+      '8'
+    );
+    expect(screen.queryByRole('button', { name: 'Verify and publish' })).toBeNull();
+    expect(screen.getByRole('alert').textContent).toContain(
+      'The information changed while you were working.'
+    );
+    unmount();
+
+    const failed = render(CandidateReviewPage, {
+      data,
+      form: {
+        action: 'publish',
+        success: false,
+        error: 'The information changed while you were working.',
+        conflict: true,
+        conflictRefreshFailed: true
+      }
+    } as never);
+    expect(
+      failed.container.querySelector('fieldset[data-route-review]')?.hasAttribute('disabled')
+    ).toBe(true);
+  });
+
   it('leads with one readiness summary and keeps complete supporting sections collapsed', async () => {
     render(CandidateReviewPanel, { data, form: null });
 
