@@ -4,6 +4,7 @@ export interface MapPlace {
   latitude: number;
   longitude: number;
   category?: string;
+  draggable?: boolean;
 }
 
 export interface MapCamera {
@@ -17,6 +18,7 @@ export interface MapCallbacks {
   onClusterSelect?: (placeIds: readonly string[]) => void;
   onCameraChange: (camera: MapCamera) => void;
   onMapSelect?: (point: MapPoint) => void;
+  onMarkerMove?: (placeId: string, point: MapPoint) => void;
 }
 
 export interface MapPoint {

@@ -62,7 +62,8 @@ describe('Candidate Place form', () => {
         lang: 'en',
         copy: catalogues.en,
         moderator: { id: 'moderator-1' },
-        defaultObservedAt: '2026-07-09T10:00'
+        defaultObservedAt: '2026-07-09T10:00',
+        mapStyleUrl: null
       },
       form: null
     });
@@ -92,7 +93,8 @@ describe('Candidate Place form', () => {
         lang: 'is',
         copy: catalogues.is,
         moderator: { id: 'moderator-1' },
-        defaultObservedAt: '2026-07-09T10:00'
+        defaultObservedAt: '2026-07-09T10:00',
+        mapStyleUrl: null
       },
       form: {
         success: false,
@@ -474,7 +476,7 @@ const evidenceItem = {
 };
 
 describe('Media section', () => {
-  it('shows clean empty states with no Evidence or Photos registered', () => {
+  it('shows clean empty states with no Evidence or Photos registered', async () => {
     render(PublicationReviewPage, {
       params: { lang: 'en', id: 'place-1' },
       data: {
@@ -489,11 +491,16 @@ describe('Media section', () => {
       form: null
     });
 
+    await fireEvent.click(screen.getByText('Media', { selector: 'strong' }));
     expect(screen.getByText('No Evidence screenshots have been registered.')).toBeTruthy();
     expect(screen.getByText('No Photos have been registered.')).toBeTruthy();
+    expect(screen.getByLabelText('Photo rights')).toHaveValue('own_photo');
+    expect(screen.getByLabelText('People shown in the photo')).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Upload and publish' })).toBeTruthy();
+    expect(screen.getByText('Optional photo details', { selector: 'summary' })).toBeTruthy();
   });
 
-  it('renders Evidence and Photo items with their current state', () => {
+  it('renders Evidence and Photo items with their current state', async () => {
     render(PublicationReviewPage, {
       params: { lang: 'en', id: 'place-1' },
       data: {
@@ -508,17 +515,15 @@ describe('Media section', () => {
       form: null
     });
 
+    await fireEvent.click(screen.getByText('Media', { selector: 'strong' }));
     expect(screen.getByText('https://example.invalid/media-source')).toBeTruthy();
     expect(screen.getAllByText('Pending')).toHaveLength(1);
     expect(screen.getAllByText('Approved')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Approve' })).toBeTruthy();
-    expect((screen.getByLabelText('Rights basis') as HTMLSelectElement).value).toBe('cc_by');
-    expect((screen.getByLabelText('Rights evidence reference') as HTMLInputElement).value).toBe(
-      'Wikimedia Commons page 123'
+    expect(screen.getByRole('button', { name: 'Publish photo' })).toBeTruthy();
+    expect((screen.getAllByLabelText('Photo rights')[0] as HTMLSelectElement).value).toBe(
+      'reusable_source'
     );
-    expect((screen.getByLabelText('Public attribution text') as HTMLInputElement).value).toBe(
-      'Pending Photo by Commons Photographer, CC BY 4.0'
-    );
+    expect((screen.getByLabelText('Reusable license') as HTMLSelectElement).value).toBe('cc_by');
     expect(
       within(screen.getByRole('article', { name: 'Photos' })).getByRole('button', {
         name: 'Reject'

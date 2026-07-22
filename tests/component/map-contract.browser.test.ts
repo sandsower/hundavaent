@@ -99,6 +99,27 @@ describe('shared Map interface', () => {
     expect(onMapSelect).toHaveBeenCalledWith(point);
   });
 
+  it('forwards an optional draggable marker movement for Location editing', async () => {
+    const adapter: DomTestMapAdapter = createDomTestMapAdapter();
+    const onMarkerMove = vi.fn();
+
+    render(MapSurface, {
+      adapter,
+      places: [{ ...places[0], draggable: true }],
+      selectedPlaceId: places[0].placeId,
+      camera,
+      copy: catalogues.en,
+      onMarkerSelect: vi.fn(),
+      onMarkerMove,
+      onCameraChange: vi.fn()
+    });
+
+    await screen.findByRole('button', { name: 'Published Place' });
+    const point = { latitude: 64.151, longitude: -21.931 };
+    adapter.simulateMarkerMove(places[0].placeId, point);
+    expect(onMarkerMove).toHaveBeenCalledWith(places[0].placeId, point);
+  });
+
   it('forwards terminal cluster members for an accessible selection fallback', async () => {
     let mountedCallbacks: MapCallbacks | null = null;
     const onClusterSelect = vi.fn();

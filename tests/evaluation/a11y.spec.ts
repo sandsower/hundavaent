@@ -971,35 +971,36 @@ test('the Place media Moderator workspace and public Photos gallery are keyboard
   await publishedMediaSummary.press('Enter');
   await expect(publishedMedia).toHaveAttribute('open', '');
   const photoColumn = page.locator('[data-media-column="photo"]');
-  await photoColumn
-    .getByLabel('Image (PNG, JPEG, or WebP, 15 MB maximum)')
-    .setInputFiles(fixturePngFile('a11y-photo.png', 200, 150, { r: 70, g: 130, b: 180 }));
-  await photoColumn.getByRole('button', { name: 'Upload Photo' }).click();
-  await expect(page.getByText('Media uploaded.')).toBeVisible();
-
-  const photoItem = photoColumn.locator('li[data-media-item]').first();
-  const photographerField = photoItem.getByLabel('Photographer or uploader');
-  await photographerField.focus();
+  const photoFile = photoColumn.getByLabel('Image (PNG, JPEG, or WebP, 15 MB maximum)');
+  const photoRights = photoColumn.getByLabel('Photo rights');
+  const peopleReview = photoColumn.getByLabel('People shown in the photo');
+  await photoFile.focus();
   await page.keyboard.press('Tab');
-  await expect(photoItem.getByLabel('Capture or source date')).toBeFocused();
+  await expect(photoRights).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(peopleReview).toBeFocused();
   await expectNoSeriousAxeViolations(page, evidence);
 
+  await photoFile.setInputFiles(
+    fixturePngFile('a11y-photo.png', 200, 150, { r: 70, g: 130, b: 180 })
+  );
+  await peopleReview.selectOption('no_prominent_people');
+  await photoColumn.getByText('Optional photo details', { exact: true }).click();
+  const photographerField = photoColumn.getByLabel('Photographer or uploader');
   await photographerField.fill('A11y Photographer');
-  await photoItem.getByLabel('Capture or source date').fill('2026-07-01');
-  await photoItem
+  await photoColumn.getByLabel('Capture or source date').fill('2026-07-01');
+  await photoColumn
     .getByLabel('License or permission reference')
     .fill('Owner-supplied, a11y fixture');
-  await photoItem.getByLabel('Rights basis').selectOption('explicit_permission');
-  await photoItem
+  await photoColumn
     .getByLabel('Rights evidence reference')
     .fill('Owner permission fixture recorded for accessibility evaluation');
-  await photoItem
+  await photoColumn
     .getByLabel('Public attribution text')
     .fill('Photo by A11y Photographer, used with permission');
-  await photoItem.getByLabel('People shown in the photo').selectOption('no_prominent_people');
-  await photoItem.getByLabel('Image description (Icelandic)').fill('Hundur, aðgengispróf');
-  await photoItem.getByLabel('Image description (English)').fill('A dog, accessibility fixture');
-  await photoItem.getByRole('button', { name: 'Approve' }).click();
+  await photoColumn.getByLabel('Image description (Icelandic)').fill('Hundur, aðgengispróf');
+  await photoColumn.getByLabel('Image description (English)').fill('A dog, accessibility fixture');
+  await photoColumn.getByRole('button', { name: 'Upload and publish' }).click();
   await expect(page.getByText('Photo approved and published.')).toBeVisible();
   await expectNoSeriousAxeViolations(page, evidence);
 

@@ -42,7 +42,7 @@ test.afterAll(() => {
   }
 });
 
-test('a Moderator uploads Evidence and a Photo, approves the Photo, and it renders publicly until retired', async ({
+test('a Moderator uploads Evidence and publishes a Photo in one step, and it renders publicly until retired', async ({
   page
 }) => {
   await page.goto('/en/moderation/sign-in?returnTo=%2Fen%2Fmoderation%2Fplaces%2Fnew');
@@ -60,10 +60,12 @@ test('a Moderator uploads Evidence and a Photo, approves the Photo, and it rende
   await page.getByLabel('Icelandic description').fill(candidate.descriptionIs);
   await page.getByLabel('English name').fill(candidate.nameEn);
   await page.getByLabel('English description').fill(candidate.descriptionEn);
+  await page.getByText('Edit location details', { exact: true }).click();
+  await expect(page.locator('.hundavaent-marker')).toBeVisible();
   await page.getByLabel('Address or area description').fill(candidate.addressLine);
   await page.getByLabel('Town or neighbourhood').fill(candidate.locality);
   await page.getByLabel('Postal code').fill(candidate.postalCode);
-  await page.getByLabel('Municipality').selectOption(candidate.municipality);
+  await page.getByLabel('Municipality', { exact: true }).selectOption(candidate.municipality);
   await page.getByLabel('Latitude').fill(candidate.latitude);
   await page.getByLabel('Longitude').fill(candidate.longitude);
   await page.getByLabel('Geometry precision').selectOption('moderator_confirmed_point');
@@ -82,7 +84,7 @@ test('a Moderator uploads Evidence and a Photo, approves the Photo, and it rende
   await page.getByRole('link', { name: 'Review Place' }).click();
   await expect(page).toHaveURL(`/en/moderation/places/${candidateId}`);
   const mediaSection = page.locator('#candidate-media');
-  await mediaSection.locator('summary').click();
+  await mediaSection.locator(':scope > summary').click();
   await expect(mediaSection).toHaveAttribute('open', '');
 
   // --- Evidence screenshot, uploaded while the Place is still a Candidate. ---
@@ -125,42 +127,20 @@ test('a Moderator uploads Evidence and a Photo, approves the Photo, and it rende
   await photoColumn
     .getByLabel('Image (PNG, JPEG, or WebP, 15 MB maximum)')
     .setInputFiles(fixturePngFile('photo.png', 200, 150, { r: 60, g: 120, b: 200 }));
-  await photoColumn.getByRole('button', { name: 'Upload Photo' }).click();
-  await expect(page.getByText('Media uploaded.')).toBeVisible();
+  await photoColumn.getByLabel('People shown in the photo').selectOption('no_prominent_people');
+  await photoColumn.getByRole('button', { name: 'Upload and publish' }).click();
+  await expect(page.getByText('Photo approved and published.')).toBeVisible();
 
   const photoItem = photoColumn.locator('li[data-media-item]').first();
-  await expect(photoItem.getByText('Pending')).toBeVisible();
-
-  await photoItem.getByLabel('Photographer or uploader').fill('E2E Photographer');
-  await photoItem.getByLabel('Capture or source date').fill('2026-07-01');
-  await photoItem
-    .getByLabel('License or permission reference')
-    .fill('Owner-supplied for e2e coverage');
-  await photoItem.getByLabel('Rights basis').selectOption('explicit_permission');
-  await photoItem
-    .getByLabel('Rights evidence reference')
-    .fill('Owner permission fixture recorded by the e2e Moderator');
-  await photoItem
-    .getByLabel('Public attribution text')
-    .fill('Photo by E2E Photographer, used with permission');
-  await photoItem.getByLabel('People shown in the photo').selectOption('no_prominent_people');
-  await photoItem.getByLabel('Use as the primary Place photo').check();
-  await photoItem.getByLabel('Image description (Icelandic)').fill('Hundur á kaffihúsi');
-  await photoItem.getByLabel('Image description (English)').fill('A dog at a cafe, e2e fixture');
-  await photoItem.getByRole('button', { name: 'Approve' }).click();
-
-  await expect(page.getByText('Photo approved and published.')).toBeVisible();
   await expect(photoItem.getByText('Approved')).toBeVisible();
 
   // --- The approved Photo renders on the public Place Profile. ---
   await page.goto(`/en?place=${candidateId}`);
   const selectedPlace = page.getByRole('complementary', { name: 'Selected place' });
   await expect(selectedPlace).toBeVisible();
-  const publicPhoto = selectedPlace.getByAltText('A dog at a cafe, e2e fixture');
+  const publicPhoto = selectedPlace.getByAltText('Photo of Media Test Cafe');
   await expect(publicPhoto).toBeVisible();
-  await expect(
-    selectedPlace.getByText('Photo by E2E Photographer, used with permission')
-  ).toBeVisible();
+  await expect(selectedPlace.getByText('Photo: Hundavænt')).toBeVisible();
   expect(await publicPhoto.getAttribute('width')).toBe('200');
   expect(await publicPhoto.getAttribute('height')).toBe('150');
   // The image bytes must actually arrive: a Content-Security-Policy or signed-URL regression
@@ -179,7 +159,7 @@ test('a Moderator uploads Evidence and a Photo, approves the Photo, and it rende
   // --- Retiring the Photo removes it from the public profile immediately. ---
   await page.goto(`/en/moderation/places/${candidateId}`);
   await waitForHydration(page);
-  await mediaSection.locator('summary').click();
+  await mediaSection.locator(':scope > summary').click();
   await expect(mediaSection).toHaveAttribute('open', '');
   const retirePhotoItem = page.locator('[data-media-column="photo"] li[data-media-item]').first();
   await retirePhotoItem.getByRole('button', { name: 'Retire' }).click();
@@ -189,7 +169,7 @@ test('a Moderator uploads Evidence and a Photo, approves the Photo, and it rende
 
   await page.goto(`/en?place=${candidateId}`);
   await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
-  await expect(page.getByAltText('A dog at a cafe, e2e fixture')).toHaveCount(0);
+  await expect(page.getByAltText('Photo of Media Test Cafe')).toHaveCount(0);
 });
 
 test('an anonymous caller cannot register Place media', async ({ request }) => {

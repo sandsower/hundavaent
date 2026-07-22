@@ -30,6 +30,7 @@ test('a Moderator creates a private Candidate through the full application', asy
   await page.getByLabel('Icelandic description').fill(candidate.descriptionIs);
   await page.getByLabel('English name').fill(candidate.nameEn);
   await page.getByLabel('English description').fill(candidate.descriptionEn);
+  await page.getByText('Edit location details', { exact: true }).click();
   await page.getByLabel('Address or area description').fill(candidate.addressLine);
   await page.getByLabel('Town or neighbourhood').fill(candidate.locality);
   await page.getByLabel('Postal code').fill(candidate.postalCode);

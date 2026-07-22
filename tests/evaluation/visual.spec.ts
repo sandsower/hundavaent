@@ -87,18 +87,17 @@ const copy = {
     mediaSourceUrlLabel: 'Vefslóð heimildar',
     mediaCapturedAtLabel: 'Tökutími',
     uploadEvidenceAction: 'Hlaða upp sönnunargagni',
-    uploadPhotoAction: 'Hlaða upp ljósmynd',
+    uploadAndPublishAction: 'Hlaða upp og birta',
     mediaUploaded: 'Myndefni hlaðið upp.',
+    optionalPhotoDetails: 'Valfrjálsar ljósmyndaupplýsingar',
     photographerLabel: 'Ljósmyndari eða sá sem hlóð upp',
     licenseDateLabel: 'Dagsetning myndatöku eða heimildar',
     licenseReferenceLabel: 'Leyfi eða heimild til birtingar',
-    rightsBasisLabel: 'Grundvöllur afnotaréttar',
     rightsEvidenceLabel: 'Tilvísun í sönnun fyrir afnotarétti',
     attributionTextLabel: 'Sýnileg höfundartilkynning',
     peopleReviewLabel: 'Fólk sem sést á myndinni',
     altTextIsLabel: 'Myndlýsing (íslenska)',
     altTextEnLabel: 'Myndlýsing (enska)',
-    approveAction: 'Samþykkja',
     photoApproved: 'Ljósmynd samþykkt og birt.'
   },
   en: {
@@ -145,18 +144,17 @@ const copy = {
     mediaSourceUrlLabel: 'Source URL',
     mediaCapturedAtLabel: 'Capture time',
     uploadEvidenceAction: 'Upload Evidence',
-    uploadPhotoAction: 'Upload Photo',
+    uploadAndPublishAction: 'Upload and publish',
     mediaUploaded: 'Media uploaded.',
+    optionalPhotoDetails: 'Optional photo details',
     photographerLabel: 'Photographer or uploader',
     licenseDateLabel: 'Capture or source date',
     licenseReferenceLabel: 'License or permission reference',
-    rightsBasisLabel: 'Rights basis',
     rightsEvidenceLabel: 'Rights evidence reference',
     attributionTextLabel: 'Public attribution text',
     peopleReviewLabel: 'People shown in the photo',
     altTextIsLabel: 'Image description (Icelandic)',
     altTextEnLabel: 'Image description (English)',
-    approveAction: 'Approve',
     photoApproved: 'Photo approved and published.'
   }
 } as const;
@@ -224,7 +222,15 @@ async function capture(
     `${name} must not overflow horizontally: ${JSON.stringify(horizontalOverflow)}`
   ).toBeLessThanOrEqual(viewportWidth);
   await page.locator('img').evaluateAll(async (images) => {
-    await Promise.all(images.map((image) => (image as HTMLImageElement).decode()));
+    await Promise.all(
+      images.map(async (image) => {
+        const decode = (image as HTMLImageElement).decode().catch(() => undefined);
+        await Promise.race([
+          decode,
+          new Promise<void>((resolve) => window.setTimeout(resolve, 5_000))
+        ]);
+      })
+    );
   });
   await page.locator('.maplibregl-canvas').evaluateAll((canvases) => {
     // CSS hiding can still leave the WebGL compositor layer in Playwright's full-page capture and
@@ -1012,38 +1018,30 @@ for (const locale of ['is', 'en'] as const) {
     await photoColumn
       .getByLabel(copy[locale].mediaFileLabel)
       .setInputFiles(fixturePngFile('visual-photo.png', 200, 150, { r: 70, g: 130, b: 180 }));
-    await photoColumn.getByRole('button', { name: copy[locale].uploadPhotoAction }).click();
-    await expect(page.getByText(copy[locale].mediaUploaded)).toBeVisible();
-    const candidatePhotoItem = photoColumn.locator('li[data-media-item]').first();
-    await expect(candidatePhotoItem).toBeVisible();
+    await photoColumn
+      .getByLabel(copy[locale].peopleReviewLabel)
+      .selectOption('no_prominent_people');
+    await photoColumn.getByText(copy[locale].optionalPhotoDetails, { exact: true }).click();
+    await photoColumn.getByLabel(copy[locale].photographerLabel).fill('Visual Photographer');
+    await photoColumn.getByLabel(copy[locale].licenseDateLabel).fill('2026-07-01');
+    await normalizeNativeInputForVisualEvidence(page, copy[locale].licenseDateLabel);
+    await photoColumn
+      .getByLabel(copy[locale].licenseReferenceLabel)
+      .fill('Owner-supplied, visual fixture');
+    await photoColumn
+      .getByLabel(copy[locale].rightsEvidenceLabel)
+      .fill('Owner permission fixture recorded for visual evaluation');
+    await photoColumn
+      .getByLabel(copy[locale].attributionTextLabel)
+      .fill('Photo by Visual Photographer, used with permission');
+    await photoColumn.getByLabel(copy[locale].altTextIsLabel).fill('Hundur, sjónræn prófun');
+    await photoColumn.getByLabel(copy[locale].altTextEnLabel).fill('A dog, visual test fixture');
     await normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness);
     await capture(page, evidence, `media-section-pending-photo-${locale}-desktop.png`, {
       prepare: () => normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness)
     });
 
-    await candidatePhotoItem.getByLabel(copy[locale].photographerLabel).fill('Visual Photographer');
-    await candidatePhotoItem.getByLabel(copy[locale].licenseDateLabel).fill('2026-07-01');
-    await normalizeNativeInputForVisualEvidence(page, copy[locale].licenseDateLabel);
-    await candidatePhotoItem
-      .getByLabel(copy[locale].licenseReferenceLabel)
-      .fill('Owner-supplied, visual fixture');
-    await candidatePhotoItem
-      .getByLabel(copy[locale].rightsBasisLabel)
-      .selectOption('explicit_permission');
-    await candidatePhotoItem
-      .getByLabel(copy[locale].rightsEvidenceLabel)
-      .fill('Owner permission fixture recorded for visual evaluation');
-    await candidatePhotoItem
-      .getByLabel(copy[locale].attributionTextLabel)
-      .fill('Photo by Visual Photographer, used with permission');
-    await candidatePhotoItem
-      .getByLabel(copy[locale].peopleReviewLabel)
-      .selectOption('no_prominent_people');
-    await candidatePhotoItem.getByLabel(copy[locale].altTextIsLabel).fill('Hundur, sjónræn prófun');
-    await candidatePhotoItem
-      .getByLabel(copy[locale].altTextEnLabel)
-      .fill('A dog, visual test fixture');
-    await candidatePhotoItem.getByRole('button', { name: copy[locale].approveAction }).click();
+    await photoColumn.getByRole('button', { name: copy[locale].uploadAndPublishAction }).click();
     await expect(page.getByText(copy[locale].photoApproved)).toBeVisible();
     await normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness);
     await capture(page, evidence, `media-section-approved-photo-${locale}-desktop.png`, {
@@ -1065,35 +1063,32 @@ for (const locale of ['is', 'en'] as const) {
         fixturePngFile('visual-gallery-photo.png', 200, 150, { r: 200, g: 150, b: 70 })
       );
     await publishedPhotoColumn
-      .getByRole('button', { name: copy[locale].uploadPhotoAction })
-      .click();
-    await expect(page.getByText(copy[locale].mediaUploaded)).toBeVisible();
-    const publishedPhotoItem = publishedPhotoColumn.locator('li[data-media-item]').first();
-    await publishedPhotoItem
-      .getByLabel(copy[locale].photographerLabel)
-      .fill('Gallery Photographer');
-    await publishedPhotoItem.getByLabel(copy[locale].licenseDateLabel).fill('2026-07-01');
-    await normalizeNativeInputForVisualEvidence(page, copy[locale].licenseDateLabel);
-    await publishedPhotoItem
-      .getByLabel(copy[locale].licenseReferenceLabel)
-      .fill('Owner-supplied, gallery fixture');
-    await publishedPhotoItem
-      .getByLabel(copy[locale].rightsBasisLabel)
-      .selectOption('explicit_permission');
-    await publishedPhotoItem
-      .getByLabel(copy[locale].rightsEvidenceLabel)
-      .fill('Owner permission fixture recorded for visual gallery evaluation');
-    await publishedPhotoItem
-      .getByLabel(copy[locale].attributionTextLabel)
-      .fill('Photo by Gallery Photographer, used with permission');
-    await publishedPhotoItem
       .getByLabel(copy[locale].peopleReviewLabel)
       .selectOption('no_prominent_people');
-    await publishedPhotoItem.getByLabel(copy[locale].altTextIsLabel).fill('Hundur í myndasafni');
-    await publishedPhotoItem
+    await publishedPhotoColumn
+      .getByText(copy[locale].optionalPhotoDetails, { exact: true })
+      .click();
+    await publishedPhotoColumn
+      .getByLabel(copy[locale].photographerLabel)
+      .fill('Gallery Photographer');
+    await publishedPhotoColumn.getByLabel(copy[locale].licenseDateLabel).fill('2026-07-01');
+    await normalizeNativeInputForVisualEvidence(page, copy[locale].licenseDateLabel);
+    await publishedPhotoColumn
+      .getByLabel(copy[locale].licenseReferenceLabel)
+      .fill('Owner-supplied, gallery fixture');
+    await publishedPhotoColumn
+      .getByLabel(copy[locale].rightsEvidenceLabel)
+      .fill('Owner permission fixture recorded for visual gallery evaluation');
+    await publishedPhotoColumn
+      .getByLabel(copy[locale].attributionTextLabel)
+      .fill('Photo by Gallery Photographer, used with permission');
+    await publishedPhotoColumn.getByLabel(copy[locale].altTextIsLabel).fill('Hundur í myndasafni');
+    await publishedPhotoColumn
       .getByLabel(copy[locale].altTextEnLabel)
       .fill('A dog in the gallery fixture');
-    await publishedPhotoItem.getByRole('button', { name: copy[locale].approveAction }).click();
+    await publishedPhotoColumn
+      .getByRole('button', { name: copy[locale].uploadAndPublishAction })
+      .click();
     await expect(page.getByText(copy[locale].photoApproved)).toBeVisible();
 
     await page.setViewportSize({ width: 1280, height: 900 });

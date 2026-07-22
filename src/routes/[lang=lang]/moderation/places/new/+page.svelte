@@ -4,6 +4,10 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { tick, untrack } from 'svelte';
 
+  import ModerationLocationEditor, {
+    type ModerationLocationValue
+  } from '$lib/moderation/ModerationLocationEditor.svelte';
+
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
@@ -49,6 +53,18 @@
       permissionRequirement: 'standing_permission',
       dogAmenities: '',
       ...((form && 'values' in form ? form.values : {}) ?? {})
+    }))
+  );
+  let locationValue = $state<ModerationLocationValue>(
+    untrack(() => ({
+      addressLine: values.addressLine ?? '',
+      locality: values.locality ?? 'Reykjavík',
+      postalCode: values.postalCode ?? '',
+      municipality: values.municipality ?? 'reykjavik',
+      latitude: Number(values.latitude || 64.1466),
+      longitude: Number(values.longitude || -21.9426),
+      geometryPrecision: values.geometryPrecision || 'municipality_anchor_pending_geocode',
+      geometrySource: values.geometrySource || 'Initial map centre, confirmation required'
     }))
   );
   let errorMessage = $derived(form && 'error' in form ? form.error : null);
@@ -229,85 +245,15 @@
 
     <fieldset>
       <legend>{data.copy['moderation.locationHeading']}</legend>
-      <div class="field-grid">
-        <label class="wide">
-          {data.copy['moderation.addressLabel']}
-          <input name="addressLine" required bind:value={values.addressLine} />
-        </label>
-        <label>
-          {data.copy['moderation.localityLabel']}
-          <input name="locality" required bind:value={values.locality} />
-        </label>
-        <label>
-          {data.copy['moderation.postalCodeLabel']}
-          <input
-            name="postalCode"
-            required
-            inputmode="numeric"
-            pattern="[0-9][0-9][0-9]"
-            bind:value={values.postalCode}
-          />
-        </label>
-        <label>
-          {data.copy['moderation.municipalityLabel']}
-          <select
-            name="municipality"
-            required
-            bind:value={values.municipality}
-            aria-label={data.copy['moderation.municipalityLabel']}
-          >
-            <option value="reykjavik">Reykjavík</option>
-            <option value="kopavogur">Kópavogur</option>
-            <option value="seltjarnarnes">Seltjarnarnes</option>
-            <option value="gardabaer">Garðabær</option>
-            <option value="hafnarfjordur">Hafnarfjörður</option>
-            <option value="mosfellsbaer">Mosfellsbær</option>
-            <option value="kjosarhreppur">Kjósarhreppur</option>
-          </select>
-        </label>
-        <label>
-          {data.copy['moderation.latitudeLabel']}
-          <input name="latitude" required inputmode="decimal" bind:value={values.latitude} />
-        </label>
-        <label>
-          {data.copy['moderation.longitudeLabel']}
-          <input name="longitude" required inputmode="decimal" bind:value={values.longitude} />
-        </label>
-        <label>
-          {data.copy['moderation.geometryPrecisionLabel']}
-          <select
-            name="geometryPrecision"
-            required
-            bind:value={values.geometryPrecision}
-            aria-label={data.copy['moderation.geometryPrecisionLabel']}
-          >
-            <option value="">{data.copy['moderation.geometryPrecisionChoose']}</option>
-            <option value="moderator_confirmed_point"
-              >{data.copy['moderation.geometryPrecision.moderatorConfirmed']}</option
-            >
-            <option value="official_address_point"
-              >{data.copy['moderation.geometryPrecision.officialAddress']}</option
-            >
-            <option value="official_representative_centroid"
-              >{data.copy['moderation.geometryPrecision.officialCentroid']}</option
-            >
-            <option value="municipality_anchor_pending_geocode"
-              >{data.copy['moderation.geometryPrecision.pending']}</option
-            >
-          </select>
-        </label>
-        <label class="wide">
-          {data.copy['moderation.geometrySourceLabel']}
-          <input
-            name="geometrySource"
-            required
-            bind:value={values.geometrySource}
-            aria-label={data.copy['moderation.geometrySourceLabel']}
-            aria-describedby="geometry-source-help"
-          />
-          <small id="geometry-source-help">{data.copy['moderation.geometrySourceHelp']}</small>
-        </label>
-      </div>
+      <ModerationLocationEditor
+        copy={data.copy}
+        bind:value={locationValue}
+        markerName={values.nameIs ||
+          values.nameEn ||
+          values.operatorName ||
+          data.copy['moderation.locationHeading']}
+        mapStyleUrl={data.mapStyleUrl}
+      />
     </fieldset>
 
     <fieldset>

@@ -5,6 +5,7 @@ import {
   extensionForMimeType,
   isAllowedPlaceMediaMimeType,
   parseApprovePlaceMediaFormData,
+  parseSimplePlacePhotoApprovalFormData,
   parseRegisterEvidenceFormData,
   parseRegisterPhotoFormData
 } from '$server/place-media/place-media-input';
@@ -56,6 +57,20 @@ function approveForm(overrides: Record<string, string> = {}): FormData {
     makePrimary: 'on',
     altTextIs: 'Hundur liggur á gólfi kaffihúss',
     altTextEn: 'A dog lies on a cafe floor',
+    ...overrides
+  };
+  for (const [key, value] of Object.entries(values)) form.set(key, value);
+  return form;
+}
+
+function simpleApprovalForm(overrides: Record<string, string> = {}): FormData {
+  const form = new FormData();
+  const values: Record<string, string> = {
+    mediaId: '79500000-0000-4000-8000-000000000001',
+    rightsChoice: 'own_photo',
+    peopleReview: 'no_prominent_people',
+    defaultAltTextIs: 'Ljósmynd af staðnum',
+    defaultAltTextEn: 'Photo of the place',
     ...overrides
   };
   for (const [key, value] of Object.entries(values)) form.set(key, value);
@@ -250,6 +265,79 @@ describe('parseApprovePlaceMediaFormData', () => {
           sourceUrl: 'javascript:alert(1)',
           licenseUrl: 'https://creativecommons.org/licenses/by/4.0/'
         })
+      )
+    ).toEqual({ ok: false, error: 'invalid' });
+  });
+});
+
+describe('parseSimplePlacePhotoApprovalFormData', () => {
+  it('expands an own-photo attestation with safe defaults', () => {
+    const result = parseSimplePlacePhotoApprovalFormData(simpleApprovalForm(), '2026-07-22');
+    expect(result).toEqual({
+      ok: true,
+      command: {
+        media_id: '79500000-0000-4000-8000-000000000001',
+        photographer_or_uploader: 'Hundavænt',
+        source_or_capture_date: '2026-07-22',
+        license_reference: 'Original photo',
+        rights_basis: 'explicit_permission',
+        rights_evidence_reference: 'Moderator attested ownership during upload',
+        source_url: null,
+        license_url: null,
+        attribution_text: 'Photo: Hundavænt',
+        attribution_url: null,
+        people_review: 'no_prominent_people',
+        make_primary: false,
+        alt_text_is: 'Ljósmynd af staðnum',
+        alt_text_en: 'Photo of the place'
+      }
+    });
+  });
+
+  it('requires the original source and creator for an attribution license', () => {
+    expect(
+      parseSimplePlacePhotoApprovalFormData(
+        simpleApprovalForm({
+          rightsChoice: 'reusable_source',
+          reusableRightsBasis: 'cc_by'
+        }),
+        '2026-07-22'
+      )
+    ).toEqual({ ok: false, error: 'incomplete' });
+
+    const result = parseSimplePlacePhotoApprovalFormData(
+      simpleApprovalForm({
+        rightsChoice: 'reusable_source',
+        reusableRightsBasis: 'cc_by',
+        sourceUrl: 'https://commons.wikimedia.org/wiki/File:Cafe.jpg',
+        photographerOrUploader: 'A. Photographer'
+      }),
+      '2026-07-22'
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      command: {
+        rights_basis: 'cc_by',
+        license_url: 'https://creativecommons.org/licenses/by/4.0/',
+        attribution_text: 'Photo by A. Photographer'
+      }
+    });
+  });
+
+  it.each([
+    'www.google.com/maps/place/example',
+    'maps.app.goo.gl/example',
+    'tripadvisor.com/Hotel_Review-example',
+    'www.tripadvisor.co.uk/Hotel_Review-example'
+  ])('rejects a platform page as the reusable original source: %s', (hostPath) => {
+    expect(
+      parseSimplePlacePhotoApprovalFormData(
+        simpleApprovalForm({
+          rightsChoice: 'reusable_source',
+          reusableRightsBasis: 'cc0',
+          sourceUrl: `https://${hostPath}`
+        }),
+        '2026-07-22'
       )
     ).toEqual({ ok: false, error: 'invalid' });
   });

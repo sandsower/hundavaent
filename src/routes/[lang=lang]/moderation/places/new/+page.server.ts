@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { env } from '$env/dynamic/public';
 
 import { isWheelchairAccessibility, type PlaceCategory } from '$domain/place';
 import { parseAvailabilityWindow, parseDogEligibility } from '$domain/access-schema';
@@ -48,7 +49,8 @@ const geometryPrecisionsAllowed = new Set([
 ]);
 
 export const load: PageServerLoad = () => ({
-  defaultObservedAt: new Date().toISOString().slice(0, 16)
+  defaultObservedAt: new Date().toISOString().slice(0, 16),
+  mapStyleUrl: env.PUBLIC_MAP_STYLE_URL?.trim() || null
 });
 
 export const actions: Actions = {

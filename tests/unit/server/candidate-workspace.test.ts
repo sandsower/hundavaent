@@ -531,10 +531,10 @@ describe('Candidate workspace action orchestration', () => {
     operation.mockResolvedValue({ status: 'success', value: {} });
     const formData = actionForm({
       mediaId: 'media-1',
+      rightsChoice: 'permission',
       photographerOrUploader: 'Photographer',
       sourceOrCaptureDate: '2026-07-01',
       licenseReference: 'Permission on file',
-      rightsBasis: 'explicit_permission',
       rightsEvidenceReference: 'Email 2026-07-01',
       attributionText: 'Photo by Photographer',
       peopleReview: 'no_prominent_people',
@@ -567,5 +567,55 @@ describe('Candidate workspace action orchestration', () => {
       error: 'media_incomplete'
     });
     expect(operations.uploadPlaceMediaObject).not.toHaveBeenCalled();
+  });
+
+  it('uploads and publishes a moderator photo in one action', async () => {
+    operations.uploadPlaceMediaObject.mockResolvedValue({
+      ok: true,
+      objectPath: `${placeId}/photo.jpg`
+    });
+    operations.registerPlaceMedia.mockResolvedValue({
+      status: 'success',
+      value: {
+        mediaId: 'media-photo-1',
+        kind: 'photo',
+        approvalState: 'pending',
+        uploadedAt: '2026-07-22T12:00:00Z'
+      }
+    });
+    operations.approvePlaceMedia.mockResolvedValue({ status: 'success', value: {} });
+    const formData = actionForm({
+      widthPx: '1200',
+      heightPx: '800',
+      rightsChoice: 'own_photo',
+      peopleReview: 'no_prominent_people',
+      makePrimary: 'on',
+      defaultAltTextIs: 'Ljósmynd af Tillögustað',
+      defaultAltTextEn: 'Photo of Candidate Place'
+    });
+    formData.set('file', new File(['photo'], 'photo.jpg', { type: 'image/jpeg' }));
+
+    await expect(
+      executeModerationCandidateAction('uploadPhoto', {
+        client,
+        placeId,
+        requestId: 'request-photo',
+        formData
+      })
+    ).resolves.toMatchObject({
+      status: 'confirmed',
+      effect: { kind: 'media_approved' }
+    });
+    expect(operations.approvePlaceMedia).toHaveBeenCalledWith(
+      client,
+      expect.objectContaining({
+        mediaId: 'media-photo-1',
+        rightsBasis: 'explicit_permission',
+        peopleReview: 'no_prominent_people',
+        makePrimary: true,
+        altTextEn: 'Photo of Candidate Place'
+      }),
+      'request-photo'
+    );
   });
 });
