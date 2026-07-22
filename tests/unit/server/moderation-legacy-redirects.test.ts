@@ -5,16 +5,8 @@ import { load as loadCorrectionQueue } from '../../../src/routes/[lang=lang]/mod
 
 describe('legacy moderation queue routes', () => {
   it.each([
-    [
-      loadSuggestionQueue,
-      'en',
-      '/en/moderation?queue=suggestions&filter=actionable'
-    ],
-    [
-      loadCorrectionQueue,
-      'is',
-      '/is/moderation?queue=corrections-and-reports&filter=actionable'
-    ]
+    [loadSuggestionQueue, 'en', '/en/moderation?queue=suggestions&filter=actionable'],
+    [loadCorrectionQueue, 'is', '/is/moderation?queue=corrections-and-reports&filter=actionable']
   ] as const)('redirects a legacy list to its unified queue', async (load, lang, location) => {
     await expect(
       Promise.resolve().then(() =>

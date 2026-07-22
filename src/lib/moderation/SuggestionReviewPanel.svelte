@@ -418,7 +418,7 @@
           >
           <label
             >{data.copy['suggestion.category']}<select required bind:value={identityCategory}>
-              {#each ['restaurant', 'cafe', 'bar', 'shop', 'shopping_centre', 'accommodation', 'park', 'recreation', 'culture', 'service', 'other'] as category}
+              {#each ['restaurant', 'cafe', 'bar', 'shop', 'shopping_centre', 'accommodation', 'park', 'recreation', 'culture', 'service', 'other'] as category (category)}
                 <option value={category}
                   >{data.copy[
                     `category.${category === 'shopping_centre' ? 'shoppingCentre' : category}` as MessageKey
@@ -613,7 +613,8 @@
                     '{number}',
                     String(index + 1)
                   )}
-                  bind:value={detailsDogAmenities[index]}
+                  value={amenity}
+                  oninput={(event) => (detailsDogAmenities[index] = event.currentTarget.value)}
                 /><button type="button" class="quiet" onclick={() => removeAmenity(index)}
                   >{data.copy['moderation.removeAmenity']}</button
                 >
@@ -714,9 +715,12 @@
             <strong>{proposal.evidence.source_label}</strong> ·
             <time datetime={proposal.evidence.observed_at}>{proposal.evidence.observed_at}</time>
           </p>
-          {#if proposal.evidence.source_url}<a href={proposal.evidence.source_url}
+          {#if proposal.evidence.source_url}
+            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- evidence URLs are externally supplied moderator references -->
+            <a href={proposal.evidence.source_url} target="_blank" rel="noreferrer"
               >{proposal.evidence.source_url}</a
-            >{/if}
+            >
+          {/if}
           <p>{proposal.evidence.explanation}</p>
           {@render editButton('evidence', data.copy['suggestion.section.evidence'])}
         </div>
@@ -749,7 +753,7 @@
         <legend>{data.copy['suggestion.identityDecisions']}</legend><label
           >{data.copy['suggestion.operatorIdentity']}<select bind:value={operatorIdentityPlaceId}
             ><option value="new">{data.copy['suggestion.newOperatorIdentity']}</option
-            >{#each data.matches as match}<option value={match.placeId}
+            >{#each data.matches as match (match.placeId)}<option value={match.placeId}
                 >{data.copy['suggestion.reuseFrom']}
                 {match.operatorName} · {data.copy[lifecycleKey(match.lifecycle)]}</option
               >{/each}</select
@@ -757,7 +761,7 @@
         ><label
           >{data.copy['suggestion.locationIdentity']}<select bind:value={locationIdentityPlaceId}
             ><option value="new">{data.copy['suggestion.newLocationIdentity']}</option
-            >{#each data.matches as match}<option value={match.placeId}
+            >{#each data.matches as match (match.placeId)}<option value={match.placeId}
                 >{data.copy['suggestion.reuseFrom']}
                 {match.addressLine}, {match.locality} · {data.copy[
                   lifecycleKey(match.lifecycle)
@@ -927,8 +931,8 @@
       {#if pendingDecision === 'duplicate'}
         <label
           >{data.copy['suggestion.duplicatePlace']}<select bind:value={duplicatePlaceId} required
-            ><option value=""></option>{#each data.matches as match}<option value={match.placeId}
-                >{match.operatorName} · {match.addressLine}</option
+            ><option value=""></option>{#each data.matches as match (match.placeId)}<option
+                value={match.placeId}>{match.operatorName} · {match.addressLine}</option
               >{/each}</select
           ></label
         >

@@ -64,7 +64,9 @@ test('the queue and review columns scroll independently while decisions stay ava
     element.scrollTop = element.scrollHeight;
   });
   await expect.poll(() => review.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-  await expect.poll(() => workList.evaluate((element) => element.scrollTop)).toBe(workListScrollTop);
+  await expect
+    .poll(() => workList.evaluate((element) => element.scrollTop))
+    .toBe(workListScrollTop);
   await expect(reviewHeading).toBeInViewport();
   await expect(decisionDock).toBeInViewport();
   expect((await reviewHeading.boundingBox())?.y).toBeCloseTo(headingTop!, 0);
@@ -238,7 +240,9 @@ test('a Moderator edits and applies a Correction, then confirms a Report as usef
   );
 });
 
-test('a Moderator can defer, reject, and reopen a Candidate without losing it', async ({ page }) => {
+test('a Moderator can defer, reject, and reopen a Candidate without losing it', async ({
+  page
+}) => {
   await signInModerator(
     page,
     `/en/moderation?queue=candidate-places&item=${fixtures.candidatePlaceId}&filter=actionable`

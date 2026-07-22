@@ -43,12 +43,7 @@ test('private Corrections and Reports reach applied, confirmed-useful, and rejec
   const memberEmail = `place-flag-member-${Date.now()}@example.invalid`;
   await signInMember(page, memberEmail);
 
-  const phoneFlagId = await submitCorrection(
-    page,
-    correctable.placeId,
-    'phone',
-    '+354 555 0199'
-  );
+  const phoneFlagId = await submitCorrection(page, correctable.placeId, 'phone', '+354 555 0199');
   const reportFlagId = await submitAccessConditionReport(
     page,
     correctable.placeId,
@@ -243,9 +238,7 @@ async function resolveLatestFlag(
   outcome: 'applied' | 'confirmed_useful' | 'rejected' | 'dispute_opened' | 'place_inactivated',
   applied?: { fieldValueText: string }
 ): Promise<void> {
-  await page.goto(
-    `/en/moderation?queue=corrections-and-reports&item=${flagId}&filter=actionable`
-  );
+  await page.goto(`/en/moderation?queue=corrections-and-reports&item=${flagId}&filter=actionable`);
   await waitForHydration(page);
   await expect(page).toHaveURL((url) => url.searchParams.get('item') === flagId);
 
@@ -263,9 +256,7 @@ async function resolveLatestFlag(
   if (outcome === 'dispute_opened') {
     const alternativesSection = page.locator('#correction-alternatives');
     await expandReviewSection(alternativesSection);
-    await alternativesSection
-      .getByRole('button', { name: 'Edit Open an access dispute' })
-      .click();
+    await alternativesSection.getByRole('button', { name: 'Edit Open an access dispute' }).click();
     const disputeForm = alternativesSection.locator('[data-section-form="dispute"]');
     await disputeForm
       .getByLabel('Reason for the dispute')
@@ -279,9 +270,7 @@ async function resolveLatestFlag(
   if (outcome === 'place_inactivated') {
     const alternativesSection = page.locator('#correction-alternatives');
     await expandReviewSection(alternativesSection);
-    await alternativesSection
-      .getByRole('button', { name: 'Edit Inactivate this Place' })
-      .click();
+    await alternativesSection.getByRole('button', { name: 'Edit Inactivate this Place' }).click();
     const transitionForm = alternativesSection.locator('[data-section-form="transition"]');
     await transitionForm
       .getByLabel("Moderator's decision notes")
@@ -316,9 +305,7 @@ async function resolveLatestFlag(
       );
   }
   const responsePromise = page.waitForResponse((response) => {
-    return (
-      response.request().method() === 'POST' && response.url().includes('?/decideCorrection')
-    );
+    return response.request().method() === 'POST' && response.url().includes('?/decideCorrection');
   });
   await dialog.getByRole('button', { name: actionName, exact: true }).click();
   const decisionResponse = await responsePromise;
@@ -331,9 +318,7 @@ async function resolveLatestFlag(
 }
 
 async function confirmUsefulContribution(page: Page, flagId: string): Promise<void> {
-  await page.goto(
-    `/en/moderation?queue=corrections-and-reports&item=${flagId}&filter=resolved`
-  );
+  await page.goto(`/en/moderation?queue=corrections-and-reports&item=${flagId}&filter=resolved`);
   await waitForHydration(page);
   await expect(page).toHaveURL((url) => url.searchParams.get('item') === flagId);
   await page.getByRole('button', { name: 'Confirm useful Contribution' }).click();

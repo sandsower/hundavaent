@@ -717,7 +717,10 @@
               <div class="repeated-row">
                 <label>
                   {data.copy['moderation.amenityLabel'].replace('{number}', String(index + 1))}
-                  <input bind:value={detailsDogAmenities[index]} />
+                  <input
+                    value={amenity}
+                    oninput={(event) => (detailsDogAmenities[index] = event.currentTarget.value)}
+                  />
                 </label>
                 <button type="button" class="quiet" onclick={() => removeAmenity(index)}>
                   {data.copy['moderation.removeAmenity']}

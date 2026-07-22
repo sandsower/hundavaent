@@ -11,7 +11,6 @@
     localizeReportReason,
     localizeRestraint
   } from '$i18n/structured-place';
-  import type { Json } from '$server/db/generated.types';
   import type {
     AccessConditionValue,
     FlagEvidence,
@@ -545,7 +544,8 @@
                 .currentVerificationFreshnessUntil}
             </p>
             {#if data.flag.currentVerificationEvidence}<ul>
-                {#each data.flag.currentVerificationEvidence as evidence}<li>
+                {#each data.flag.currentVerificationEvidence as evidence (`${evidence.kind}-${evidence.sourceLabel}-${evidence.observedAt}`)}<li
+                  >
                     {evidence.kind} · {evidence.sourceLabel} · {evidence.observedAt}
                   </li>{/each}
               </ul>{/if}{:else}<p>{data.copy['flag.currentVerification.none']}</p>{/if}
@@ -562,7 +562,7 @@
       state={data.related.length ? 'warning' : 'complete'}
     >
       {#if data.related.length}<ul>
-          {#each data.related as related}<li>
+          {#each data.related as related (related.flagId)}<li>
               <strong>{data.copy[kindKey(related.kind)]}</strong><span
                 >{data.copy[statusKey(related.outcome)]} · {related.submittedAt}</span
               >

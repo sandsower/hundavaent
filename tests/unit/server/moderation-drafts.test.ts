@@ -95,20 +95,18 @@ describe('shared moderation draft RPC adapter', () => {
   ] as const)(
     'saves a versioned %s moderation section',
     async (_kind, save, rpcName, idKey, rpcIdKey) => {
-      const rpc = vi
-        .fn()
-        .mockResolvedValue({
-          data: [
-            {
-              target_id: placeId,
-              draft_version: 1,
-              payload: { edited: true },
-              updated_by: 'moderator-1',
-              updated_at: '2026-07-21T21:00:00Z'
-            }
-          ],
-          error: null
-        });
+      const rpc = vi.fn().mockResolvedValue({
+        data: [
+          {
+            target_id: placeId,
+            draft_version: 1,
+            payload: { edited: true },
+            updated_by: 'moderator-1',
+            updated_at: '2026-07-21T21:00:00Z'
+          }
+        ],
+        error: null
+      });
       await expect(
         save({ rpc }, {
           [idKey]: placeId,

@@ -186,7 +186,8 @@ describe('Moderator Contributor detail on the Suggestion review page', () => {
       form: null
     } as never);
 
-    const contributorSection = document.querySelector<HTMLDetailsElement>('#suggestion-contributor');
+    const contributorSection =
+      document.querySelector<HTMLDetailsElement>('#suggestion-contributor');
     expect(contributorSection).toBeTruthy();
     await fireEvent.click(contributorSection!.querySelector('summary')!);
     expect(screen.getAllByText('Contributor')).toHaveLength(2);
