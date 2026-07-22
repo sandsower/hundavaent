@@ -76,6 +76,35 @@ export interface ApprovePlaceMediaCommand {
 export type ApprovePlaceMediaInputResult =
   { ok: true; command: ApprovePlaceMediaCommand } | { ok: false; error: PlaceMediaInputError };
 
+export type SimplePlacePhotoRightsChoice = 'own_photo' | 'permission' | 'reusable_source';
+
+const reusablePhotoRightsBases = placePhotoRightsBases.filter(
+  (basis): basis is Exclude<PlacePhotoRightsBasis, 'explicit_permission'> =>
+    basis !== 'explicit_permission'
+);
+
+const defaultLicenseByRightsBasis: Record<
+  Exclude<PlacePhotoRightsBasis, 'explicit_permission' | 'official_reuse'>,
+  { reference: string; url: string }
+> = {
+  cc0: {
+    reference: 'CC0 1.0',
+    url: 'https://creativecommons.org/publicdomain/zero/1.0/'
+  },
+  public_domain: {
+    reference: 'Public domain',
+    url: 'https://creativecommons.org/publicdomain/mark/1.0/'
+  },
+  cc_by: {
+    reference: 'CC BY 4.0',
+    url: 'https://creativecommons.org/licenses/by/4.0/'
+  },
+  cc_by_sa: {
+    reference: 'CC BY-SA 4.0',
+    url: 'https://creativecommons.org/licenses/by-sa/4.0/'
+  }
+};
+
 const mimeExtensions: Record<PlaceMediaMimeType, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
@@ -254,8 +283,131 @@ export function parseApprovePlaceMediaFormData(form: FormData): ApprovePlaceMedi
   };
 }
 
+export function parseSimplePlacePhotoApprovalFormData(
+  form: FormData,
+  today = new Date().toISOString().slice(0, 10)
+): ApprovePlaceMediaInputResult {
+  const value = (key: string): string => String(form.get(key) ?? '').trim();
+  const mediaId = value('mediaId');
+  const rightsChoice = value('rightsChoice') as SimplePlacePhotoRightsChoice;
+  const peopleReview = value('peopleReview');
+  const sourceUrl = value('sourceUrl');
+  const attributionUrl = value('attributionUrl');
+  const requestedLicenseUrl = value('licenseUrl');
+  const requestedDate = value('sourceOrCaptureDate');
+  const altTextIs = value('altTextIs') || value('defaultAltTextIs');
+  const altTextEn = value('altTextEn') || value('defaultAltTextEn');
+  const requestedPhotographer = value('photographerOrUploader');
+
+  if (
+    !mediaId ||
+    !['own_photo', 'permission', 'reusable_source'].includes(rightsChoice) ||
+    !completedPlacePhotoPeopleReviews.includes(peopleReview as CompletedPlacePhotoPeopleReview) ||
+    !altTextIs ||
+    !altTextEn
+  ) {
+    return { ok: false, error: 'incomplete' };
+  }
+
+  if (
+    (sourceUrl && (!isHttpUrl(sourceUrl) || isBlockedPhotoPlatformSource(sourceUrl))) ||
+    (requestedLicenseUrl && !isHttpUrl(requestedLicenseUrl)) ||
+    (attributionUrl && !isHttpUrl(attributionUrl))
+  ) {
+    return { ok: false, error: 'invalid' };
+  }
+  if (requestedDate && !/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+    return { ok: false, error: 'invalid' };
+  }
+
+  let rightsBasis: PlacePhotoRightsBasis = 'explicit_permission';
+  let photographerOrUploader = requestedPhotographer;
+  let licenseReference = value('licenseReference');
+  let rightsEvidenceReference = value('rightsEvidenceReference');
+  let licenseUrl = requestedLicenseUrl;
+  let attributionText = value('attributionText');
+
+  if (rightsChoice === 'own_photo') {
+    photographerOrUploader ||= 'Hundavænt';
+    licenseReference ||= 'Original photo';
+    rightsEvidenceReference ||= 'Moderator attested ownership during upload';
+    attributionText ||= `Photo: ${photographerOrUploader}`;
+  } else if (rightsChoice === 'permission') {
+    photographerOrUploader ||= 'Rights holder';
+    licenseReference ||= 'Used with permission';
+    rightsEvidenceReference ||= 'Moderator confirmed permission from the rights holder';
+    attributionText ||= requestedPhotographer
+      ? `Photo by ${requestedPhotographer}, used with permission`
+      : 'Used with permission';
+  } else {
+    const requestedRightsBasis = value('reusableRightsBasis');
+    const reusableRightsBasis = reusablePhotoRightsBases.find(
+      (candidate) => candidate === requestedRightsBasis
+    );
+    if (!reusableRightsBasis || !sourceUrl) {
+      return { ok: false, error: 'incomplete' };
+    }
+    rightsBasis = reusableRightsBasis;
+    if (
+      (reusableRightsBasis === 'cc_by' || reusableRightsBasis === 'cc_by_sa') &&
+      !photographerOrUploader
+    ) {
+      return { ok: false, error: 'incomplete' };
+    }
+    if (reusableRightsBasis === 'official_reuse') {
+      if (!licenseUrl) return { ok: false, error: 'incomplete' };
+      licenseReference ||= 'Official reuse terms';
+    } else {
+      const defaults = defaultLicenseByRightsBasis[reusableRightsBasis];
+      licenseReference ||= defaults.reference;
+      licenseUrl ||= defaults.url;
+    }
+    photographerOrUploader ||= 'Original source';
+    rightsEvidenceReference ||= sourceUrl;
+    attributionText ||=
+      reusableRightsBasis === 'cc_by' || reusableRightsBasis === 'cc_by_sa'
+        ? `Photo by ${photographerOrUploader}`
+        : licenseReference;
+  }
+
+  return {
+    ok: true,
+    command: {
+      media_id: mediaId,
+      photographer_or_uploader: photographerOrUploader,
+      source_or_capture_date: requestedDate || today,
+      license_reference: licenseReference,
+      rights_basis: rightsBasis,
+      rights_evidence_reference: rightsEvidenceReference,
+      source_url: sourceUrl || null,
+      license_url: licenseUrl || null,
+      attribution_text: attributionText,
+      attribution_url: attributionUrl || null,
+      people_review: peopleReview as CompletedPlacePhotoPeopleReview,
+      make_primary: value('makePrimary') === 'on',
+      alt_text_is: altTextIs,
+      alt_text_en: altTextEn
+    }
+  };
+}
+
 function isHttpUrl(value: string): boolean {
   return /^https?:\/\/\S+$/i.test(value);
+}
+
+function isBlockedPhotoPlatformSource(value: string): boolean {
+  try {
+    const hostname = new URL(value).hostname.toLowerCase();
+    return (
+      /(^|\.)tripadvisor\.[a-z.]+$/.test(hostname) ||
+      /(^|\.)google\.[a-z.]+$/.test(hostname) ||
+      /(^|\.)googleusercontent\.com$/.test(hostname) ||
+      /(^|\.)gstatic\.com$/.test(hostname) ||
+      /(^|\.)goo\.gl$/.test(hostname)
+    );
+  } catch {
+    return false;
+  }
 }
 
 // datetime-local inputs (`<input type="datetime-local">`) submit "YYYY-MM-DDTHH:MM" with no

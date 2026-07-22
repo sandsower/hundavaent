@@ -28,6 +28,7 @@
   import ModerationLocationEditor, {
     type ModerationLocationValue
   } from './ModerationLocationEditor.svelte';
+  import ModerationPhotoApprovalFields from './ModerationPhotoApprovalFields.svelte';
   import ModerationReadinessSummary from './ModerationReadinessSummary.svelte';
   import ModerationReasonDialog, {
     type ModerationReasonValue
@@ -210,6 +211,15 @@
 
   const evidenceItems = $derived(data.media.filter((item) => item.kind === 'evidence_screenshot'));
   const photoItems = $derived(data.media.filter((item) => item.kind === 'photo'));
+  const activeApprovedPhotoCount = $derived(
+    photoItems.filter((item) => item.approvalState === 'approved' && !item.retiredAt).length
+  );
+  const defaultPhotoAltTextIs = $derived(
+    `Ljósmynd af ${data.review.nameIs ?? data.review.nameEn ?? data.review.operatorName}`
+  );
+  const defaultPhotoAltTextEn = $derived(
+    `Photo of ${data.review.nameEn ?? data.review.nameIs ?? data.review.operatorName}`
+  );
   let locationMapAdapter = $state<MapAdapter>(
     untrack(() =>
       createMapLibreAdapter({
@@ -1209,7 +1219,7 @@
               {form && 'action' in form && form.action === 'uploadEvidence'
                 ? data.copy['moderation.media.uploadSucceeded']
                 : form && 'action' in form && form.action === 'uploadPhoto'
-                  ? data.copy['moderation.media.uploadSucceeded']
+                  ? data.copy['moderation.media.approveSucceeded']
                   : form && 'action' in form && form.action === 'approveMedia'
                     ? data.copy['moderation.media.approveSucceeded']
                     : form && 'action' in form && form.action === 'rejectMedia'
@@ -1343,137 +1353,16 @@
                         >
                           <input type="hidden" name="placeId" value={data.review.placeId} />
                           <input type="hidden" name="mediaId" value={item.mediaId} />
-                          <label>
-                            {data.copy['moderation.media.photographerLabel']}
-                            <input
-                              type="text"
-                              name="photographerOrUploader"
-                              value={item.photographerOrUploader ?? ''}
-                              required
-                            />
-                          </label>
-                          <label>
-                            {data.copy['moderation.media.licenseDateLabel']}
-                            <input
-                              type="date"
-                              name="sourceOrCaptureDate"
-                              value={item.sourceOrCaptureDate ?? ''}
-                              required
-                            />
-                          </label>
-                          <label>
-                            {data.copy['moderation.media.licenseReferenceLabel']}
-                            <input
-                              type="text"
-                              name="licenseReference"
-                              value={item.licenseReference ?? ''}
-                              required
-                            />
-                          </label>
-                          <label>
-                            {data.copy['moderation.media.rightsBasisLabel']}
-                            <select
-                              name="rightsBasis"
-                              value={item.rightsBasis ?? 'explicit_permission'}
-                              required
-                            >
-                              <option value="explicit_permission"
-                                >{data.copy[
-                                  'moderation.media.rightsBasis.explicitPermission'
-                                ]}</option
-                              >
-                              <option value="cc0">CC0</option>
-                              <option value="public_domain"
-                                >{data.copy['moderation.media.rightsBasis.publicDomain']}</option
-                              >
-                              <option value="cc_by">CC BY</option>
-                              <option value="cc_by_sa">CC BY-SA</option>
-                              <option value="official_reuse"
-                                >{data.copy['moderation.media.rightsBasis.officialReuse']}</option
-                              >
-                            </select>
-                          </label>
-                          <label>
-                            {data.copy['moderation.media.rightsEvidenceLabel']}
-                            <input
-                              type="text"
-                              name="rightsEvidenceReference"
-                              value={item.rightsEvidenceReference ?? ''}
-                              required
-                            />
-                          </label>
-                          <label>
-                            {data.copy['moderation.media.photoSourceUrlLabel']}
-                            <input type="url" name="sourceUrl" value={item.sourceUrl ?? ''} />
-                          </label>
-                          <label>
-                            {data.copy['moderation.media.licenseUrlLabel']}
-                            <input type="url" name="licenseUrl" value={item.licenseUrl ?? ''} />
-                          </label>
-                          <label>
-                            {data.copy['moderation.media.attributionTextLabel']}
-                            <input
-                              type="text"
-                              name="attributionText"
-                              value={item.attributionText ?? ''}
-                              required
-                            />
-                          </label>
-                          <label>
-                            {data.copy['moderation.media.attributionUrlLabel']}
-                            <input
-                              type="url"
-                              name="attributionUrl"
-                              value={item.attributionUrl ?? ''}
-                            />
-                          </label>
-                          <label>
-                            {data.copy['moderation.media.peopleReviewLabel']}
-                            <select
-                              name="peopleReview"
-                              value={item.peopleReview ?? 'unknown'}
-                              required
-                            >
-                              <option value="unknown" disabled
-                                >{data.copy['moderation.media.peopleReview.unknown']}</option
-                              >
-                              <option value="no_prominent_people"
-                                >{data.copy[
-                                  'moderation.media.peopleReview.noProminentPeople'
-                                ]}</option
-                              >
-                              <option value="permission_documented"
-                                >{data.copy[
-                                  'moderation.media.peopleReview.permissionDocumented'
-                                ]}</option
-                              >
-                            </select>
-                          </label>
-                          <label lang="is">
-                            {data.copy['moderation.media.altTextIsLabel']}
-                            <input
-                              type="text"
-                              name="altTextIs"
-                              value={item.altTextIs ?? ''}
-                              required
-                            />
-                          </label>
-                          <label lang="en">
-                            {data.copy['moderation.media.altTextEnLabel']}
-                            <input
-                              type="text"
-                              name="altTextEn"
-                              value={item.altTextEn ?? ''}
-                              required
-                            />
-                          </label>
-                          <label class="checkbox-label">
-                            <input type="checkbox" name="makePrimary" checked={item.isPrimary} />
-                            {data.copy['moderation.media.makePrimaryLabel']}
-                          </label>
-                          <small>{data.copy['moderation.media.approveHelp']}</small>
+                          <ModerationPhotoApprovalFields
+                            copy={data.copy}
+                            defaultAltTextIs={defaultPhotoAltTextIs}
+                            defaultAltTextEn={defaultPhotoAltTextEn}
+                            initial={{ ...item, makePrimary: item.isPrimary }}
+                            autoPrimary={activeApprovedPhotoCount === 0}
+                            allowPrimaryChoice={activeApprovedPhotoCount > 0}
+                          />
                           <button type="submit"
-                            >{data.copy['moderation.media.approveAction']}</button
+                            >{data.copy['moderation.media.publishPhotoAction']}</button
                           >
                         </form>
                         <form method="POST" action="?/rejectMedia" use:enhance={enhanceMedia}>
@@ -1520,10 +1409,17 @@
               {#if photoFileError}
                 <p class="field-error">{data.copy[photoFileError]}</p>
               {/if}
+              <ModerationPhotoApprovalFields
+                copy={data.copy}
+                defaultAltTextIs={defaultPhotoAltTextIs}
+                defaultAltTextEn={defaultPhotoAltTextEn}
+                autoPrimary={activeApprovedPhotoCount === 0}
+                allowPrimaryChoice={activeApprovedPhotoCount > 0}
+              />
               <button type="submit" disabled={photoProcessing || !photoWidth}>
                 {photoProcessing
                   ? data.copy['moderation.media.uploading']
-                  : data.copy['moderation.media.uploadPhotoAction']}
+                  : data.copy['moderation.media.uploadAndPublishAction']}
               </button>
             </form>
           </article>
@@ -1968,7 +1864,6 @@
   input[type='datetime-local'],
   input[type='url'],
   input[type='tel'],
-  input[type='text'],
   input[type='file'],
   input:not([type]),
   select {
@@ -2134,10 +2029,6 @@
   .approve-form {
     display: grid;
     gap: 0.5rem;
-  }
-
-  .approve-form label {
-    flex: none;
   }
 
   .media-upload-form {

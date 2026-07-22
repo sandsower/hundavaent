@@ -1,3 +1,5 @@
+import { env } from '$env/dynamic/public';
+
 import {
   clearMemberConductFlag,
   getModerationContributorStatus,
@@ -449,4 +451,3 @@ function applyBoundedTrustOrder(
       return a.submittedAt.localeCompare(b.submittedAt);
     });
 }
-import { env } from '$env/dynamic/public';

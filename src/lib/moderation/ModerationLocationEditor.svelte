@@ -131,19 +131,25 @@
 </script>
 
 <div class="location-editor">
-  <form
-    class="address-search"
-    role="search"
-    onsubmit={(event) => {
-      event.preventDefault();
-      void search();
-    }}
-  >
+  <div class="address-search" role="search">
     <label>
       {copy['moderation.location.searchLabel']}
       <span class="search-row">
-        <input bind:value={query} minlength="3" autocomplete="street-address" />
-        <button type="submit" disabled={searching || query.trim().length < 3}>
+        <input
+          bind:value={query}
+          minlength="3"
+          autocomplete="street-address"
+          onkeydown={(event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            void search();
+          }}
+        />
+        <button
+          type="button"
+          disabled={searching || query.trim().length < 3}
+          onclick={() => void search()}
+        >
           {searching
             ? copy['moderation.location.searching']
             : copy['moderation.location.searchAction']}
@@ -151,7 +157,7 @@
       </span>
     </label>
     <small>{copy['moderation.location.searchHelp']}</small>
-  </form>
+  </div>
 
   {#if results.length > 0}
     <section class="search-results" aria-label={copy['moderation.location.resultsLabel']}>
@@ -216,6 +222,7 @@
         {copy['moderation.municipalityLabel']}
         <select
           required
+          aria-label={copy['moderation.municipalityLabel']}
           value={value.municipality}
           onchange={(event) => updateField('municipality', event.currentTarget.value)}
         >
@@ -258,6 +265,7 @@
         {copy['moderation.geometryPrecisionLabel']}
         <select
           required
+          aria-label={copy['moderation.geometryPrecisionLabel']}
           value={value.geometryPrecision}
           onchange={(event) => updateField('geometryPrecision', event.currentTarget.value)}
         >
@@ -321,7 +329,7 @@
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--hv-color-basalt) 25%, transparent);
     border-radius: 0.65rem;
-    background: var(--hv-color-paper);
+    background: var(--hv-color-snow-raised);
   }
 
   .search-results button {
@@ -341,13 +349,13 @@
 
   .search-results button:hover,
   .search-results button:focus-visible {
-    background: var(--hv-color-mist);
+    background: var(--hv-color-fjord-soft);
   }
 
   .search-note,
   .map-heading p {
     margin: 0;
-    color: var(--hv-color-muted);
+    color: var(--hv-color-basalt-muted);
   }
 
   .map-heading {

@@ -45,9 +45,9 @@ import {
 import {
   isAllowedPlaceMediaMimeType,
   maxPlaceMediaBytes,
-  parseApprovePlaceMediaFormData,
   parseRegisterEvidenceFormData,
-  parseRegisterPhotoFormData
+  parseRegisterPhotoFormData,
+  parseSimplePlacePhotoApprovalFormData
 } from '$server/place-media/place-media-input';
 
 export interface ModerationPlaceMediaView extends ModerationPlaceMediaItem {
@@ -423,17 +423,22 @@ async function uploadCandidateMedia(
   );
   if (result.status !== 'success') return mediaCommandFailure(result.status);
 
+  if (kind === 'photo') {
+    context.formData.set('mediaId', result.value.mediaId);
+    return approveCandidateMedia(context);
+  }
+
   return {
     status: 'confirmed',
     terminal: false,
-    effect: { kind: kind === 'evidence_screenshot' ? 'evidence_uploaded' : 'photo_uploaded' }
+    effect: { kind: 'evidence_uploaded' }
   };
 }
 
 async function approveCandidateMedia(
   context: ModerationCandidateActionContext
 ): Promise<ModerationCandidateActionResult> {
-  const parsed = parseApprovePlaceMediaFormData(context.formData);
+  const parsed = parseSimplePlacePhotoApprovalFormData(context.formData);
   if (!parsed.ok) {
     return failure(400, parsed.error === 'incomplete' ? 'media_incomplete' : 'media_invalid');
   }
