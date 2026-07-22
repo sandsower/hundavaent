@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { catalogues } from '$i18n';
+
 const mocks = vi.hoisted(() => ({
   executeSuggestion: vi.fn(),
   loadSuggestion: vi.fn(),
@@ -38,7 +40,7 @@ const conflict = { status: 'failure', httpStatus: 409, error: 'conflict' } as co
 function actionEvent(path: string) {
   const url = new URL(`http://localhost${path}`);
   return {
-    locals: { requestId: 'request-conflict', supabase: { rpc: vi.fn() } },
+    locals: { copy: catalogues.en, requestId: 'request-conflict', supabase: { rpc: vi.fn() } },
     params: { lang: 'en', id: itemId },
     request: new Request(url, { method: 'POST', body: new FormData() }),
     url

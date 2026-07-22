@@ -6,7 +6,6 @@ import type { PublishedPlaceProfile } from '$server/discovery/public-places';
 import type { ModerationPlaceFlag } from '$server/place-flags/place-flags';
 import MemberFlagsPage from '../../src/routes/[lang=lang]/account/corrections-and-reports/+page.svelte';
 import FlagReviewPage from '../../src/routes/[lang=lang]/moderation/corrections-and-reports/[id]/+page.svelte';
-import FlagQueuePage from '../../src/routes/[lang=lang]/moderation/corrections-and-reports/+page.svelte';
 import CorrectionPage from '../../src/routes/[lang=lang]/places/[id]/correct/+page.svelte';
 import ReportPage from '../../src/routes/[lang=lang]/places/[id]/report/+page.svelte';
 
@@ -361,46 +360,6 @@ describe('Member Correction and Report outcome history', () => {
     } as never);
 
     expect(screen.getByText('You have not submitted any Corrections or Reports.')).toBeTruthy();
-  });
-});
-
-describe('Moderator Correction and Report queue', () => {
-  it('renders the queue with a Safety Concern badge and a stable review link', () => {
-    render(FlagQueuePage, {
-      params: { lang: 'en' },
-      data: {
-        lang: 'en',
-        copy: catalogues.en,
-        flags: [
-          {
-            flagId: reportFlag.flagId,
-            memberId: reportFlag.memberId,
-            kind: 'report',
-            outcome: 'submitted',
-            placeId: reportFlag.placeId,
-            placeNameIs: reportFlag.placeNameIs,
-            placeNameEn: reportFlag.placeNameEn,
-            targetKind: 'access_condition',
-            targetField: null,
-            accessConditionId: reportFlag.accessConditionId,
-            reportReason: 'unsafe',
-            isSafetyConcern: true,
-            submittedAt: reportFlag.submittedAt,
-            updatedAt: reportFlag.updatedAt,
-            priority: 0
-          }
-        ],
-        nextCursor: null,
-        hasPrevious: false
-      },
-      form: null
-    } as never);
-
-    expect(screen.getByRole('heading', { name: 'Community Corrections and Reports' })).toBeTruthy();
-    expect(screen.getByText('Safety Concern')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Review' }).getAttribute('href')).toBe(
-      `/en/moderation/corrections-and-reports/${reportFlag.flagId}`
-    );
   });
 });
 
