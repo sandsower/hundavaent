@@ -9,6 +9,7 @@ import ModerationConfirmDialog from '$lib/moderation/ModerationConfirmDialog.sve
 import ModerationReadinessSummary from '$lib/moderation/ModerationReadinessSummary.svelte';
 import ModerationReviewSection from '$lib/moderation/ModerationReviewSection.svelte';
 import ModerationWorkspace from '$lib/moderation/ModerationWorkspace.svelte';
+import SuggestionDecisionControls from '$lib/moderation/SuggestionDecisionControls.svelte';
 
 const suggestionOne = '11111111-1111-4111-8111-111111111111';
 const suggestionTwo = '22222222-2222-4222-8222-222222222222';
@@ -314,6 +315,20 @@ describe('Compact moderation workspace', () => {
 });
 
 describe('Low-friction review primitives', () => {
+  it('offers direct Suggestion decisions without an outcome selector', async () => {
+    const decide = vi.fn();
+    render(SuggestionDecisionControls, {
+      copy: catalogues.en,
+      ondecide: decide
+    });
+
+    expect(screen.queryByRole('combobox')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Accept as Candidate' }));
+    expect(decide).toHaveBeenCalledWith('accepted');
+    await fireEvent.click(screen.getByRole('button', { name: 'Needs information' }));
+    expect(decide).toHaveBeenCalledWith('needs_information');
+  });
+
   it('summarizes readiness by exception and links only the issues needing attention', () => {
     render(ModerationReadinessSummary, {
       label: 'Publication readiness',

@@ -649,6 +649,23 @@ export const isCatalogue = {
   'suggestion.moderationTitle': 'Tillögur frá samfélaginu',
   'suggestion.moderationEmpty': 'Engar tillögur bíða yfirferðar.',
   'suggestion.review': 'Yfirfara tillögu',
+  'suggestion.reviewSummary': 'Yfirlit yfirferðar',
+  'suggestion.reviewReadySummary':
+    'Nauðsynlegar upplýsingar eru tilbúnar. Skoðaðu stuðningskaflana aðeins þegar þess þarf.',
+  'suggestion.reviewBlockedSummary':
+    '{count} þýðingaratriði þarf að laga áður en hægt er að samþykkja tillöguna.',
+  'suggestion.section.identity': 'Auðkenni staðar',
+  'suggestion.section.access': 'Aðgangsskilyrði',
+  'suggestion.section.evidence': 'Stuðningsheimild',
+  'suggestion.section.contributor': 'Upplýsingar um framlagsaðila',
+  'suggestion.action.accept': 'Samþykkja sem tillögu að stað',
+  'suggestion.action.duplicate': 'Merkja sem tvítekið',
+  'suggestion.acceptTitle': 'Samþykkja þessa tillögu?',
+  'suggestion.acceptBody':
+    'Yfirförnu upplýsingarnar verða að tillögu að stað sem er tilbúin til birtingaryfirferðar.',
+  'suggestion.needsInformationTitle': 'Óska eftir frekari upplýsingum',
+  'suggestion.duplicateTitle': 'Merkja þessa tillögu sem tvítekna?',
+  'suggestion.rejectTitle': 'Hafna þessari tillögu?',
   'suggestion.matches': 'Mögulegir tvíteknir staðir eða forverar',
   'suggestion.noMatches': 'Enginn nálægur eða samsvarandi staður fannst.',
   'suggestion.sameOperator': 'Sami rekstraraðili',

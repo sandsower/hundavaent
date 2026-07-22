@@ -645,6 +645,23 @@ export const enCatalogue = {
   'suggestion.moderationTitle': 'Community Suggestions',
   'suggestion.moderationEmpty': 'No Suggestions are waiting for review.',
   'suggestion.review': 'Review Suggestion',
+  'suggestion.reviewSummary': 'Review summary',
+  'suggestion.reviewReadySummary':
+    'The required information is complete. Review the supporting sections only when needed.',
+  'suggestion.reviewBlockedSummary':
+    '{count} translation issue needs attention before this Suggestion can be accepted.',
+  'suggestion.section.identity': 'Place identity',
+  'suggestion.section.access': 'Access condition',
+  'suggestion.section.evidence': 'Supporting evidence',
+  'suggestion.section.contributor': 'Contributor context',
+  'suggestion.action.accept': 'Accept as Candidate',
+  'suggestion.action.duplicate': 'Mark as duplicate',
+  'suggestion.acceptTitle': 'Accept this Suggestion?',
+  'suggestion.acceptBody':
+    'The reviewed information will become a Candidate Place ready for publication review.',
+  'suggestion.needsInformationTitle': 'Request more information',
+  'suggestion.duplicateTitle': 'Mark this Suggestion as a duplicate?',
+  'suggestion.rejectTitle': 'Reject this suggestion?',
   'suggestion.matches': 'Possible duplicates or predecessors',
   'suggestion.noMatches': 'No nearby or matching Place was found.',
   'suggestion.sameOperator': 'Same Operator',

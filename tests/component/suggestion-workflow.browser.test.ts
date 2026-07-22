@@ -266,90 +266,60 @@ describe('Member Suggestion workflow', () => {
 });
 
 describe('Moderator Suggestion workflow', () => {
-  it('keeps the complete moderation contract in the reusable review panel', async () => {
-    render(SuggestionReviewPanel, {
-      data: reviewData,
-      form: {
-        matchesRefreshed: true,
-        refreshedMatches: [placeMatch],
-        refreshedOutcome: 'accepted',
-        refreshedMemberReasonIs: 'Yfirfarið.',
-        refreshedMemberReasonEn: 'Reviewed.',
-        refreshedPrivateNote: 'Private note.',
-        refreshedProposal: moderationSuggestion.proposal
-      }
+  it('uses the shared compact review shell and keeps the decision form metadata-only', () => {
+    const { container } = render(SuggestionReviewPanel, { data: reviewData, form: null });
+
+    expect(screen.getByRole('heading', { name: 'Review summary' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Review summary' })).toBeTruthy();
+    expect(screen.getByText('Place identity').closest('details')?.open).toBe(false);
+    expect(screen.getByText('Names and descriptions').closest('details')?.open).toBe(false);
+    expect(document.querySelector<HTMLDetailsElement>('#suggestion-matches')?.open).toBe(true);
+    expect(screen.getByText('Contributor context').closest('details')?.open).toBe(false);
+
+    const decision = container.querySelector<HTMLFormElement>('#suggestion-decision');
+    expect(decision?.getAttribute('action')).toBe('?/decideSuggestion');
+    expect(decision?.querySelector('[name="expectedItemVersion"]')).toBeTruthy();
+    expect(decision?.querySelector('[name="expectedDraftVersion"]')).toBeTruthy();
+    expect(decision?.querySelector('[name="operatorName"]')).toBeNull();
+    expect(decision?.querySelector('[name="addressLine"]')).toBeNull();
+    expect(decision?.querySelector('[name="accessArea"]')).toBeNull();
+    expect(decision?.querySelector('[name="evidenceSourceLabel"]')).toBeNull();
+  });
+
+  it('edits one Suggestion section at a time and posts strict section payloads', async () => {
+    const { container } = render(SuggestionReviewPanel, { data: reviewData, form: null });
+
+    await beginSuggestionEdit('Place identity');
+    const identity = suggestionSectionForm(container, 'identity');
+    expect(hiddenValue(identity, 'expectedItemVersion')).toBe('1');
+    expect(hiddenValue(identity, 'expectedDraftVersion')).toBe('0');
+    expect(JSON.parse(hiddenValue(identity, 'sectionPayload'))).toEqual({
+      purpose: 'dog_access_destination',
+      operator_name: 'Hundavænt operator',
+      category: 'cafe'
     });
 
-    expect(
-      screen.getByText('Tillögugata 7, 101 Reykjavík · reykjavik · 64.1466, -21.9426')
-    ).toBeTruthy();
-    expect(screen.getByText('https://example.invalid/source')).toBeTruthy();
-    expect(screen.getByText('Same Operator')).toBeTruthy();
-    expect(screen.getByText('Same Location')).toBeTruthy();
-    expect(screen.getByText('Contributor')).toBeTruthy();
-    expect(screen.getByText('One serious false report was confirmed.')).toBeTruthy();
-    expect(
-      screen.getByText(
-        'This is a bounded review-priority signal only. It never verifies, publishes, or bypasses moderation.'
-      )
-    ).toBeTruthy();
-    expect(
-      screen.getByText('No Trusted Contributor qualification policy is configured yet.')
-    ).toBeTruthy();
+    await beginSuggestionEdit('Contact, hours and amenities');
+    expect(container.querySelector('[data-section-form="identity"]')).toBeNull();
+    const details = suggestionSectionForm(container, 'hours-and-amenities');
+    expect(JSON.parse(hiddenValue(details, 'sectionPayload'))).toEqual({
+      website_url: null,
+      phone: null,
+      opening_hours: { monday: '09:00-17:00' },
+      dog_amenities: ['water_bowl']
+    });
 
-    expect((screen.getByLabelText('Outcome') as HTMLSelectElement).value).toBe('accepted');
-    const timing = screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement;
-    expect(timing.value).toBe('limited');
-    expect(screen.getByLabelText(catalogues.en['suggestion.availabilityDays'])).toBeTruthy();
-    await fireEvent.change(timing, { target: { value: 'whenever_open' } });
-    expect(screen.queryByLabelText(catalogues.en['suggestion.availabilityDays'])).toBeNull();
-    expect(screen.getAllByLabelText('Name')).toHaveLength(2);
-    expect(
-      (screen.getByLabelText('Member explanation in Icelandic') as HTMLTextAreaElement).value
-    ).toBe('Yfirfarið.');
-    expect(
-      (screen.getByLabelText('Member explanation in English') as HTMLTextAreaElement).value
-    ).toBe('Reviewed.');
-    expect((screen.getByLabelText('Private Moderator note') as HTMLTextAreaElement).value).toBe(
-      'Private note.'
-    );
-    expect(screen.getByRole('option', { name: 'Needs information' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Accepted as a Candidate' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Place already recorded' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Rejected' })).toBeTruthy();
+    await beginSuggestionEdit('Access condition');
+    const access = suggestionSectionForm(container, 'access-condition');
+    expect(JSON.parse(hiddenValue(access, 'sectionPayload'))).toEqual({
+      access_condition: proposal.access_condition
+    });
 
-    const resolveForm = screen.getByRole('button', { name: 'Save outcome' }).closest('form');
-    expect(resolveForm?.getAttribute('action')).toBe('?/resolve');
-    expect(resolveForm?.querySelector('[name="memberReasonIs"]')).toBeTruthy();
-    expect(resolveForm?.querySelector('[name="memberReasonEn"]')).toBeTruthy();
-    expect(resolveForm?.querySelector('[name="privateNote"]')).toBeTruthy();
-    expect(resolveForm?.querySelector('[name="operatorName"]')).toBeTruthy();
-    expect(resolveForm?.querySelector('[name="operatorIdentityPlaceId"]')).toBeTruthy();
-    expect(resolveForm?.querySelector('[name="locationIdentityPlaceId"]')).toBeTruthy();
-    expect(
-      screen
-        .getByRole('button', { name: 'Refresh matches for corrected details' })
-        .getAttribute('formaction')
-    ).toBe('?/refreshMatches');
-    expect(
-      screen
-        .getByRole('button', { name: 'Revoke this Contribution' })
-        .closest('form')
-        ?.getAttribute('action')
-    ).toBe('?/revokeContribution');
-    expect(
-      screen
-        .getByRole('button', { name: 'Record a conduct flag' })
-        .closest('form')
-        ?.getAttribute('action')
-    ).toBe('?/recordConductFlag');
-    expect(
-      screen.getByRole('button', { name: 'Clear flag' }).closest('form')?.getAttribute('action')
-    ).toBe('?/clearConductFlag');
-
-    const englishNames = screen.getAllByLabelText('Name');
-    await fireEvent.input(englishNames[1], { target: { value: 'Corrected cafe' } });
-    expect((englishNames[1] as HTMLInputElement).value).toBe('Corrected cafe');
+    await beginSuggestionEdit('Supporting evidence');
+    const evidence = suggestionSectionForm(container, 'evidence');
+    expect(JSON.parse(hiddenValue(evidence, 'sectionPayload'))).toEqual({
+      evidence: { ...proposal.evidence, observed_at: '2026-07-11T09:00:00.000Z' }
+    });
   });
 
   it('renders the private queue and a stable review link', () => {
@@ -375,7 +345,7 @@ describe('Moderator Suggestion workflow', () => {
     );
   });
 
-  it('shows the complete proposal and allows corrections with explicit inactive identity reuse', async () => {
+  it('keeps the direct route actionable with compact decisions and explicit identity reuse', async () => {
     render(SuggestionReviewPage, {
       params: { lang: 'en', id: moderationSuggestion.suggestionId },
       data: {
@@ -389,78 +359,35 @@ describe('Moderator Suggestion workflow', () => {
       form: null
     } as never);
 
-    expect(screen.getByText('Same Operator')).toBeTruthy();
-    expect(screen.getByText('Same Location')).toBeTruthy();
-    expect(screen.getByText('https://example.invalid/source')).toBeTruthy();
-    expect(screen.getByText('2026-07-11T09:00:00Z')).toBeTruthy();
-    expect(
-      screen.getByText('Tillögugata 7, 101 Reykjavík · reykjavik · 64.1466, -21.9426')
-    ).toBeTruthy();
-    expect(screen.getByText(/09:00-17:00/)).toBeTruthy();
-    expect(screen.getByText('water_bowl')).toBeTruthy();
-    expect(screen.getByLabelText('Private Moderator note')).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Accepted as a Candidate' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Place already recorded' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Accept as Candidate' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Needs information' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Mark as duplicate' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeTruthy();
 
-    await fireEvent.change(screen.getByLabelText('Outcome'), { target: { value: 'accepted' } });
-    const englishNames = screen.getAllByLabelText('Name');
-    expect((englishNames[1] as HTMLInputElement).value).toBe('Suggestion cafe');
-    await fireEvent.input(englishNames[1], { target: { value: 'Corrected cafe' } });
-    expect((englishNames[1] as HTMLInputElement).value).toBe('Corrected cafe');
+    await fireEvent.click(screen.getByRole('button', { name: 'Accept as Candidate' }));
+    expect(screen.getByRole('dialog', { name: 'Accept this Suggestion?' })).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Keep reviewing' }));
+
+    await fireEvent.click(document.querySelector('#suggestion-matches summary')!);
     expect(screen.getByLabelText('Operator identity')).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Refresh matches for corrected details' })
-    ).toBeTruthy();
     expect(screen.getAllByRole('option', { name: /Reuse identity from.*Inactive/ })).toHaveLength(
       2
     );
-  });
 
-  it('renders refreshed corrected-payload matches instead of stale original matches', async () => {
-    const correctedMatch = {
-      ...placeMatch,
-      placeId: '35000000-0000-4000-8000-000000000099',
-      operatorName: 'Corrected operator',
-      addressLine: 'Leiðrétt gata 48'
-    };
-    render(SuggestionReviewPage, {
-      params: { lang: 'en', id: moderationSuggestion.suggestionId },
-      data: {
-        lang: 'en',
-        copy: catalogues.en,
-        suggestion: moderationSuggestion,
-        matches: [placeMatch],
-        resolved: false,
-        contributionConfirmed: false
-      },
-      form: {
-        matchesRefreshed: true,
-        refreshedMatches: [correctedMatch],
-        refreshedOutcome: 'accepted',
-        refreshedMemberReasonIs: 'Yfirfarið.',
-        refreshedMemberReasonEn: 'Reviewed.',
-        refreshedPrivateNote: 'Private note.',
-        refreshedProposal: {
-          ...moderationSuggestion.proposal,
-          location: {
-            ...moderationSuggestion.proposal.location,
-            address_line: 'Leiðrétt gata 48'
-          }
-        }
-      }
-    } as never);
+    await fireEvent.click(screen.getByRole('button', { name: 'Needs information' }));
+    expect(screen.getByRole('dialog', { name: 'Request more information' })).toBeTruthy();
+    expect(screen.getByLabelText('Member explanation in Icelandic')).toBeRequired();
 
-    expect(screen.getByText('Identity matches now reflect the corrected proposal.')).toBeTruthy();
-    expect(screen.getByText(/Inactive · Leiðrétt gata 48, Reykjavík/)).toBeTruthy();
-    expect((screen.getByLabelText('Outcome') as HTMLSelectElement).value).toBe('accepted');
+    await fireEvent.click(screen.getByRole('button', { name: 'Keep reviewing' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Mark as duplicate' }));
     expect(
-      (screen.getByLabelText('Member explanation in English') as HTMLTextAreaElement).value
-    ).toBe('Reviewed.');
-    expect((screen.getByLabelText('Private Moderator note') as HTMLTextAreaElement).value).toBe(
-      'Private note.'
-    );
-    expect(screen.getAllByRole('option', { name: /Leiðrétt gata 48/ })).toHaveLength(1);
-    expect(screen.queryByRole('option', { name: /Tillögugata 7/ })).toBeNull();
+      screen.getByRole('dialog', { name: 'Mark this Suggestion as a duplicate?' })
+    ).toBeTruthy();
+    expect(screen.getByLabelText('Choose the Place this Suggestion duplicates')).toBeRequired();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Keep reviewing' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+    expect(screen.getByRole('dialog', { name: 'Reject this suggestion?' })).toBeTruthy();
   });
 
   it('requires a moderator to supply the missing locale instead of publishing copied text', async () => {
@@ -480,7 +407,11 @@ describe('Moderator Suggestion workflow', () => {
       data: {
         lang: 'en',
         copy: catalogues.en,
-        suggestion: { ...moderationSuggestion, proposal: proposalWithMissingIcelandic },
+        suggestion: {
+          ...moderationSuggestion,
+          proposal: proposalWithMissingIcelandic,
+          effectiveProposal: proposalWithMissingIcelandic
+        },
         matches: [],
         resolved: false,
         contributionConfirmed: false
@@ -488,15 +419,9 @@ describe('Moderator Suggestion workflow', () => {
       form: null
     } as never);
 
-    await fireEvent.change(screen.getByLabelText('Outcome'), { target: { value: 'accepted' } });
-    const names = screen.getAllByLabelText('Name') as HTMLInputElement[];
-    const descriptions = screen.getAllByLabelText('Description') as HTMLTextAreaElement[];
-    expect(names[0].value).toBe('');
-    expect(names[0].required).toBe(true);
-    expect(descriptions[0].value).toBe('');
-    expect(descriptions[0].required).toBe(true);
-    expect(names[1].value).toBe('Suggestion cafe');
-    expect(screen.getByText('Please add a translation before publishing.')).toBeTruthy();
+    expect(screen.getByText('Names and descriptions').closest('details')?.open).toBe(true);
+    expect(screen.getByRole('region', { name: 'Review summary' }).textContent).toContain('Blocked');
+    expect(screen.getByRole('button', { name: 'Accept as Candidate' })).toBeDisabled();
   });
 
   it('offers Contribution confirmation only after acceptance', () => {
@@ -514,6 +439,25 @@ describe('Moderator Suggestion workflow', () => {
     } as never);
 
     expect(screen.getByRole('button', { name: 'Confirm useful Contribution' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Save outcome' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Accept as Candidate' })).toBeNull();
   });
 });
+
+async function beginSuggestionEdit(sectionTitle: string): Promise<void> {
+  const section = screen.getByText(sectionTitle).closest('details');
+  if (!section) throw new Error(`Missing section: ${sectionTitle}`);
+  if (!section.open) await fireEvent.click(section.querySelector('summary')!);
+  await fireEvent.click(screen.getByRole('button', { name: `Edit ${sectionTitle}` }));
+}
+
+function suggestionSectionForm(container: HTMLElement, sectionId: string): HTMLFormElement {
+  const form = container.querySelector<HTMLFormElement>(`form[data-section-form="${sectionId}"]`);
+  if (!form) throw new Error(`Missing section form: ${sectionId}`);
+  return form;
+}
+
+function hiddenValue(form: HTMLFormElement, name: string): string {
+  const input = form.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+  if (!input) throw new Error(`Missing hidden input: ${name}`);
+  return input.value;
+}

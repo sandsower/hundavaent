@@ -4,6 +4,7 @@
   import CorrectionReviewPanel from '$lib/moderation/CorrectionReviewPanel.svelte';
   import ModerationWorkspace from '$lib/moderation/ModerationWorkspace.svelte';
   import ModerationConfirmDialog from '$lib/moderation/ModerationConfirmDialog.svelte';
+  import SuggestionDecisionControls from '$lib/moderation/SuggestionDecisionControls.svelte';
   import SuggestionReviewPanel from '$lib/moderation/SuggestionReviewPanel.svelte';
   import type { ModerationWorkItem } from '$lib/moderation/types';
   import type { MessageKey } from '$i18n';
@@ -135,6 +136,11 @@
       : data.copy['contributor.moderation.flagCleared'];
   });
   let selectedOutcome = $state('needs_information');
+  let suggestionDecisionToken = $state(0);
+  let suggestionDecisionRequest = $state<{
+    outcome: Exclude<SuggestionOutcome, 'submitted'>;
+    token: number;
+  } | null>(null);
   let candidateDialog = $state<'publish' | 'needs_information' | 'rejected' | null>(null);
   $effect(() => {
     const selectedItemId = data.workspace.itemId;
@@ -145,16 +151,9 @@
           : 'confirmed_useful'
         : 'needs_information';
   });
-  function chooseSuggestionDecision(outcome: SuggestionOutcome): void {
-    selectedOutcome = outcome;
-    const form = document.querySelector<HTMLFormElement>('#suggestion-decision');
-    const select = form?.querySelector<HTMLSelectElement>('select[name="outcome"]');
-    if (select) {
-      select.value = outcome;
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    form?.querySelector<HTMLElement>('textarea[name="memberReasonIs"]')?.focus();
+  function chooseSuggestionDecision(outcome: Exclude<SuggestionOutcome, 'submitted'>): void {
+    suggestionDecisionToken += 1;
+    suggestionDecisionRequest = { outcome, token: suggestionDecisionToken };
   }
   function chooseCorrectionDecision(outcome: string): void {
     selectedOutcome = outcome;
@@ -202,7 +201,11 @@
   >
     {#snippet reviewContent()}
       {#if reviewData}
-        <SuggestionReviewPanel data={reviewData} form={form as never} />
+        <SuggestionReviewPanel
+          data={reviewData}
+          form={form as never}
+          decisionRequest={suggestionDecisionRequest}
+        />
       {:else if correctionReviewData}
         <CorrectionReviewPanel data={correctionReviewData} form={form as never} />
       {:else if candidateReviewData}
@@ -211,19 +214,15 @@
     {/snippet}
     {#snippet decisionContent()}
       {#if reviewData}
-        <div class="decision-options" role="group" aria-label={data.copy['suggestion.resolve']}>
-          {#each ['needs_information', 'accepted', 'duplicate', 'rejected'] as outcome (outcome)}
-            <button
-              class="decision-option"
-              class:selected={selectedOutcome === outcome}
-              type="button"
-              aria-pressed={selectedOutcome === outcome}
-              onclick={() => chooseSuggestionDecision(outcome as SuggestionOutcome)}
-            >
-              {data.copy[`suggestion.status.${outcome}` as MessageKey]}
-            </button>
-          {/each}
-        </div>
+        <SuggestionDecisionControls
+          copy={data.copy}
+          disabled={!hasReviewData}
+          acceptDisabled={Boolean(
+            reviewData.suggestion.effectiveProposal.translations.is.needs_review ||
+            reviewData.suggestion.effectiveProposal.translations.en.needs_review
+          )}
+          ondecide={chooseSuggestionDecision}
+        />
       {:else if correctionReviewData}
         <div
           class="decision-options correction-options"
