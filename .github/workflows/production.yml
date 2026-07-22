@@ -762,8 +762,8 @@ jobs:
           trap 'rm -f "${translation_sql}"' EXIT
           node --experimental-strip-types scripts/sync-interface-translation-inventory.ts \
             "${translation_sql}"
-          pnpm exec supabase db push --db-url "${db_url}" --dry-run --yes
-          pnpm exec supabase db push --db-url "${db_url}" --yes
+          pnpm exec supabase db push --db-url "${db_url}" --include-all --dry-run --yes
+          pnpm exec supabase db push --db-url "${db_url}" --include-all --yes
           psql -v ON_ERROR_STOP=1 -v activation_secret="${MEMBER_ACTIVATION_SECRET}" "${db_url}" <<'SQL'
           select public.configure_member_activation_capability(:'activation_secret');
           SQL
