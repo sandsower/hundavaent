@@ -31,6 +31,7 @@ describe('production interface translation release contract', () => {
     expect(syncIndex).toBeLessThan(migrationIndex);
     expect(inventoryApplyIndex).toBeGreaterThan(migrationIndex);
     expect(workflow).toContain('-f "${translation_sql}"');
+    expect(workflow.match(/supabase db push[^\n]+--include-all/g)).toHaveLength(2);
     expect(workflow.match(/scripts\/sync-interface-translation-inventory\.ts/g)).toHaveLength(1);
     expect(deployIndex).toBeGreaterThan(syncIndex);
     expect(smokeIndex).toBeGreaterThan(deployIndex);
