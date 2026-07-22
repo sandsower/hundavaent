@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import CorrectionReviewPanel from '$lib/moderation/CorrectionReviewPanel.svelte';
@@ -110,6 +110,31 @@ describe('CorrectionReviewPanel', () => {
     expect(decision?.querySelector('[name="decisionNotes"]')).toBeNull();
   });
 
+  it('reports unsaved Correction edits and guards standalone decisions until cancel', async () => {
+    const editStates: boolean[] = [];
+    const { container } = render(CorrectionReviewPanel, {
+      data,
+      form: null,
+      standalone: true,
+      oneditstatechange: (editing: boolean) => editStates.push(editing)
+    });
+
+    await waitFor(() => expect(editStates.at(-1)).toBe(false));
+    await beginEdit('Open an access dispute');
+    await waitFor(() => expect(editStates.at(-1)).toBe(true));
+    expect(
+      screen.getByText('Save or cancel this section before choosing a decision.')
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Confirm useful' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Open dispute' })).toBeDisabled();
+
+    await fireEvent.click(
+      sectionForm(container, 'dispute').querySelector<HTMLButtonElement>('button[type="button"]')!
+    );
+    await waitFor(() => expect(editStates.at(-1)).toBe(false));
+    expect(screen.getByRole('button', { name: 'Confirm useful' })).toBeEnabled();
+  });
+
   it('saves dispute and transition details through independent section forms', async () => {
     const { container } = render(CorrectionReviewPanel, { data, form: null });
 
@@ -188,7 +213,8 @@ describe('CorrectionReviewPanel', () => {
   it('keeps a terminal conflict visible but prevents stale resubmission', () => {
     render(CorrectionReviewPanel, {
       data: { ...data, flag: { ...flag, outcome: 'rejected' } },
-      form: { error: 'conflict' }
+      form: { error: 'conflict' },
+      standalone: true
     });
 
     expect(screen.queryByRole('button', { name: 'Confirm useful' })).toBeNull();

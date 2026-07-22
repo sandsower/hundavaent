@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { page as browserPage } from 'vitest/browser';
 
 import { catalogues } from '$i18n';
+import CandidateDecisionControls from '$lib/moderation/CandidateDecisionControls.svelte';
 import ModerationActionBar from '$lib/moderation/ModerationActionBar.svelte';
 import ModerationConfirmDialog from '$lib/moderation/ModerationConfirmDialog.svelte';
 import ModerationReadinessSummary from '$lib/moderation/ModerationReadinessSummary.svelte';
@@ -100,6 +101,21 @@ describe('Compact moderation workspace', () => {
     expect(screen.getByRole('status').textContent).toContain('Decision saved. Next item loaded.');
     expect(screen.getByRole('region', { name: 'Decision controls' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Resolve and next' })).toBeTruthy();
+  });
+
+  it('disables the persistent dock and explains that an open section must be saved or cancelled', () => {
+    render(ModerationWorkspace, {
+      ...readyProps(),
+      statusMessage: '',
+      actionsDisabled: true,
+      decisionHint: 'Save or cancel this section before choosing a decision.'
+    });
+
+    const dock = screen.getByRole('region', { name: 'Decision controls' });
+    expect(
+      within(dock).getByText('Save or cancel this section before choosing a decision.')
+    ).toBeTruthy();
+    expect(within(dock).getByRole('button', { name: 'Resolve and next' })).toBeDisabled();
   });
 
   it('preserves cursor history across item selection and previous/next page links', () => {
@@ -316,6 +332,37 @@ describe('Compact moderation workspace', () => {
 });
 
 describe('Low-friction review primitives', () => {
+  it('derives Candidate decisions from refreshed review status', () => {
+    const decide = vi.fn();
+    const { rerender } = render(CandidateDecisionControls, {
+      copy: catalogues.en,
+      status: 'pending',
+      ready: true,
+      ondecide: decide
+    });
+
+    expect(screen.getByRole('button', { name: 'Verify and publish' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Needs information' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeTruthy();
+
+    rerender({
+      copy: catalogues.en,
+      status: 'rejected',
+      ready: true,
+      ondecide: decide
+    });
+    expect(screen.getByRole('button', { name: 'Reopen' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Verify and publish' })).toBeNull();
+
+    rerender({
+      copy: catalogues.en,
+      status: 'published',
+      ready: true,
+      ondecide: decide
+    });
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
   it('offers direct Correction decisions without an outcome selector', async () => {
     const decide = vi.fn();
     render(CorrectionDecisionControls, {

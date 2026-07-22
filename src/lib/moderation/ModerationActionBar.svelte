@@ -4,13 +4,15 @@
   interface Props {
     label: string;
     disabled?: boolean;
+    hint?: string | null;
     children?: Snippet;
   }
 
-  let { label, disabled = false, children }: Props = $props();
+  let { label, disabled = false, hint = null, children }: Props = $props();
 </script>
 
 <section class="action-bar" aria-label={label}>
+  {#if hint}<p class="hint">{hint}</p>{/if}
   <fieldset {disabled}>
     {@render children?.()}
   </fieldset>
@@ -27,6 +29,13 @@
   }
   .action-bar:focus-within {
     box-shadow: inset 0 0 0 3px var(--hv-focus-ring);
+  }
+  .hint {
+    margin: 0 0 0.55rem;
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.76rem;
+    font-weight: 850;
+    line-height: 1.35;
   }
   fieldset {
     min-width: 0;

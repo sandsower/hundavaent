@@ -19,10 +19,16 @@
   import type { MapAdapter } from '$lib/map/types';
   import { downscaleImageFile, readImageDimensions } from '$lib/place-media/downscale-image';
   import AccessConditionsEditor from './AccessConditionsEditor.svelte';
+  import CandidateDecisionControls, {
+    type CandidateDecisionOutcome
+  } from './CandidateDecisionControls.svelte';
   import EvidenceRecordsEditor from './EvidenceRecordsEditor.svelte';
   import ModerationActionBar from './ModerationActionBar.svelte';
   import ModerationConfirmDialog from './ModerationConfirmDialog.svelte';
   import ModerationReadinessSummary from './ModerationReadinessSummary.svelte';
+  import ModerationReasonDialog, {
+    type ModerationReasonValue
+  } from './ModerationReasonDialog.svelte';
   import ModerationReviewSection from './ModerationReviewSection.svelte';
   import OpeningHoursEditor from './OpeningHoursEditor.svelte';
   import type { ModerationReviewIssue } from './types';
@@ -51,9 +57,10 @@
     data: CandidateReviewData;
     form?: CandidateReviewForm | null;
     standalone?: boolean;
+    oneditstatechange?: (editing: boolean) => void;
   }
 
-  let { data, form = null, standalone = false }: Props = $props();
+  let { data, form = null, standalone = false, oneditstatechange }: Props = $props();
   type EditableSectionId =
     'identity' | 'details' | 'location' | 'translations' | 'access_conditions' | 'evidence_records';
 
@@ -61,6 +68,14 @@
   let editingSection = $state<EditableSectionId | null>(null);
   let savingSection = $state<EditableSectionId | null>(null);
   let confirmingPublish = $state(false);
+  let candidateDialog = $state<'needs_information' | 'rejected' | null>(null);
+  let candidateDecision = $state<'needs_information' | 'rejected' | 'reopen'>('needs_information');
+  let candidateReasonCode = $state('insufficient_evidence');
+  let candidateMemberReasonIs = $state('');
+  let candidateMemberReasonEn = $state('');
+  let candidatePrivateNote = $state('');
+  let candidateDecisionForm = $state<HTMLFormElement>();
+  let publicationForm = $state<HTMLFormElement>();
   let alertElement = $state<HTMLElement>();
   let publishError = $derived(
     form && 'action' in form && form.action === 'publish' && 'error' in form ? form.error : null
@@ -84,6 +99,12 @@
       form.success
     )
   );
+  let decisionError = $derived(
+    form && 'action' in form && form.action === 'decideCandidate' && 'error' in form
+      ? form.error
+      : null
+  );
+  let canDecide = $derived(data.review.candidateStatus !== 'published');
 
   let identityOperatorName = $state('');
   let identityCategory = $state('');
@@ -122,6 +143,7 @@
       form.action !== 'publish' &&
       form.action !== 'correctLocation' &&
       form.action !== 'saveCandidateSection' &&
+      form.action !== 'decideCandidate' &&
       'error' in form
       ? form.error
       : null
@@ -133,6 +155,7 @@
       form.action !== 'publish' &&
       form.action !== 'correctLocation' &&
       form.action !== 'saveCandidateSection' &&
+      form.action !== 'decideCandidate' &&
       'success' in form &&
       form.success
     )
@@ -341,7 +364,35 @@
 
   function requestPublication(): void {
     confirmingPublish = false;
-    document.querySelector<HTMLFormElement>('#candidate-publication')?.requestSubmit();
+    publicationForm?.requestSubmit();
+  }
+
+  function beginCandidateDecision(outcome: CandidateDecisionOutcome): void {
+    if (editingSection !== null || submitting || !canDecide) return;
+    if (outcome === 'publish') {
+      confirmingPublish = true;
+      return;
+    }
+    candidateDecision = outcome;
+    if (outcome === 'reopen') {
+      candidateDialog = null;
+      void tick().then(() => candidateDecisionForm?.requestSubmit());
+      return;
+    }
+    candidateReasonCode = 'insufficient_evidence';
+    candidateMemberReasonIs = '';
+    candidateMemberReasonEn = '';
+    candidatePrivateNote = '';
+    candidateDialog = outcome;
+  }
+
+  async function submitCandidateDecision(reasons: ModerationReasonValue): Promise<void> {
+    candidateMemberReasonIs = reasons.memberReasonIs;
+    candidateMemberReasonEn = reasons.memberReasonEn;
+    candidatePrivateNote = reasons.privateNote;
+    candidateDialog = null;
+    await tick();
+    candidateDecisionForm?.requestSubmit();
   }
 
   function describeCondition(
@@ -413,6 +464,11 @@
       void tick().then(() => alertElement?.focus());
     }
   });
+
+  $effect(() => {
+    oneditstatechange?.(editingSection !== null);
+    return () => oneditstatechange?.(false);
+  });
 </script>
 
 <div class="review-shell" class:standalone>
@@ -460,23 +516,44 @@
     <p class="message success" role="status">{data.copy['moderation.workbench.draftSaved']}</p>
   {/if}
 
-  {#if standalone}<div class="candidate-actions">
-      <ModerationActionBar label={data.copy['moderation.workbench.candidateActions']}>
-        <div class="action-buttons">
-          <button
-            type="button"
-            class="primary-action"
-            disabled={!data.review.ready ||
-              submitting ||
-              succeeded ||
-              (Boolean(form?.conflict) && data.review.lifecycle !== 'candidate')}
-            onclick={() => (confirmingPublish = true)}
-          >
-            {data.copy['moderation.verifyAndPublish']}
-          </button>
-        </div>
+  {#if standalone && (canDecide || decisionError)}<div class="candidate-actions">
+      <ModerationActionBar
+        label={data.copy['moderation.workbench.candidateActions']}
+        disabled={editingSection !== null}
+        hint={editingSection !== null
+          ? data.copy['moderation.workbench.unsavedDecisionHint']
+          : null}
+      >
+        {#if decisionError}<p class="decision-error" role="alert">{decisionError}</p>{/if}
+        <CandidateDecisionControls
+          copy={data.copy}
+          status={data.review.candidateStatus}
+          ready={data.review.ready}
+          disabled={submitting || editingSection !== null}
+          ondecide={beginCandidateDecision}
+        />
       </ModerationActionBar>
     </div>{/if}
+
+  {#if standalone && canDecide}
+    <form
+      class="decision-form"
+      bind:this={candidateDecisionForm}
+      method="POST"
+      action="?/decideCandidate"
+      use:enhance={enhancePublication}
+    >
+      <input type="hidden" name="placeId" value={data.review.placeId} />
+      <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
+      <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
+      <input type="hidden" name="decision" value={candidateDecision} />
+      <input type="hidden" name="confirmedDecision" value={candidateDecision} />
+      <input type="hidden" name="reasonCode" value={candidateReasonCode} />
+      <input type="hidden" name="memberReasonIs" value={candidateMemberReasonIs} />
+      <input type="hidden" name="memberReasonEn" value={candidateMemberReasonEn} />
+      <input type="hidden" name="privateNote" value={candidatePrivateNote} />
+    </form>
+  {/if}
 
   <div class="review-sections">
     <ModerationReviewSection
@@ -1000,6 +1077,7 @@
     >
       <form
         id="candidate-publication"
+        bind:this={publicationForm}
         method="POST"
         action="?/publish"
         use:enhance={enhancePublication}
@@ -1410,7 +1488,48 @@
       cancelLabel={data.copy['moderation.workbench.keepReviewing']}
       onconfirm={requestPublication}
       oncancel={() => (confirmingPublish = false)}
-    />{/if}
+    />
+    {#if candidateDialog}
+      <ModerationReasonDialog
+        open
+        title={candidateDialog === 'rejected'
+          ? data.copy['moderation.workbench.rejectTitle']
+          : data.copy['moderation.workbench.needsInformationTitle']}
+        description={data.copy['moderation.workbench.decisionHelp']}
+        confirmLabel={candidateDialog === 'rejected'
+          ? data.copy['moderation.workbench.reject']
+          : data.copy['moderation.workbench.needsInformation']}
+        cancelLabel={data.copy['moderation.workbench.keepReviewing']}
+        reasonIsLabel={data.copy['suggestion.memberReasonIs']}
+        reasonEnLabel={data.copy['suggestion.memberReasonEn']}
+        privateNoteLabel={data.copy['suggestion.privateNote']}
+        tone={candidateDialog === 'rejected' ? 'danger' : 'primary'}
+        {submitting}
+        onconfirm={submitCandidateDecision}
+        oncancel={() => (candidateDialog = null)}
+      >
+        {#if candidateDialog === 'rejected'}
+          <label>
+            {data.copy['moderation.workbench.reasonCode']}
+            <select bind:value={candidateReasonCode} required>
+              <option value="insufficient_evidence"
+                >{data.copy['moderation.workbench.reason.insufficientEvidence']}</option
+              >
+              <option value="inaccurate"
+                >{data.copy['moderation.workbench.reason.inaccurate']}</option
+              >
+              <option value="out_of_scope"
+                >{data.copy['moderation.workbench.reason.outOfScope']}</option
+              >
+              <option value="unsafe">{data.copy['moderation.workbench.reason.unsafe']}</option>
+              <option value="spam">{data.copy['moderation.workbench.reason.spam']}</option>
+              <option value="other">{data.copy['moderation.workbench.reason.other']}</option>
+            </select>
+          </label>
+        {/if}
+      </ModerationReasonDialog>
+    {/if}
+  {/if}
 </div>
 
 <style>
@@ -1467,14 +1586,12 @@
     margin-top: 0.75rem;
   }
 
-  .action-buttons {
-    display: grid;
-    grid-template-columns: minmax(9rem, 1fr);
-    gap: 0.55rem;
-  }
-
-  .action-buttons .primary-action {
-    background: var(--hv-color-signal);
+  .decision-error {
+    margin: 0 0 0.55rem;
+    border: 1px solid var(--hv-color-danger);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-danger-soft);
+    padding: 0.55rem;
   }
 
   .review-sections {
@@ -1989,7 +2106,6 @@
   }
 
   @media (max-width: 48rem) {
-    .action-buttons,
     .translation-grid,
     .media-columns {
       grid-template-columns: 1fr;

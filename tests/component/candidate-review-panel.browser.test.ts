@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import { page as browserPage } from 'vitest/browser';
 
@@ -181,7 +181,11 @@ describe('CandidateReviewPanel', () => {
     render(CandidateReviewPanel, {
       data: {
         ...data,
-        review: { ...data.review, lifecycle: 'published' }
+        review: {
+          ...data.review,
+          lifecycle: 'published',
+          candidateStatus: 'published' as const
+        }
       },
       standalone: true,
       form: {
@@ -192,9 +196,72 @@ describe('CandidateReviewPanel', () => {
       }
     });
 
+    expect(screen.queryByRole('button', { name: 'Verify and publish' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Needs information' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reject' })).toBeNull();
+  });
+
+  it('reports unsaved edits and guards every standalone Candidate decision until save or cancel', async () => {
+    const editStates: boolean[] = [];
+    const { container } = render(CandidateReviewPanel, {
+      data,
+      form: null,
+      standalone: true,
+      oneditstatechange: (editing: boolean) => editStates.push(editing)
+    });
+
+    await waitFor(() => expect(editStates.at(-1)).toBe(false));
+    expect(screen.getByRole('button', { name: 'Verify and publish' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Needs information' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeEnabled();
+
+    await beginEditing('Place identity');
+    await waitFor(() => expect(editStates.at(-1)).toBe(true));
     expect(
-      (screen.getByRole('button', { name: 'Verify and publish' }) as HTMLButtonElement).disabled
-    ).toBe(true);
+      screen.getByText('Save or cancel this section before choosing a decision.')
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Verify and publish' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Needs information' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
+
+    await fireEvent.click(
+      within(sectionForm(container, 'identity')).getByRole('button', { name: 'Cancel' })
+    );
+    await waitFor(() => expect(editStates.at(-1)).toBe(false));
+    expect(screen.getByRole('button', { name: 'Verify and publish' })).toBeEnabled();
+  });
+
+  it('shows Candidate decision errors beside decisions and never inside Media', () => {
+    render(CandidateReviewPanel, {
+      data,
+      standalone: true,
+      form: {
+        action: 'decideCandidate',
+        success: false,
+        error: 'The Candidate decision could not be saved.'
+      }
+    });
+
+    const decisions = screen.getByRole('region', { name: 'Candidate decisions' });
+    expect(within(decisions).getByRole('alert').textContent).toContain(
+      'The Candidate decision could not be saved.'
+    );
+    expect(document.querySelector('#candidate-media')?.textContent).not.toContain(
+      'The Candidate decision could not be saved.'
+    );
+  });
+
+  it('offers only Reopen for a rejected standalone Candidate', () => {
+    render(CandidateReviewPanel, {
+      data: { ...data, review: { ...data.review, candidateStatus: 'rejected' as const } },
+      standalone: true,
+      form: null
+    });
+
+    expect(screen.getByRole('button', { name: 'Reopen' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Verify and publish' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Needs information' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reject' })).toBeNull();
   });
 
   it('edits one concise section at a time and posts only its strict draft patch', async () => {

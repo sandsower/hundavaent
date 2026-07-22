@@ -518,6 +518,8 @@ export const isCatalogue = {
   'moderation.workbench.reason.spam': 'Ruslpóstur',
   'moderation.workbench.reason.other': 'Annað',
   'moderation.workbench.draftSaved': 'Drög vistuð.',
+  'moderation.workbench.unsavedDecisionHint':
+    'Vistaðu eða hættu við þennan hluta áður en þú velur niðurstöðu.',
   'moderation.workbench.editSection': 'Breyta: {section}',
   'moderation.workbench.needsInformationSaved': 'Beiðni um upplýsingar send.',
   'moderation.workbench.rejectedSaved': 'Tillögu hafnað.',

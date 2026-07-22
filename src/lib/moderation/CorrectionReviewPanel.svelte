@@ -56,16 +56,23 @@
       outcome: Exclude<PlaceFlagOutcome, 'submitted'>;
       token: number;
     } | null;
+    oneditstatechange?: (editing: boolean) => void;
   }
 
   type EditableSectionId = 'application' | 'dispute' | 'transition';
   type DecisionOutcome = Exclude<PlaceFlagOutcome, 'submitted'>;
 
-  let { data, form = null, standalone = false, decisionRequest = null }: Props = $props();
+  let {
+    data,
+    form = null,
+    standalone = false,
+    decisionRequest = null,
+    oneditstatechange
+  }: Props = $props();
   const isOpen = $derived(
     data.flag.outcome === 'submitted' || data.flag.outcome === 'needs_information'
   );
-  const showDecision = $derived(isOpen || form?.error === 'conflict');
+  const showDecision = $derived(isOpen);
   const hasLiveDrift = $derived(
     JSON.stringify(data.flag.currentLiveValue) !== JSON.stringify(data.flag.currentValueSnapshot)
   );
@@ -134,6 +141,11 @@
       handledDecisionToken = decisionRequest.token;
       beginDecision(decisionRequest.outcome);
     }
+  });
+
+  $effect(() => {
+    oneditstatechange?.(editingSection !== null);
+    return () => oneditstatechange?.(false);
   });
 
   const enhanceForm: SubmitFunction = () => {
@@ -215,6 +227,7 @@
   }
 
   function beginDecision(outcome: DecisionOutcome): void {
+    if (!isOpen || editingSection !== null) return;
     memberReasonIs = '';
     memberReasonEn = '';
     privateNote = '';
@@ -360,12 +373,18 @@
 
   {#if standalone && showDecision}
     <div class="standalone-actions">
-      <ModerationActionBar label={data.copy['flag.resolve']}>
+      <ModerationActionBar
+        label={data.copy['flag.resolve']}
+        disabled={editingSection !== null}
+        hint={editingSection !== null
+          ? data.copy['moderation.workbench.unsavedDecisionHint']
+          : null}
+      >
         <CorrectionDecisionControls
           copy={data.copy}
           kind={data.flag.kind}
           targetKind={data.flag.targetKind}
-          disabled={submitting || (form?.error === 'conflict' && !isOpen)}
+          disabled={submitting || editingSection !== null}
           ondecide={beginDecision}
         />
       </ModerationActionBar>

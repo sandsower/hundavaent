@@ -1,10 +1,17 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import { tick } from 'svelte';
+  import CandidateDecisionControls, {
+    type CandidateDecisionOutcome
+  } from '$lib/moderation/CandidateDecisionControls.svelte';
   import CandidateReviewPanel from '$lib/moderation/CandidateReviewPanel.svelte';
   import CorrectionDecisionControls from '$lib/moderation/CorrectionDecisionControls.svelte';
   import CorrectionReviewPanel from '$lib/moderation/CorrectionReviewPanel.svelte';
   import ModerationWorkspace from '$lib/moderation/ModerationWorkspace.svelte';
   import ModerationConfirmDialog from '$lib/moderation/ModerationConfirmDialog.svelte';
+  import ModerationReasonDialog, {
+    type ModerationReasonValue
+  } from '$lib/moderation/ModerationReasonDialog.svelte';
   import SuggestionDecisionControls from '$lib/moderation/SuggestionDecisionControls.svelte';
   import SuggestionReviewPanel from '$lib/moderation/SuggestionReviewPanel.svelte';
   import type { ModerationWorkItem } from '$lib/moderation/types';
@@ -25,6 +32,11 @@
     conflictQueue?: string;
     conflictReview?: unknown;
     conflictRefreshFailed?: boolean;
+  }
+
+  interface CandidateActionData {
+    action?: string;
+    error?: string;
   }
 
   const conflictAction = $derived(form as ConflictActionData | null);
@@ -97,8 +109,31 @@
   const candidateReviewData = $derived(
     candidateReviewSource ? { lang: data.lang, copy: data.copy, ...candidateReviewSource } : null
   );
-  const hasReviewData = $derived(
-    Boolean(reviewData || correctionReviewData || candidateReviewData)
+  const suggestionDecisionAvailable = $derived(
+    reviewData?.suggestion.outcome === 'submitted' ||
+      reviewData?.suggestion.outcome === 'needs_information'
+  );
+  const correctionDecisionAvailable = $derived(
+    correctionReviewData?.flag.outcome === 'submitted' ||
+      correctionReviewData?.flag.outcome === 'needs_information'
+  );
+  const candidateDecisionAvailable = $derived(
+    candidateReviewData?.review.candidateStatus === 'pending' ||
+      candidateReviewData?.review.candidateStatus === 'needs_information' ||
+      candidateReviewData?.review.candidateStatus === 'rejected'
+  );
+  const candidateDecisionError = $derived(
+    (form as CandidateActionData | null)?.action === 'decideCandidate'
+      ? ((form as CandidateActionData).error ?? null)
+      : null
+  );
+  const showDecisionDock = $derived(
+    Boolean(
+      suggestionDecisionAvailable ||
+      correctionDecisionAvailable ||
+      candidateDecisionAvailable ||
+      candidateDecisionError
+    )
   );
   const statusMessage = $derived.by(() => {
     const notice = data.workspaceNotice;
@@ -146,7 +181,14 @@
     outcome: Exclude<import('$server/place-flags/place-flags').PlaceFlagOutcome, 'submitted'>;
     token: number;
   } | null>(null);
+  let reviewHasUnsavedEdits = $state(false);
   let candidateDialog = $state<'publish' | 'needs_information' | 'rejected' | null>(null);
+  let candidateDecision = $state<'needs_information' | 'rejected' | 'reopen'>('needs_information');
+  let candidateReasonCode = $state('insufficient_evidence');
+  let candidateMemberReasonIs = $state('');
+  let candidateMemberReasonEn = $state('');
+  let candidatePrivateNote = $state('');
+  let candidateDecisionForm = $state<HTMLFormElement>();
   function chooseSuggestionDecision(outcome: Exclude<SuggestionOutcome, 'submitted'>): void {
     suggestionDecisionToken += 1;
     suggestionDecisionRequest = { outcome, token: suggestionDecisionToken };
@@ -156,6 +198,32 @@
   ): void {
     correctionDecisionToken += 1;
     correctionDecisionRequest = { outcome, token: correctionDecisionToken };
+  }
+  function chooseCandidateDecision(outcome: CandidateDecisionOutcome): void {
+    if (reviewHasUnsavedEdits || !candidateDecisionAvailable) return;
+    if (outcome === 'publish') {
+      candidateDialog = 'publish';
+      return;
+    }
+    candidateDecision = outcome;
+    if (outcome === 'reopen') {
+      candidateDialog = null;
+      void tick().then(() => candidateDecisionForm?.requestSubmit());
+      return;
+    }
+    candidateReasonCode = 'insufficient_evidence';
+    candidateMemberReasonIs = '';
+    candidateMemberReasonEn = '';
+    candidatePrivateNote = '';
+    candidateDialog = outcome;
+  }
+  async function submitCandidateDecision(reasons: ModerationReasonValue): Promise<void> {
+    candidateMemberReasonIs = reasons.memberReasonIs;
+    candidateMemberReasonEn = reasons.memberReasonEn;
+    candidatePrivateNote = reasons.privateNote;
+    candidateDialog = null;
+    await tick();
+    candidateDecisionForm?.requestSubmit();
   }
   function submitCandidatePublication(): void {
     candidateDialog = null;
@@ -186,8 +254,11 @@
     reviewErrorMessage={conflictAction?.conflictRefreshFailed
       ? data.copy['moderation.workspace.conflictRefreshFailed']
       : data.reviewError}
-    actionsDisabled={Boolean(conflictAction?.conflictRefreshFailed)}
-    showDecisionDock={hasReviewData}
+    actionsDisabled={Boolean(conflictAction?.conflictRefreshFailed) || reviewHasUnsavedEdits}
+    {showDecisionDock}
+    decisionHint={reviewHasUnsavedEdits
+      ? data.copy['moderation.workbench.unsavedDecisionHint']
+      : null}
     focusTargetId={null}
   >
     {#snippet reviewContent()}
@@ -196,84 +267,80 @@
           data={reviewData}
           form={form as never}
           decisionRequest={suggestionDecisionRequest}
+          oneditstatechange={(editing) => (reviewHasUnsavedEdits = editing)}
         />
       {:else if correctionReviewData}
         <CorrectionReviewPanel
           data={correctionReviewData}
           form={form as never}
           decisionRequest={correctionDecisionRequest}
+          oneditstatechange={(editing) => (reviewHasUnsavedEdits = editing)}
         />
       {:else if candidateReviewData}
-        <CandidateReviewPanel data={candidateReviewData} form={form as never} />
+        <CandidateReviewPanel
+          data={candidateReviewData}
+          form={form as never}
+          oneditstatechange={(editing) => (reviewHasUnsavedEdits = editing)}
+        />
       {/if}
     {/snippet}
     {#snippet decisionContent()}
-      {#if reviewData}
+      {#if reviewData && suggestionDecisionAvailable}
         <SuggestionDecisionControls
           copy={data.copy}
-          disabled={!hasReviewData}
+          disabled={reviewHasUnsavedEdits}
           acceptDisabled={Boolean(
             reviewData.suggestion.effectiveProposal.translations.is.needs_review ||
             reviewData.suggestion.effectiveProposal.translations.en.needs_review
           )}
           ondecide={chooseSuggestionDecision}
         />
-      {:else if correctionReviewData}
+      {:else if correctionReviewData && correctionDecisionAvailable}
         <CorrectionDecisionControls
           copy={data.copy}
           kind={correctionReviewData.flag.kind}
           targetKind={correctionReviewData.flag.targetKind}
+          disabled={reviewHasUnsavedEdits}
           ondecide={chooseCorrectionDecision}
         />
-      {:else if candidateReviewData}
-        <div
-          class="decision-options candidate-options"
-          role="group"
-          aria-label={data.copy['moderation.reviewTitle']}
-        >
-          {#if activeFilter === 'resolved'}
-            <form method="POST" action="?/decideCandidate">
-              <input type="hidden" name="placeId" value={candidateReviewData.review.placeId} />
-              <input
-                type="hidden"
-                name="expectedItemVersion"
-                value={candidateReviewData.review.itemVersion}
-              />
-              <input
-                type="hidden"
-                name="expectedDraftVersion"
-                value={candidateReviewData.review.draftVersion}
-              />
-              <input type="hidden" name="decision" value="reopen" />
-              <button class="decision-option" type="submit">
-                {data.copy['moderation.workbench.reopen']}
-              </button>
-            </form>
-          {:else}
-            <button
-              class="decision-option primary"
-              type="button"
-              disabled={!candidateReviewData.review.ready}
-              onclick={() => (candidateDialog = 'publish')}
-            >
-              {data.copy['moderation.verifyAndPublish']}
-            </button>
-            <button
-              class="decision-option"
-              type="button"
-              onclick={() => (candidateDialog = 'needs_information')}
-            >
-              {data.copy['moderation.workbench.needsInformation']}
-            </button>
-            <button
-              class="decision-option danger"
-              type="button"
-              onclick={() => (candidateDialog = 'rejected')}
-            >
-              {data.copy['moderation.workbench.reject']}
-            </button>
-          {/if}
-        </div>
+      {:else if candidateReviewData && (candidateDecisionAvailable || candidateDecisionError)}
+        {#if candidateDecisionError}
+          <p class="candidate-decision-error" role="alert">{candidateDecisionError}</p>
+        {/if}
+        <CandidateDecisionControls
+          copy={data.copy}
+          status={candidateReviewData.review.candidateStatus}
+          ready={candidateReviewData.review.ready}
+          disabled={reviewHasUnsavedEdits}
+          ondecide={chooseCandidateDecision}
+        />
+
+        {#if candidateDecisionAvailable}
+          <form
+            class="decision-form"
+            bind:this={candidateDecisionForm}
+            method="POST"
+            action="?/decideCandidate"
+          >
+            <input type="hidden" name="placeId" value={candidateReviewData.review.placeId} />
+            <input
+              type="hidden"
+              name="expectedItemVersion"
+              value={candidateReviewData.review.itemVersion}
+            />
+            <input
+              type="hidden"
+              name="expectedDraftVersion"
+              value={candidateReviewData.review.draftVersion}
+            />
+            <input type="hidden" name="decision" value={candidateDecision} />
+            <input type="hidden" name="confirmedDecision" value={candidateDecision} />
+            <input type="hidden" name="reasonCode" value={candidateReasonCode} />
+            <input type="hidden" name="memberReasonIs" value={candidateMemberReasonIs} />
+            <input type="hidden" name="memberReasonEn" value={candidateMemberReasonEn} />
+            <input type="hidden" name="privateNote" value={candidatePrivateNote} />
+          </form>
+        {/if}
 
         <ModerationConfirmDialog
           open={candidateDialog === 'publish'}
@@ -286,76 +353,43 @@
         />
 
         {#if candidateDialog === 'needs_information' || candidateDialog === 'rejected'}
-          <dialog
-            class="candidate-dialog"
+          <ModerationReasonDialog
             open
-            aria-labelledby="candidate-decision-title"
+            title={candidateDialog === 'rejected'
+              ? data.copy['moderation.workbench.rejectTitle']
+              : data.copy['moderation.workbench.needsInformationTitle']}
+            description={data.copy['moderation.workbench.decisionHelp']}
+            confirmLabel={candidateDialog === 'rejected'
+              ? data.copy['moderation.workbench.reject']
+              : data.copy['moderation.workbench.needsInformation']}
+            cancelLabel={data.copy['moderation.workbench.keepReviewing']}
+            reasonIsLabel={data.copy['suggestion.memberReasonIs']}
+            reasonEnLabel={data.copy['suggestion.memberReasonEn']}
+            privateNoteLabel={data.copy['suggestion.privateNote']}
+            tone={candidateDialog === 'rejected' ? 'danger' : 'primary'}
+            onconfirm={submitCandidateDecision}
             oncancel={() => (candidateDialog = null)}
           >
-            <h2 id="candidate-decision-title">
-              {candidateDialog === 'rejected'
-                ? data.copy['moderation.workbench.rejectTitle']
-                : data.copy['moderation.workbench.needsInformationTitle']}
-            </h2>
-            <p>{data.copy['moderation.workbench.decisionHelp']}</p>
-            <form method="POST" action="?/decideCandidate">
-              <input type="hidden" name="placeId" value={candidateReviewData.review.placeId} />
-              <input
-                type="hidden"
-                name="expectedItemVersion"
-                value={candidateReviewData.review.itemVersion}
-              />
-              <input
-                type="hidden"
-                name="expectedDraftVersion"
-                value={candidateReviewData.review.draftVersion}
-              />
-              <input type="hidden" name="decision" value={candidateDialog} />
-              {#if candidateDialog === 'rejected'}
-                <input type="hidden" name="confirmedDecision" value="rejected" />
-                <label>
-                  {data.copy['moderation.workbench.reasonCode']}
-                  <select name="reasonCode" required>
-                    <option value="insufficient_evidence"
-                      >{data.copy['moderation.workbench.reason.insufficientEvidence']}</option
-                    >
-                    <option value="inaccurate"
-                      >{data.copy['moderation.workbench.reason.inaccurate']}</option
-                    >
-                    <option value="out_of_scope"
-                      >{data.copy['moderation.workbench.reason.outOfScope']}</option
-                    >
-                    <option value="unsafe">{data.copy['moderation.workbench.reason.unsafe']}</option
-                    >
-                    <option value="spam">{data.copy['moderation.workbench.reason.spam']}</option>
-                    <option value="other">{data.copy['moderation.workbench.reason.other']}</option>
-                  </select>
-                </label>
-              {/if}
+            {#if candidateDialog === 'rejected'}
               <label>
-                {data.copy['suggestion.memberReasonIs']}
-                <textarea name="memberReasonIs" rows="3" required></textarea>
+                {data.copy['moderation.workbench.reasonCode']}
+                <select bind:value={candidateReasonCode} required>
+                  <option value="insufficient_evidence"
+                    >{data.copy['moderation.workbench.reason.insufficientEvidence']}</option
+                  >
+                  <option value="inaccurate"
+                    >{data.copy['moderation.workbench.reason.inaccurate']}</option
+                  >
+                  <option value="out_of_scope"
+                    >{data.copy['moderation.workbench.reason.outOfScope']}</option
+                  >
+                  <option value="unsafe">{data.copy['moderation.workbench.reason.unsafe']}</option>
+                  <option value="spam">{data.copy['moderation.workbench.reason.spam']}</option>
+                  <option value="other">{data.copy['moderation.workbench.reason.other']}</option>
+                </select>
               </label>
-              <label>
-                {data.copy['suggestion.memberReasonEn']}
-                <textarea name="memberReasonEn" rows="3" required></textarea>
-              </label>
-              <label>
-                {data.copy['suggestion.privateNote']}
-                <textarea name="privateNote" rows="2"></textarea>
-              </label>
-              <div class="dialog-actions">
-                <button type="button" onclick={() => (candidateDialog = null)}>
-                  {data.copy['moderation.workbench.keepReviewing']}
-                </button>
-                <button class:danger={candidateDialog === 'rejected'} type="submit">
-                  {candidateDialog === 'rejected'
-                    ? data.copy['moderation.workbench.reject']
-                    : data.copy['moderation.workbench.needsInformation']}
-                </button>
-              </div>
-            </form>
-          </dialog>
+            {/if}
+          </ModerationReasonDialog>
         {/if}
       {/if}
     {/snippet}
@@ -383,8 +417,7 @@
     gap: 0.7rem;
     margin-top: 1.2rem;
   }
-  .workspace-actions a,
-  .decision-option {
+  .workspace-actions a {
     display: inline-block;
     border: 1px solid var(--hv-color-basalt);
     border-radius: var(--hv-radius-control);
@@ -396,101 +429,25 @@
     text-decoration: none;
     cursor: pointer;
   }
-  .workspace-actions a:focus-visible,
-  .decision-option:focus-visible {
+  .workspace-actions a:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
     box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
-  .decision-options {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.45rem;
-  }
-  .decision-option {
-    min-width: 0;
-    padding-inline: 0.55rem;
-    font-size: 0.76rem;
-    line-height: 1.15;
-  }
-  .candidate-options {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .candidate-options form {
-    display: contents;
-  }
-  .decision-option.primary {
-    background: var(--hv-color-signal);
-  }
-  .decision-option.danger:not(:disabled),
-  .candidate-dialog button.danger {
-    background: var(--hv-color-danger);
-    color: var(--hv-color-snow-raised);
-  }
-  .candidate-dialog {
-    position: fixed;
-    z-index: 40;
-    inset: 50% auto auto 50%;
-    display: grid;
-    width: min(calc(100% - 2rem), 34rem);
-    max-height: calc(100dvh - 2rem);
-    translate: -50% -50%;
-    gap: 0.75rem;
-    overflow-y: auto;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-shell);
-    background: var(--hv-color-snow-raised);
-    padding: 1.1rem;
-    color: var(--hv-color-basalt);
-    box-shadow: var(--hv-shadow-raised);
-  }
-  .candidate-dialog::backdrop {
-    background: rgb(20 37 41 / 55%);
-  }
-  .candidate-dialog h2,
-  .candidate-dialog p {
-    margin: 0;
-  }
-  .candidate-dialog form,
-  .candidate-dialog label {
-    display: grid;
-    gap: 0.35rem;
-  }
-  .candidate-dialog form {
-    gap: 0.7rem;
-  }
-  .candidate-dialog textarea,
-  .candidate-dialog select {
-    width: 100%;
-    border: 1px solid var(--hv-color-basalt);
+  .candidate-decision-error {
+    margin: 0 0 0.55rem;
+    border: 1px solid var(--hv-color-danger);
     border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
+    background: var(--hv-color-danger-soft);
     padding: 0.55rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
   }
-  .dialog-actions {
-    display: flex;
-    gap: 0.55rem;
-    justify-content: flex-end;
-  }
-  .dialog-actions button {
-    min-height: 2.7rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    padding: 0.55rem 0.8rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
-    font-weight: 900;
+  .decision-form {
+    display: none;
   }
   @media (max-width: 44rem) {
     .workspace-shell {
       width: calc(100% - 0.75rem);
       margin-top: 0.4rem;
-    }
-    .decision-options {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 </style>

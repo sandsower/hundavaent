@@ -63,6 +63,7 @@
       outcome: Exclude<SuggestionOutcome, 'submitted'>;
       token: number;
     } | null;
+    oneditstatechange?: (editing: boolean) => void;
   }
 
   type EditableSectionId =
@@ -75,7 +76,13 @@
   type DecisionOutcome = Exclude<SuggestionOutcome, 'submitted'>;
   type ContributorAction = 'record' | 'clear' | 'revoke' | null;
 
-  let { data, form = null, standalone = false, decisionRequest = null }: Props = $props();
+  let {
+    data,
+    form = null,
+    standalone = false,
+    decisionRequest = null,
+    oneditstatechange
+  }: Props = $props();
   const proposal = $derived(data.suggestion.effectiveProposal);
   const decisionStillActionable = $derived(
     data.suggestion.outcome === 'submitted' || data.suggestion.outcome === 'needs_information'
@@ -215,6 +222,11 @@
     }
   });
 
+  $effect(() => {
+    oneditstatechange?.(editingSection !== null);
+    return () => oneditstatechange?.(false);
+  });
+
   const enhanceForm: SubmitFunction = () => {
     submitting = true;
     return async ({ update }) => {
@@ -290,6 +302,7 @@
   }
 
   function beginDecision(outcome: DecisionOutcome): void {
+    if (!decisionStillActionable || editingSection !== null) return;
     memberReasonIs = '';
     memberReasonEn = '';
     privateNote = '';
@@ -357,10 +370,16 @@
 
   {#if standalone && decisionStillActionable}
     <div class="standalone-actions">
-      <ModerationActionBar label={data.copy['suggestion.resolve']}>
+      <ModerationActionBar
+        label={data.copy['suggestion.resolve']}
+        disabled={editingSection !== null}
+        hint={editingSection !== null
+          ? data.copy['moderation.workbench.unsavedDecisionHint']
+          : null}
+      >
         <SuggestionDecisionControls
           copy={data.copy}
-          disabled={submitting}
+          disabled={submitting || editingSection !== null}
           acceptDisabled={translationBlocked}
           ondecide={beginDecision}
         />
@@ -841,7 +860,7 @@
     </ModerationReviewSection>
   </div>
 
-  {#if decisionStillActionable || form?.error === 'conflict'}
+  {#if decisionStillActionable}
     <form
       id="suggestion-decision"
       class="decision-form"

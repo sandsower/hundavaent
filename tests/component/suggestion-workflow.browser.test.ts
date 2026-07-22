@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import { catalogues } from '$i18n';
@@ -284,6 +284,33 @@ describe('Moderator Suggestion workflow', () => {
     expect(decision?.querySelector('[name="addressLine"]')).toBeNull();
     expect(decision?.querySelector('[name="accessArea"]')).toBeNull();
     expect(decision?.querySelector('[name="evidenceSourceLabel"]')).toBeNull();
+  });
+
+  it('reports unsaved Suggestion edits and guards standalone decisions until cancel', async () => {
+    const editStates: boolean[] = [];
+    const { container } = render(SuggestionReviewPanel, {
+      data: reviewData,
+      form: null,
+      standalone: true,
+      oneditstatechange: (editing: boolean) => editStates.push(editing)
+    });
+
+    await waitFor(() => expect(editStates.at(-1)).toBe(false));
+    await beginSuggestionEdit('Place identity');
+    await waitFor(() => expect(editStates.at(-1)).toBe(true));
+    expect(
+      screen.getByText('Save or cancel this section before choosing a decision.')
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Accept as Candidate' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Needs information' })).toBeDisabled();
+
+    await fireEvent.click(
+      suggestionSectionForm(container, 'identity').querySelector<HTMLButtonElement>(
+        'button[type="button"]'
+      )!
+    );
+    await waitFor(() => expect(editStates.at(-1)).toBe(false));
+    expect(screen.getByRole('button', { name: 'Accept as Candidate' })).toBeEnabled();
   });
 
   it('edits one Suggestion section at a time and posts strict section payloads', async () => {

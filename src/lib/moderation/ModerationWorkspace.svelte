@@ -27,6 +27,7 @@
     reviewErrorMessage = null,
     actionsDisabled = false,
     showDecisionDock = true,
+    decisionHint = null,
     focusTargetId = null,
     reviewContent,
     decisionContent
@@ -258,6 +259,7 @@
         <ModerationActionBar
           label={copy['moderation.workspace.decisionLabel']}
           disabled={actionsDisabled}
+          hint={decisionHint}
           children={decisionContent}
         />
       {/if}

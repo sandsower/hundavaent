@@ -515,6 +515,8 @@ export const enCatalogue = {
   'moderation.workbench.reason.spam': 'Spam',
   'moderation.workbench.reason.other': 'Other',
   'moderation.workbench.draftSaved': 'Draft changes saved.',
+  'moderation.workbench.unsavedDecisionHint':
+    'Save or cancel this section before choosing a decision.',
   'moderation.workbench.editSection': 'Edit {section}',
   'moderation.workbench.needsInformationSaved': 'Information request sent.',
   'moderation.workbench.rejectedSaved': 'Candidate rejected.',
