@@ -30,7 +30,10 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     error(503, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
 
-  return result.value;
+  return {
+    ...result.value,
+    draftSaved: url.searchParams.get('draft') === 'saved'
+  };
 };
 
 // Each action below is itself enforced by security.require_moderator() inside the RPC.

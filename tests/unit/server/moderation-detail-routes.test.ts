@@ -30,8 +30,14 @@ vi.mock('$server/moderation/candidate-workspace', () => ({
   loadModerationCandidateReview: mocks.loadCandidate
 }));
 
-import { actions as suggestionActions } from '../../../src/routes/[lang=lang]/moderation/suggestions/[id]/+page.server';
-import { actions as correctionActions } from '../../../src/routes/[lang=lang]/moderation/corrections-and-reports/[id]/+page.server';
+import {
+  actions as suggestionActions,
+  load as loadSuggestionDetail
+} from '../../../src/routes/[lang=lang]/moderation/suggestions/[id]/+page.server';
+import {
+  actions as correctionActions,
+  load as loadCorrectionDetail
+} from '../../../src/routes/[lang=lang]/moderation/corrections-and-reports/[id]/+page.server';
 import { actions as candidateActions } from '../../../src/routes/[lang=lang]/moderation/places/[id]/+page.server';
 
 const itemId = '30000000-0000-4000-8000-000000000003';
@@ -50,6 +56,22 @@ function actionEvent(path: string) {
 describe('standalone moderation conflict refresh', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it.each([
+    [loadSuggestionDetail, mocks.loadSuggestion],
+    [loadCorrectionDetail, mocks.loadCorrection]
+  ] as const)('exposes direct-route draft save feedback', async (load, loadReview) => {
+    loadReview.mockResolvedValue({ status: 'success', value: { resolved: false } });
+    const url = new URL(`http://localhost/en/moderation/detail/${itemId}?draft=saved`);
+
+    const result = await load({
+      locals: { copy: catalogues.en, requestId: 'request-load', supabase: { rpc: vi.fn() } },
+      params: { lang: 'en', id: itemId },
+      url
+    } as never);
+
+    expect(result).toMatchObject({ draftSaved: true });
   });
 
   it('returns the fresh Suggestion review with a conflict failure', async () => {

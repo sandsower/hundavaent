@@ -48,15 +48,52 @@
   let memberReasonIs = $state('');
   let memberReasonEn = $state('');
   let privateNote = $state('');
+  let dialogElement = $state<HTMLDialogElement>();
+  let returnFocusElement: HTMLElement | null = null;
 
   function submit(event: SubmitEvent): void {
     event.preventDefault();
     onconfirm({ memberReasonIs, memberReasonEn, privateNote });
   }
+
+  function handleCancel(event: Event): void {
+    event.preventDefault();
+    oncancel();
+  }
+
+  function restoreFocus(): void {
+    const target = returnFocusElement;
+    returnFocusElement = null;
+    queueMicrotask(() => {
+      if (target?.isConnected) target.focus();
+    });
+  }
+
+  $effect(() => {
+    const dialog = dialogElement;
+    if (!dialog) return;
+
+    if (open && !dialog.open) {
+      returnFocusElement =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      dialog.showModal();
+    }
+    if (!open && dialog.open) dialog.close();
+
+    return () => {
+      if (dialog.open) dialog.close();
+      restoreFocus();
+    };
+  });
 </script>
 
 {#if open}
-  <dialog class="reason-dialog" open aria-labelledby={titleId} {oncancel}>
+  <dialog
+    class="reason-dialog"
+    aria-labelledby={titleId}
+    bind:this={dialogElement}
+    oncancel={handleCancel}
+  >
     <h2 id={titleId}>{title}</h2>
     <p>{description}</p>
     <form onsubmit={submit}>

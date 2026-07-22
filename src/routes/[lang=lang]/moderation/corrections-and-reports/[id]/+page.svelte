@@ -21,6 +21,9 @@
 </svelte:head>
 
 <main data-ui-mode="operations">
+  {#if data.draftSaved}
+    <p class="notice" role="status">{data.copy['moderation.workbench.draftSaved']}</p>
+  {/if}
   <fieldset data-route-review disabled={Boolean(conflictAction?.conflictRefreshFailed)}>
     <CorrectionReviewPanel data={reviewData} {form} standalone />
   </fieldset>
@@ -32,5 +35,13 @@
     margin: 0;
     border: 0;
     padding: 0;
+  }
+  .notice {
+    margin: 0 0 0.75rem;
+    border-left: 0.3rem solid var(--hv-color-success);
+    background: var(--hv-color-success-soft);
+    padding: 0.7rem 0.85rem;
+    color: var(--hv-color-basalt);
+    font-weight: 800;
   }
 </style>

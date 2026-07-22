@@ -89,6 +89,15 @@ const data = {
 };
 
 describe('CorrectionReviewPanel', () => {
+  it('announces a saved draft on the direct route', () => {
+    render(CorrectionReviewPage, {
+      data: { ...data, draftSaved: true },
+      form: null
+    } as never);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Draft changes saved.');
+  });
+
   it('uses refreshed direct-route conflict data and disables stale actions when refresh fails', () => {
     const refreshedFlag = {
       ...flag,
@@ -230,14 +239,28 @@ describe('CorrectionReviewPanel', () => {
     expect(screen.getByRole('button', { name: 'Open dispute' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Inactivate Place' })).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Confirm useful' }));
-    expect(screen.getByRole('dialog', { name: 'Confirm this report as useful?' })).toBeTruthy();
-    await fireEvent.click(screen.getByRole('button', { name: 'Keep reviewing' }));
+    const confirmUsefulButton = screen.getByRole('button', { name: 'Confirm useful' });
+    confirmUsefulButton.focus();
+    await fireEvent.click(confirmUsefulButton);
+    const confirmDialog = screen.getByRole('dialog', {
+      name: 'Confirm this report as useful?'
+    });
+    await waitFor(() => expect(confirmDialog.matches(':modal')).toBe(true));
+    expect(confirmDialog.contains(document.activeElement)).toBe(true);
+    await fireEvent(confirmDialog, new Event('cancel', { cancelable: true }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(confirmUsefulButton);
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Open dispute' }));
-    expect(screen.getByRole('dialog', { name: 'Open an access dispute?' })).toBeTruthy();
+    const openDisputeButton = screen.getByRole('button', { name: 'Open dispute' });
+    openDisputeButton.focus();
+    await fireEvent.click(openDisputeButton);
+    const reasonDialog = screen.getByRole('dialog', { name: 'Open an access dispute?' });
+    await waitFor(() => expect(reasonDialog.matches(':modal')).toBe(true));
+    expect(reasonDialog.contains(document.activeElement)).toBe(true);
     expect(screen.getByLabelText('Member explanation in Icelandic')).toBeRequired();
-    await fireEvent.click(screen.getByRole('button', { name: 'Keep reviewing' }));
+    await fireEvent(reasonDialog, new Event('cancel', { cancelable: true }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(openDisputeButton);
 
     await fireEvent.click(screen.getByRole('button', { name: 'Inactivate Place' }));
     expect(screen.getByRole('dialog', { name: 'Inactivate this Place?' })).toBeTruthy();

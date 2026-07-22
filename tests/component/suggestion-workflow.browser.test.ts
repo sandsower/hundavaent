@@ -374,11 +374,13 @@ describe('Moderator Suggestion workflow', () => {
         suggestion: moderationSuggestion,
         matches: [placeMatch],
         resolved: false,
-        contributionConfirmed: false
+        contributionConfirmed: false,
+        draftSaved: true
       },
       form: null
     } as never);
 
+    expect(screen.getByRole('status')).toHaveTextContent('Draft changes saved.');
     expect(screen.getByRole('button', { name: 'Accept as Candidate' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Needs information' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Mark as duplicate' })).toBeTruthy();

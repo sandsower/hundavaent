@@ -126,11 +126,20 @@ test('a Moderator edits a Candidate, reloads it, and publishes it', async ({ pag
     await evidenceGroups.nth(index).getByRole('checkbox').first().check();
   }
 
-  await page
+  const publishTrigger = page
     .getByRole('region', { name: 'Decision controls' })
-    .getByRole('button', { name: 'Verify and publish' })
-    .click();
+    .getByRole('button', { name: 'Verify and publish' });
+  await publishTrigger.focus();
+  await publishTrigger.click();
   const publishDialog = page.getByRole('dialog', { name: 'Publish this Place?' });
+  await expect(publishDialog).toBeVisible();
+  await expect(publishDialog).toHaveJSProperty('open', true);
+  expect(await publishDialog.evaluate((dialog) => dialog.matches(':modal'))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(publishDialog).toBeHidden();
+  await expect(publishTrigger).toBeFocused();
+
+  await publishTrigger.click();
   await expect(publishDialog).toBeVisible();
   await publishDialog.getByRole('button', { name: 'Verify and publish' }).click();
   await expect(page.getByRole('status')).toContainText('The Place has been published.');

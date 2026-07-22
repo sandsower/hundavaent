@@ -497,7 +497,15 @@ describe('Low-friction review primitives', () => {
     });
 
     expect(screen.getByRole('region', { name: 'Candidate decisions' })).toBeTruthy();
-    expect(screen.getByRole('dialog', { name: 'Publish this Place?' })).toBeTruthy();
+    const dialog = screen.getByRole('dialog', { name: 'Publish this Place?' });
+    await waitFor(() => expect(dialog.matches(':modal')).toBe(true));
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    const backgroundAction = screen.getAllByRole('button', { name: 'Publish Place' })[0];
+    backgroundAction.focus();
+    expect(document.activeElement).not.toBe(backgroundAction);
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
     await fireEvent.click(screen.getAllByRole('button', { name: 'Publish Place' }).at(-1)!);
     expect(confirm).toHaveBeenCalledOnce();
     await fireEvent.click(screen.getByRole('button', { name: 'Keep reviewing' }));

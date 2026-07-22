@@ -26,7 +26,10 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   if (result.status !== 'success') {
     error(503, { message: locals.copy['error.unexpectedBody'], requestId: locals.requestId });
   }
-  return result.value;
+  return {
+    ...result.value,
+    draftSaved: url.searchParams.get('draft') === 'saved'
+  };
 };
 
 async function runAction(
