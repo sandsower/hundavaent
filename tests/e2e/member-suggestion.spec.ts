@@ -305,12 +305,13 @@ async function resolveSuggestion(
     await expandReviewSection(location);
     await location.getByRole('button', { name: 'Edit Location' }).click();
     const locationForm = location.locator('form[data-section-form="location"]');
+    await locationForm.getByText('Edit location details', { exact: true }).click();
     await locationForm.getByLabel('Address or area').fill('Leiðrétt gata 48');
     await locationForm.getByLabel('Postal code').fill('105');
     await locationForm.getByLabel('Latitude').fill('64.1325');
     await locationForm.getByLabel('Longitude').fill('-21.9024');
     await locationForm.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByRole('status')).toContainText('Draft changes saved.');
+    await expect(page.getByText('Draft changes saved.', { exact: true })).toBeVisible();
     await expect(locationForm).toHaveCount(0);
 
     const matches = page.locator('#suggestion-matches');
