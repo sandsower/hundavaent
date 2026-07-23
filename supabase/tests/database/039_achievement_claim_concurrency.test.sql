@@ -32,16 +32,27 @@ select is(
       values ('78290000-0000-4000-8000-000000000001');
       insert into security.role_grants (user_id, role)
       values ('78290000-0000-4000-8000-000000000001', 'member');
-      insert into private.achievement_policy (
+      insert into private.achievement_policy as policy (
         singleton,
         policy_version,
         credit_spacing_minutes,
+        eligibility_started_at,
         enabled
       )
-      values (true, 'achievement-claim-race-v1', 15, true)
+      values (
+        true,
+        'achievement-claim-race-v1',
+        15,
+        statement_timestamp() - interval '1 day',
+        true
+      )
       on conflict (singleton) do update set
         policy_version = excluded.policy_version,
         credit_spacing_minutes = excluded.credit_spacing_minutes,
+        eligibility_started_at = coalesce(
+          policy.eligibility_started_at,
+          excluded.eligibility_started_at
+        ),
         enabled = excluded.enabled;
       insert into private.achievement_unlocks (
         member_id,
@@ -76,6 +87,27 @@ select is(
       revoke all on function public.test_claim_achievement_with_delay(double precision)
         from public, anon, service_role;
       grant execute on function public.test_claim_achievement_with_delay(double precision)
+        to authenticated;
+      create or replace function public.test_disable_achievements_with_delay(
+        delay_seconds double precision
+      )
+      returns boolean
+      language plpgsql
+      volatile
+      security definer
+      set search_path = ''
+      as $function$
+      begin
+        update private.achievement_policy
+        set enabled = false, updated_at = statement_timestamp()
+        where singleton;
+        perform pg_catalog.pg_sleep(delay_seconds);
+        return true;
+      end;
+      $function$;
+      revoke all on function public.test_disable_achievements_with_delay(double precision)
+        from public, anon, service_role;
+      grant execute on function public.test_disable_achievements_with_delay(double precision)
         to authenticated;
     $setup$
   ),
@@ -182,11 +214,112 @@ select is(
   'The concurrent claims leave one immutable unlock acknowledged once'
 );
 
+select is(
+  extensions.dblink_exec(
+    'achievement_claim_race_a',
+    $reset_unread$
+      reset role;
+      delete from private.achievement_unlocks
+      where member_id = '78290000-0000-4000-8000-000000000001';
+      insert into private.achievement_unlocks (
+        member_id,
+        achievement_key,
+        definition_version,
+        earned_at
+      )
+      values (
+        '78290000-0000-4000-8000-000000000001',
+        'first_favourite',
+        1,
+        now()
+      );
+      set role authenticated;
+    $reset_unread$
+  ),
+  'SET',
+  'A fresh unread fixture is committed before the policy-disable race'
+);
+
+select ok(
+  extensions.dblink_send_query(
+    'achievement_claim_race_a',
+    'select public.test_disable_achievements_with_delay(1)'
+  ) = 1,
+  'A policy disable starts and holds its row lock before commit'
+);
+
+select pg_sleep(0.2);
+
+select ok(
+  extensions.dblink_send_query(
+    'achievement_claim_race_b',
+    $claim_after_disable$
+      with configured as (
+        select set_config(
+          'request.jwt.claim.sub',
+          '78290000-0000-4000-8000-000000000001',
+          false
+        )
+      )
+      select count(*)::bigint
+      from configured,
+      lateral public.claim_my_achievement_celebrations()
+    $claim_after_disable$
+  ) = 1,
+  'A celebration claim starts while the disabling update is uncommitted'
+);
+
+select pg_sleep(0.2);
+
+select is(
+  extensions.dblink_is_busy('achievement_claim_race_b'),
+  1,
+  'The claim waits for the policy update instead of reading stale enabled state'
+);
+
+select results_eq(
+  $$
+    select disabled
+    from extensions.dblink_get_result('achievement_claim_race_a', false)
+      as result(disabled boolean)
+  $$,
+  $$ values (true) $$,
+  'The policy disable commits successfully'
+);
+select results_eq(
+  $$
+    select claimed_count
+    from extensions.dblink_get_result('achievement_claim_race_b', false)
+      as result(claimed_count bigint)
+  $$,
+  $$ values (0::bigint) $$,
+  'A claim serialized after disable returns no private Achievement payload'
+);
+
+select *
+from extensions.dblink_get_result('achievement_claim_race_a', false)
+  as result(disabled boolean);
+select *
+from extensions.dblink_get_result('achievement_claim_race_b', false)
+  as result(claimed_count bigint);
+
+select is(
+  (
+    select notified_at
+    from private.achievement_unlocks
+    where member_id = '78290000-0000-4000-8000-000000000001'
+      and achievement_key = 'first_favourite'
+  ),
+  null::timestamptz,
+  'The disabled policy leaves the unread Achievement unconsumed'
+);
+
 select extensions.dblink_exec(
   'achievement_claim_race_a',
   $cleanup$
     reset role;
     drop function public.test_claim_achievement_with_delay(double precision);
+    drop function public.test_disable_achievements_with_delay(double precision);
     delete from private.achievement_unlocks
     where member_id = '78290000-0000-4000-8000-000000000001';
     delete from security.role_grants

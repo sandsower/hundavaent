@@ -453,8 +453,11 @@ export function configureLocalAchievementPolicy(): Promise<void> {
   return upsertLocalAchievementPolicy(true);
 }
 
-export function disableLocalAchievementPolicy(): Promise<void> {
-  return upsertLocalAchievementPolicy(false);
+export async function disableLocalAchievementPolicy(): Promise<void> {
+  await upsertLocalAchievementPolicy(false);
+  runLocalDatabaseSql(`
+    delete from private.achievement_policy where singleton;
+  `);
 }
 
 async function upsertLocalAchievementPolicy(enabled: boolean): Promise<void> {
@@ -513,6 +516,13 @@ export async function provisionLocalAchievementProgress(memberEmail: string): Pr
   runLocalDatabaseSql(`
     begin;
     set local session_replication_role = replica;
+
+    -- Visual fixtures need three already-spaced eligible events without waiting 45 minutes.
+    -- This postgres-only local seam bypasses the immutable trigger and is removed with the
+    -- entire policy row by disableLocalAchievementPolicy after the journey.
+    update private.achievement_policy
+    set eligibility_started_at = statement_timestamp() - interval '1 hour'
+    where singleton and enabled;
 
     insert into private.check_ins
       (member_id, place_id, proximity_confirmed, request_id, checked_in_at)

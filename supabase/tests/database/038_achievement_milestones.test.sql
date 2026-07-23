@@ -16,6 +16,12 @@ select has_column(
   'progress_kind',
   'Achievement definitions designate their private progress calculation'
 );
+select has_column(
+  'private',
+  'achievement_policy',
+  'eligibility_started_at',
+  'Achievement policy records the immutable first-activation boundary'
+);
 select has_function(
   'private',
   'get_member_achievement_progress',
@@ -154,29 +160,67 @@ values
 insert into auth.users (id)
 values
   ('78230000-0000-4000-8000-000000000001'),
-  ('78230000-0000-4000-8000-000000000002');
+  ('78230000-0000-4000-8000-000000000002'),
+  ('78230000-0000-4000-8000-000000000003');
 
 insert into private.member_accounts (user_id)
 values
   ('78230000-0000-4000-8000-000000000001'),
-  ('78230000-0000-4000-8000-000000000002');
+  ('78230000-0000-4000-8000-000000000002'),
+  ('78230000-0000-4000-8000-000000000003');
 
 insert into security.role_grants (user_id, role)
 values
   ('78230000-0000-4000-8000-000000000001', 'member'),
-  ('78230000-0000-4000-8000-000000000002', 'member');
+  ('78230000-0000-4000-8000-000000000002', 'member'),
+  ('78230000-0000-4000-8000-000000000003', 'member');
+
+-- This durable activity exists before the launch boundary and must never be backfilled.
+insert into private.check_ins (
+  member_id,
+  place_id,
+  proximity_confirmed,
+  request_id,
+  checked_in_at
+)
+values (
+  '78230000-0000-4000-8000-000000000003',
+  '78220000-0000-4000-8000-000000000001',
+  'unknown',
+  '78240000-0000-4000-8000-000000000003',
+  '2026-07-20T08:00:00Z'
+);
 
 insert into private.achievement_policy (
   singleton,
   policy_version,
   credit_spacing_minutes,
+  eligibility_started_at,
   enabled
 )
-values (true, 'achievement-milestone-test-v1', 15, true)
+values (
+  true,
+  'achievement-milestone-test-v1',
+  15,
+  '2026-07-20T09:00:00Z',
+  true
+)
 on conflict (singleton) do update set
   policy_version = excluded.policy_version,
   credit_spacing_minutes = excluded.credit_spacing_minutes,
+  eligibility_started_at = excluded.eligibility_started_at,
   enabled = excluded.enabled;
+
+select throws_ok(
+  $$
+    update private.achievement_policy
+    set eligibility_started_at = eligibility_started_at + interval '1 second'
+    where singleton
+  $$,
+  '55000',
+  'Achievement eligibility start is immutable once set',
+  'The first-activation eligibility boundary cannot be moved'
+);
 
 insert into private.check_ins (
   member_id,
@@ -200,6 +244,80 @@ values
     '78240000-0000-4000-8000-000000000002',
     '2026-07-20T10:30:00Z'
   );
+
+select set_config(
+  'request.jwt.claim.sub',
+  '78230000-0000-4000-8000-000000000003',
+  true
+);
+set local role authenticated;
+
+select ok(
+  (
+    select count(*) = 1
+      and bool_and(enabled)
+      and bool_and(achievement_key is null)
+      and bool_and(entry_kind is null)
+    from public.get_my_achievements()
+  ),
+  'Pre-activation activity produces neither surfaced progress nor an earned Achievement'
+);
+
+reset role;
+
+select is(
+  (
+    select count(*)
+    from private.achievement_unlocks
+    where member_id = '78230000-0000-4000-8000-000000000003'
+  ),
+  0::bigint,
+  'The launch boundary does not backfill an unlock from historical activity'
+);
+
+insert into private.check_ins (
+  member_id,
+  place_id,
+  proximity_confirmed,
+  request_id,
+  checked_in_at
+)
+values (
+  '78230000-0000-4000-8000-000000000003',
+  '78220000-0000-4000-8000-000000000002',
+  'unknown',
+  '78240000-0000-4000-8000-000000000004',
+  '2026-07-20T11:00:00Z'
+);
+
+select set_config(
+  'request.jwt.claim.sub',
+  '78230000-0000-4000-8000-000000000003',
+  true
+);
+set local role authenticated;
+
+select is(
+  (
+    select max(progress_current)
+    from public.get_my_achievements()
+    where entry_kind = 'milestone'
+  ),
+  1,
+  'Post-activation activity starts milestone progress at one without historical credit'
+);
+select is(
+  (
+    select count(*)
+    from public.get_my_achievements()
+    where achievement_key = 'first_checkin'
+      and entry_kind = 'earned'
+  ),
+  1::bigint,
+  'Post-activation activity can earn its participation Achievement'
+);
+
+reset role;
 
 select set_config(
   'request.jwt.claim.sub',
