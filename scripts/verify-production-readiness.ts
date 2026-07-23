@@ -35,8 +35,11 @@ interface BoundedResponse {
 }
 
 class ProductionAssertionPending extends Error {
-  constructor(readonly assertion: PendingProductionAssertion) {
+  readonly assertion: PendingProductionAssertion;
+
+  constructor(assertion: PendingProductionAssertion) {
     super(`${assertion.name}: ${assertion.detail}`);
+    this.assertion = assertion;
   }
 }
 

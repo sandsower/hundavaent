@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -64,6 +66,32 @@ function readinessFetch({
 describe('production readiness verifier', () => {
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('runs through the same Node strip-only parser used by production', () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--experimental-strip-types',
+        'scripts/verify-production-readiness.ts',
+        'https://hundavaent.is',
+        releaseSha,
+        '--timeout-ms',
+        '0',
+        '--interval-ms',
+        '0'
+      ],
+      {
+        cwd: process.cwd(),
+        encoding: 'utf8'
+      }
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'Production readiness timed out: production.request (no readiness attempt completed)'
+    );
+    expect(result.stderr).not.toContain('ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX');
   });
 
   it('restarts the complete assertion set until staggered edge convergence is coherent', async () => {
