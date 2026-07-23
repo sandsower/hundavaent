@@ -25,6 +25,7 @@ import {
   provisionLocalPlaceFlagReviewFixture,
   provisionLocalPrivateRatingNoteFixture,
   provisionLocalSuggestionFixture,
+  provisionLocalWeeklyRoundupFixtures,
   retireLocalDogFriendlinessFixture,
   retireLocalAchievementProgress,
   retireLocalPlaceFlagFixtures,
@@ -1111,5 +1112,100 @@ test('the private achievements route is keyboard-operable and Axe-clean in both 
     }
   } finally {
     await disableLocalAchievementPolicy();
+  }
+});
+
+test('the private weekly roundup is keyboard-operable, responsive, and Axe-clean in both languages', async ({
+  page,
+  evidence
+}) => {
+  const scenarios = [
+    {
+      locale: 'en',
+      emailLabel: 'Email address',
+      sendLabel: 'Send me a sign-in link',
+      unconfiguredTitle: 'Choose where your trail begins',
+      language: 'English',
+      emailInterest: 'I would be interested in receiving this roundup by email later',
+      save: 'Save roundup settings',
+      populatedTitle: 'A few fresh tracks',
+      edit: 'Edit roundup settings',
+      saved: 'Your private roundup settings were saved. No email was sent.'
+    },
+    {
+      locale: 'is',
+      emailLabel: 'Netfang',
+      sendLabel: 'Senda mér innskráningartengil',
+      unconfiguredTitle: 'Veldu hvar slóðin þín byrjar',
+      language: 'Íslenska',
+      emailInterest: 'Ég hefði áhuga á að fá þetta vikuyfirlit í tölvupósti síðar',
+      save: 'Vista stillingar vikuyfirlits',
+      populatedTitle: 'Nokkur ný spor',
+      edit: 'Breyta stillingum vikuyfirlits',
+      saved: 'Einkastillingar vikuyfirlitsins voru vistaðar. Enginn tölvupóstur var sendur.'
+    }
+  ] as const;
+
+  provisionLocalWeeklyRoundupFixtures();
+
+  for (const scenario of scenarios) {
+    await page.context().clearCookies();
+    const email = `weekly-roundup-a11y-${scenario.locale}-${Date.now()}@example.invalid`;
+    const roundupPath = `/${scenario.locale}/account/roundup`;
+    await page.goto(`/${scenario.locale}/account?returnTo=${encodeURIComponent(roundupPath)}`);
+    await waitForHydration(page);
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel(scenario.emailLabel).fill(email);
+    await dialog.getByRole('button', { name: scenario.sendLabel }).click();
+    await page.goto(await waitForLocalMagicLink(email));
+    await waitForHydration(page);
+    await expect(page).toHaveURL(roundupPath);
+    await expect(page.getByRole('heading', { name: scenario.unconfiguredTitle })).toBeVisible();
+
+    const municipality = page.getByRole('checkbox', { name: 'Reykjavík' });
+    await municipality.focus();
+    await page.keyboard.press('Space');
+    await expect(municipality).toBeChecked();
+
+    const secondMunicipality = page.getByRole('checkbox', { name: 'Kópavogur' });
+    await secondMunicipality.focus();
+    await page.keyboard.press('Space');
+    await expect(secondMunicipality).toBeChecked();
+
+    const language = page.getByRole('radio', { name: scenario.language });
+    await language.focus();
+    await page.keyboard.press('Space');
+    await expect(language).toBeChecked();
+
+    const emailInterest = page.getByRole('checkbox', { name: scenario.emailInterest });
+    await emailInterest.focus();
+    await page.keyboard.press('Space');
+    await expect(emailInterest).toBeChecked();
+
+    const save = page.getByRole('button', { name: scenario.save });
+    await save.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { name: scenario.populatedTitle })).toBeVisible();
+    await expect(page.getByRole('status')).toContainText(scenario.saved);
+    await expectNoSeriousAxeViolations(page, evidence);
+
+    const edit = page.getByRole('button', { name: scenario.edit });
+    await edit.focus();
+    await page.keyboard.press('Enter');
+    await expect(emailInterest).toBeChecked();
+    await emailInterest.focus();
+    await page.keyboard.press('Space');
+    await expect(emailInterest).not.toBeChecked();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expectNoHorizontalPageScroll(page);
+    await expectNoSeriousAxeViolations(page, evidence);
+
+    await save.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('status')).toContainText(scenario.saved);
+    await page.emulateMedia({ reducedMotion: null });
+    await page.setViewportSize({ width: 1280, height: 900 });
   }
 });
