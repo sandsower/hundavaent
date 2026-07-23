@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
 
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import type { PlaceCategory } from '$domain/place';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
+  import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
+  import type { FavouriteRecognition } from '$lib/member-activity/types';
   import AccessSymbols from '$lib/discovery/AccessSymbols.svelte';
   import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
   import PhotoCredit from './PhotoCredit.svelte';
@@ -39,6 +41,21 @@
   }: Props = $props();
   let selectButton = $state<HTMLButtonElement>();
   let photoUnavailable = $state(false);
+  let recognition = $state<FavouriteRecognition | null>(null);
+  let recognitionTimer: ReturnType<typeof setTimeout> | undefined;
+
+  onDestroy(() => {
+    if (recognitionTimer) clearTimeout(recognitionTimer);
+  });
+
+  function acknowledgeFavourite(nextRecognition: FavouriteRecognition): void {
+    recognition = nextRecognition;
+    if (recognitionTimer) clearTimeout(recognitionTimer);
+    recognitionTimer = setTimeout(() => {
+      recognition = null;
+      recognitionTimer = undefined;
+    }, 5_000);
+  }
 
   $effect(() => {
     if (selected && focusSelected && selectButton) {
@@ -135,6 +152,7 @@
           {copy}
           {signInHref}
           onChange={onFavouriteChange}
+          onRecognized={acknowledgeFavourite}
         />
       {:else}
         <div class="place-target static-summary">
@@ -143,6 +161,13 @@
         </div>
       {/if}
     </div>
+    {#if recognition}
+      <WeeklyRhythmAcknowledgement
+        placeName={place.name}
+        activatedCurrentWeek={recognition.activatedCurrentWeek}
+        {copy}
+      />
+    {/if}
     <div class="place-facts">
       <AccessSymbols
         placeName={place.name}

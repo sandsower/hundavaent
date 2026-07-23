@@ -655,6 +655,22 @@ for (const locale of ['is', 'en'] as const) {
     ).toBeVisible();
     await capture(page, evidence, `saved-places-${locale}-desktop.png`);
 
+    await page.goto(`/${locale}/account`);
+    const weeklyRhythmHistory = page.locator('[data-weekly-rhythm-history]');
+    await expect(weeklyRhythmHistory).toHaveAttribute('data-state', 'available');
+    await expect(weeklyRhythmHistory.locator('[data-week-start]')).toHaveCount(8);
+    await expect(page.locator('[data-weekly-rhythm-indicator][data-state="active"]')).toBeVisible();
+    await capture(page, evidence, `weekly-rhythm-${locale}-desktop.png`);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator('[data-weekly-rhythm-indicator][data-state="active"]')).toBeVisible();
+    await capture(page, evidence, `weekly-rhythm-${locale}-mobile.png`);
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await capture(page, evidence, `weekly-rhythm-${locale}-reduced-motion-desktop.png`);
+    await page.emulateMedia({ reducedMotion: null });
+
     // The personal-history route (personal-history): the same Place is also checked in, so its four views
     // show a mixed Favourite-and-visited state rather than an empty one.
     const checkInMutation = await page.evaluate(async (placeId) => {
