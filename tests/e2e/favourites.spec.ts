@@ -72,6 +72,10 @@ test('Favorites stay private and synchronize across authentication, views, tabs,
   await expect(page).toHaveURL(/q=Published/);
   await expect(page).toHaveURL(/category=outdoors/);
   await expect(page).toHaveURL(/#favourite-origin$/);
+  await expect(page.locator('[data-weekly-rhythm-acknowledgement]')).toHaveCount(1);
+  await expect(page.getByText("This week's trail has begun")).toBeVisible();
+  await expect(page.getByText('Published Place left a fresh pawprint.')).toBeVisible();
+  await expect(page).not.toHaveURL(/pendingFirstTimeForPlace|pendingActivatedCurrentWeek/);
 
   const otherTab = await context.newPage();
   await otherTab.goto(`/en?place=${placeId}&view=map`);
@@ -96,7 +100,22 @@ test('Favorites stay private and synchronize across authentication, views, tabs,
     timeout: 15_000
   });
 
+  const repeatedSaveResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/favourites/${placeId}`) && response.request().method() === 'PUT'
+  );
   await page.getByRole('button', { name: 'Add Published Place to favorites' }).click();
+  expect(await (await repeatedSaveResponse).json()).toMatchObject({
+    placeId,
+    isFavourite: true,
+    recognition: {
+      firstTimeForPlace: false,
+      activatedCurrentWeek: false,
+      currentWeek: {
+        active: true
+      }
+    }
+  });
   await expect(
     otherTabSelectedPlace.getByRole('button', {
       name: 'Remove Published Place from favorites'
@@ -183,4 +202,27 @@ test('an Inactive saved Place stays recognizable and removable without exposing 
   } finally {
     setLocalPlaceLifecycle(placeId, 'published');
   }
+});
+
+test('deferred recognition appears only in the selected desktop Place card', async ({ page }) => {
+  const email = `selected-favourite-${Date.now()}@example.invalid`;
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`/en?place=${placeId}&view=map`);
+  await waitForHydration(page);
+
+  const selectedPlace = page.getByRole('complementary', { name: 'Selected place' });
+  await selectedPlace
+    .getByRole('link', { name: 'Sign in to add Published Place to favorites' })
+    .click();
+  await expect(
+    page.getByRole('dialog', { name: 'Add Published Place to your favorites' })
+  ).toBeVisible();
+
+  await completeEmailSignIn(page, email);
+  await expect(page).toHaveURL(new RegExp(`place=${placeId}.*view=map|view=map.*place=${placeId}`));
+  await expect(page.locator('[data-weekly-rhythm-acknowledgement]')).toHaveCount(1);
+  await expect(selectedPlace.locator('[data-weekly-rhythm-acknowledgement]')).toHaveCount(1);
+  await expect(page.locator('[data-place-card] [data-weekly-rhythm-acknowledgement]')).toHaveCount(
+    0
+  );
 });

@@ -10,6 +10,7 @@ export type PendingIntentCompletion =
   | {
       status: 'completed';
       action: 'favourite';
+      placeId: string;
       completionStatus: 'completed';
       recognition: FavouriteRecognition;
     }
@@ -52,6 +53,7 @@ export async function completePendingAuthIntent(
       return {
         status: 'completed',
         action: 'favourite',
+        placeId: completion.place_id,
         completionStatus: 'completed',
         recognition
       };

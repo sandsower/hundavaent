@@ -22,12 +22,9 @@ export type WeeklyRhythmResult =
 export type WeeklyRhythmHistoryResult =
   { status: 'available'; weeks: WeeklyRhythmWeek[] } | { status: 'unavailable' };
 
-type RpcResponse = Promise<{ data: unknown; error: unknown }>;
-type UnregisteredRpc = (name: string, args?: Record<string, never>) => RpcResponse;
-
 export async function getWeeklyRhythm(client: RequestSupabaseClient): Promise<WeeklyRhythmResult> {
   try {
-    const { data, error } = await unregisteredRpc(client)('get_current_member_weekly_rhythm');
+    const { data, error } = await client.rpc('get_current_member_weekly_rhythm');
     if (error) return { status: 'unavailable' };
     const row = Array.isArray(data) && data.length === 1 ? data[0] : null;
     if (!isCurrentWeekRow(row)) return { status: 'unavailable' };
@@ -45,7 +42,7 @@ export async function getWeeklyRhythmHistory(
   client: RequestSupabaseClient
 ): Promise<WeeklyRhythmHistoryResult> {
   try {
-    const { data, error } = await unregisteredRpc(client)('list_current_member_weekly_rhythm');
+    const { data, error } = await client.rpc('list_current_member_weekly_rhythm');
     if (error || !isEightWeekHistory(data)) return { status: 'unavailable' };
 
     return {
@@ -69,7 +66,8 @@ export function mapFavouriteRecognition(row: unknown): FavouriteRecognition | nu
     !isDateOnly(row.current_week_ends_on) ||
     typeof row.current_week_active !== 'boolean' ||
     dateValue(row.current_week_ends_on)! - dateValue(row.current_week_starts_on)! !==
-      6 * dayMilliseconds
+      6 * dayMilliseconds ||
+    !hasMondayToSundayBoundary(row.current_week_starts_on, row.current_week_ends_on)
   ) {
     return null;
   }
@@ -83,12 +81,6 @@ export function mapFavouriteRecognition(row: unknown): FavouriteRecognition | nu
       active: row.current_week_active
     }
   };
-}
-
-function unregisteredRpc(client: RequestSupabaseClient): UnregisteredRpc {
-  // Database types are regenerated after migrations in integration. Keeping this narrow cast here
-  // lets the migration and its server boundary land atomically without hand-editing generated code.
-  return client.rpc.bind(client) as unknown as UnregisteredRpc;
 }
 
 function isEightWeekHistory(value: unknown): value is Array<{
@@ -110,6 +102,7 @@ function isEightWeekHistory(value: unknown): value is Array<{
     if (startsAt === null || endsAt === null || endsAt - startsAt !== 6 * dayMilliseconds) {
       return false;
     }
+    if (!hasMondayToSundayBoundary(week.starts_on, week.ends_on)) return false;
     if (index === 0) return true;
     const precedingStart = dateValue(value[index - 1].starts_on);
     return precedingStart !== null && startsAt - precedingStart === 7 * dayMilliseconds;
@@ -128,7 +121,10 @@ function isCurrentWeekRow(
     return false;
   }
 
-  return dateValue(value.ends_on)! - dateValue(value.starts_on)! === 6 * dayMilliseconds;
+  return (
+    dateValue(value.ends_on)! - dateValue(value.starts_on)! === 6 * dayMilliseconds &&
+    hasMondayToSundayBoundary(value.starts_on, value.ends_on)
+  );
 }
 
 function isHistoryWeekRow(
@@ -136,6 +132,13 @@ function isHistoryWeekRow(
 ): value is { starts_on: string; ends_on: string; current: boolean; active: boolean } {
   if (!isRecord(value) || typeof value.current !== 'boolean') return false;
   return isCurrentWeekRow(value);
+}
+
+function hasMondayToSundayBoundary(startsOn: string, endsOn: string): boolean {
+  return (
+    new Date(`${startsOn}T00:00:00.000Z`).getUTCDay() === 1 &&
+    new Date(`${endsOn}T00:00:00.000Z`).getUTCDay() === 0
+  );
 }
 
 function mapCurrentWeek(row: { starts_on: string; ends_on: string; active: boolean }): CurrentWeek {

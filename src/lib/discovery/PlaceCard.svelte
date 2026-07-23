@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { onDestroy, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
 
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import type { PlaceCategory } from '$domain/place';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
   import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
+  import { subscribeToDeferredFavouriteRecognition } from '$lib/member-activity/client';
   import type { FavouriteRecognition } from '$lib/member-activity/types';
   import AccessSymbols from '$lib/discovery/AccessSymbols.svelte';
   import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
@@ -47,6 +48,9 @@
   onDestroy(() => {
     if (recognitionTimer) clearTimeout(recognitionTimer);
   });
+  onMount(() =>
+    subscribeToDeferredFavouriteRecognition(acknowledgeFavourite, place.placeId, 'list')
+  );
 
   function acknowledgeFavourite(nextRecognition: FavouriteRecognition): void {
     recognition = nextRecognition;

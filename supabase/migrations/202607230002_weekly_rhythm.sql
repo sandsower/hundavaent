@@ -158,8 +158,8 @@ begin
       raise exception using errcode = '22023', message = 'Discoverable Place required';
     end if;
 
-    insert into private.member_favourites (user_id, place_id, created_at)
-    values (actor_id, requested_place_id, command_time)
+    insert into private.member_favourites (user_id, place_id)
+    values (actor_id, requested_place_id)
     on conflict on constraint member_favourites_pkey do nothing
     returning member_favourites.created_at into state_changed_at;
 
@@ -370,7 +370,7 @@ begin
       favourite_week_starts_on,
       favourite_week_ends_on,
       favourite_week_active
-    from public.set_current_favourite(intent.place_id, true);
+    from public.set_current_favourite(intent.place_id, true) as result;
     completed_status := 'completed';
   else
     insert into private.pending_member_rating_completions (

@@ -64,7 +64,18 @@ describe('Weekly rhythm server boundary', () => {
         current: index === 6,
         active: false
       })),
-      [{ starts_on: 'private timestamp', ends_on: '2026-07-26', active: true }]
+      [{ starts_on: 'private timestamp', ends_on: '2026-07-26', active: true }],
+      [{ starts_on: '2026-07-21', ends_on: '2026-07-27', active: true }],
+      Array.from({ length: 8 }, (_, index) => {
+        const startsAt = new Date(Date.UTC(2026, 5, 2 + index * 7));
+        const endsAt = new Date(startsAt.getTime() + 6 * 24 * 60 * 60 * 1000);
+        return {
+          starts_on: startsAt.toISOString().slice(0, 10),
+          ends_on: endsAt.toISOString().slice(0, 10),
+          current: index === 7,
+          active: index === 7
+        };
+      })
     ];
 
     for (const data of malformedValues) {
@@ -106,5 +117,14 @@ describe('Weekly rhythm server boundary', () => {
       }
     });
     expect(mapFavouriteRecognition({ first_time_for_place: true })).toBeNull();
+    expect(
+      mapFavouriteRecognition({
+        first_time_for_place: true,
+        activated_current_week: true,
+        current_week_starts_on: '2026-07-21',
+        current_week_ends_on: '2026-07-27',
+        current_week_active: true
+      })
+    ).toBeNull();
   });
 });

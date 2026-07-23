@@ -61,8 +61,8 @@
       if (desiredState && result.recognition.firstTimeForPlace) {
         onRecognized(result.recognition);
       }
+      publishWeeklyRhythmActivation(result.recognition.currentWeek);
       if (result.recognition.activatedCurrentWeek) {
-        publishWeeklyRhythmActivation(result.recognition.currentWeek);
         publishWeeklyRhythmInvalidation();
       }
       publishFavouriteInvalidation();

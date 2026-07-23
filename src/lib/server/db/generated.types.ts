@@ -61,7 +61,12 @@ export type Database = {
         Args: { command_request_id: string; pending_token: string }
         Returns: {
           action: string
+          activated_current_week: boolean
           completion_status: string
+          current_week_active: boolean
+          current_week_ends_on: string
+          current_week_starts_on: string
+          first_time_for_place: boolean
           overall_rating: number | null
           place_id: string
         }[]
@@ -246,6 +251,14 @@ export type Database = {
           deletion_requested_at: string
           deletion_status: string
           member_id: string
+        }[]
+      }
+      get_current_member_weekly_rhythm: {
+        Args: never
+        Returns: {
+          active: boolean
+          ends_on: string
+          starts_on: string
         }[]
       }
       get_current_user_roles: { Args: never; Returns: string[] }
@@ -692,6 +705,15 @@ export type Database = {
           successor_available: boolean
           successor_name: string | null
           successor_place_id: string | null
+        }[]
+      }
+      list_current_member_weekly_rhythm: {
+        Args: never
+        Returns: {
+          active: boolean
+          current: boolean
+          ends_on: string
+          starts_on: string
         }[]
       }
       list_member_contributor_priority: {
@@ -1461,7 +1483,12 @@ export type Database = {
       set_current_favourite: {
         Args: { desired_state: boolean; requested_place_id: string }
         Returns: {
+          activated_current_week: boolean
           changed_at: string
+          current_week_active: boolean
+          current_week_ends_on: string
+          current_week_starts_on: string
+          first_time_for_place: boolean
           is_favourite: boolean
           place_id: string
         }[]

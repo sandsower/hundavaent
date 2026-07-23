@@ -653,6 +653,89 @@ describe('Member auth routes', () => {
     });
   });
 
+  it('loads the private eight-week rhythm for the signed-in account', async () => {
+    const weeks = Array.from({ length: 8 }, (_, index) => {
+      const startsOn = new Date(Date.UTC(2026, 4, 25 + index * 7));
+      const endsOn = new Date(startsOn);
+      endsOn.setUTCDate(startsOn.getUTCDate() + 6);
+      return {
+        starts_on: startsOn.toISOString().slice(0, 10),
+        ends_on: endsOn.toISOString().slice(0, 10),
+        current: index === 7,
+        active: index === 6 || index === 7
+      };
+    });
+    const rpc = vi.fn(async (name: string) => {
+      if (name === 'get_current_member_account') {
+        return {
+          data: [
+            {
+              created_at: '2026-07-01T12:00:00Z',
+              deletion_status: 'active',
+              deletion_requested_at: null
+            }
+          ],
+          error: null
+        };
+      }
+      if (name === 'has_current_user_role') return { data: false, error: null };
+      if (name === 'list_current_member_weekly_rhythm') return { data: weeks, error: null };
+      throw new Error(`Unexpected RPC: ${name}`);
+    });
+    const accountLoad = _createLoad(() => ({
+      status: 'unavailable',
+      reason: 'missing_app_origin'
+    }));
+
+    const loaded = await accountLoad({
+      locals: {
+        requestId: 'request-weekly-rhythm-history',
+        supabase: {
+          auth: {
+            getUser: async () => ({
+              data: {
+                user: {
+                  id: 'member-1',
+                  email: 'member@example.is',
+                  app_metadata: { provider: 'email' }
+                }
+              },
+              error: null
+            })
+          },
+          rpc
+        }
+      },
+      params: { lang: 'en' },
+      url: new URL('http://localhost/en/account?returnTo=%2Fen')
+    } as never);
+    if (!loaded) throw new Error('Expected authenticated account data');
+
+    expect(loaded).toMatchObject({
+      member: { email: 'member@example.is' },
+      weeklyRhythmHistory: {
+        status: 'available'
+      }
+    });
+    expect(loaded.weeklyRhythmHistory).toMatchObject({
+      status: 'available',
+      weeks: expect.arrayContaining([
+        { startsOn: '2026-05-25', endsOn: '2026-05-31', current: false, active: false }
+      ])
+    });
+    expect(loaded.weeklyRhythmHistory).toMatchObject({
+      status: 'available',
+      weeks: expect.arrayContaining([
+        { startsOn: '2026-07-06', endsOn: '2026-07-12', current: false, active: true },
+        { startsOn: '2026-07-13', endsOn: '2026-07-19', current: true, active: true }
+      ])
+    });
+    expect(
+      loaded.weeklyRhythmHistory.status === 'available' ? loaded.weeklyRhythmHistory.weeks : []
+    ).toHaveLength(8);
+    expect(rpc).toHaveBeenCalledWith('list_current_member_weekly_rhythm');
+  });
+
   it('returns denied Facebook consent to bilingual Member recovery', async () => {
     await expect(
       facebookCallback({
@@ -1054,7 +1137,7 @@ describe('Member auth routes', () => {
     ).rejects.toMatchObject({
       status: 303,
       location:
-        '/en?place=place-1&authResult=success&authMethod=email&pendingAction=favourite&pendingResult=completed&pendingFirstTimeForPlace=1&pendingActivatedCurrentWeek=1&pendingCurrentWeekStartsOn=2026-07-13&pendingCurrentWeekEndsOn=2026-07-19&pendingCurrentWeekActive=1'
+        '/en?place=place-1&authResult=success&authMethod=email&pendingAction=favourite&pendingResult=completed&pendingPlaceId=place-1&pendingFirstTimeForPlace=1&pendingActivatedCurrentWeek=1&pendingCurrentWeekStartsOn=2026-07-13&pendingCurrentWeekEndsOn=2026-07-19&pendingCurrentWeekActive=1'
     });
     expect(calls).toEqual(['activate_current_member', 'complete_auth_pending_intent']);
   });

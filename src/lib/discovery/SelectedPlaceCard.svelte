@@ -80,7 +80,9 @@
     if (recognitionTimer) clearTimeout(recognitionTimer);
   });
 
-  onMount(() => subscribeToDeferredFavouriteRecognition(acknowledgeFavourite, place.placeId));
+  onMount(() =>
+    subscribeToDeferredFavouriteRecognition(acknowledgeFavourite, place.placeId, 'selected')
+  );
 
   function acknowledgeFavourite(nextRecognition: FavouriteRecognition): void {
     recognition = nextRecognition;

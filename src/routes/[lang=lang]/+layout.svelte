@@ -116,7 +116,7 @@
       });
     }
     if (pendingAction === 'favourite' && pendingResult === 'completed') {
-      const placeId = url.searchParams.get('place');
+      const placeId = url.searchParams.get('pendingPlaceId');
       const startsOn = url.searchParams.get('pendingCurrentWeekStartsOn');
       const endsOn = url.searchParams.get('pendingCurrentWeekEndsOn');
       const firstTimeForPlace = parseQueryBoolean(url.searchParams.get('pendingFirstTimeForPlace'));
@@ -137,7 +137,11 @@
           activatedCurrentWeek,
           currentWeek: { startsOn, endsOn, active }
         };
-        publishDeferredFavouriteRecognition(placeId, recognition);
+        const target =
+          url.searchParams.get('place') === placeId && url.searchParams.get('view') !== 'list'
+            ? 'selected'
+            : 'list';
+        publishDeferredFavouriteRecognition(placeId, target, recognition);
         if (activatedCurrentWeek) {
           publishWeeklyRhythmActivation(recognition.currentWeek);
           publishWeeklyRhythmInvalidation();
@@ -150,6 +154,7 @@
       'authMethod',
       'pendingAction',
       'pendingRetryResolved',
+      'pendingPlaceId',
       'pendingFirstTimeForPlace',
       'pendingActivatedCurrentWeek',
       'pendingCurrentWeekStartsOn',
@@ -403,6 +408,19 @@
 
   .account-label-compact {
     display: none;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    padding: 0;
+    border: 0;
+    margin: -1px;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   a:focus-visible {

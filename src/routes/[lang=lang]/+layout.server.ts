@@ -128,6 +128,7 @@ function resolvedPendingIntentUrl(
     | {
         status: 'completed';
         action: 'favourite';
+        placeId: string;
         completionStatus: string;
         recognition: {
           firstTimeForPlace: boolean;
@@ -148,6 +149,7 @@ function resolvedPendingIntentUrl(
   if (completion.status === 'completed') {
     target.searchParams.set('pendingAction', completion.action);
     if (completion.action === 'favourite') {
+      target.searchParams.set('pendingPlaceId', completion.placeId);
       target.searchParams.set(
         'pendingFirstTimeForPlace',
         completion.recognition.firstTimeForPlace ? '1' : '0'

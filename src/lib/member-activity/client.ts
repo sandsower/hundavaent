@@ -6,8 +6,11 @@ export const weeklyRhythmChannelName = 'hundavaent-weekly-rhythm';
 export const weeklyRhythmStorageKey = 'hundavaent:weekly-rhythm:invalidate';
 const sourceId = createSourceId();
 
+export type DeferredFavouriteRecognitionTarget = 'list' | 'selected';
+
 interface DeferredFavouriteRecognition {
   placeId: string;
+  target: DeferredFavouriteRecognitionTarget;
   recognition: FavouriteRecognition;
 }
 
@@ -91,22 +94,26 @@ export function subscribeToWeeklyRhythmActivation(
 
 export function publishDeferredFavouriteRecognition(
   placeId: string,
+  target: DeferredFavouriteRecognitionTarget,
   recognition: FavouriteRecognition
 ): void {
   window.dispatchEvent(
     new CustomEvent<DeferredFavouriteRecognition>(deferredFavouriteRecognitionEventName, {
-      detail: { placeId, recognition }
+      detail: { placeId, target, recognition }
     })
   );
 }
 
 export function subscribeToDeferredFavouriteRecognition(
   onRecognize: (recognition: FavouriteRecognition) => void,
-  placeId: string
+  placeId: string,
+  target: DeferredFavouriteRecognitionTarget
 ): () => void {
   const handleRecognition = (event: Event) => {
     if (!(event instanceof CustomEvent) || !isDeferredFavouriteRecognition(event.detail)) return;
-    if (event.detail.placeId === placeId) onRecognize(event.detail.recognition);
+    if (event.detail.placeId === placeId && event.detail.target === target) {
+      onRecognize(event.detail.recognition);
+    }
   };
   window.addEventListener(deferredFavouriteRecognitionEventName, handleRecognition);
   return () => window.removeEventListener(deferredFavouriteRecognitionEventName, handleRecognition);
@@ -131,6 +138,8 @@ function isDeferredFavouriteRecognition(value: unknown): value is DeferredFavour
     value !== null &&
     'placeId' in value &&
     typeof value.placeId === 'string' &&
+    'target' in value &&
+    (value.target === 'list' || value.target === 'selected') &&
     'recognition' in value &&
     typeof value.recognition === 'object' &&
     value.recognition !== null &&

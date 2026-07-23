@@ -129,20 +129,17 @@ where id = '60000000-0000-4000-8000-000000000003';
 select set_config('request.jwt.claim.sub', '76700000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 
-select is(
+select ok(
   (
-    select concat_ws(
-      ':',
-      result.first_time_for_place,
-      result.activated_current_week,
-      result.current_week_active
-    )
+    select
+      result.first_time_for_place
+      and result.activated_current_week
+      and result.current_week_active
     from public.set_current_favourite(
       '30000000-0000-4000-8000-000000000003',
       true
     ) as result
   ),
-  'true:true:true',
   'The first successful save creates first-Place and active-week recognition together'
 );
 select is(
@@ -200,11 +197,18 @@ select is(
   false,
   'Removing and resaving cannot manufacture another weekly activation'
 );
+
+reset role;
+
 select is(
   (select count(*) from private.member_place_first_saves),
   1::bigint,
   'Retries and resaves preserve exactly one immutable member and Place fact'
 );
+
+select set_config('request.jwt.claim.sub', '76700000-0000-4000-8000-000000000001', true);
+set local role authenticated;
+
 select is(
   (select rhythm.active from public.get_current_member_weekly_rhythm() as rhythm),
   true,
@@ -286,20 +290,17 @@ values (
 select set_config('request.jwt.claim.sub', '76700000-0000-4000-8000-000000000002', true);
 set local role authenticated;
 
-select is(
+select ok(
   (
-    select concat_ws(
-      ':',
-      result.first_time_for_place,
-      result.activated_current_week,
-      result.current_week_active
-    )
+    select
+      result.first_time_for_place
+      and not result.activated_current_week
+      and result.current_week_active
     from public.set_current_favourite(
       '30000000-0000-4000-8000-000000000003',
       true
     ) as result
   ),
-  'true:false:true',
   'A second first-time Place in one week is recognized without activating that week twice'
 );
 

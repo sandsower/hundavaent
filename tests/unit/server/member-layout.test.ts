@@ -17,6 +17,7 @@ function eventWith(
     completion?:
       | {
           action: string;
+          place_id?: string;
           completion_status: string;
           first_time_for_place?: boolean;
           activated_current_week?: boolean;
@@ -232,6 +233,7 @@ describe('Member-aware public layout', () => {
       memberAccount: true,
       completion: {
         action: 'favourite',
+        place_id: '30000000-0000-4000-8000-000000000003',
         completion_status: 'completed',
         first_time_for_place: true,
         activated_current_week: true,
@@ -245,7 +247,7 @@ describe('Member-aware public layout', () => {
     await expect(load(event as never)).rejects.toMatchObject({
       status: 303,
       location:
-        '/en?pendingResult=completed&pendingAction=favourite&pendingFirstTimeForPlace=1&pendingActivatedCurrentWeek=1&pendingCurrentWeekStartsOn=2026-07-13&pendingCurrentWeekEndsOn=2026-07-19&pendingCurrentWeekActive=1&pendingRetryResolved=1'
+        '/en?pendingResult=completed&pendingAction=favourite&pendingPlaceId=30000000-0000-4000-8000-000000000003&pendingFirstTimeForPlace=1&pendingActivatedCurrentWeek=1&pendingCurrentWeekStartsOn=2026-07-13&pendingCurrentWeekEndsOn=2026-07-19&pendingCurrentWeekActive=1&pendingRetryResolved=1'
     });
   });
 

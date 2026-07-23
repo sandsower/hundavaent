@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  publishDeferredFavouriteRecognition,
   publishWeeklyRhythmInvalidation,
+  subscribeToDeferredFavouriteRecognition,
   subscribeToWeeklyRhythmInvalidation,
   weeklyRhythmChannelName,
   weeklyRhythmStorageKey
@@ -13,6 +15,33 @@ afterEach(() => {
 });
 
 describe('weekly rhythm cross-tab invalidation', () => {
+  it('routes deferred recognition to one presentation target in the same tab', () => {
+    const listRecognition = vi.fn();
+    const selectedRecognition = vi.fn();
+    const placeId = '30000000-0000-4000-8000-000000000003';
+    const stopList = subscribeToDeferredFavouriteRecognition(listRecognition, placeId, 'list');
+    const stopSelected = subscribeToDeferredFavouriteRecognition(
+      selectedRecognition,
+      placeId,
+      'selected'
+    );
+
+    publishDeferredFavouriteRecognition(placeId, 'selected', {
+      firstTimeForPlace: true,
+      activatedCurrentWeek: true,
+      currentWeek: {
+        startsOn: '2026-07-20',
+        endsOn: '2026-07-26',
+        active: true
+      }
+    });
+
+    expect(selectedRecognition).toHaveBeenCalledOnce();
+    expect(listRecognition).not.toHaveBeenCalled();
+    stopList();
+    stopSelected();
+  });
+
   it('publishes control metadata without any activity or week payload', () => {
     const posted: unknown[] = [];
     class RecordingChannel {

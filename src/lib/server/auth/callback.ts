@@ -182,6 +182,7 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
       let pendingAction: string | null = null;
       let pendingResult: string | null = pendingIntent ? 'unavailable' : null;
       let retryPendingIntent: string | null = null;
+      let pendingPlaceId: string | null = null;
       let pendingRecognition: FavouriteRecognition | null = null;
 
       try {
@@ -208,6 +209,7 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
         if (completion.status === 'completed') {
           pendingAction = completion.action;
           pendingResult = completion.completionStatus;
+          pendingPlaceId = completion.action === 'favourite' ? completion.placeId : null;
           pendingRecognition = completion.action === 'favourite' ? completion.recognition : null;
         } else if (completion.status === 'retryable') {
           pendingResult = 'retryable';
@@ -223,6 +225,7 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
           pendingAction,
           pendingResult,
           pendingIntent: retryPendingIntent,
+          pendingPlaceId,
           pendingRecognition
         })
       );
@@ -293,6 +296,7 @@ function withAuthResult(
     pendingAction: string | null;
     pendingResult: string | null;
     pendingIntent: string | null;
+    pendingPlaceId: string | null;
     pendingRecognition: FavouriteRecognition | null;
   }
 ): string {
@@ -301,7 +305,8 @@ function withAuthResult(
   target.searchParams.set('authMethod', result.authMethod);
   if (result.pendingAction) target.searchParams.set('pendingAction', result.pendingAction);
   if (result.pendingResult) target.searchParams.set('pendingResult', result.pendingResult);
-  if (result.pendingAction === 'favourite' && result.pendingRecognition) {
+  if (result.pendingAction === 'favourite' && result.pendingPlaceId && result.pendingRecognition) {
+    target.searchParams.set('pendingPlaceId', result.pendingPlaceId);
     target.searchParams.set(
       'pendingFirstTimeForPlace',
       result.pendingRecognition.firstTimeForPlace ? '1' : '0'

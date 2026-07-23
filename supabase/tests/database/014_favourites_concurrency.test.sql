@@ -114,6 +114,8 @@ select ok(
 select extensions.dblink_exec(
   'favourite_add',
   $cleanup$
+    delete from private.member_place_first_saves
+    where member_id = '76000000-0000-4000-8000-000000000006';
     delete from private.member_favourites
     where user_id = '76000000-0000-4000-8000-000000000006';
     delete from security.role_grants

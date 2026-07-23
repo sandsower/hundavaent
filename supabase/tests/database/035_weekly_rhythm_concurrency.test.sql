@@ -93,6 +93,10 @@ select *
 from extensions.dblink_get_result('weekly_rhythm_lock_holder', false) as result(status text);
 select *
 from extensions.dblink_get_result('weekly_rhythm_contender', false) as result(status text);
+select *
+from extensions.dblink_get_result('weekly_rhythm_lock_holder', false) as result(status text);
+select *
+from extensions.dblink_get_result('weekly_rhythm_contender', false) as result(status text);
 
 select extensions.dblink_exec(
   'weekly_rhythm_lock_holder',

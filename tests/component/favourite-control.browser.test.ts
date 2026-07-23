@@ -242,6 +242,48 @@ describe('FavouriteControl', () => {
     window.removeEventListener('hundavaent:weekly-rhythm-activated', activation);
   });
 
+  it('applies an authoritative active week even when this save did not activate it', async () => {
+    const activation = vi.fn();
+    window.addEventListener('hundavaent:weekly-rhythm-activated', activation);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify(
+              mutationPayload(true, {
+                firstTimeForPlace: true,
+                activatedCurrentWeek: false
+              })
+            ),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' }
+            }
+          )
+      )
+    );
+
+    render(FavouriteControl, {
+      placeId,
+      placeName,
+      signedIn: true,
+      favourite: false,
+      copy: catalogues.en,
+      signInHref: ''
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Add Published Place to favorites' }));
+
+    await waitFor(() => expect(activation).toHaveBeenCalledOnce());
+    expect((activation.mock.calls[0][0] as CustomEvent).detail).toEqual({
+      startsOn: '2026-07-13',
+      endsOn: '2026-07-19',
+      active: true
+    });
+    window.removeEventListener('hundavaent:weekly-rhythm-activated', activation);
+  });
+
   it('rejects a successful response without authoritative recognition metadata', async () => {
     const onChange = vi.fn();
     vi.stubGlobal(

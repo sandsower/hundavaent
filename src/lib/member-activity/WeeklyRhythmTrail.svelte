@@ -77,13 +77,7 @@
     overflow: hidden;
     padding: 1.15rem;
     border-color: color-mix(in srgb, var(--hv-color-fjord) 36%, var(--hv-border-subtle));
-    background:
-      radial-gradient(
-        circle at 96% 0%,
-        color-mix(in srgb, var(--hv-color-signal) 20%, transparent),
-        transparent 34%
-      ),
-      var(--hv-color-snow-raised);
+    background: var(--hv-color-snow-raised);
     gap: 1.15rem;
   }
 
