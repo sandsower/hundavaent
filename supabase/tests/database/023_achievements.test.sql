@@ -831,8 +831,8 @@ select is(
 );
 select is(
   (select count(*) from public.get_my_achievements()),
-  10::bigint,
-  'OTHER still sees the full ten-item catalogue as locked entries'
+  1::bigint,
+  'OTHER receives only the enabled empty sentinel and cannot discover the locked catalogue'
 );
 select throws_ok(
   $$select * from public.get_moderation_member_achievements('95000000-0000-4000-8000-000000000001')$$,

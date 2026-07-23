@@ -1,7 +1,11 @@
-import { error, redirect } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 
 import { parseLocale } from '$i18n';
-import { getMyAchievements, type AchievementRpcClient } from '$server/achievements/achievements';
+import {
+  claimMyAchievementCelebrations,
+  getMyAchievements,
+  type AchievementRpcClient
+} from '$server/achievements/achievements';
 import {
   AuthenticationRequiredError,
   AuthenticationUnavailableError,
@@ -9,7 +13,7 @@ import {
   requireRole
 } from '$server/auth/require-role';
 
-import type { PageServerLoad } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
   const lang = parseLocale(params.lang);
@@ -46,6 +50,38 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   }
 
   return { achievements: result.value };
+};
+
+export const actions: Actions = {
+  claimAchievements: async ({ locals }) => {
+    if (!locals.supabase) {
+      return fail(503, { action: 'claimAchievements', error: 'unavailable' });
+    }
+
+    try {
+      await requireRole(locals.supabase, 'member');
+    } catch (cause) {
+      if (cause instanceof AuthenticationRequiredError || cause instanceof RoleRequiredError) {
+        return fail(401, { action: 'claimAchievements', error: 'authentication_required' });
+      }
+      if (cause instanceof AuthenticationUnavailableError) {
+        return fail(503, { action: 'claimAchievements', error: 'unavailable' });
+      }
+      throw cause;
+    }
+
+    const result = await claimMyAchievementCelebrations(
+      locals.supabase as unknown as AchievementRpcClient
+    );
+    if (result.status !== 'success') {
+      return fail(result.status === 'forbidden' ? 403 : 503, {
+        action: 'claimAchievements',
+        error: result.status === 'forbidden' ? 'forbidden' : 'unavailable'
+      });
+    }
+
+    return { action: 'claimAchievements', claimed: result.value };
+  }
 };
 
 function redirectToAccount(lang: 'is' | 'en', returnTo: string): never {

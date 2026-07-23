@@ -23,6 +23,7 @@ import {
   localPlaceFlagFixtures,
   localPrivateRatingNoteFixture,
   provisionLocalAchievementUnlock,
+  provisionLocalAchievementProgress,
   provisionLocalDogFriendlinessFixture,
   provisionLocalModerator,
   provisionLocalModerationWorkbenchFixtures,
@@ -32,6 +33,7 @@ import {
   provisionLocalSuggestionFixture,
   retireLocalDogFriendlinessFixture,
   retireLocalMemberAchievements,
+  retireLocalAchievementProgress,
   retireLocalPlaceFlagFixtures,
   retireLocalPrivateRatingNoteFixture,
   setLocalPlaceLifecycle,
@@ -742,15 +744,17 @@ for (const locale of ['is', 'en'] as const) {
       clearLocalCheckIns(evaluationFixtureIds.places.published);
     }
 
-    // The achievements surface (achievement). The policy is a database-wide fail-closed singleton and
-    // unlock acknowledgment is consumed on every catalogue read, so each state is provisioned
-    // deterministically (fixed earned dates - baselines must never depend on the capture day)
-    // and the seeded dark state is restored afterwards.
+    // The Achievements surface uses pure reads for milestones and a separate atomic celebration
+    // claim. Fixed earned dates keep evidence stable, and the policy and Member fixtures are
+    // restored after every locale.
     await configureLocalAchievementPolicy();
     await retireLocalMemberAchievements(evaluationModerator.email);
+    await retireLocalAchievementProgress(evaluationModerator.email);
 
     const achievementsTitle = locale === 'is' ? 'Afrekin þín' : 'Your Achievements';
-    const provisionAchievementEvidence = async (): Promise<void> => {
+    const celebrationName =
+      locale === 'is' ? 'Nýtt afrek: Fyrsta innritunin' : 'New achievement: First Check-in';
+    const provisionCelebrationEvidence = async (): Promise<void> => {
       await retireLocalMemberAchievements(evaluationModerator.email);
       await provisionLocalAchievementUnlock(
         evaluationModerator.email,
@@ -768,36 +772,54 @@ for (const locale of ['is', 'en'] as const) {
 
     await page.goto(`/${locale}/account/achievements`);
     await expect(page.getByRole('heading', { name: achievementsTitle })).toBeVisible();
-    await capture(page, evidence, `achievements-locked-${locale}-desktop.png`);
+    await capture(page, evidence, `achievements-empty-${locale}-desktop.png`);
 
-    // First unlock: a mixed catalogue with one acknowledged unlock, one newly-earned unlock, and
-    // eight locked entries. The first view consumes the newly-earned indicator, so the badge-free
-    // earned catalogue is simply the next view of the same state.
-    await provisionAchievementEvidence();
+    await provisionLocalAchievementProgress(evaluationModerator.email);
     await page.goto(`/${locale}/account/achievements`);
-    await expect(page.getByRole('heading', { name: achievementsTitle })).toBeVisible();
-    await capture(page, evidence, `achievements-new-${locale}-desktop.png`);
+    await expect(page.locator('[data-achievement-milestone]')).toHaveCount(2);
+    await capture(page, evidence, `achievements-milestones-${locale}-desktop.png`);
+
+    await provisionCelebrationEvidence();
+    await page.goto(`/${locale}/account`);
+    await expect(page.locator('[data-achievement-unread-indicator]')).toBeVisible();
+    await capture(page, evidence, `achievements-unread-${locale}-desktop.png`);
 
     await page.goto(`/${locale}/account/achievements`);
-    await expect(page.getByRole('heading', { name: achievementsTitle })).toBeVisible();
+    await expect(page.getByRole('region', { name: celebrationName })).toBeVisible();
+    await capture(page, evidence, `achievements-celebration-${locale}-desktop.png`);
+
+    await page.reload();
+    await expect(page.getByRole('region', { name: celebrationName })).toHaveCount(0);
     await capture(page, evidence, `achievements-earned-${locale}-desktop.png`);
 
-    await provisionAchievementEvidence();
+    await provisionCelebrationEvidence();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/${locale}/account/achievements`);
-    await expect(page.getByRole('heading', { name: achievementsTitle })).toBeVisible();
-    await capture(page, evidence, `achievements-new-${locale}-mobile.png`);
+    await expect(page.getByRole('region', { name: celebrationName })).toBeVisible();
+    await capture(page, evidence, `achievements-celebration-${locale}-mobile.png`);
     await page.setViewportSize({ width: 1280, height: 900 });
 
-    await provisionAchievementEvidence();
+    await provisionCelebrationEvidence();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(`/${locale}/account/achievements`);
-    await expect(page.getByRole('heading', { name: achievementsTitle })).toBeVisible();
-    await capture(page, evidence, `achievements-new-reduced-motion-${locale}-desktop.png`);
+    await expect(page.getByRole('region', { name: celebrationName })).toHaveAttribute(
+      'data-reduced-motion',
+      'true'
+    );
+    await capture(page, evidence, `achievements-reduced-motion-${locale}-desktop.png`);
     await page.emulateMedia({ reducedMotion: null });
 
     await retireLocalMemberAchievements(evaluationModerator.email);
     await disableLocalAchievementPolicy();
+    await page.goto(`/${locale}/account/achievements`);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(
+      page.getByText(
+        locale === 'is' ? 'Afrek eru ekki í boði enn þá.' : 'Achievements are not available yet.'
+      )
+    ).toBeVisible();
+    await capture(page, evidence, `achievements-disabled-${locale}-desktop.png`);
+    await retireLocalAchievementProgress(evaluationModerator.email);
 
     // The personal-history captures navigated away from /favorites; return to it before the existing
     // removal step below, which depends on being on that page.

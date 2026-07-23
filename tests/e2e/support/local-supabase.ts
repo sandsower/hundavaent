@@ -476,8 +476,8 @@ async function upsertLocalAchievementPolicy(enabled: boolean): Promise<void> {
 // Inserts an unlock ledger row directly with a fixed earned_at so visual baselines never depend
 // on the capture day's date. Unlock rows are immutable once written (earned_at can never be
 // updated afterwards), so deterministic evidence must be inserted, not earned live and adjusted.
-// `notified` controls the newly-earned indicator: an unacknowledged row (notified_at null) renders
-// the one-time "new" badge on the member's next catalogue view.
+// `notified` controls the unread state: an unacknowledged row is returned exactly once by the
+// atomic celebration claim when the Member opens the intended Achievements experience.
 export async function provisionLocalAchievementUnlock(
   memberEmail: string,
   achievementKey: string,
@@ -501,7 +501,58 @@ export async function provisionLocalAchievementUnlock(
     where definition.key = '${achievementKey}'
     order by definition.version desc
     limit 1
-    on conflict (member_id, achievement_key, definition_version) do nothing;
+    on conflict (member_id, achievement_key) do nothing;
+  `);
+}
+
+// Seeds three anti-burst-compliant Check-ins without firing unlock triggers. This isolates the
+// milestone presentation from surprise Achievements while still exercising the production
+// progress calculation over durable Member activity.
+export async function provisionLocalAchievementProgress(memberEmail: string): Promise<void> {
+  const memberId = await resolveLocalMemberIdByEmail(memberEmail);
+  runLocalDatabaseSql(`
+    begin;
+    set local session_replication_role = replica;
+
+    insert into private.check_ins
+      (member_id, place_id, proximity_confirmed, request_id, checked_in_at)
+    values
+      (
+        '${memberId}'::uuid,
+        '30000000-0000-4000-8000-000000000001'::uuid,
+        'unknown',
+        '39000000-0000-4000-8000-000000000001'::uuid,
+        statement_timestamp() - interval '45 minutes'
+      ),
+      (
+        '${memberId}'::uuid,
+        '30000000-0000-4000-8000-000000000002'::uuid,
+        'unknown',
+        '39000000-0000-4000-8000-000000000002'::uuid,
+        statement_timestamp() - interval '25 minutes'
+      ),
+      (
+        '${memberId}'::uuid,
+        '30000000-0000-4000-8000-000000000003'::uuid,
+        'unknown',
+        '39000000-0000-4000-8000-000000000003'::uuid,
+        statement_timestamp() - interval '5 minutes'
+      );
+
+    commit;
+  `);
+}
+
+export async function retireLocalAchievementProgress(memberEmail: string): Promise<void> {
+  const memberId = await resolveLocalMemberIdByEmail(memberEmail);
+  runLocalDatabaseSql(`
+    delete from private.check_ins
+    where member_id = '${memberId}'::uuid
+      and request_id in (
+        '39000000-0000-4000-8000-000000000001'::uuid,
+        '39000000-0000-4000-8000-000000000002'::uuid,
+        '39000000-0000-4000-8000-000000000003'::uuid
+      );
   `);
 }
 

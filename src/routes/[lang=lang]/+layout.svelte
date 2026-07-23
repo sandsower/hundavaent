@@ -14,6 +14,8 @@
   } from '$lib/analytics/posthog';
   import AuthDialog from '$lib/auth/AuthDialog.svelte';
   import { requestAuthentication } from '$lib/auth/controller';
+  import AchievementUnreadIndicator from '$lib/achievements/AchievementUnreadIndicator.svelte';
+  import { subscribeToAchievementAcknowledged } from '$lib/achievements/client';
   import {
     publishDeferredFavouriteRecognition,
     publishWeeklyRhythmActivation,
@@ -31,6 +33,7 @@
   let currentHash = $state('');
   let hydrated = $state(false);
   let weeklyRhythm = $state<WeeklyRhythm>({ status: 'unavailable' });
+  let achievementUnread = $state(false);
   let isDiscovery = $derived(page.route.id === '/[lang=lang]');
   let isModeration = $derived(page.route.id?.startsWith('/[lang=lang]/moderation') === true);
   let northStarMode = $derived(isModeration ? 'operations' : 'place');
@@ -42,6 +45,20 @@
   const accountReturnTo = $derived(
     `${currentBrowserUrl.pathname}${currentBrowserUrl.search}${currentBrowserUrl.hash}`
   );
+  const accountAccessibleLabel = $derived.by(() => {
+    const parts = [data.signedIn ? data.copy['account.navSignedIn'] : data.copy['nav.account']];
+    if (data.signedIn && achievementUnread) {
+      parts.push(data.copy['achievements.accountUnread']);
+    }
+    if (data.signedIn && weeklyRhythm.status === 'available') {
+      parts.push(
+        weeklyRhythm.currentWeek.active
+          ? data.copy['weeklyRhythm.accountActive']
+          : data.copy['weeklyRhythm.accountOpen']
+      );
+    }
+    return parts.join(' ');
+  });
 
   $effect(() => {
     const loadedWeeklyRhythm = (
@@ -50,6 +67,12 @@
       }
     ).weeklyRhythm;
     weeklyRhythm = loadedWeeklyRhythm ?? { status: 'unavailable' };
+    achievementUnread =
+      (
+        data as typeof data & {
+          achievementStatus?: { enabled: boolean; hasUnread: boolean };
+        }
+      ).achievementStatus?.hasUnread ?? false;
   });
 
   afterNavigate(() => {
@@ -87,10 +110,16 @@
     const stopWeeklyRhythmInvalidation = data.signedIn
       ? subscribeToWeeklyRhythmInvalidation(() => void invalidateAll())
       : () => undefined;
+    const stopAchievementAcknowledgement = data.signedIn
+      ? subscribeToAchievementAcknowledged(() => {
+          achievementUnread = false;
+        })
+      : () => undefined;
     return () => {
       stopBrowserErrorTracking();
       stopWeeklyRhythmActivation();
       stopWeeklyRhythmInvalidation();
+      stopAchievementAcknowledgement();
       window.removeEventListener('hashchange', syncHash);
     };
   });
@@ -282,7 +311,7 @@
     <a
       class="account-link"
       data-signed-in={data.signedIn}
-      aria-label={data.signedIn ? data.copy['account.navSignedIn'] : data.copy['nav.account']}
+      aria-label={accountAccessibleLabel}
       onclick={openSignIn}
       href={page.route.id === '/[lang=lang]/account'
         ? resolve('/[lang=lang]/account', { lang: data.lang })
@@ -295,6 +324,10 @@
         <span class="account-label-compact" aria-hidden="true">
           {data.copy['account.navSignedInCompact']}
         </span>
+        <AchievementUnreadIndicator
+          visible={achievementUnread}
+          label={data.copy['achievements.accountUnread']}
+        />
       {/if}
       {#if data.signedIn && weeklyRhythm.status === 'available'}
         <WeeklyRhythmIndicator active={weeklyRhythm.currentWeek.active} />
@@ -402,6 +435,9 @@
 
   .account-link {
     position: relative;
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
     border-color: var(--hv-color-basalt);
     background: var(--hv-color-basalt);
     color: var(--hv-color-snow-raised);

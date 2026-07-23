@@ -4,6 +4,10 @@ import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
 import { parseLocale } from '$i18n';
+import {
+  getMyAchievementStatus,
+  type AchievementRpcClient
+} from '$server/achievements/achievements';
 import { clearRequestAuthSession } from '$server/auth/callback';
 import { getMemberAuthConfig } from '$server/auth/member';
 import {
@@ -111,14 +115,30 @@ export const load: LayoutServerLoad = async ({ cookies, locals, params, url }) =
     }
   }
 
-  const weeklyRhythm = locals.supabase && signedIn ? await getWeeklyRhythm(locals.supabase) : null;
+  const [weeklyRhythm, achievementStatusResult] =
+    locals.supabase && signedIn
+      ? await Promise.all([
+          getWeeklyRhythm(locals.supabase),
+          getMyAchievementStatus(locals.supabase as unknown as AchievementRpcClient)
+        ])
+      : [null, null];
+  const achievementStatus =
+    achievementStatusResult?.status === 'success'
+      ? achievementStatusResult.value
+      : { enabled: false, hasUnread: false };
 
   return {
     lang,
     copy: locals.copy,
     ...(providers.email || providers.facebook ? { providers } : {}),
     ...(pendingAuthRequest ? { pendingAuthRequest } : {}),
-    ...(signedIn ? { signedIn: true as const, weeklyRhythm } : {})
+    ...(signedIn
+      ? {
+          signedIn: true as const,
+          weeklyRhythm,
+          achievementStatus
+        }
+      : {})
   };
 };
 

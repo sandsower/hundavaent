@@ -6,7 +6,11 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   plugins: [sveltekit(), svelteTesting()],
   optimizeDeps: {
-    include: ['@testing-library/svelte > @testing-library/dom > aria-query', 'maplibre-gl']
+    include: [
+      '@testing-library/svelte > @testing-library/dom > aria-query',
+      '@testing-library/svelte > @testing-library/dom > lz-string',
+      'maplibre-gl'
+    ]
   },
   resolve: {
     conditions: ['browser']
