@@ -1,0 +1,126 @@
+<script lang="ts">
+  let {
+    kind = 'trail',
+    size = 'regular'
+  }: {
+    kind?: 'trail' | 'new' | 'updated' | 'empty' | 'private';
+    size?: 'small' | 'regular' | 'large';
+  } = $props();
+</script>
+
+<svg
+  class="roundup-icon"
+  class:small={size === 'small'}
+  class:large={size === 'large'}
+  viewBox="0 0 64 64"
+  fill="none"
+  aria-hidden="true"
+>
+  <path
+    class="trail"
+    d="M9 48c8-2 9-10 17-12 8-3 12 5 20 1 5-2 7-7 9-12"
+    stroke="currentColor"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    stroke-dasharray="2 7"
+  />
+
+  {#if kind === 'private'}
+    <path
+      d="M24 27v-4a8 8 0 0 1 16 0v4M21 27h22v19H21z"
+      stroke="currentColor"
+      stroke-width="3"
+      stroke-linejoin="round"
+    />
+    <circle cx="32" cy="36" r="2.5" fill="currentColor" />
+  {:else if kind === 'empty'}
+    <path
+      d="M32 9c-8 0-14 6-14 14 0 11 14 25 14 25s14-14 14-25c0-8-6-14-14-14Z"
+      stroke="currentColor"
+      stroke-width="3"
+      stroke-linejoin="round"
+    />
+    <path d="M27 24h10" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+  {:else}
+    <g class="paw">
+      <ellipse cx="32" cy="31" rx="8" ry="7" fill="currentColor" />
+      <ellipse cx="21" cy="25" rx="4" ry="5" fill="currentColor" />
+      <ellipse cx="28" cy="18" rx="4" ry="5" fill="currentColor" />
+      <ellipse cx="37" cy="18" rx="4" ry="5" fill="currentColor" />
+      <ellipse cx="44" cy="25" rx="4" ry="5" fill="currentColor" />
+    </g>
+    {#if kind === 'new'}
+      <path
+        class="spark"
+        d="M50 8v10M45 13h10"
+        stroke="currentColor"
+        stroke-width="3"
+        stroke-linecap="round"
+      />
+    {:else if kind === 'updated'}
+      <path
+        class="spark"
+        d="M48 10a7 7 0 1 1-2 12M48 10v7h-7"
+        stroke="currentColor"
+        stroke-width="3"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    {/if}
+  {/if}
+</svg>
+
+<style>
+  .roundup-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    overflow: visible;
+  }
+
+  .roundup-icon.small {
+    width: 1.4rem;
+    height: 1.4rem;
+  }
+
+  .roundup-icon.large {
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .roundup-icon .trail {
+      animation: trail-arrive 700ms ease-out both;
+    }
+
+    .roundup-icon .paw {
+      transform-origin: 32px 28px;
+      animation: paw-settle 420ms 120ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .roundup-icon .spark {
+      transform-origin: 50px 13px;
+      animation: spark-turn 480ms 220ms ease-out both;
+    }
+
+    @keyframes trail-arrive {
+      from {
+        stroke-dashoffset: 32;
+        opacity: 0.25;
+      }
+    }
+
+    @keyframes paw-settle {
+      from {
+        transform: translateY(-4px) scale(0.86);
+        opacity: 0;
+      }
+    }
+
+    @keyframes spark-turn {
+      from {
+        transform: rotate(-35deg) scale(0.65);
+        opacity: 0;
+      }
+    }
+  }
+</style>

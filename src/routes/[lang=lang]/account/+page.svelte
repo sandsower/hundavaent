@@ -6,6 +6,7 @@
   import { formatLocalizedDate } from '$i18n/date';
   import WeeklyRhythmTrail from '$lib/member-activity/WeeklyRhythmTrail.svelte';
   import type { WeeklyRhythmHistory } from '$lib/member-activity/types';
+  import RoundupTrailIcon from '$lib/roundup/RoundupTrailIcon.svelte';
 
   import type { PageProps } from './$types';
 
@@ -74,6 +75,25 @@
       <WeeklyRhythmTrail history={weeklyRhythmHistory} lang={data.lang} copy={data.copy} />
 
       <div class="account-home hv-grid" data-columns="2">
+        <section
+          class="account-destination roundup hv-panel hv-list-card"
+          aria-labelledby="roundup-heading"
+        >
+          <span class="roundup-icon" aria-hidden="true">
+            <RoundupTrailIcon kind="trail" size="small" />
+          </span>
+          <div>
+            <h2 id="roundup-heading">{data.copy['account.roundupHeading']}</h2>
+            <p>{data.copy['account.roundupIntro']}</p>
+            <a
+              class="hv-control"
+              href={resolve('/[lang=lang]/account/roundup', { lang: data.lang })}
+            >
+              {data.copy['account.roundupLink']}
+            </a>
+          </div>
+        </section>
+
         <section class="account-destination hv-panel hv-list-card" aria-labelledby="saved-heading">
           <h2 id="saved-heading">{data.copy['account.savedHeading']}</h2>
           <p>{data.copy['account.savedIntro']}</p>
@@ -284,6 +304,30 @@
 
   .account-card.signed-in {
     width: min(100%, 42rem);
+  }
+
+  .account-destination.roundup {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: auto minmax(0, 1fr);
+    border-color: color-mix(in srgb, var(--hv-color-fjord) 28%, var(--hv-color-line));
+    background:
+      radial-gradient(
+        circle at 94% 8%,
+        color-mix(in srgb, var(--hv-color-sky) 18%, transparent),
+        transparent 42%
+      ),
+      var(--hv-color-snow-raised);
+  }
+
+  .roundup-icon {
+    display: grid;
+    width: 2.8rem;
+    height: 2.8rem;
+    border-radius: 0.95rem;
+    background: color-mix(in srgb, var(--hv-color-fjord) 11%, white);
+    color: var(--hv-color-fjord);
+    place-items: center;
   }
 
   .eyebrow {

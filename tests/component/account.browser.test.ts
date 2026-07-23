@@ -52,6 +52,10 @@ describe('Member account', () => {
     expect(screen.getByRole('heading', { name: 'Favorites' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Visits' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Contributions' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Weekly roundup' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Open my roundup' }).getAttribute('href')).toBe(
+      '/en/account/roundup'
+    );
     expect(screen.queryByRole('heading', { name: 'Moderation workspace' })).toBeNull();
     expect(screen.queryByText('friend@example.is')).toBeNull();
 

@@ -276,12 +276,40 @@ export type Database = {
           member_id: string
         }[]
       }
+      get_current_member_roundup_preferences: {
+        Args: never
+        Returns: {
+          categories: string[]
+          configured: boolean
+          email_interest: boolean
+          email_interest_changed_at: string
+          municipalities: string[]
+          roundup_locale: string
+          updated_at: string
+        }[]
+      }
       get_current_member_weekly_rhythm: {
         Args: never
         Returns: {
           active: boolean
           ends_on: string
           starts_on: string
+        }[]
+      }
+      get_current_member_weekly_roundup: {
+        Args: never
+        Returns: {
+          category: string
+          changed_at: string
+          configured: boolean
+          municipality: string
+          place_id: string
+          place_name: string
+          recommendation_rank: number
+          recommendation_reason: string
+          roundup_locale: string
+          week_ends_on: string
+          week_starts_on: string
         }[]
       }
       get_current_user_roles: { Args: never; Returns: string[] }
@@ -1434,6 +1462,23 @@ export type Database = {
           target_id: string
           updated_at: string
           updated_by: string
+        }[]
+      }
+      save_current_member_roundup_preferences: {
+        Args: {
+          requested_categories: string[]
+          requested_email_interest: boolean
+          requested_locale: string
+          requested_municipalities: string[]
+        }
+        Returns: {
+          categories: string[]
+          configured: boolean
+          email_interest: boolean
+          email_interest_changed_at: string
+          municipalities: string[]
+          roundup_locale: string
+          updated_at: string
         }[]
       }
       save_inline_dog_friendliness_rating: {

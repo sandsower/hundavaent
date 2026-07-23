@@ -54,6 +54,19 @@ export interface ProductAnalyticsEvents {
     action: 'favourite' | 'rating';
     outcome: 'completed' | 'queued';
   };
+  'roundup viewed': {
+    availability: 'unconfigured' | 'empty' | 'sparse' | 'populated' | 'unavailable';
+    recommendation_count: '0' | '1-2' | '3' | '4-6';
+  };
+  'roundup recommendation clicked': {
+    position: 'lead' | 'supporting';
+    reason: 'newly_published' | 'updated';
+  };
+  'roundup preferences completed': {
+    municipality_count: '1' | '2-3' | '4-7';
+    has_category_filter: boolean;
+    email_interest: boolean;
+  };
 }
 
 export interface BrowserExceptionContext {
