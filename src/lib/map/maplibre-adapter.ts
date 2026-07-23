@@ -81,12 +81,7 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
   function reconcileMarkers(): void {
     if (!map) return;
 
-    const clusters = clusterMapPlaces(
-      places,
-      map.getZoom(),
-      selectedPlaceId,
-      clusterRadiusPixels
-    );
+    const clusters = clusterMapPlaces(places, map.getZoom(), selectedPlaceId, clusterRadiusPixels);
     const activeIds = new Set(clusters.map((cluster) => cluster.id));
     for (const [placeId, entry] of markers) {
       if (!activeIds.has(placeId)) {
@@ -130,11 +125,7 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
             cluster.placeIds.includes(candidate.placeId)
           );
           if (
-            isTerminalMapCluster(
-              clusterPlaces,
-              maximumInteractiveClusterZoom,
-              clusterRadiusPixels
-            )
+            isTerminalMapCluster(clusterPlaces, maximumInteractiveClusterZoom, clusterRadiusPixels)
           ) {
             callbacks?.onClusterSelect?.([...cluster.placeIds]);
             return;
