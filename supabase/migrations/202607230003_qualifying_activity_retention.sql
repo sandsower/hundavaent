@@ -100,7 +100,7 @@ end;
 $$;
 
 -- Every qualifying source takes this lock before a source-specific advisory or row lock. Keeping
--- the VIB-37 seed preserves the existing Favourite serialization key.
+-- the weekly-rhythm seed preserves the existing Favourite serialization key.
 create function private.lock_member_qualifying_activity(target_member_id uuid)
 returns void
 language plpgsql
