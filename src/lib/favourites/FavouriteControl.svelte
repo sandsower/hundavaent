@@ -2,6 +2,14 @@
   import type { Catalogue } from '$i18n';
   import { postHogAnalytics } from '$lib/analytics/posthog';
   import { requestAuthentication } from '$lib/auth/controller';
+  import {
+    publishWeeklyRhythmActivation,
+    publishWeeklyRhythmInvalidation
+  } from '$lib/member-activity/client';
+  import {
+    parseFavouriteMutationPayload,
+    type FavouriteRecognition
+  } from '$lib/member-activity/types';
   import { publishFavouriteInvalidation } from './sync';
 
   interface Props {
@@ -12,6 +20,7 @@
     copy: Catalogue;
     signInHref: string;
     onChange?: (placeId: string, favourite: boolean, trigger: HTMLButtonElement) => void;
+    onRecognized?: (recognition: FavouriteRecognition) => void;
   }
 
   let {
@@ -21,7 +30,8 @@
     favourite,
     copy,
     signInHref,
-    onChange = () => undefined
+    onChange = () => undefined,
+    onRecognized = () => undefined
   }: Props = $props();
   let submitting = $state(false);
   let failed = $state(false);
@@ -41,15 +51,20 @@
         body: JSON.stringify({ desiredState })
       });
       if (!response.ok) throw new Error('Favourite request failed');
-      const result = (await response.json()) as { placeId?: unknown; isFavourite?: unknown };
-      if (result.placeId !== placeId || result.isFavourite !== desiredState) {
-        throw new Error('Favourite response mismatch');
-      }
+      const result = parseFavouriteMutationPayload(await response.json(), placeId, desiredState);
+      if (!result) throw new Error('Favourite response mismatch');
       postHogAnalytics.capture('place saved', {
         place_id: placeId,
         saved: desiredState
       });
       onChange(placeId, desiredState, trigger);
+      if (desiredState && result.recognition.firstTimeForPlace) {
+        onRecognized(result.recognition);
+      }
+      if (result.recognition.activatedCurrentWeek) {
+        publishWeeklyRhythmActivation(result.recognition.currentWeek);
+        publishWeeklyRhythmInvalidation();
+      }
       publishFavouriteInvalidation();
     } catch {
       failed = true;

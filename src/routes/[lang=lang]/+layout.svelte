@@ -1,7 +1,7 @@
 <script lang="ts">
   import '../../app.css';
 
-  import { afterNavigate, replaceState } from '$app/navigation';
+  import { afterNavigate, invalidateAll, replaceState } from '$app/navigation';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
   import { env } from '$env/dynamic/public';
@@ -14,6 +14,15 @@
   } from '$lib/analytics/posthog';
   import AuthDialog from '$lib/auth/AuthDialog.svelte';
   import { requestAuthentication } from '$lib/auth/controller';
+  import {
+    publishDeferredFavouriteRecognition,
+    publishWeeklyRhythmActivation,
+    publishWeeklyRhythmInvalidation,
+    subscribeToWeeklyRhythmActivation,
+    subscribeToWeeklyRhythmInvalidation
+  } from '$lib/member-activity/client';
+  import WeeklyRhythmIndicator from '$lib/member-activity/WeeklyRhythmIndicator.svelte';
+  import type { WeeklyRhythm } from '$lib/member-activity/types';
   import { replaceLocaleInUrl } from '$i18n/url';
 
   import type { LayoutProps } from './$types';
@@ -21,6 +30,7 @@
   let { data, children }: LayoutProps = $props();
   let currentHash = $state('');
   let hydrated = $state(false);
+  let weeklyRhythm = $state<WeeklyRhythm>({ status: 'unavailable' });
   let isDiscovery = $derived(page.route.id === '/[lang=lang]');
   let isModeration = $derived(page.route.id?.startsWith('/[lang=lang]/moderation') === true);
   let northStarMode = $derived(isModeration ? 'operations' : 'place');
@@ -32,6 +42,15 @@
   const accountReturnTo = $derived(
     `${currentBrowserUrl.pathname}${currentBrowserUrl.search}${currentBrowserUrl.hash}`
   );
+
+  $effect(() => {
+    const loadedWeeklyRhythm = (
+      data as typeof data & {
+        weeklyRhythm?: WeeklyRhythm;
+      }
+    ).weeklyRhythm;
+    weeklyRhythm = loadedWeeklyRhythm ?? { status: 'unavailable' };
+  });
 
   afterNavigate(() => {
     setTimeout(captureAuthResult, 0);
@@ -60,8 +79,18 @@
 
     syncHash();
     window.addEventListener('hashchange', syncHash);
+    const stopWeeklyRhythmActivation = data.signedIn
+      ? subscribeToWeeklyRhythmActivation((currentWeek) => {
+          weeklyRhythm = { status: 'available', currentWeek };
+        })
+      : () => undefined;
+    const stopWeeklyRhythmInvalidation = data.signedIn
+      ? subscribeToWeeklyRhythmInvalidation(() => void invalidateAll())
+      : () => undefined;
     return () => {
       stopBrowserErrorTracking();
+      stopWeeklyRhythmActivation();
+      stopWeeklyRhythmInvalidation();
       window.removeEventListener('hashchange', syncHash);
     };
   });
@@ -86,8 +115,47 @@
         outcome: pendingResult === 'completed' ? 'completed' : 'queued'
       });
     }
+    if (pendingAction === 'favourite' && pendingResult === 'completed') {
+      const placeId = url.searchParams.get('place');
+      const startsOn = url.searchParams.get('pendingCurrentWeekStartsOn');
+      const endsOn = url.searchParams.get('pendingCurrentWeekEndsOn');
+      const firstTimeForPlace = parseQueryBoolean(url.searchParams.get('pendingFirstTimeForPlace'));
+      const activatedCurrentWeek = parseQueryBoolean(
+        url.searchParams.get('pendingActivatedCurrentWeek')
+      );
+      const active = parseQueryBoolean(url.searchParams.get('pendingCurrentWeekActive'));
+      if (
+        placeId &&
+        isDateOnlyQuery(startsOn) &&
+        isDateOnlyQuery(endsOn) &&
+        firstTimeForPlace === true &&
+        activatedCurrentWeek !== null &&
+        active !== null
+      ) {
+        const recognition = {
+          firstTimeForPlace,
+          activatedCurrentWeek,
+          currentWeek: { startsOn, endsOn, active }
+        };
+        publishDeferredFavouriteRecognition(placeId, recognition);
+        if (activatedCurrentWeek) {
+          publishWeeklyRhythmActivation(recognition.currentWeek);
+          publishWeeklyRhythmInvalidation();
+        }
+      }
+    }
 
-    const namesToRemove = ['authResult', 'authMethod', 'pendingAction', 'pendingRetryResolved'];
+    const namesToRemove = [
+      'authResult',
+      'authMethod',
+      'pendingAction',
+      'pendingRetryResolved',
+      'pendingFirstTimeForPlace',
+      'pendingActivatedCurrentWeek',
+      'pendingCurrentWeekStartsOn',
+      'pendingCurrentWeekEndsOn',
+      'pendingCurrentWeekActive'
+    ];
     if (pendingResult !== 'retryable') {
       namesToRemove.push('pendingResult', 'pendingIntent');
     }
@@ -96,6 +164,16 @@
     }
     const cleanedUrl = `${url.pathname}${url.search}${url.hash}` as `/${string}`;
     replaceState(resolve(cleanedUrl), page.state);
+  }
+
+  function parseQueryBoolean(value: string | null): boolean | null {
+    if (value === '1') return true;
+    if (value === '0') return false;
+    return null;
+  }
+
+  function isDateOnlyQuery(value: string | null): value is string {
+    return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
   }
 
   function refreshLanguageHref(event: MouseEvent, targetLocale: 'is' | 'en'): void {
@@ -211,6 +289,14 @@
           {data.copy['account.navSignedInCompact']}
         </span>
       {/if}
+      {#if data.signedIn && weeklyRhythm.status === 'available'}
+        <WeeklyRhythmIndicator active={weeklyRhythm.currentWeek.active} />
+        <span class="visually-hidden">
+          {weeklyRhythm.currentWeek.active
+            ? data.copy['weeklyRhythm.accountActive']
+            : data.copy['weeklyRhythm.accountOpen']}
+        </span>
+      {/if}
     </a>
     <!-- eslint-enable svelte/no-navigation-without-resolve -->
   </div>
@@ -308,6 +394,7 @@
   }
 
   .account-link {
+    position: relative;
     border-color: var(--hv-color-basalt);
     background: var(--hv-color-basalt);
     color: var(--hv-color-snow-raised);
@@ -405,6 +492,11 @@
       line-height: 1.05;
       text-align: center;
       white-space: nowrap;
+    }
+
+    .account-link :global([data-weekly-rhythm-indicator]) {
+      top: -0.42rem;
+      right: -0.42rem;
     }
 
     .account-link[data-signed-in='true'] .account-label-default {

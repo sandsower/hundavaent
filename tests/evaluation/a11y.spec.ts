@@ -578,6 +578,15 @@ test('private Favourite actions and the saved view are keyboard-operable and Axe
     if (!response.ok) throw new Error('Could not prepare Favourite accessibility state');
     await response.json();
   }, evaluationFixtureIds.places.published);
+  await page.goto('/en/account');
+  await waitForHydration(page);
+  const weeklyRhythmHistory = page.locator('[data-weekly-rhythm-history]');
+  await expect(weeklyRhythmHistory).toHaveAttribute('data-state', 'available');
+  await expect(weeklyRhythmHistory.locator('[data-week-start]')).toHaveCount(8);
+  await expect(page.locator('[data-weekly-rhythm-indicator][data-state="active"]')).toBeVisible();
+  await expectNoSeriousAxeViolations(page, evidence);
+
+  await page.goto('/en/favorites');
   await page.reload();
   // A fresh load must finish hydrating before a keyboard interaction fires -- otherwise the
   // Enter keypress can land before Svelte attaches its click handler and silently no-op,

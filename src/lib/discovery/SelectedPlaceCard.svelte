@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onDestroy, onMount } from 'svelte';
+
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import type { PlaceCategory } from '$domain/place';
   import { formatDogAmenities, formatOpeningHours } from '$i18n/structured-place';
@@ -6,6 +8,9 @@
   import type { PublishedPlaceProfile } from '$server/discovery/public-places';
   import { explainAccessCondition } from '$domain/access-explanation';
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
+  import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
+  import { subscribeToDeferredFavouriteRecognition } from '$lib/member-activity/client';
+  import type { FavouriteRecognition } from '$lib/member-activity/types';
   import CheckInControl from '$lib/check-ins/CheckInControl.svelte';
   import InlineRating from '$lib/discovery/InlineRating.svelte';
   import PlacePhotos from '$lib/discovery/PlacePhotos.svelte';
@@ -68,6 +73,23 @@
     other: 'category.other'
   };
   let completeDetails = $state<HTMLDetailsElement>();
+  let recognition = $state<FavouriteRecognition | null>(null);
+  let recognitionTimer: ReturnType<typeof setTimeout> | undefined;
+
+  onDestroy(() => {
+    if (recognitionTimer) clearTimeout(recognitionTimer);
+  });
+
+  onMount(() => subscribeToDeferredFavouriteRecognition(acknowledgeFavourite, place.placeId));
+
+  function acknowledgeFavourite(nextRecognition: FavouriteRecognition): void {
+    recognition = nextRecognition;
+    if (recognitionTimer) clearTimeout(recognitionTimer);
+    recognitionTimer = setTimeout(() => {
+      recognition = null;
+      recognitionTimer = undefined;
+    }, 5_000);
+  }
 
   function openCompleteDetails(): void {
     if (completeDetails) completeDetails.open = true;
@@ -99,6 +121,7 @@
         {copy}
         {signInHref}
         onChange={onFavouriteChange}
+        onRecognized={acknowledgeFavourite}
       />
       <SharePlaceControl placeId={place.placeId} placeName={place.name} {lang} {copy} />
       <button
@@ -114,6 +137,14 @@
       </button>
     </div>
   </div>
+
+  {#if recognition}
+    <WeeklyRhythmAcknowledgement
+      placeName={place.name}
+      activatedCurrentWeek={recognition.activatedCurrentWeek}
+      {copy}
+    />
+  {/if}
 
   <div class="card-body" data-card-scroll-body>
     {#if profile?.photos.length}
@@ -281,6 +312,12 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     padding: 0 var(--hv-space-panel) var(--hv-space-panel);
+  }
+
+  .selected-place > :global([data-weekly-rhythm-acknowledgement]) {
+    width: calc(100% - (2 * var(--hv-space-panel)));
+    flex: 0 0 auto;
+    margin: 0.7rem var(--hv-space-panel) 0;
   }
 
   .card-body > * {

@@ -307,7 +307,20 @@ function stubSuccessfulRemoval(): void {
     vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as { desiredState: boolean };
       return new Response(
-        JSON.stringify({ placeId: placeIdFromInput(_input), isFavourite: body.desiredState }),
+        JSON.stringify({
+          placeId: placeIdFromInput(_input),
+          isFavourite: body.desiredState,
+          changedAt: '2026-07-13T12:00:00.000Z',
+          recognition: {
+            firstTimeForPlace: false,
+            activatedCurrentWeek: false,
+            currentWeek: {
+              startsOn: '2026-07-13',
+              endsOn: '2026-07-19',
+              active: true
+            }
+          }
+        }),
         {
           status: 200,
           headers: { 'content-type': 'application/json' }

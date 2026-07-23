@@ -169,6 +169,23 @@ const multiConditionPlaces = [
 const replaceUrl = (url: string) => history.replaceState(history.state, '', url);
 const pushUrl = replaceUrl;
 
+function favouriteMutation(placeId: string, isFavourite: boolean) {
+  return {
+    placeId,
+    isFavourite,
+    changedAt: '2026-07-13T12:00:00.000Z',
+    recognition: {
+      firstTimeForPlace: false,
+      activatedCurrentWeek: false,
+      currentWeek: {
+        startsOn: '2026-07-13',
+        endsOn: '2026-07-19',
+        active: true
+      }
+    }
+  };
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -241,12 +258,67 @@ describe('MapListShell synchronization', () => {
     expect(screen.queryByLabelText('Selected place')).toBeNull();
   });
 
+  it('keeps first-save recognition inside only the clicked Place card', async () => {
+    history.replaceState(null, '', '/en?view=list');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method !== 'PUT') throw new Error('Unexpected request');
+        const placeId = String(input).split('/').at(-1) ?? '';
+        return new Response(
+          JSON.stringify({
+            ...favouriteMutation(placeId, true),
+            recognition: {
+              firstTimeForPlace: true,
+              activatedCurrentWeek: true,
+              currentWeek: {
+                startsOn: '2026-07-13',
+                endsOn: '2026-07-19',
+                active: true
+              }
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        );
+      })
+    );
+
+    try {
+      render(MapListShell, {
+        places: focusPlaces,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: { ...defaultDiscoveryState, view: 'list' },
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        signedIn: true
+      });
+
+      const trigger = screen.getByRole('button', { name: 'Add Second Place to favorites' });
+      const clickedCard = trigger.closest('[data-place-card]');
+      await fireEvent.click(trigger);
+
+      await waitFor(() =>
+        expect(clickedCard?.querySelector('[data-weekly-rhythm-acknowledgement]')).toBeTruthy()
+      );
+      expect(document.querySelectorAll('[data-weekly-rhythm-acknowledgement]')).toHaveLength(1);
+      expect(clickedCard?.textContent).toContain("This week's trail has begun");
+      expect(clickedCard?.textContent).toContain('Second Place left a fresh pawprint.');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('does not let an older external Favourite refresh overwrite a successful local add', async () => {
     history.replaceState(null, '', '/en?view=list');
     const staleRefresh = deferred<Response>();
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === 'PUT') {
-        return new Response(JSON.stringify({ placeId: places[0].placeId, isFavourite: true }), {
+        return new Response(JSON.stringify(favouriteMutation(places[0].placeId, true)), {
           status: 200,
           headers: { 'content-type': 'application/json' }
         });
@@ -359,7 +431,7 @@ describe('MapListShell synchronization', () => {
         'fetch',
         vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
           if (init?.method !== 'PUT') throw new Error('Unexpected request');
-          return new Response(JSON.stringify({ placeId: removed.placeId, isFavourite: false }), {
+          return new Response(JSON.stringify(favouriteMutation(removed.placeId, false)), {
             status: 200,
             headers: { 'content-type': 'application/json' }
           });
@@ -452,7 +524,7 @@ describe('MapListShell synchronization', () => {
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
         if (init?.method === 'PUT') {
-          return new Response(JSON.stringify({ placeId: places[0].placeId, isFavourite: false }), {
+          return new Response(JSON.stringify(favouriteMutation(places[0].placeId, false)), {
             status: 200,
             headers: { 'content-type': 'application/json' }
           });
