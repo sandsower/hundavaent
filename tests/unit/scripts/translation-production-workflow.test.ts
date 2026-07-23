@@ -25,7 +25,7 @@ describe('production interface translation release contract', () => {
     const migrationIndex = workflow.indexOf('pnpm exec supabase db push --db-url');
     const inventoryApplyIndex = workflow.indexOf('-v release_sha="${RELEASE_SHA}"');
     const deployIndex = workflow.indexOf('Deploy the exact SHA to production');
-    const smokeIndex = workflow.indexOf('data-translation-workspace-sign-in');
+    const smokeIndex = workflow.indexOf('scripts/verify-production-readiness.ts');
 
     expect(syncIndex).toBeGreaterThan(0);
     expect(syncIndex).toBeLessThan(migrationIndex);
@@ -35,23 +35,21 @@ describe('production interface translation release contract', () => {
     expect(workflow.match(/scripts\/sync-interface-translation-inventory\.ts/g)).toHaveLength(1);
     expect(deployIndex).toBeGreaterThan(syncIndex);
     expect(smokeIndex).toBeGreaterThan(deployIndex);
-    expect(workflow).toContain('.checks.translations == "published"');
-    expect(workflow).toContain('--expected-release "${RELEASE_SHA}"');
-    expect(workflow).toContain('--expected-check translations=published');
-    expect(workflow).toContain('.release == $release_sha');
+    expect(workflow).toContain('scripts/verify-production-readiness.ts');
+    expect(workflow).toContain('"${PRODUCTION_URL}"');
+    expect(workflow).toContain('"${RELEASE_SHA}"');
+    expect(workflow).not.toContain('scripts/wait-for-health.ts');
+    expect(workflow).not.toContain('health_json="$(curl');
+    expect(workflow).not.toContain('workspace_headers="${RUNNER_TEMP}');
     expect(workflow).not.toContain('-v translation_database_secret=');
     expect(workflow).not.toContain('hundavaent-translation-smoke-cookies.txt');
-    expect(workflow).toContain('"${PRODUCTION_URL}/translations"');
-    expect(workflow).toContain(
-      'Translation workspace password boundary verified without changing translations.'
-    );
   });
 
   it('keeps the previous capability valid until the deployed release is healthy', async () => {
     const workflow = await readFile('.github/workflows/production.yml', 'utf8');
 
     const deployIndex = workflow.indexOf('  deploy:');
-    const healthIndex = workflow.indexOf('Verify production health and password gate');
+    const healthIndex = workflow.indexOf('Verify coherent production readiness');
     const finalizeIndex = workflow.indexOf('  finalize-translation-capability:');
     const retireIndex = workflow.indexOf('retire_previous_interface_translation_capability');
 
