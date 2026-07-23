@@ -76,13 +76,7 @@
 
   .recommendation.lead {
     padding: clamp(1.15rem, 3vw, 1.6rem);
-    background:
-      radial-gradient(
-        circle at 92% 12%,
-        color-mix(in srgb, var(--hv-color-sky) 22%, transparent),
-        transparent 36%
-      ),
-      var(--hv-color-snow-raised);
+    background: color-mix(in srgb, var(--hv-color-sky) 6%, var(--hv-color-snow-raised));
     border-color: color-mix(in srgb, var(--hv-color-fjord) 38%, var(--hv-color-line));
   }
 

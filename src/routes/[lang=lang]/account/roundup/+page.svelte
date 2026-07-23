@@ -222,17 +222,11 @@
     padding: clamp(1.25rem, 5vw, 2.5rem);
     gap: clamp(1rem, 4vw, 2rem);
     overflow: hidden;
-    background:
-      radial-gradient(
-        circle at 92% 12%,
-        color-mix(in srgb, var(--hv-color-sky) 28%, transparent),
-        transparent 40%
-      ),
-      linear-gradient(
-        145deg,
-        var(--hv-color-snow-raised),
-        color-mix(in srgb, var(--hv-color-moss) 5%, white)
-      );
+    background: linear-gradient(
+      145deg,
+      var(--hv-color-snow-raised),
+      color-mix(in srgb, var(--hv-color-moss) 5%, white)
+    );
   }
 
   .hero-icon {

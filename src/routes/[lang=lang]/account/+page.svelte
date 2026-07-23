@@ -311,13 +311,7 @@
     grid-column: 1 / -1;
     grid-template-columns: auto minmax(0, 1fr);
     border-color: color-mix(in srgb, var(--hv-color-fjord) 28%, var(--hv-color-line));
-    background:
-      radial-gradient(
-        circle at 94% 8%,
-        color-mix(in srgb, var(--hv-color-sky) 18%, transparent),
-        transparent 42%
-      ),
-      var(--hv-color-snow-raised);
+    background: color-mix(in srgb, var(--hv-color-sky) 5%, var(--hv-color-snow-raised));
   }
 
   .roundup-icon {
