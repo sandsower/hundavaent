@@ -80,6 +80,11 @@ The workflow also uses the existing production Supabase URL, project ref, databa
 It binds `TRANSLATION_WORKSPACE_PASSWORD` from the existing production site-gate secret during v1.
 On manual runs, leave `migrate` or `deploy` disabled when an operator wants only the encrypted recovery point.
 
+Achievement milestone activation is a separate protected manual operation for an exact SHA that is already live and healthy in production.
+Dispatch `Hundavaent production` with that full SHA, `migrate=false`, `deploy=false`, and `activate_achievement_milestones=true`.
+The workflow first creates and restore-tests the normal encrypted recovery point, verifies that production health reports the requested SHA, invokes the service-role-only policy boundary, and proves both the private policy values and anonymous public feature status.
+The operation is replay-safe because the policy function preserves the immutable first eligibility timestamp after activation.
+
 The logical recovery artifact protects independent application data and Storage schemas but does not currently protect managed Auth identities, hard identity-owned application rows, or the original values of neutralized identity-attribution columns, and it is not a substitute for managed point-in-time recovery.
 Until managed physical backups or PITR are enabled, recovery can restore only to the timestamp captured by the most recent successful workflow run.
 
