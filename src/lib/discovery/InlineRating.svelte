@@ -3,6 +3,12 @@
 
   import type { Catalogue, MessageKey } from '$i18n';
   import { requestAuthentication } from '$lib/auth/controller';
+  import { applyWeeklyRhythmRecognition } from '$lib/member-activity/client';
+  import {
+    parseWeeklyRhythmRecognition,
+    type WeeklyRhythmRecognition
+  } from '$lib/member-activity/types';
+  import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
   import type {
     CurrentRating,
     DogFriendlinessSummary
@@ -12,6 +18,7 @@
 
   type Category = 'welcome' | 'clarity' | 'comfort' | 'thoughtfulness';
   interface Snapshot {
+    commandId: string;
     overall: number;
     welcome: number | null;
     clarity: number | null;
@@ -53,6 +60,7 @@
   let interactionVersion = 0;
   let destroyed = false;
   let initialLoadReady = $state(false);
+  let recognition = $state<WeeklyRhythmRecognition | null>(null);
 
   const lowScore = $derived(
     overall !== null &&
@@ -73,7 +81,10 @@
     if (finalSnapshot) {
       void fetch(`/api/ratings/${encodeURIComponent(placeId)}`, {
         method: 'PUT',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'idempotency-key': finalSnapshot.commandId
+        },
         body: JSON.stringify(requestPayload(finalSnapshot)),
         keepalive: true
       });
@@ -88,8 +99,15 @@
     try {
       const response = await fetch(`/api/ratings/${encodeURIComponent(placeId)}`);
       if (!response.ok) throw new Error('load failed');
-      const payload = (await response.json()) as { rating: CurrentRating | null };
+      const payload = (await response.json()) as {
+        rating: CurrentRating | null;
+        recognition?: unknown;
+      };
+      const parsedRecognition = parseWeeklyRhythmRecognition(payload.recognition, 'rating');
+      if (!parsedRecognition) throw new Error('invalid recognition');
       if (destroyed || loadVersion !== interactionVersion) return;
+      applyWeeklyRhythmRecognition(parsedRecognition);
+      if (parsedRecognition.recognized) recognition = parsedRecognition;
       if (payload.rating?.overallScore) {
         overall = payload.rating.overallScore;
         values = { ...payload.rating.scores };
@@ -140,6 +158,7 @@
   function snapshot(noteUpdate: boolean): Snapshot {
     if (overall === null) throw new Error('overall required');
     return {
+      commandId: crypto.randomUUID(),
       overall,
       ...values,
       noteUpdate,
@@ -177,10 +196,18 @@
       try {
         const response = await fetch(`/api/ratings/${encodeURIComponent(placeId)}`, {
           method: 'PUT',
-          headers: { 'content-type': 'application/json' },
+          headers: {
+            'content-type': 'application/json',
+            'idempotency-key': next.commandId
+          },
           body: JSON.stringify(requestPayload(next))
         });
         if (!response.ok) throw new Error('save failed');
+        const payload = (await response.json()) as { recognition?: unknown };
+        const parsedRecognition = parseWeeklyRhythmRecognition(payload.recognition, 'rating');
+        if (!parsedRecognition) throw new Error('invalid recognition');
+        applyWeeklyRhythmRecognition(parsedRecognition);
+        if (parsedRecognition.recognized) recognition = parsedRecognition;
         if (!queued && !destroyed) status = 'saved';
         if (next.noteUpdate && next.noteRevision === noteRevision) {
           noteDirty = false;
@@ -222,6 +249,9 @@
 </script>
 
 <section class="inline-rating" aria-labelledby={`rating-${placeId}`} data-inline-rating>
+  {#if recognition}
+    <WeeklyRhythmAcknowledgement {recognition} subjectName={placeName} {copy} />
+  {/if}
   <div class="rating-heading">
     <h3 id={`rating-${placeId}`}>{copy['rating.inline.heading']}</h3>
     <span class="save-status" aria-live="polite" aria-atomic="true">

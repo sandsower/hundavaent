@@ -8,6 +8,7 @@ import {
   requireRole
 } from '$server/auth/require-role';
 import { listMemberPlaceFlags, type PlaceFlagRpcClient } from '$server/place-flags/place-flags';
+import { parseRedirectRecognition } from '$server/member-activity/redirect-recognition';
 
 import type { PageServerLoad } from './$types';
 
@@ -48,11 +49,17 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     });
   }
 
+  const submitted = url.searchParams.get('submitted');
+  const submittedFlag = result.value.items.find((flag) => flag.flagId === submitted);
+
   return {
     flags: result.value.items,
     nextCursor: result.value.nextCursor,
     hasPrevious: cursor !== null,
-    submitted: url.searchParams.get('submitted')
+    submitted,
+    recognition: submittedFlag
+      ? parseRedirectRecognition(url.searchParams, submittedFlag.kind)
+      : null
   };
 };
 

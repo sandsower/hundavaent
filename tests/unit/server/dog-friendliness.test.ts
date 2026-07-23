@@ -378,7 +378,18 @@ describe('Dog-Friendliness RPC adapter', () => {
 
   it('creates an explicit Report from a qualifying note', async () => {
     const rpc = vi.fn().mockResolvedValue({
-      data: [{ flag_id: 'flag-1', status: 'submitted', submitted_at: '2026-07-12T09:00:00Z' }],
+      data: [
+        {
+          flag_id: 'flag-1',
+          status: 'submitted',
+          submitted_at: '2026-07-12T09:00:00Z',
+          qualifying_action_recorded: true,
+          activated_current_week: false,
+          current_week_starts_on: '2026-07-06',
+          current_week_ends_on: '2026-07-12',
+          current_week_active: true
+        }
+      ],
       error: null
     });
 
@@ -386,7 +397,17 @@ describe('Dog-Friendliness RPC adapter', () => {
       createReportFromRatingNote({ rpc } satisfies DogFriendlinessRpcClient, 'place-1', 'request-1')
     ).resolves.toEqual({
       status: 'success',
-      value: { flagId: 'flag-1', outcome: 'submitted', submittedAt: '2026-07-12T09:00:00Z' }
+      value: {
+        flagId: 'flag-1',
+        outcome: 'submitted',
+        submittedAt: '2026-07-12T09:00:00Z',
+        recognition: {
+          action: 'report',
+          recognized: true,
+          activatedCurrentWeek: false,
+          currentWeek: { startsOn: '2026-07-06', endsOn: '2026-07-12', active: true }
+        }
+      }
     });
     expect(rpc).toHaveBeenCalledWith('create_report_from_rating_note', {
       requested_place_id: 'place-1',

@@ -27,6 +27,8 @@ describe('weekly rhythm cross-tab invalidation', () => {
     );
 
     publishDeferredFavouriteRecognition(placeId, 'selected', {
+      action: 'favourite',
+      recognized: true,
       firstTimeForPlace: true,
       activatedCurrentWeek: true,
       currentWeek: {

@@ -175,6 +175,8 @@ function favouriteMutation(placeId: string, isFavourite: boolean) {
     isFavourite,
     changedAt: '2026-07-13T12:00:00.000Z',
     recognition: {
+      action: 'favourite',
+      recognized: false,
       firstTimeForPlace: false,
       activatedCurrentWeek: false,
       currentWeek: {
@@ -269,6 +271,8 @@ describe('MapListShell synchronization', () => {
           JSON.stringify({
             ...favouriteMutation(placeId, true),
             recognition: {
+              action: 'favourite',
+              recognized: true,
               firstTimeForPlace: true,
               activatedCurrentWeek: true,
               currentWeek: {
@@ -2167,7 +2171,17 @@ describe('MapListShell synchronization', () => {
             placeId,
             proximityConfirmed: 'unknown',
             checkedInAt: '2026-07-12T14:32:00Z',
-            alreadyCheckedIn: false
+            alreadyCheckedIn: false,
+            recognition: {
+              action: 'check_in',
+              recognized: true,
+              activatedCurrentWeek: true,
+              currentWeek: {
+                startsOn: '2026-07-06',
+                endsOn: '2026-07-12',
+                active: true
+              }
+            }
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         );

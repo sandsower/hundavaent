@@ -1,8 +1,6 @@
 import type { RequestSupabaseClient } from '$server/db/clients';
-import {
-  mapFavouriteRecognition,
-  type FavouriteRecognition
-} from '$server/member-activity/weekly-rhythm';
+import type { FavouriteRecognition } from '$lib/member-activity/types';
+import { mapFavouriteRecognition } from '$server/member-activity/weekly-rhythm';
 
 export const authPendingIntentTokenPattern = /^[A-Za-z0-9_-]{43}$/;
 

@@ -166,11 +166,7 @@
       {/if}
     </div>
     {#if recognition}
-      <WeeklyRhythmAcknowledgement
-        placeName={place.name}
-        activatedCurrentWeek={recognition.activatedCurrentWeek}
-        {copy}
-      />
+      <WeeklyRhythmAcknowledgement subjectName={place.name} {recognition} {copy} />
     {/if}
     <div class="place-facts">
       <AccessSymbols

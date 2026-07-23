@@ -22,10 +22,19 @@ export type WeeklyRhythmHistory =
     }
   | { status: 'unavailable' };
 
-export interface FavouriteRecognition {
-  firstTimeForPlace: boolean;
+export type QualifyingAction =
+  'favourite' | 'check_in' | 'rating' | 'suggestion' | 'correction' | 'report';
+
+export interface WeeklyRhythmRecognition {
+  action: QualifyingAction;
+  recognized: boolean;
   activatedCurrentWeek: boolean;
   currentWeek: WeeklyRhythmWeek;
+}
+
+export interface FavouriteRecognition extends WeeklyRhythmRecognition {
+  action: 'favourite';
+  firstTimeForPlace: boolean;
 }
 
 export interface FavouriteMutationPayload {
@@ -53,12 +62,19 @@ export function parseFavouriteMutationPayload(
 
   const recognition = value.recognition;
   if (
+    recognition.action !== 'favourite' ||
+    typeof recognition.recognized !== 'boolean' ||
     typeof recognition.firstTimeForPlace !== 'boolean' ||
     typeof recognition.activatedCurrentWeek !== 'boolean' ||
     !isWeeklyRhythmWeek(recognition.currentWeek) ||
-    (!expectedState && (recognition.firstTimeForPlace || recognition.activatedCurrentWeek)) ||
+    recognition.recognized !== recognition.firstTimeForPlace ||
+    (!expectedState &&
+      (recognition.recognized ||
+        recognition.firstTimeForPlace ||
+        recognition.activatedCurrentWeek)) ||
     (recognition.activatedCurrentWeek &&
-      (!recognition.firstTimeForPlace || !recognition.currentWeek.active))
+      (!recognition.recognized || !recognition.currentWeek.active)) ||
+    (recognition.recognized && !recognition.currentWeek.active)
   ) {
     return null;
   }
@@ -68,10 +84,36 @@ export function parseFavouriteMutationPayload(
     isFavourite: value.isFavourite,
     changedAt: value.changedAt,
     recognition: {
+      action: 'favourite',
+      recognized: recognition.recognized,
       firstTimeForPlace: recognition.firstTimeForPlace,
       activatedCurrentWeek: recognition.activatedCurrentWeek,
       currentWeek: recognition.currentWeek
     }
+  };
+}
+
+export function parseWeeklyRhythmRecognition(
+  value: unknown,
+  expectedAction: QualifyingAction
+): WeeklyRhythmRecognition | null {
+  if (
+    !isRecord(value) ||
+    value.action !== expectedAction ||
+    typeof value.recognized !== 'boolean' ||
+    typeof value.activatedCurrentWeek !== 'boolean' ||
+    !isWeeklyRhythmWeek(value.currentWeek) ||
+    (value.activatedCurrentWeek && !value.recognized) ||
+    (value.recognized && !value.currentWeek.active)
+  ) {
+    return null;
+  }
+
+  return {
+    action: expectedAction,
+    recognized: value.recognized,
+    activatedCurrentWeek: value.activatedCurrentWeek,
+    currentWeek: value.currentWeek
   };
 }
 

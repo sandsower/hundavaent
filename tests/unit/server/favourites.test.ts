@@ -136,6 +136,8 @@ describe('Favourite server boundary', () => {
         isFavourite: true,
         changedAt: '2026-07-11T10:00:00Z',
         recognition: {
+          action: 'favourite',
+          recognized: true,
           firstTimeForPlace: true,
           activatedCurrentWeek: true,
           currentWeek: {

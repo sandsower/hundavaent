@@ -52,7 +52,18 @@ const reportPayload = {
 describe('Place-flag RPC adapter', () => {
   it('submits a Correction without exposing database row names', async () => {
     const rpc = vi.fn().mockResolvedValue({
-      data: [{ flag_id: 'flag-1', status: 'submitted', submitted_at: '2026-07-11T09:00:00Z' }],
+      data: [
+        {
+          flag_id: 'flag-1',
+          status: 'submitted',
+          submitted_at: '2026-07-11T09:00:00Z',
+          qualifying_action_recorded: true,
+          activated_current_week: true,
+          current_week_starts_on: '2026-07-06',
+          current_week_ends_on: '2026-07-12',
+          current_week_active: true
+        }
+      ],
       error: null
     });
 
@@ -60,7 +71,17 @@ describe('Place-flag RPC adapter', () => {
       submitCorrection({ rpc } satisfies PlaceFlagRpcClient, correctionPayload, 'request-1')
     ).resolves.toEqual({
       status: 'success',
-      value: { flagId: 'flag-1', outcome: 'submitted', submittedAt: '2026-07-11T09:00:00Z' }
+      value: {
+        flagId: 'flag-1',
+        outcome: 'submitted',
+        submittedAt: '2026-07-11T09:00:00Z',
+        recognition: {
+          action: 'correction',
+          recognized: true,
+          activatedCurrentWeek: true,
+          currentWeek: { startsOn: '2026-07-06', endsOn: '2026-07-12', active: true }
+        }
+      }
     });
     expect(rpc).toHaveBeenCalledWith('submit_place_correction', {
       command_payload: correctionPayload,
@@ -70,7 +91,18 @@ describe('Place-flag RPC adapter', () => {
 
   it('submits a Report through the distinct entry RPC', async () => {
     const rpc = vi.fn().mockResolvedValue({
-      data: [{ flag_id: 'flag-2', status: 'submitted', submitted_at: '2026-07-11T09:00:00Z' }],
+      data: [
+        {
+          flag_id: 'flag-2',
+          status: 'submitted',
+          submitted_at: '2026-07-11T09:00:00Z',
+          qualifying_action_recorded: true,
+          activated_current_week: false,
+          current_week_starts_on: '2026-07-06',
+          current_week_ends_on: '2026-07-12',
+          current_week_active: true
+        }
+      ],
       error: null
     });
 
@@ -78,7 +110,17 @@ describe('Place-flag RPC adapter', () => {
       submitReport({ rpc } satisfies PlaceFlagRpcClient, reportPayload, 'request-2')
     ).resolves.toEqual({
       status: 'success',
-      value: { flagId: 'flag-2', outcome: 'submitted', submittedAt: '2026-07-11T09:00:00Z' }
+      value: {
+        flagId: 'flag-2',
+        outcome: 'submitted',
+        submittedAt: '2026-07-11T09:00:00Z',
+        recognition: {
+          action: 'report',
+          recognized: true,
+          activatedCurrentWeek: false,
+          currentWeek: { startsOn: '2026-07-06', endsOn: '2026-07-12', active: true }
+        }
+      }
     });
     expect(rpc).toHaveBeenCalledWith('submit_place_report', {
       command_payload: reportPayload,

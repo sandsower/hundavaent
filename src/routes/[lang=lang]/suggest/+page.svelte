@@ -69,6 +69,7 @@
   {:else}
     {#if errorMessage}<p class="hv-notice" data-tone="error" role="alert">{errorMessage}</p>{/if}
     <form class="hv-stack" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
+      <input type="hidden" name="commandId" value={data.commandId} />
       <fieldset class="availability-boundary hv-stack" disabled={submissionUnavailable}>
         <input type="hidden" name="purpose" value="dog_access_destination" />
         <input type="hidden" name="submissionProfile" value="simple-v1" />

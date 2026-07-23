@@ -1,26 +1,17 @@
 import type { RequestSupabaseClient } from '$server/db/clients';
-
-export interface CurrentWeek {
-  startsOn: string;
-  endsOn: string;
-  active: boolean;
-}
-
-export interface WeeklyRhythmWeek extends CurrentWeek {
-  current: boolean;
-}
-
-export interface FavouriteRecognition {
-  firstTimeForPlace: boolean;
-  activatedCurrentWeek: boolean;
-  currentWeek: CurrentWeek;
-}
+import type {
+  FavouriteRecognition,
+  QualifyingAction,
+  WeeklyRhythmHistoryWeek,
+  WeeklyRhythmRecognition,
+  WeeklyRhythmWeek
+} from '$lib/member-activity/types';
 
 export type WeeklyRhythmResult =
-  { status: 'available'; currentWeek: CurrentWeek } | { status: 'unavailable' };
+  { status: 'available'; currentWeek: WeeklyRhythmWeek } | { status: 'unavailable' };
 
 export type WeeklyRhythmHistoryResult =
-  { status: 'available'; weeks: WeeklyRhythmWeek[] } | { status: 'unavailable' };
+  { status: 'available'; weeks: WeeklyRhythmHistoryWeek[] } | { status: 'unavailable' };
 
 export async function getWeeklyRhythm(client: RequestSupabaseClient): Promise<WeeklyRhythmResult> {
   try {
@@ -58,22 +49,50 @@ export async function getWeeklyRhythmHistory(
 }
 
 export function mapFavouriteRecognition(row: unknown): FavouriteRecognition | null {
+  if (!isRecord(row) || typeof row.first_time_for_place !== 'boolean') {
+    return null;
+  }
+
+  const recognition = mapWeeklyRhythmRecognitionRow(row, 'favourite', row.first_time_for_place);
+  if (!recognition) return null;
+
+  return {
+    ...recognition,
+    action: 'favourite',
+    firstTimeForPlace: row.first_time_for_place
+  };
+}
+
+export function mapWeeklyRhythmRecognition(
+  row: unknown,
+  expectedAction: Exclude<QualifyingAction, 'favourite'>
+): WeeklyRhythmRecognition | null {
+  if (!isRecord(row) || typeof row.qualifying_action_recorded !== 'boolean') return null;
+  return mapWeeklyRhythmRecognitionRow(row, expectedAction, row.qualifying_action_recorded);
+}
+
+function mapWeeklyRhythmRecognitionRow(
+  row: Record<string, unknown>,
+  action: QualifyingAction,
+  recognized: boolean
+): WeeklyRhythmRecognition | null {
   if (
-    !isRecord(row) ||
-    typeof row.first_time_for_place !== 'boolean' ||
     typeof row.activated_current_week !== 'boolean' ||
     !isDateOnly(row.current_week_starts_on) ||
     !isDateOnly(row.current_week_ends_on) ||
     typeof row.current_week_active !== 'boolean' ||
     dateValue(row.current_week_ends_on)! - dateValue(row.current_week_starts_on)! !==
       6 * dayMilliseconds ||
-    !hasMondayToSundayBoundary(row.current_week_starts_on, row.current_week_ends_on)
+    !hasMondayToSundayBoundary(row.current_week_starts_on, row.current_week_ends_on) ||
+    (row.activated_current_week && !recognized) ||
+    (recognized && !row.current_week_active)
   ) {
     return null;
   }
 
   return {
-    firstTimeForPlace: row.first_time_for_place,
+    action,
+    recognized,
     activatedCurrentWeek: row.activated_current_week,
     currentWeek: {
       startsOn: row.current_week_starts_on,
@@ -141,7 +160,11 @@ function hasMondayToSundayBoundary(startsOn: string, endsOn: string): boolean {
   );
 }
 
-function mapCurrentWeek(row: { starts_on: string; ends_on: string; active: boolean }): CurrentWeek {
+function mapCurrentWeek(row: {
+  starts_on: string;
+  ends_on: string;
+  active: boolean;
+}): WeeklyRhythmWeek {
   return {
     startsOn: row.starts_on,
     endsOn: row.ends_on,

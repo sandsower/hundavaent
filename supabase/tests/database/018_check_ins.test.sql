@@ -173,13 +173,19 @@ select throws_ok(
   'A Candidate Place cannot receive a Check-in'
 );
 
-select is(
+select ok(
   (
-    select proximity_confirmed
-    from public.record_check_in('30000000-0000-4000-8000-000000000002', null, extensions.gen_random_uuid())
+    select
+      result.proximity_confirmed = 'unknown'
+      and result.qualifying_action_recorded
+      and result.activated_current_week
+    from public.record_check_in(
+      '30000000-0000-4000-8000-000000000002',
+      null,
+      extensions.gen_random_uuid()
+    ) as result
   ),
-  'unknown',
-  'Omitting the proximity decision records unknown, matching the no-location path'
+  'A first Check-in records unknown proximity and activates the current week'
 );
 
 select throws_ok(
@@ -203,17 +209,20 @@ select is(
 
 -- A brand-new Place/Member pair, isolated from the "unknown" Check-in recorded above, so the
 -- exact-request-id-replay and rolling-window assertions below observe a clean history.
-select is(
+select ok(
   (
-    select already_checked_in
+    select
+      not result.already_checked_in
+      and result.qualifying_action_recorded
+      and not result.activated_current_week
+      and result.current_week_active
     from public.record_check_in(
       '30000000-0000-4000-8000-000000000003',
       'confirmed',
       '78000000-0000-4000-8000-000000000001'
-    )
+    ) as result
   ),
-  false,
-  'A first Check-in on a fresh Place is not a duplicate'
+  'A first Check-in at another Place qualifies without reactivating an already active week'
 );
 select is(
   (
@@ -227,17 +236,19 @@ select is(
   'confirmed',
   'Exact request-id replay returns the original recorded proximity decision'
 );
-select is(
+select ok(
   (
-    select already_checked_in
+    select
+      result.already_checked_in
+      and not result.qualifying_action_recorded
+      and not result.activated_current_week
     from public.record_check_in(
       '30000000-0000-4000-8000-000000000003',
       'confirmed',
       '78000000-0000-4000-8000-000000000001'
-    )
+    ) as result
   ),
-  true,
-  'Exact request-id replay is reported as an existing Check-in (double-submit protection)'
+  'Exact request-id replay is a recognized duplicate but never another qualifying action'
 );
 select is(
   (
@@ -264,17 +275,19 @@ select is(
   'confirmed',
   'A duplicate submission within the rolling 24-hour window returns the first recorded decision unchanged'
 );
-select is(
+select ok(
   (
-    select already_checked_in
+    select
+      result.already_checked_in
+      and not result.qualifying_action_recorded
+      and not result.activated_current_week
     from public.record_check_in(
       '30000000-0000-4000-8000-000000000003',
       'not_confirmed',
       '78000000-0000-4000-8000-000000000002'
-    )
+    ) as result
   ),
-  true,
-  'A duplicate submission with a different request ID inside the window is reported as already checked in'
+  'A 24-hour duplicate is reported as existing and never counts as qualifying activity'
 );
 
 reset role;

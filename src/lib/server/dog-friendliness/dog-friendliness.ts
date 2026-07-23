@@ -7,6 +7,8 @@ import type {
   RatingScores,
   InlineRatingInput
 } from './dog-friendliness-input';
+import type { WeeklyRhythmRecognition } from '$lib/member-activity/types';
+import { mapWeeklyRhythmRecognition } from '$server/member-activity/weekly-rhythm';
 
 interface RpcError {
   code?: string;
@@ -36,6 +38,11 @@ export interface CurrentRating {
   privateNoteUpdatedAt: string | null;
 }
 
+export interface RatingMutation {
+  rating: CurrentRating;
+  recognition: WeeklyRhythmRecognition;
+}
+
 export interface ModerationRating {
   id: string;
   memberId: string;
@@ -56,7 +63,7 @@ export async function saveInlineRating(
   placeId: string,
   input: InlineRatingInput,
   requestId: string
-): Promise<DogFriendlinessCommandResult<CurrentRating>> {
+): Promise<DogFriendlinessCommandResult<RatingMutation>> {
   try {
     const { data, error } = await client.rpc('save_inline_dog_friendliness_rating', {
       requested_place_id: placeId,
@@ -75,7 +82,12 @@ export async function saveInlineRating(
     if (!isSubmitRow(row) || !isScoreOrNull(row.overall_score) || row.overall_score === null) {
       return { status: 'infrastructure_error' };
     }
-    return { status: 'success', value: toCurrentRating(row) };
+    const recognition = mapWeeklyRhythmRecognition(row, 'rating');
+    if (!recognition) return { status: 'infrastructure_error' };
+    return {
+      status: 'success',
+      value: { rating: toCurrentRating(row), recognition }
+    };
   } catch {
     return { status: 'infrastructure_error' };
   }
@@ -84,17 +96,20 @@ export async function saveInlineRating(
 export async function applyPendingRating(
   client: DogFriendlinessRpcClient,
   placeId: string
-): Promise<DogFriendlinessCommandResult<boolean>> {
+): Promise<
+  DogFriendlinessCommandResult<{ applied: boolean; recognition: WeeklyRhythmRecognition }>
+> {
   try {
     const { data, error } = await client.rpc('apply_pending_member_rating', {
       requested_place_id: placeId
     });
     if (error) return { status: mapError(error.code) };
     const row = Array.isArray(data) && data.length === 1 ? data[0] : null;
-    if (!isRecord(row) || typeof row.applied !== 'boolean') {
+    const recognition = mapWeeklyRhythmRecognition(row, 'rating');
+    if (!isRecord(row) || typeof row.applied !== 'boolean' || !recognition) {
       return { status: 'infrastructure_error' };
     }
-    return { status: 'success', value: row.applied };
+    return { status: 'success', value: { applied: row.applied, recognition } };
   } catch {
     return { status: 'infrastructure_error' };
   }
@@ -185,7 +200,14 @@ export async function createReportFromRatingNote(
   client: DogFriendlinessRpcClient,
   placeId: string,
   requestId: string
-): Promise<DogFriendlinessCommandResult<{ flagId: string; outcome: string; submittedAt: string }>> {
+): Promise<
+  DogFriendlinessCommandResult<{
+    flagId: string;
+    outcome: string;
+    submittedAt: string;
+    recognition: WeeklyRhythmRecognition;
+  }>
+> {
   try {
     const { data, error } = await client.rpc('create_report_from_rating_note', {
       requested_place_id: placeId,
@@ -194,9 +216,16 @@ export async function createReportFromRatingNote(
     if (error) return { status: mapError(error.code) };
     const row = Array.isArray(data) && data.length === 1 ? data[0] : null;
     if (!isReportLinkRow(row)) return { status: 'infrastructure_error' };
+    const recognition = mapWeeklyRhythmRecognition(row, 'report');
+    if (!recognition) return { status: 'infrastructure_error' };
     return {
       status: 'success',
-      value: { flagId: row.flag_id, outcome: row.status, submittedAt: row.submitted_at }
+      value: {
+        flagId: row.flag_id,
+        outcome: row.status,
+        submittedAt: row.submitted_at,
+        recognition
+      }
     };
   } catch {
     return { status: 'infrastructure_error' };

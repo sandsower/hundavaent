@@ -105,6 +105,7 @@
     {#if errorMessage}<p class="hv-notice" data-tone="error" role="alert">{errorMessage}</p>{/if}
 
     <form class="hv-stack" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
+      <input type="hidden" name="commandId" value={data.commandId} />
       <fieldset class="availability-boundary hv-stack" disabled={submissionUnavailable}>
         <fieldset class="hv-form-section hv-panel">
           <legend>{data.copy['correction.targetKind']}</legend>

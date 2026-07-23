@@ -673,15 +673,25 @@ for (const locale of ['is', 'en'] as const) {
 
     // The personal-history route (personal-history): the same Place is also checked in, so its four views
     // show a mixed Favourite-and-visited state rather than an empty one.
-    const checkInMutation = await page.evaluate(async (placeId) => {
-      const response = await fetch(`/api/check-ins/${placeId}`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ proximityDecision: 'unknown' })
-      });
-      return { ok: response.ok, status: response.status };
-    }, evaluationFixtureIds.places.published);
-    expect(checkInMutation).toMatchObject({ ok: true, status: 200 });
+    await page.goto(`/${locale}?place=${evaluationFixtureIds.places.published}&view=map`);
+    await waitForHydration(page);
+    const selectedCheckInProfile = page.getByRole('complementary', {
+      name: copy[locale].selectedPlace
+    });
+    await selectedCheckInProfile
+      .getByRole('button', {
+        name:
+          locale === 'is'
+            ? `Skrá heimsókn hjá ${copy[locale].place}`
+            : `Check in at ${copy[locale].place}`
+      })
+      .click();
+    await expect(
+      selectedCheckInProfile.locator(
+        '[data-weekly-rhythm-acknowledgement][data-recognition-action="check_in"][data-activated-week="false"]'
+      )
+    ).toBeVisible();
+    await capture(page, evidence, `weekly-rhythm-acknowledgement-${locale}-desktop.png`);
 
     try {
       await page.goto(`/${locale}?place=${evaluationFixtureIds.places.published}&view=map`);

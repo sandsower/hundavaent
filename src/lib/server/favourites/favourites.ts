@@ -2,10 +2,8 @@ import type { PlaceCategory } from '$domain/place';
 import type { Locale } from '$i18n';
 import type { RequestSupabaseClient } from '$server/db/clients';
 import type { Database } from '$server/db/generated.types';
-import {
-  mapFavouriteRecognition,
-  type FavouriteRecognition
-} from '$server/member-activity/weekly-rhythm';
+import type { FavouriteRecognition } from '$lib/member-activity/types';
+import { mapFavouriteRecognition } from '$server/member-activity/weekly-rhythm';
 
 type FavouriteIdRow =
   Database['public']['Functions']['list_current_favourite_ids']['Returns'][number];

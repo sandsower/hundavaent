@@ -63,6 +63,11 @@ test('a Member rates a Place, updates the Rating, and the public Summary crosses
     thoughtfulness: '4'
   });
   await expect(page).toHaveURL(`/en?place=${placeId}`);
+  await expect(
+    page.locator(
+      '[data-weekly-rhythm-acknowledgement][data-recognition-action="rating"][data-activated-week="true"]'
+    )
+  ).toBeVisible();
 
   // One eligible Rating still leaves the Place below the configured threshold of two.
   const belowThreshold = await publicClient.rpc('get_dog_friendliness_summary', {

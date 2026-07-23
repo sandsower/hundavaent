@@ -13,6 +13,8 @@ describe('Favorite recognition payload', () => {
           isFavourite: true,
           changedAt: '2026-07-13T12:00:00.000Z',
           recognition: {
+            action: 'favourite',
+            recognized: true,
             firstTimeForPlace: true,
             activatedCurrentWeek: true,
             currentWeek: {
@@ -30,6 +32,8 @@ describe('Favorite recognition payload', () => {
       isFavourite: true,
       changedAt: '2026-07-13T12:00:00.000Z',
       recognition: {
+        action: 'favourite',
+        recognized: true,
         firstTimeForPlace: true,
         activatedCurrentWeek: true,
         currentWeek: {

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { error, fail, redirect } from '@sveltejs/kit';
 
 import { parseLocale } from '$i18n';
@@ -10,6 +11,7 @@ import {
 import { getPublishedProfile } from '$server/discovery/public-places';
 import { parseCorrectionFormData } from '$server/place-flags/place-flag-input';
 import { submitCorrection, type PlaceFlagRpcClient } from '$server/place-flags/place-flags';
+import { serializeRedirectRecognition } from '$server/member-activity/redirect-recognition';
 
 import type { Actions, PageServerLoad } from './$types';
 
@@ -39,7 +41,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
       signInUrl: null,
       place: profileResult.value,
       presetField,
-      presetConditionId
+      presetConditionId,
+      commandId: randomUUID()
     };
   } catch (cause) {
     if (cause instanceof AuthenticationRequiredError || cause instanceof RoleRequiredError) {
@@ -73,6 +76,10 @@ export const actions: Actions = {
     }
 
     const formData = await request.formData();
+    const commandId = formData.get('commandId');
+    if (typeof commandId !== 'string' || !uuidPattern.test(commandId)) {
+      return fail(400, { error: 'invalid' as const });
+    }
     formData.set('placeId', params.id);
     const parsed = parseCorrectionFormData(formData);
     if (!parsed.ok) return fail(400, { error: parsed.error });
@@ -80,7 +87,7 @@ export const actions: Actions = {
     const result = await submitCorrection(
       locals.supabase as unknown as PlaceFlagRpcClient,
       parsed.payload,
-      locals.requestId
+      commandId
     );
     if (result.status !== 'success') {
       const status =
@@ -98,10 +105,15 @@ export const actions: Actions = {
 
     redirect(
       303,
-      `/${lang}/account/corrections-and-reports?submitted=${encodeURIComponent(result.value.flagId)}`
+      `/${lang}/account/corrections-and-reports?${serializeRedirectRecognition(
+        result.value.flagId,
+        result.value.recognition
+      )}`
     );
   }
 };
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function accountRedirectUrl(lang: 'is' | 'en', returnTo: string): string {
   return `/${lang}/account?returnTo=${encodeURIComponent(returnTo)}`;

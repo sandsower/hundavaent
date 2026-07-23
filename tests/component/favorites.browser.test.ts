@@ -312,6 +312,8 @@ function stubSuccessfulRemoval(): void {
           isFavourite: body.desiredState,
           changedAt: '2026-07-13T12:00:00.000Z',
           recognition: {
+            action: 'favourite',
+            recognized: false,
             firstTimeForPlace: false,
             activatedCurrentWeek: false,
             currentWeek: {

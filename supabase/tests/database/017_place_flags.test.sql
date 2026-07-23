@@ -282,8 +282,13 @@ reset role;
 select set_config('request.jwt.claim.sub', '76000000-0000-4000-8000-000000000002', true);
 set local role authenticated;
 
-select is(
-  (select status from public.submit_place_report(
+select ok(
+  (
+    select
+      result.status = 'submitted'
+      and result.qualifying_action_recorded
+      and result.activated_current_week
+    from public.submit_place_report(
     jsonb_build_object(
       'place_id', '76300000-0000-4000-8000-000000000001', 'target_kind', 'access_condition',
       'access_condition_id', '76400000-0000-4000-8000-000000000001',
@@ -296,9 +301,9 @@ select is(
       'report_reason', 'unsafe', 'is_safety_concern', true
     ),
     '86000000-0000-4000-8000-000000000010'
-  )),
-  'submitted',
-  'A Member can file a Safety Concern Report against an Access Condition'
+  ) as result
+  ),
+  'A Safety Concern Report is qualifying activity and activates the current week'
 );
 
 select throws_ok(
@@ -358,8 +363,13 @@ select throws_ok(
   '23514', null, 'A Place cannot be reported as its own successor'
 );
 
-select is(
-  (select status from public.submit_place_correction(
+select ok(
+  (
+    select
+      result.status = 'submitted'
+      and result.qualifying_action_recorded
+      and not result.activated_current_week
+    from public.submit_place_correction(
     jsonb_build_object(
       'place_id', '76300000-0000-4000-8000-000000000001', 'target_kind', 'access_condition',
       'access_condition_id', '76400000-0000-4000-8000-000000000002',
@@ -377,9 +387,9 @@ select is(
       )
     ),
     '86000000-0000-4000-8000-000000000013'
-  )),
-  'submitted',
-  'A Member can propose a Correction to a different Access Condition on the same Place'
+  ) as result
+  ),
+  'A Correction is qualifying activity without reactivating an already active week'
 );
 reset role;
 
