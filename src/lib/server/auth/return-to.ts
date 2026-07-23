@@ -18,7 +18,8 @@ export function normalizeMemberReturnTo(value: unknown, locale: Locale): string 
     `${accountRoot}/achievements`,
     `${accountRoot}/corrections-and-reports`,
     `${accountRoot}/suggestions`,
-    `${accountRoot}/contributor-status`
+    `${accountRoot}/contributor-status`,
+    `${accountRoot}/roundup`
   ]);
   const isAccountLoop =
     parsed.pathname === accountRoot ||

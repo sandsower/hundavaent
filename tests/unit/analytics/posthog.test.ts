@@ -5,6 +5,11 @@ import {
   resolvePostHogConfig,
   sanitizePostHogEvent
 } from '$lib/analytics/posthog';
+import {
+  roundupClickProperties,
+  roundupPreferencesProperties,
+  roundupViewProperties
+} from '$lib/roundup/analytics';
 
 function createClient() {
   return {
@@ -173,6 +178,50 @@ describe('PostHog analytics configuration', () => {
     expect(JSON.stringify(client.capture.mock.calls)).not.toContain('@');
     expect(JSON.stringify(client.capture.mock.calls)).not.toContain('profile');
     expect(JSON.stringify(client.capture.mock.calls)).not.toContain('note');
+  });
+
+  it('captures roundup use with aggregate buckets and no preference or Place identity', () => {
+    const analytics = createPostHogAnalytics();
+    const client = createClient();
+    analytics.initialize(environment, client);
+
+    analytics.capture('roundup viewed', roundupViewProperties('populated', 5));
+    analytics.capture(
+      'roundup recommendation clicked',
+      roundupClickProperties(2, 'newly_published')
+    );
+    analytics.capture(
+      'roundup preferences completed',
+      roundupPreferencesProperties(2, true, false)
+    );
+
+    expect(client.capture).toHaveBeenNthCalledWith(1, 'roundup viewed', {
+      availability: 'populated',
+      recommendation_count: '4-6'
+    });
+    expect(client.capture).toHaveBeenNthCalledWith(2, 'roundup recommendation clicked', {
+      position: 'supporting',
+      reason: 'newly_published'
+    });
+    expect(client.capture).toHaveBeenNthCalledWith(3, 'roundup preferences completed', {
+      municipality_count: '2-3',
+      has_category_filter: true,
+      email_interest: false
+    });
+
+    const payload = JSON.stringify(client.capture.mock.calls);
+    for (const forbidden of [
+      'reykjavik',
+      'kopavogur',
+      'cafe',
+      'park',
+      'place_id',
+      'member_id',
+      'municipalities',
+      'categories'
+    ]) {
+      expect(payload).not.toContain(forbidden);
+    }
   });
 
   it('queues, sanitizes, and deduplicates browser exceptions until initialization', () => {

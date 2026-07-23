@@ -31,11 +31,13 @@ import {
   provisionLocalPlaceFlagReviewFixture,
   provisionLocalPrivateRatingNoteFixture,
   provisionLocalSuggestionFixture,
+  provisionLocalWeeklyRoundupFixtures,
   retireLocalDogFriendlinessFixture,
   retireLocalMemberAchievements,
   retireLocalAchievementProgress,
   retireLocalPlaceFlagFixtures,
   retireLocalPrivateRatingNoteFixture,
+  retireLocalWeeklyRoundupPreferences,
   setLocalPlaceLifecycle,
   waitForLocalMagicLink
 } from '../e2e/support/local-supabase';
@@ -1111,3 +1113,86 @@ for (const locale of ['is', 'en'] as const) {
     clearLocalPlaceMedia(publishedPlaceId);
   });
 }
+
+test('captures the bilingual weekly roundup states and preferences', async ({ page, evidence }) => {
+  const scenarios = [
+    {
+      locale: 'en',
+      unconfiguredTitle: 'Choose where your trail begins',
+      populatedTitle: 'A few fresh tracks',
+      sparseTitle: 'A short trail this week',
+      emptyTitle: 'No new tracks this week',
+      language: 'English',
+      emailInterest: 'I would be interested in receiving this roundup by email later',
+      save: 'Save roundup settings',
+      edit: 'Edit roundup settings'
+    },
+    {
+      locale: 'is',
+      unconfiguredTitle: 'Veldu hvar slóðin þín byrjar',
+      populatedTitle: 'Nokkur ný spor',
+      sparseTitle: 'Stutt slóð í þessari viku',
+      emptyTitle: 'Engin ný spor í þessari viku',
+      language: 'Íslenska',
+      emailInterest: 'Ég hefði áhuga á að fá þetta vikuyfirlit í tölvupósti síðar',
+      save: 'Vista stillingar vikuyfirlits',
+      edit: 'Breyta stillingum vikuyfirlits'
+    }
+  ] as const;
+
+  provisionLocalWeeklyRoundupFixtures();
+
+  for (const scenario of scenarios) {
+    await page.context().clearCookies();
+    await signIn(page, evidence, scenario.locale);
+    await retireLocalWeeklyRoundupPreferences(evaluationModerator.email);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`/${scenario.locale}/account/roundup`);
+    await expect(page.getByRole('heading', { name: scenario.unconfiguredTitle })).toBeVisible();
+
+    const emailInterest = page.getByRole('checkbox', { name: scenario.emailInterest });
+    await expect(emailInterest).not.toBeChecked();
+    await capture(
+      page,
+      evidence,
+      `weekly-roundup-preferences-${scenario.locale}-desktop-email-off.png`
+    );
+
+    await page.getByRole('checkbox', { name: 'Reykjavík' }).check();
+    await page.getByRole('checkbox', { name: 'Kópavogur' }).check();
+    await page.getByRole('radio', { name: scenario.language }).check();
+    await emailInterest.check();
+    await page.getByRole('button', { name: scenario.save }).click();
+    await expect(page.getByRole('heading', { name: scenario.populatedTitle })).toBeVisible();
+    await page.getByRole('button', { name: scenario.edit }).click();
+    await expect(emailInterest).toBeChecked();
+    await capture(
+      page,
+      evidence,
+      `weekly-roundup-populated-${scenario.locale}-desktop-email-on.png`
+    );
+
+    await emailInterest.uncheck();
+    await page.getByRole('checkbox', { name: 'Reykjavík' }).uncheck();
+    await page.getByRole('button', { name: scenario.save }).click();
+    await expect(page.getByRole('heading', { name: scenario.sparseTitle })).toBeVisible();
+    await page.getByRole('button', { name: scenario.edit }).click();
+    await expect(emailInterest).not.toBeChecked();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await capture(page, evidence, `weekly-roundup-sparse-${scenario.locale}-mobile-email-off.png`);
+
+    await page.getByRole('checkbox', { name: 'Kópavogur' }).uncheck();
+    await page.getByRole('checkbox', { name: 'Kjósarhreppur' }).check();
+    await page.getByRole('button', { name: scenario.save }).click();
+    await expect(page.getByRole('heading', { name: scenario.emptyTitle })).toBeVisible();
+    await page.getByRole('button', { name: scenario.edit }).click();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await capture(
+      page,
+      evidence,
+      `weekly-roundup-empty-${scenario.locale}-reduced-motion-desktop.png`
+    );
+    await page.emulateMedia({ reducedMotion: null });
+  }
+});

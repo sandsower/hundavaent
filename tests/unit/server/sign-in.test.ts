@@ -48,6 +48,7 @@ describe('Member sign-in boundaries', () => {
     expect(normalizeMemberReturnTo('/en/account/achievements', 'en')).toBe(
       '/en/account/achievements'
     );
+    expect(normalizeMemberReturnTo('/en/account/roundup', 'en')).toBe('/en/account/roundup');
   });
 
   it.each([

@@ -577,6 +577,13 @@ export async function retireLocalMemberAchievements(memberEmail: string): Promis
   );
 }
 
+export async function retireLocalWeeklyRoundupPreferences(memberEmail: string): Promise<void> {
+  const memberId = await resolveLocalMemberIdByEmail(memberEmail);
+  runLocalDatabaseSql(
+    `delete from private.member_roundup_preferences where member_id = '${memberId}'::uuid;`
+  );
+}
+
 async function resolveLocalMemberIdByEmail(memberEmail: string): Promise<string> {
   const status = getLocalSupabaseStatus();
   const admin = createClient(status.apiUrl, status.secretKey, {
@@ -3395,5 +3402,344 @@ export async function insertLocalCheckInBacklog(
       sql
     ],
     { stdio: 'ignore' }
+  );
+}
+
+export const localWeeklyRoundupFixtures = {
+  newCafe: {
+    placeId: '97630000-0000-4000-8000-000000000001',
+    nameEn: 'Roundup New Cafe',
+    nameIs: 'Nýja vikukaffihúsið'
+  },
+  updatedPark: {
+    placeId: '97630000-0000-4000-8000-000000000002',
+    nameEn: 'Roundup Updated Park',
+    nameIs: 'Uppfærði vikugarðurinn'
+  },
+  updatedService: {
+    placeId: '97630000-0000-4000-8000-000000000003',
+    nameEn: 'Roundup Updated Service',
+    nameIs: 'Uppfærða vikuþjónustan'
+  }
+} as const;
+
+export function provisionLocalWeeklyRoundupFixtures(): void {
+  const sql = `
+    begin;
+    set local session_replication_role = replica;
+
+    delete from private.verifications
+    where access_condition_id in (
+      '97640000-0000-4000-8000-000000000001'::uuid,
+      '97640000-0000-4000-8000-000000000002'::uuid,
+      '97640000-0000-4000-8000-000000000003'::uuid
+    );
+    delete from private.access_conditions
+    where id in (
+      '97640000-0000-4000-8000-000000000001'::uuid,
+      '97640000-0000-4000-8000-000000000002'::uuid,
+      '97640000-0000-4000-8000-000000000003'::uuid
+    );
+    delete from private.candidate_review_events
+    where place_id in (
+      '${localWeeklyRoundupFixtures.newCafe.placeId}'::uuid,
+      '${localWeeklyRoundupFixtures.updatedPark.placeId}'::uuid,
+      '${localWeeklyRoundupFixtures.updatedService.placeId}'::uuid
+    );
+    delete from private.candidate_reviews
+    where place_id in (
+      '${localWeeklyRoundupFixtures.newCafe.placeId}'::uuid,
+      '${localWeeklyRoundupFixtures.updatedPark.placeId}'::uuid,
+      '${localWeeklyRoundupFixtures.updatedService.placeId}'::uuid
+    );
+    delete from private.place_translations
+    where place_id in (
+      '${localWeeklyRoundupFixtures.newCafe.placeId}'::uuid,
+      '${localWeeklyRoundupFixtures.updatedPark.placeId}'::uuid,
+      '${localWeeklyRoundupFixtures.updatedService.placeId}'::uuid
+    );
+    delete from private.places
+    where id in (
+      '${localWeeklyRoundupFixtures.newCafe.placeId}'::uuid,
+      '${localWeeklyRoundupFixtures.updatedPark.placeId}'::uuid,
+      '${localWeeklyRoundupFixtures.updatedService.placeId}'::uuid
+    );
+    delete from private.locations
+    where id in (
+      '97620000-0000-4000-8000-000000000001'::uuid,
+      '97620000-0000-4000-8000-000000000002'::uuid,
+      '97620000-0000-4000-8000-000000000003'::uuid
+    );
+    delete from private.operators
+    where id = '97610000-0000-4000-8000-000000000001'::uuid;
+
+    insert into private.operators (id, name)
+    values (
+      '97610000-0000-4000-8000-000000000001',
+      'Weekly roundup E2E operator'
+    );
+
+    insert into private.locations (
+      id,
+      address_line,
+      locality,
+      postal_code,
+      municipality,
+      latitude,
+      longitude,
+      geometry_precision,
+      geometry_source,
+      created_at,
+      updated_at
+    )
+    values
+      (
+        '97620000-0000-4000-8000-000000000001',
+        'Vikugata 11',
+        'Reykjavík',
+        '101',
+        'reykjavik',
+        64.1466,
+        -21.9426,
+        'moderator_confirmed_point',
+        'Weekly roundup E2E fixture',
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z'
+      ),
+      (
+        '97620000-0000-4000-8000-000000000002',
+        'Vikugata 12',
+        'Kópavogur',
+        '200',
+        'kopavogur',
+        64.111,
+        -21.91,
+        'moderator_confirmed_point',
+        'Weekly roundup E2E fixture',
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z'
+      ),
+      (
+        '97620000-0000-4000-8000-000000000003',
+        'Vikugata 13',
+        'Reykjavík',
+        '105',
+        'reykjavik',
+        64.14,
+        -21.9,
+        'moderator_confirmed_point',
+        'Weekly roundup E2E fixture',
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z'
+      );
+
+    insert into private.places (
+      id,
+      operator_id,
+      location_id,
+      purpose,
+      lifecycle,
+      category,
+      version,
+      published_at,
+      created_at,
+      updated_at
+    )
+    values
+      (
+        '${localWeeklyRoundupFixtures.newCafe.placeId}',
+        '97610000-0000-4000-8000-000000000001',
+        '97620000-0000-4000-8000-000000000001',
+        'weekly_roundup_new',
+        'published',
+        'cafe',
+        1,
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z'
+      ),
+      (
+        '${localWeeklyRoundupFixtures.updatedPark.placeId}',
+        '97610000-0000-4000-8000-000000000001',
+        '97620000-0000-4000-8000-000000000002',
+        'weekly_roundup_updated_park',
+        'published',
+        'park',
+        2,
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z'
+      ),
+      (
+        '${localWeeklyRoundupFixtures.updatedService.placeId}',
+        '97610000-0000-4000-8000-000000000001',
+        '97620000-0000-4000-8000-000000000003',
+        'weekly_roundup_updated_service',
+        'published',
+        'service',
+        2,
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z'
+      );
+
+    update private.places as place_record
+    set
+      published_at = case
+        when place_record.id = '${localWeeklyRoundupFixtures.newCafe.placeId}'::uuid
+          then bounds.starts_at - interval '3 days'
+        else place_record.published_at
+      end,
+      updated_at = case
+        when place_record.id = '${localWeeklyRoundupFixtures.newCafe.placeId}'::uuid
+          then bounds.starts_at - interval '3 days'
+        when place_record.id = '${localWeeklyRoundupFixtures.updatedPark.placeId}'::uuid
+          then bounds.starts_at - interval '2 days'
+        else bounds.starts_at - interval '1 day'
+      end
+    from private.reykjavik_week_bounds(statement_timestamp()) as bounds
+    where place_record.id in (
+      '${localWeeklyRoundupFixtures.newCafe.placeId}'::uuid,
+      '${localWeeklyRoundupFixtures.updatedPark.placeId}'::uuid,
+      '${localWeeklyRoundupFixtures.updatedService.placeId}'::uuid
+    );
+
+    insert into private.place_translations (
+      place_id,
+      locale,
+      name,
+      description,
+      created_at,
+      updated_at
+    )
+    values
+      (
+        '${localWeeklyRoundupFixtures.newCafe.placeId}',
+        'is',
+        '${localWeeklyRoundupFixtures.newCafe.nameIs}',
+        'Nýtt hundvænt kaffihús í vikuyfirliti.',
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z'
+      ),
+      (
+        '${localWeeklyRoundupFixtures.newCafe.placeId}',
+        'en',
+        '${localWeeklyRoundupFixtures.newCafe.nameEn}',
+        'A new dog-friendly cafe for the weekly roundup.',
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z'
+      ),
+      (
+        '${localWeeklyRoundupFixtures.updatedPark.placeId}',
+        'is',
+        '${localWeeklyRoundupFixtures.updatedPark.nameIs}',
+        'Uppfærður hundvænn garður í vikuyfirliti.',
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z'
+      ),
+      (
+        '${localWeeklyRoundupFixtures.updatedPark.placeId}',
+        'en',
+        '${localWeeklyRoundupFixtures.updatedPark.nameEn}',
+        'An updated dog-friendly park for the weekly roundup.',
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z'
+      ),
+      (
+        '${localWeeklyRoundupFixtures.updatedService.placeId}',
+        'is',
+        '${localWeeklyRoundupFixtures.updatedService.nameIs}',
+        'Uppfærð hundvæn þjónusta í vikuyfirliti.',
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z'
+      ),
+      (
+        '${localWeeklyRoundupFixtures.updatedService.placeId}',
+        'en',
+        '${localWeeklyRoundupFixtures.updatedService.nameEn}',
+        'An updated dog-friendly service for the weekly roundup.',
+        '2025-01-01T00:00:00Z',
+        '2025-01-01T00:00:00Z'
+      );
+
+    insert into private.access_conditions (
+      id,
+      place_id,
+      access_area,
+      restraint_condition,
+      permission_requirement
+    )
+    values
+      (
+        '97640000-0000-4000-8000-000000000001',
+        '${localWeeklyRoundupFixtures.newCafe.placeId}',
+        'indoors',
+        'leash_required',
+        'standing_permission'
+      ),
+      (
+        '97640000-0000-4000-8000-000000000002',
+        '${localWeeklyRoundupFixtures.updatedPark.placeId}',
+        'outdoors',
+        'leash_required',
+        'standing_permission'
+      ),
+      (
+        '97640000-0000-4000-8000-000000000003',
+        '${localWeeklyRoundupFixtures.updatedService.placeId}',
+        'indoors',
+        'leash_required',
+        'standing_permission'
+      );
+
+    insert into private.verifications (
+      id,
+      access_condition_id,
+      status,
+      verified_at,
+      freshness_until
+    )
+    values
+      (
+        '97650000-0000-4000-8000-000000000001',
+        '97640000-0000-4000-8000-000000000001',
+        'verified',
+        statement_timestamp() - interval '1 day',
+        statement_timestamp() + interval '30 days'
+      ),
+      (
+        '97650000-0000-4000-8000-000000000002',
+        '97640000-0000-4000-8000-000000000002',
+        'verified',
+        statement_timestamp() - interval '1 day',
+        statement_timestamp() + interval '30 days'
+      ),
+      (
+        '97650000-0000-4000-8000-000000000003',
+        '97640000-0000-4000-8000-000000000003',
+        'verified',
+        statement_timestamp() - interval '1 day',
+        statement_timestamp() + interval '30 days'
+      );
+
+    commit;
+  `;
+
+  execFileSync(
+    'docker',
+    [
+      'exec',
+      localDatabaseContainer,
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      sql
+    ],
+    { stdio: 'inherit' }
   );
 }
