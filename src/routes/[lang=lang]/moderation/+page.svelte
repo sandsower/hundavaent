@@ -8,7 +8,7 @@
   import CorrectionDecisionControls from '$lib/moderation/CorrectionDecisionControls.svelte';
   import CorrectionReviewPanel from '$lib/moderation/CorrectionReviewPanel.svelte';
   import ModerationWorkspace from '$lib/moderation/ModerationWorkspace.svelte';
-  import ModerationConfirmDialog from '$lib/moderation/ModerationConfirmDialog.svelte';
+  import ModerationPublishDialog from '$lib/moderation/ModerationPublishDialog.svelte';
   import ModerationReasonDialog, {
     type ModerationReasonValue
   } from '$lib/moderation/ModerationReasonDialog.svelte';
@@ -187,6 +187,7 @@
   } | null>(null);
   let reviewHasUnsavedEdits = $state(false);
   let candidateDialog = $state<'publish' | 'needs_information' | 'rejected' | null>(null);
+  let candidatePublicationReason = $state('');
   let candidateDecision = $state<'needs_information' | 'rejected' | 'reopen'>('needs_information');
   let candidateReasonCode = $state('insufficient_evidence');
   let candidateMemberReasonIs = $state('');
@@ -235,8 +236,10 @@
     await tick();
     candidateDecisionForm?.requestSubmit();
   }
-  function submitCandidatePublication(): void {
+  async function submitCandidatePublication(reason: string): Promise<void> {
+    candidatePublicationReason = reason.trim();
     candidateDialog = null;
+    await tick();
     document.querySelector<HTMLFormElement>('#candidate-publication')?.requestSubmit();
   }
 </script>
@@ -291,6 +294,7 @@
         <CandidateReviewPanel
           data={candidateReviewData}
           form={form as never}
+          publicationReason={candidatePublicationReason}
           oneditstatechange={handleReviewEditStateChange}
         />
       {/if}
@@ -353,10 +357,12 @@
           </form>
         {/if}
 
-        <ModerationConfirmDialog
+        <ModerationPublishDialog
           open={candidateDialog === 'publish'}
           title={data.copy['moderation.workbench.publishConfirmTitle']}
           description={data.copy['moderation.workbench.publishConfirmBody']}
+          reasonLabel={data.copy['moderation.workbench.publishReasonLabel']}
+          reasonHelp={data.copy['moderation.workbench.publishReasonHelp']}
           confirmLabel={data.copy['moderation.verifyAndPublish']}
           cancelLabel={data.copy['moderation.workbench.keepReviewing']}
           onconfirm={submitCandidatePublication}

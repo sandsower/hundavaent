@@ -167,6 +167,7 @@ select jsonb_build_object(
   'expected_version', 1,
   'expected_item_version', 1,
   'expected_draft_version', 1,
+  'publication_reason', 'The Moderator reviewed the materialized Candidate draft.',
   'condition_verifications', (
     select jsonb_agg(jsonb_build_object(
       'access_condition_id', condition_value ->> 'id',

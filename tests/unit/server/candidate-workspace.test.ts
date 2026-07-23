@@ -53,8 +53,6 @@ import {
 } from '$server/moderation/candidate-workspace';
 
 const placeId = '70000000-0000-4000-8000-000000000001';
-const conditionId = '70000000-0000-4000-8000-000000000002';
-const evidenceId = '70000000-0000-4000-8000-000000000003';
 
 const review = {
   placeId,
@@ -98,8 +96,7 @@ const review = {
     geometryQuality: true,
     icelandicTranslation: true,
     englishTranslation: true,
-    accessCondition: false,
-    evidence: false
+    accessCondition: false
   },
   ready: false
 };
@@ -434,10 +431,9 @@ describe('Candidate workspace action orchestration', () => {
       expectedVersion: '3',
       expectedItemVersion: '2',
       expectedDraftVersion: '1',
-      freshnessUntil: '2027-07-13'
+      freshnessUntil: '2027-07-13',
+      publicationReason: 'The Place details and access rules have been reviewed.'
     });
-    formData.append('accessConditionId', conditionId);
-    formData.append(`conditionEvidence.${conditionId}`, evidenceId);
 
     await expect(
       executeModerationCandidateAction('publish', {
@@ -453,7 +449,12 @@ describe('Candidate workspace action orchestration', () => {
     });
     expect(operations.verifyAndPublish).toHaveBeenCalledWith(
       client,
-      expect.objectContaining({ placeId, expectedVersion: 3, expectedItemVersion: 2 }),
+      expect.objectContaining({
+        placeId,
+        expectedVersion: 3,
+        expectedItemVersion: 2,
+        publicationReason: 'The Place details and access rules have been reviewed.'
+      }),
       'request-1'
     );
   });
@@ -472,10 +473,9 @@ describe('Candidate workspace action orchestration', () => {
         expectedVersion: '3',
         expectedItemVersion: '2',
         expectedDraftVersion: '1',
-        freshnessUntil: '2027-07-13'
+        freshnessUntil: '2027-07-13',
+        publicationReason: 'The Place details and access rules have been reviewed.'
       });
-      formData.append('accessConditionId', conditionId);
-      formData.append(`conditionEvidence.${conditionId}`, evidenceId);
 
       await expect(
         executeModerationCandidateAction('publish', {
@@ -492,16 +492,34 @@ describe('Candidate workspace action orchestration', () => {
     const formData = actionForm({
       expectedVersion: '3',
       expectedDraftVersion: '1',
-      freshnessUntil: '2027-07-13'
+      freshnessUntil: '2027-07-13',
+      publicationReason: 'The Place details and access rules have been reviewed.'
     });
-    formData.append('accessConditionId', conditionId);
-    formData.append(`conditionEvidence.${conditionId}`, evidenceId);
 
     await expect(
       executeModerationCandidateAction('publish', {
         client,
         placeId,
         requestId: 'request-missing-item-version',
+        formData
+      })
+    ).resolves.toMatchObject({ status: 'failure', error: 'incomplete' });
+    expect(operations.verifyAndPublish).not.toHaveBeenCalled();
+  });
+
+  it('rejects publication without an internal Moderator rationale', async () => {
+    const formData = actionForm({
+      expectedVersion: '3',
+      expectedItemVersion: '2',
+      expectedDraftVersion: '1',
+      freshnessUntil: '2027-07-13'
+    });
+
+    await expect(
+      executeModerationCandidateAction('publish', {
+        client,
+        placeId,
+        requestId: 'request-missing-publication-reason',
         formData
       })
     ).resolves.toMatchObject({ status: 'failure', error: 'incomplete' });

@@ -24,7 +24,7 @@
   } from './CandidateDecisionControls.svelte';
   import EvidenceRecordsEditor from './EvidenceRecordsEditor.svelte';
   import ModerationActionBar from './ModerationActionBar.svelte';
-  import ModerationConfirmDialog from './ModerationConfirmDialog.svelte';
+  import ModerationPublishDialog from './ModerationPublishDialog.svelte';
   import ModerationLocationEditor, {
     type ModerationLocationValue
   } from './ModerationLocationEditor.svelte';
@@ -61,10 +61,17 @@
     data: CandidateReviewData;
     form?: CandidateReviewForm | null;
     standalone?: boolean;
+    publicationReason?: string;
     oneditstatechange?: (editing: boolean) => void;
   }
 
-  let { data, form = null, standalone = false, oneditstatechange }: Props = $props();
+  let {
+    data,
+    form = null,
+    standalone = false,
+    publicationReason: externalPublicationReason = '',
+    oneditstatechange
+  }: Props = $props();
   type EditableSectionId =
     | 'identity'
     | 'details'
@@ -81,6 +88,7 @@
   let wheelchairAccessibilityValue =
     $state<CandidatePublicationReview['wheelchairAccessibility']>('unknown');
   let confirmingPublish = $state(false);
+  let publicationReason = $state('');
   let candidateDialog = $state<'needs_information' | 'rejected' | null>(null);
   let candidateDecision = $state<'needs_information' | 'rejected' | 'reopen'>('needs_information');
   let candidateReasonCode = $state('insufficient_evidence');
@@ -290,12 +298,6 @@
       label: 'moderation.checkAccess',
       recovery: 'moderation.addAccess',
       target: 'access-condition'
-    },
-    {
-      key: 'evidence',
-      label: 'moderation.checkEvidence',
-      recovery: 'moderation.addEvidence',
-      target: 'evidence'
     }
   ];
 
@@ -442,8 +444,10 @@
     return data.copy[labels[data.review.wheelchairAccessibility]];
   }
 
-  function requestPublication(): void {
+  async function requestPublication(reason: string): Promise<void> {
+    publicationReason = reason.trim();
     confirmingPublish = false;
+    await tick();
     publicationForm?.requestSubmit();
   }
 
@@ -590,6 +594,26 @@
     summary={readinessSummary}
     issues={readinessIssues}
   />
+
+  <form
+    id="candidate-publication"
+    bind:this={publicationForm}
+    method="POST"
+    action="?/publish"
+    use:enhance={enhancePublication}
+    aria-busy={submitting}
+  >
+    <input type="hidden" name="placeId" value={data.review.placeId} />
+    <input type="hidden" name="expectedVersion" value={data.review.version} />
+    <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
+    <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
+    <input type="hidden" name="freshnessUntil" value={data.defaultFreshnessUntil} />
+    <input
+      type="hidden"
+      name="publicationReason"
+      value={standalone ? publicationReason : externalPublicationReason}
+    />
+  </form>
 
   {#if draftError}<p class="message error" role="alert">{draftError}</p>{/if}
   {#if draftSucceeded}
@@ -1076,7 +1100,7 @@
         '{count}',
         String(data.review.evidenceRecords.length)
       )}
-      state={data.review.checks.evidence ? 'complete' : 'blocking'}
+      state="complete"
     >
       {#if editingSection === 'evidence_records'}
         <form
@@ -1127,74 +1151,6 @@
           >
         </div>
       {/if}
-    </ModerationReviewSection>
-
-    <ModerationReviewSection
-      id="publication-evidence"
-      title={data.copy['moderation.workbench.section.publicationEvidence']}
-      summary={data.copy['moderation.workbench.section.publicationEvidenceSummary']}
-      state={data.review.checks.evidence && data.review.checks.accessCondition
-        ? 'complete'
-        : 'blocking'}
-    >
-      <form
-        id="candidate-publication"
-        bind:this={publicationForm}
-        method="POST"
-        action="?/publish"
-        use:enhance={enhancePublication}
-        aria-busy={submitting}
-      >
-        <input type="hidden" name="placeId" value={data.review.placeId} />
-        <input type="hidden" name="expectedVersion" value={data.review.version} />
-        <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
-        <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
-        {#each data.review.accessConditions as condition, index (condition.id)}
-          <fieldset class="evidence-map">
-            <legend
-              >{data.copy['moderation.conditionEvidence'].replace(
-                '{number}',
-                String(index + 1)
-              )}</legend
-            >
-            <p class="condition-context">
-              <strong>{describeCondition(condition)}</strong>
-            </p>
-            <input type="hidden" name="accessConditionId" value={condition.id} />
-            {#each data.review.evidenceRecords as evidence (evidence.id)}
-              <label>
-                <input
-                  type="checkbox"
-                  name={`conditionEvidence.${condition.id}`}
-                  value={evidence.id}
-                />
-                <span class="evidence-choice">
-                  <strong>{evidence.sourceLabel}</strong>
-                  <small>{localizeEvidenceKind(evidence.kind, data.copy)}</small>
-                  {#if evidence.sourceUrl}<small class="reference">{evidence.sourceUrl}</small>{/if}
-                  {#if evidence.sourceCitation}
-                    <small class="reference">{evidence.sourceCitation}</small>
-                  {/if}
-                  <time datetime={evidence.observedAt}
-                    >{formatLocalizedDate(evidence.observedAt, data.lang)}</time
-                  >
-                </span>
-              </label>
-            {/each}
-          </fieldset>
-        {/each}
-        <label>
-          {data.copy['moderation.freshnessLabel']}
-          <input
-            type="date"
-            name="freshnessUntil"
-            value={data.defaultFreshnessUntil}
-            required
-            aria-describedby="freshness-help"
-          />
-          <small id="freshness-help">{data.copy['moderation.freshnessHelp']}</small>
-        </label>
-      </form>
     </ModerationReviewSection>
 
     <ModerationReviewSection
@@ -1428,10 +1384,12 @@
     </ModerationReviewSection>
   </div>
 
-  {#if standalone}<ModerationConfirmDialog
+  {#if standalone}<ModerationPublishDialog
       open={confirmingPublish}
       title={data.copy['moderation.workbench.publishConfirmTitle']}
       description={data.copy['moderation.workbench.publishConfirmBody']}
+      reasonLabel={data.copy['moderation.workbench.publishReasonLabel']}
+      reasonHelp={data.copy['moderation.workbench.publishReasonHelp']}
       confirmLabel={data.copy['moderation.verifyAndPublish']}
       cancelLabel={data.copy['moderation.workbench.keepReviewing']}
       onconfirm={requestPublication}
@@ -1675,36 +1633,9 @@
     background: var(--hv-color-snow-raised);
   }
 
-  .evidence-map {
-    display: grid;
-    flex: 1 1 100%;
-    gap: 0.35rem;
-    padding: 0.65rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-  }
-
-  .evidence-map label {
-    display: flex;
-    flex-direction: row;
-    gap: 0.55rem;
-    align-items: center;
-  }
-
-  .condition-context,
-  .evidence-choice,
   .evidence-record {
     display: grid;
     gap: 0.2rem;
-  }
-
-  .condition-context {
-    margin: 0.3rem 0 0.5rem;
-  }
-
-  .evidence-choice {
-    min-width: 0;
-    font-weight: 500;
   }
 
   .reference {
@@ -1860,7 +1791,6 @@
     font-weight: 750;
   }
 
-  input[type='date'],
   input[type='datetime-local'],
   input[type='url'],
   input[type='tel'],

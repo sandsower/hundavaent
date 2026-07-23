@@ -100,6 +100,7 @@ select throws_ok(
       'expected_version', 1,
       'expected_item_version', 1,
       'expected_draft_version', 0,
+      'publication_reason', 'The Moderator reviewed the subset case.',
       'condition_verifications', jsonb_build_array(
         jsonb_build_object(
           'access_condition_id', (select id from condition_ids where area = 'indoors'),
@@ -141,6 +142,7 @@ select lives_ok(
       'expected_version', 1,
       'expected_item_version', 1,
       'expected_draft_version', 0,
+      'publication_reason', 'The Moderator reviewed all current conditions.',
       'condition_verifications', jsonb_build_array(
         jsonb_build_object(
           'access_condition_id', (select id from condition_ids where area = 'indoors'),

@@ -88,37 +88,13 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   await expect(readiness).toHaveAttribute('data-readiness-state', 'ready');
   await expect(readiness.getByText('Ready', { exact: true })).toHaveCount(1);
 
-  const publicationSection = page.locator('#publication-evidence');
-  await publicationSection.locator('summary').click();
-  await expect(publicationSection).toHaveAttribute('open', '');
-
-  const conditionGroups = page.getByRole('group', { name: /Evidence supporting condition/ });
-  const unrestrictedCondition = conditionGroups.filter({
-    hasText: 'All dogs are allowed indoors when carried.'
-  });
-  const restrictedCondition = conditionGroups.filter({
-    hasText:
-      'Dogs weighing up to and including 10 kg are allowed indoors before 17:00 when carried.'
-  });
-  await expect(conditionGroups).toHaveCount(2);
-  await expect(unrestrictedCondition).toHaveCount(1);
-  await expect(restrictedCondition).toHaveCount(1);
-  const firstCondition = conditionGroups.nth(0);
-  const secondCondition = conditionGroups.nth(1);
-  await expect(firstCondition).toContainText('Official website');
-  await expect(firstCondition).toContainText(candidate.evidenceUrl);
-  await expect(firstCondition).toContainText('9 July 2026');
-  await expect(secondCondition).toContainText('Public record');
-  await expect(secondCondition).toContainText('Municipal rule 4');
-  await firstCondition.getByLabel(candidate.evidenceSourceLabel).check();
-  await firstCondition.getByLabel('Supporting public record').check();
-  await secondCondition.getByLabel('Supporting public record').check();
-  await expect(firstCondition.getByLabel('Contradictory member report')).not.toBeChecked();
-  await expect(secondCondition.getByLabel('Contradictory member report')).not.toBeChecked();
-
+  await expect(page.locator('#publication-evidence')).toHaveCount(0);
   await page.getByRole('button', { name: 'Verify and publish' }).click();
   const publishDialog = page.getByRole('dialog', { name: 'Publish this Place?' });
   await expect(publishDialog).toBeVisible();
+  await publishDialog
+    .getByLabel('Reason for publishing')
+    .fill('The Place and both access conditions have been reviewed.');
   await publishDialog.getByRole('button', { name: 'Verify and publish' }).click();
   await expect(page.getByText('The Place has been published.')).toBeVisible();
 

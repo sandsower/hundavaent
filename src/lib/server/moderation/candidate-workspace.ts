@@ -590,20 +590,8 @@ function readPublicationCommand(placeId: string, formData: FormData): PublishPla
   const expectedVersion = Number(formData.get('expectedVersion'));
   const expectedItemVersion = Number(formData.get('expectedItemVersion'));
   const expectedDraftVersion = Number(formData.get('expectedDraftVersion'));
-  const accessConditionIds = formData
-    .getAll('accessConditionId')
-    .map(String)
-    .map((value) => value.trim())
-    .filter(Boolean);
-  const conditionVerifications = accessConditionIds.map((accessConditionId) => ({
-    accessConditionId,
-    evidenceIds: formData
-      .getAll(`conditionEvidence.${accessConditionId}`)
-      .map(String)
-      .map((value) => value.trim())
-      .filter(Boolean)
-  }));
   const freshnessDate = String(formData.get('freshnessUntil') ?? '').trim();
+  const publicationReason = String(formData.get('publicationReason') ?? '').trim();
 
   if (
     !uuidPattern.test(placeId) ||
@@ -613,13 +601,7 @@ function readPublicationCommand(placeId: string, formData: FormData): PublishPla
     expectedItemVersion < 1 ||
     !Number.isInteger(expectedDraftVersion) ||
     expectedDraftVersion < 0 ||
-    conditionVerifications.length === 0 ||
-    conditionVerifications.some(
-      (verification) =>
-        !uuidPattern.test(verification.accessConditionId) ||
-        verification.evidenceIds.length === 0 ||
-        verification.evidenceIds.some((evidenceId) => !uuidPattern.test(evidenceId))
-    ) ||
+    !publicationReason ||
     !/^\d{4}-\d{2}-\d{2}$/.test(freshnessDate)
   ) {
     return null;
@@ -630,9 +612,8 @@ function readPublicationCommand(placeId: string, formData: FormData): PublishPla
     expectedVersion,
     expectedItemVersion,
     expectedDraftVersion,
-    conditionVerifications,
     freshnessUntil: `${freshnessDate}T23:59:59.999Z`,
-    decisionMetadata: { source: 'moderation_checklist' }
+    publicationReason
   };
 }
 
