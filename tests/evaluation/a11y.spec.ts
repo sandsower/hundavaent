@@ -30,7 +30,6 @@ import {
   retireLocalAchievementProgress,
   retireLocalPlaceFlagFixtures,
   retireLocalPrivateRatingNoteFixture,
-  retireLocalWeeklyRoundupPreferences,
   setLocalPlaceLifecycle,
   waitForLocalMagicLink
 } from '../e2e/support/local-supabase';

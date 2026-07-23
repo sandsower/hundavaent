@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { enhance } from '$app/forms';
   import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
   import type { SubmitFunction } from '@sveltejs/kit';

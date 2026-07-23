@@ -56,7 +56,7 @@
       <legend>{copy['roundup.municipalitiesLegend']}</legend>
       <p class="field-help" id="municipality-help">{copy['roundup.municipalitiesHelp']}</p>
       <div class="choice-grid municipalities" aria-describedby="municipality-help">
-        {#each roundupMunicipalities as municipality}
+        {#each roundupMunicipalities as municipality (municipality)}
           <label class="choice">
             <input
               type="checkbox"
@@ -74,7 +74,7 @@
       <legend>{copy['roundup.categoriesLegend']}</legend>
       <p class="field-help" id="category-help">{copy['roundup.categoriesHelp']}</p>
       <div class="choice-grid categories" aria-describedby="category-help">
-        {#each roundupCategories as category}
+        {#each roundupCategories as category (category)}
           <label class="choice">
             <input
               type="checkbox"

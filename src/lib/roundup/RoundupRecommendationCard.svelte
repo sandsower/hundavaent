@@ -20,10 +20,6 @@
     onselect?: () => void;
   } = $props();
 
-  const href = $derived(
-    `${resolve('/[lang=lang]', { lang })}?place=${encodeURIComponent(recommendation.placeId)}&view=list`
-  );
-
   const reason = $derived(
     recommendation.reason === 'newly_published'
       ? copy['roundup.reasonNew']
@@ -55,9 +51,16 @@
       <span aria-hidden="true">·</span>
       <span>{copy[municipalityKey(recommendation.municipality)]}</span>
     </p>
-    <a class="hv-control" data-intent={lead ? 'primary' : undefined} {href} onclick={onselect}>
+    <!-- eslint-disable svelte/no-navigation-without-resolve -- the locale root is resolved inside this dynamic discovery URL. -->
+    <a
+      class="hv-control"
+      data-intent={lead ? 'primary' : undefined}
+      href={`${resolve('/[lang=lang]', { lang })}?place=${encodeURIComponent(recommendation.placeId)}&view=list`}
+      onclick={onselect}
+    >
       {copy['roundup.openPlace'].replace('{name}', recommendation.name)}
     </a>
+    <!-- eslint-enable svelte/no-navigation-without-resolve -->
   </div>
 </article>
 
