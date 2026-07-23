@@ -110,15 +110,13 @@ test('a Moderator uploads Evidence and publishes a Photo in one step, and it ren
     .first()
     .getAttribute('data-storage-object-path');
 
-  // --- Publish the Place through the existing checklist form. ---
-  const publicationSection = page.locator('#publication-evidence');
-  await publicationSection.locator('summary').click();
-  await expect(publicationSection).toHaveAttribute('open', '');
-  const conditionGroup = page.getByRole('group', { name: /Evidence supporting condition/ });
-  await conditionGroup.getByLabel(candidate.evidenceSourceLabel).check();
+  // --- Publish the Place with one internal Moderator rationale. ---
   await page.getByRole('button', { name: 'Verify and publish' }).click();
   const publishDialog = page.getByRole('dialog', { name: 'Publish this Place?' });
   await expect(publishDialog).toBeVisible();
+  await publishDialog
+    .getByLabel('Reason for publishing')
+    .fill('The Place details, access information, and media have been reviewed.');
   await publishDialog.getByRole('button', { name: 'Verify and publish' }).click();
   await expect(page.getByText('The Place has been published.')).toBeVisible();
 

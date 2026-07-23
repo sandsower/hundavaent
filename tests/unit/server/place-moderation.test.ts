@@ -328,9 +328,8 @@ const publishCommand: PublishPlaceCommand = {
   expectedVersion: 1,
   expectedItemVersion: 3,
   expectedDraftVersion: 2,
-  conditionVerifications: [{ accessConditionId: 'condition-1', evidenceIds: ['evidence-1'] }],
   freshnessUntil: '2099-01-01T00:00:00.000Z',
-  decisionMetadata: { basis: 'official_source' }
+  publicationReason: 'The moderator reviewed the Place details and access information.'
 };
 
 function createPublicationClient({
@@ -378,11 +377,12 @@ describe('verifyAndPublish', () => {
         expected_version: 1,
         expected_item_version: 3,
         expected_draft_version: 2,
-        condition_verifications: [
-          { access_condition_id: 'condition-1', evidence_ids: ['evidence-1'] }
-        ],
         freshness_until: '2099-01-01T00:00:00.000Z',
-        decision_metadata: { basis: 'official_source' }
+        publication_reason: 'The moderator reviewed the Place details and access information.',
+        decision_metadata: {
+          source: 'moderation_workbench',
+          publication_reason: 'The moderator reviewed the Place details and access information.'
+        }
       },
       command_request_id: 'request-7'
     });
@@ -612,8 +612,7 @@ describe('getCandidatePublicationReview', () => {
           geometryQuality: true,
           icelandicTranslation: true,
           englishTranslation: true,
-          accessCondition: true,
-          evidence: true
+          accessCondition: true
         }
       }
     });
@@ -695,8 +694,7 @@ describe('getCandidatePublicationReview', () => {
         ready: false,
         checks: {
           englishTranslation: false,
-          accessCondition: false,
-          evidence: false
+          accessCondition: false
         }
       }
     });

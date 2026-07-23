@@ -273,7 +273,7 @@ describe('Verification', () => {
     expect(currentVerification).not.toHaveProperty('sourceLabel');
   });
 
-  it('is current only while verified, fresh, and not superseded', () => {
+  it('is current while verified, fresh, and not superseded even without structured Evidence', () => {
     const evaluatedAt = new Date('2026-12-01T00:00:00.000Z');
 
     expect(isCurrentVerification(currentVerification, evaluatedAt)).toBe(true);
@@ -293,7 +293,7 @@ describe('Verification', () => {
       )
     ).toBe(false);
     expect(isCurrentVerification({ ...currentVerification, evidenceIds: [] }, evaluatedAt)).toBe(
-      false
+      true
     );
   });
 });

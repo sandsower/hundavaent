@@ -307,6 +307,7 @@ select throws_ok(
         "expected_version":1,
         "expected_item_version":1,
         "expected_draft_version":0,
+        "publication_reason":"The Moderator reviewed this publication contract.",
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000001","evidence_ids":["53000000-0000-4000-8000-000000000001"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{"basis":"contract"}
@@ -361,6 +362,7 @@ select throws_ok(
         "expected_version":1,
         "expected_item_version":1,
         "expected_draft_version":0,
+        "publication_reason":"The Moderator reviewed the incomplete translation case.",
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000002","evidence_ids":["53000000-0000-4000-8000-000000000001"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{}
@@ -398,6 +400,7 @@ select throws_ok(
         "expected_version":1,
         "expected_item_version":1,
         "expected_draft_version":0,
+        "publication_reason":"The Moderator reviewed the missing condition case.",
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000003","evidence_ids":["53000000-0000-4000-8000-000000000001"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{}
@@ -419,6 +422,7 @@ select throws_ok(
         "expected_version":2,
         "expected_item_version":1,
         "expected_draft_version":0,
+        "publication_reason":"The Moderator reviewed the stale version case.",
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000001","evidence_ids":["53000000-0000-4000-8000-000000000001"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{}
@@ -440,7 +444,8 @@ select throws_ok(
         "expected_version":1,
         "expected_item_version":1,
         "expected_draft_version":0,
-        "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000001","evidence_ids":[]}],
+        "publication_reason":"The Moderator reviewed the malformed Evidence case.",
+        "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000001","evidence_ids":{}}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{}
       }'::jsonb,
@@ -448,8 +453,8 @@ select throws_ok(
     )
   $$,
   '22023',
-  'At least one Evidence record is required',
-  'Publication rejects a Verification without Evidence'
+  'Evidence selection must be an array',
+  'Publication rejects malformed optional Evidence'
 );
 
 select throws_ok(
@@ -461,6 +466,7 @@ select throws_ok(
         "expected_version":1,
         "expected_item_version":1,
         "expected_draft_version":0,
+        "publication_reason":"The Moderator reviewed the unrelated Evidence case.",
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000001","evidence_ids":["53000000-0000-4000-8000-000000000004"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{}
@@ -482,6 +488,7 @@ select throws_ok(
         "expected_version":1,
         "expected_item_version":1,
         "expected_draft_version":0,
+        "publication_reason":"The Moderator reviewed the rollback case.",
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000004","evidence_ids":["53000000-0000-4000-8000-000000000004"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{"basis":"rollback"}
@@ -550,6 +557,7 @@ select lives_ok(
         "expected_version":1,
         "expected_item_version":1,
         "expected_draft_version":0,
+        "publication_reason":"The Moderator reviewed the complete Candidate.",
         "condition_verifications":[{"access_condition_id":"43000000-0000-4000-8000-000000000001","evidence_ids":["53000000-0000-4000-8000-000000000001"]}],
         "freshness_until":"2099-01-01T00:00:00Z",
         "decision_metadata":{"basis":"official_source"}
@@ -597,7 +605,10 @@ select ok(
       and verification.access_condition_id = '43000000-0000-4000-8000-000000000001'::uuid
       and verification.verified_by = '73000000-0000-4000-8000-000000000001'::uuid
       and verification.freshness_until = '2099-01-01T00:00:00Z'::timestamptz
-      and verification.decision_metadata = '{"basis":"official_source"}'::jsonb
+      and verification.decision_metadata = '{
+        "basis":"official_source",
+        "publication_reason":"The Moderator reviewed the complete Candidate."
+      }'::jsonb
       and verification.superseded_at is null
     from private.verifications as verification
     where verification.id = (select verification_ids[1] from publication_result)

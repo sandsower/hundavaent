@@ -75,8 +75,7 @@ const data = {
       geometryQuality: true,
       icelandicTranslation: true,
       englishTranslation: true,
-      accessCondition: true,
-      evidence: true
+      accessCondition: true
     },
     ready: true
   },
@@ -135,6 +134,8 @@ describe('CandidateReviewPanel', () => {
     expect(screen.getByRole('heading', { name: 'Publication checklist' })).toBeTruthy();
     expect(screen.getAllByText('Ready')).toHaveLength(1);
     expect(document.querySelector('#candidate-publication')).toBeTruthy();
+    expect(document.querySelector('[name^="conditionEvidence."]')).toBeNull();
+    expect(screen.queryByText('Publication evidence')).toBeNull();
     expect(document.querySelector('#candidate-media')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Verify and publish' })).toBeNull();
     expect(screen.getByText('Place identity').closest('details')?.open).toBe(false);
@@ -278,6 +279,29 @@ describe('CandidateReviewPanel', () => {
     );
     await waitFor(() => expect(editStates.at(-1)).toBe(false));
     expect(screen.getByRole('button', { name: 'Verify and publish' })).toBeEnabled();
+  });
+
+  it('asks only for an internal rationale when publishing', async () => {
+    const { container } = render(CandidateReviewPanel, {
+      data: {
+        ...data,
+        review: { ...data.review, evidenceRecords: [] }
+      },
+      form: null,
+      standalone: true
+    });
+
+    expect(screen.getByRole('button', { name: 'Verify and publish' })).toBeEnabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Verify and publish' }));
+
+    const dialog = screen.getByRole('dialog');
+    const reason = within(dialog).getByRole('textbox', { name: 'Reason for publishing' });
+    expect(reason).toBeRequired();
+    await fireEvent.input(reason, {
+      target: { value: 'The Place details and access rules have been reviewed.' }
+    });
+    expect(reason).toHaveValue('The Place details and access rules have been reviewed.');
+    expect(container.querySelector('[name^="conditionEvidence."]')).toBeNull();
   });
 
   it('shows Candidate decision errors beside decisions and never inside Media', () => {

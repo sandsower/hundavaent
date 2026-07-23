@@ -273,6 +273,7 @@ select results_eq(
         'expected_version', 3,
         'expected_item_version', 2,
         'expected_draft_version', 0,
+        'publication_reason', 'The Moderator reviewed the corrected geometry.',
         'condition_verifications', jsonb_build_array(
           jsonb_build_object(
             'access_condition_id', '40000000-0000-4000-8000-000000000003',
@@ -541,6 +542,7 @@ select throws_ok(
         'expected_version', 1,
         'expected_item_version', 1,
         'expected_draft_version', 0,
+        'publication_reason', 'The Moderator reviewed the pending geometry case.',
         'condition_verifications', jsonb_build_array(
           jsonb_build_object(
             'access_condition_id', 'b7400000-0000-4000-8000-000000000001',

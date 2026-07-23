@@ -105,27 +105,6 @@ test('a Moderator edits a Candidate, reloads it, and publishes it', async ({ pag
   await accessForm.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('status')).toContainText('Draft changes saved.');
 
-  const evidence = page.locator('#evidence');
-  await expandSection(evidence);
-  await evidence.getByRole('button', { name: 'Edit Supporting Evidence' }).click();
-  const evidenceForm = evidence.locator('form[data-section-form="evidence_records"]');
-  if ((await evidenceForm.getByRole('group').count()) === 0) {
-    await evidenceForm.getByRole('button', { name: 'Add another Evidence source' }).click();
-    await evidenceForm.getByLabel('Evidence source title').fill('Moderator-confirmed source');
-    await evidenceForm
-      .getByLabel('Evidence URL')
-      .fill('https://example.invalid/moderator-confirmed-source');
-  }
-  await evidenceForm.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByRole('status')).toContainText('Draft changes saved.');
-
-  await expandSection(page.locator('#publication-evidence'));
-  const evidenceGroups = page.getByRole('group', { name: /Evidence supporting condition/ });
-  await expect(evidenceGroups).not.toHaveCount(0);
-  for (let index = 0; index < (await evidenceGroups.count()); index += 1) {
-    await evidenceGroups.nth(index).getByRole('checkbox').first().check();
-  }
-
   const publishTrigger = page
     .getByRole('region', { name: 'Decision controls' })
     .getByRole('button', { name: 'Verify and publish' });
@@ -141,6 +120,9 @@ test('a Moderator edits a Candidate, reloads it, and publishes it', async ({ pag
 
   await publishTrigger.click();
   await expect(publishDialog).toBeVisible();
+  await publishDialog
+    .getByLabel('Reason for publishing')
+    .fill('The Place details and access rules have been reviewed.');
   await publishDialog.getByRole('button', { name: 'Verify and publish' }).click();
   await expect(page.getByRole('status')).toContainText('The Place has been published.');
 

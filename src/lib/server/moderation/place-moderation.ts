@@ -106,12 +106,8 @@ export interface PublishPlaceCommand {
   expectedVersion: number;
   expectedItemVersion: number;
   expectedDraftVersion: number;
-  conditionVerifications: ReadonlyArray<{
-    accessConditionId: string;
-    evidenceIds: readonly string[];
-  }>;
   freshnessUntil: string;
-  decisionMetadata: Readonly<Record<string, Json>>;
+  publicationReason: string;
 }
 
 export interface PublishedPlace {
@@ -137,7 +133,6 @@ export interface PublicationChecks {
   icelandicTranslation: boolean;
   englishTranslation: boolean;
   accessCondition: boolean;
-  evidence: boolean;
 }
 
 export interface CandidatePublicationReview {
@@ -325,12 +320,12 @@ export async function verifyAndPublish(
         expected_version: command.expectedVersion,
         expected_item_version: command.expectedItemVersion,
         expected_draft_version: command.expectedDraftVersion,
-        condition_verifications: command.conditionVerifications.map((verification) => ({
-          access_condition_id: verification.accessConditionId,
-          evidence_ids: [...verification.evidenceIds]
-        })),
         freshness_until: command.freshnessUntil,
-        decision_metadata: command.decisionMetadata
+        publication_reason: command.publicationReason,
+        decision_metadata: {
+          source: 'moderation_workbench',
+          publication_reason: command.publicationReason
+        }
       } as Json,
       command_request_id: requestId
     });
@@ -399,8 +394,7 @@ export async function getCandidatePublicationReview(
         hasText(row.geometry_source),
       icelandicTranslation: hasText(row.name_is) && hasText(row.description_is),
       englishTranslation: hasText(row.name_en) && hasText(row.description_en),
-      accessCondition: accessConditions.length > 0,
-      evidence: evidenceRecords.length > 0
+      accessCondition: accessConditions.length > 0
     };
 
     return {
@@ -441,7 +435,7 @@ export async function getCandidatePublicationReview(
         accessConditions,
         evidenceRecords,
         checks,
-        ready: row.readiness_state === 'ready' && Object.values(checks).every(Boolean)
+        ready: Object.values(checks).every(Boolean)
       }
     };
   } catch {
