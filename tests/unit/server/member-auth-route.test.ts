@@ -1028,7 +1028,12 @@ describe('Member auth routes', () => {
                 action: 'favourite',
                 place_id: 'place-1',
                 overall_rating: null,
-                completion_status: 'completed'
+                completion_status: 'completed',
+                first_time_for_place: true,
+                activated_current_week: true,
+                current_week_starts_on: '2026-07-13',
+                current_week_ends_on: '2026-07-19',
+                current_week_active: true
               }
             ],
             error: null
@@ -1049,7 +1054,7 @@ describe('Member auth routes', () => {
     ).rejects.toMatchObject({
       status: 303,
       location:
-        '/en?place=place-1&authResult=success&authMethod=email&pendingAction=favourite&pendingResult=completed'
+        '/en?place=place-1&authResult=success&authMethod=email&pendingAction=favourite&pendingResult=completed&pendingFirstTimeForPlace=1&pendingActivatedCurrentWeek=1&pendingCurrentWeekStartsOn=2026-07-13&pendingCurrentWeekEndsOn=2026-07-19&pendingCurrentWeekActive=1'
     });
     expect(calls).toEqual(['activate_current_member', 'complete_auth_pending_intent']);
   });

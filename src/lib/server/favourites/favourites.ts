@@ -2,12 +2,14 @@ import type { PlaceCategory } from '$domain/place';
 import type { Locale } from '$i18n';
 import type { RequestSupabaseClient } from '$server/db/clients';
 import type { Database } from '$server/db/generated.types';
+import {
+  mapFavouriteRecognition,
+  type FavouriteRecognition
+} from '$server/member-activity/weekly-rhythm';
 
 type FavouriteIdRow =
   Database['public']['Functions']['list_current_favourite_ids']['Returns'][number];
 type FavouriteRow = Database['public']['Functions']['list_current_favourites']['Returns'][number];
-type MutationRow = Database['public']['Functions']['set_current_favourite']['Returns'][number];
-
 export type FavouriteAvailability = 'available' | 'unavailable' | 'inactive';
 
 export interface SavedPlace {
@@ -43,7 +45,12 @@ export interface FavouritePage {
 export type FavouriteMutationResult =
   | {
       status: 'success';
-      value: { placeId: string; isFavourite: boolean; changedAt: string };
+      value: {
+        placeId: string;
+        isFavourite: boolean;
+        changedAt: string;
+        recognition: FavouriteRecognition;
+      };
     }
   | { status: 'invalid_response' | 'infrastructure_error' };
 
@@ -120,7 +127,13 @@ export async function setFavourite(
     });
     if (error) return { status: 'infrastructure_error' };
     const row = Array.isArray(data) && data.length === 1 ? data[0] : null;
-    if (!isMutationRow(row) || row.place_id !== placeId || row.is_favourite !== desiredState) {
+    const recognition = mapFavouriteRecognition(row);
+    if (
+      !isMutationRow(row) ||
+      !recognition ||
+      row.place_id !== placeId ||
+      row.is_favourite !== desiredState
+    ) {
       return { status: 'invalid_response' };
     }
     return {
@@ -128,7 +141,8 @@ export async function setFavourite(
       value: {
         placeId: row.place_id,
         isFavourite: row.is_favourite,
-        changedAt: row.changed_at
+        changedAt: row.changed_at,
+        recognition
       }
     };
   } catch {
@@ -172,7 +186,11 @@ function isFavouriteRow(row: unknown): row is FavouriteRow {
   );
 }
 
-function isMutationRow(row: unknown): row is MutationRow {
+function isMutationRow(row: unknown): row is Record<string, unknown> & {
+  place_id: string;
+  is_favourite: boolean;
+  changed_at: string;
+} {
   return (
     isRecord(row) &&
     isNonEmptyString(row.place_id) &&
