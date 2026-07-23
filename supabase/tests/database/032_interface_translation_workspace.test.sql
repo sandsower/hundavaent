@@ -86,6 +86,61 @@ select has_function(
   'Deployment operations synchronize the developer-owned key inventory'
 );
 
+select is(
+  private.interface_translation_change_count(
+    '{"is":{"kept":"Same","removed":"Old","updated":"Before"},"en":{"kept":"Same","removed":"Old","updated":"Before"}}'::jsonb,
+    '{"is":{"added":"New","kept":"Same","updated":"After"},"en":{"added":"New","kept":"Same","updated":"After"}}'::jsonb
+  ),
+  3,
+  'Change counting handles additions, removals, and bilingual edits once per key'
+);
+
+create temporary table test_interface_translation_catalogues (
+  previous_catalogues jsonb not null,
+  next_catalogues jsonb not null
+) on commit drop;
+
+insert into test_interface_translation_catalogues (
+  previous_catalogues,
+  next_catalogues
+)
+select
+  catalogue,
+  jsonb_set(
+    catalogue,
+    array['en', 'key.2500'],
+    to_jsonb('Changed'::text),
+    false
+  )
+from (
+  select jsonb_build_object(
+    'is', jsonb_object_agg(key_name, to_jsonb(value) order by key_name),
+    'en', jsonb_object_agg(key_name, to_jsonb(value) order by key_name)
+  ) as catalogue
+  from (
+    select
+      'key.' || lpad(series_value::text, 4, '0') as key_name,
+      repeat('x', 256) as value
+    from generate_series(1, 5000) as series(series_value)
+  ) as catalogue_entries
+) as large_catalogue;
+
+set local statement_timeout = '2s';
+
+select is(
+  (
+    select private.interface_translation_change_count(
+      previous_catalogues,
+      next_catalogues
+    )
+    from test_interface_translation_catalogues
+  ),
+  1,
+  'Large catalogue change counting stays within the publication timeout budget'
+);
+
+set local statement_timeout = 0;
+
 select ok(
   has_function_privilege(
     'anon',
