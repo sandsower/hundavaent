@@ -295,56 +295,7 @@ async function normalizeNativeInputsForVisualEvidence(page: Page): Promise<void>
   });
 }
 
-async function normalizeFreshnessForVisualEvidence(page: Page, label: string): Promise<void> {
-  await page.evaluate(() => {
-    if (document.querySelector('style[data-stable-freshness]')) return;
-
-    // The server-derived one-year default changes daily and Svelte can restore it during the
-    // consecutive screenshots Playwright uses for stability. Keep the real form value intact,
-    // but cover it with a persistent visual-only value that survives client invalidations.
-    const style = document.createElement('style');
-    style.dataset.stableFreshness = 'true';
-    style.textContent = `
-      label:has(> input[name='freshnessUntil']) > input[name='freshnessUntil'] {
-        grid-column: 1;
-        grid-row: 2;
-        visibility: hidden !important;
-      }
-      label:has(> input[name='freshnessUntil'])::after {
-        align-self: center;
-        background: white;
-        border: 2px solid #193b45;
-        border-radius: 0.65rem;
-        box-sizing: border-box;
-        content: '2099-01-01';
-        display: grid;
-        grid-column: 1;
-        grid-row: 2;
-        min-height: 3rem;
-        padding: 0.55rem 0.7rem;
-        pointer-events: none;
-      }
-    `;
-    document.head.append(style);
-  });
-  await expect
-    .poll(() =>
-      page
-        .getByLabel(label)
-        .evaluate((element) =>
-          element.parentElement
-            ? getComputedStyle(element.parentElement, '::after').content
-            : 'missing'
-        )
-    )
-    .toContain('2099-01-01');
-}
-
-async function normalizeCandidateReviewForVisualEvidence(
-  page: Page,
-  freshnessLabel: string
-): Promise<void> {
-  await normalizeFreshnessForVisualEvidence(page, freshnessLabel);
+async function normalizeCandidateReviewForVisualEvidence(page: Page): Promise<void> {
   // Chromium renders native date controls using the host OS locale, which differs between local
   // development and GitHub's Linux runners. Preserve the values while removing only that native,
   // machine-dependent presentation from visual evidence.
@@ -1011,9 +962,9 @@ for (const locale of ['is', 'en'] as const) {
     await page.goto(`/${locale}/moderation/places/${evaluationFixtureIds.places.candidate}`);
     await waitForHydration(page);
     await expect(page.getByRole('heading', { name: copy[locale].checklist })).toBeVisible();
-    await normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness);
+    await normalizeCandidateReviewForVisualEvidence(page);
     await capture(page, evidence, `publication-checklist-${locale}-desktop.png`, {
-      prepare: () => normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness)
+      prepare: () => normalizeCandidateReviewForVisualEvidence(page)
     });
 
     // Place media: empty, evidence-registered, pending-photo, and approved-photo states
@@ -1021,7 +972,7 @@ for (const locale of ['is', 'en'] as const) {
     // section starts empty at this point in the flow.
     await openModerationReviewSection(page, '#candidate-media');
     await capture(page, evidence, `media-section-empty-${locale}-desktop.png`, {
-      prepare: () => normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness)
+      prepare: () => normalizeCandidateReviewForVisualEvidence(page)
     });
 
     const evidenceColumn = page.locator('[data-media-column="evidence"]');
@@ -1035,9 +986,9 @@ for (const locale of ['is', 'en'] as const) {
     await normalizeNativeInputForVisualEvidence(page, copy[locale].mediaCapturedAtLabel);
     await evidenceColumn.getByRole('button', { name: copy[locale].uploadEvidenceAction }).click();
     await expect(page.getByText(copy[locale].mediaUploaded)).toBeVisible();
-    await normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness);
+    await normalizeCandidateReviewForVisualEvidence(page);
     await capture(page, evidence, `media-section-evidence-${locale}-desktop.png`, {
-      prepare: () => normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness)
+      prepare: () => normalizeCandidateReviewForVisualEvidence(page)
     });
 
     const photoColumn = page.locator('[data-media-column="photo"]');
@@ -1062,16 +1013,16 @@ for (const locale of ['is', 'en'] as const) {
       .fill('Photo by Visual Photographer, used with permission');
     await photoColumn.getByLabel(copy[locale].altTextIsLabel).fill('Hundur, sjónræn prófun');
     await photoColumn.getByLabel(copy[locale].altTextEnLabel).fill('A dog, visual test fixture');
-    await normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness);
+    await normalizeCandidateReviewForVisualEvidence(page);
     await capture(page, evidence, `media-section-pending-photo-${locale}-desktop.png`, {
-      prepare: () => normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness)
+      prepare: () => normalizeCandidateReviewForVisualEvidence(page)
     });
 
     await photoColumn.getByRole('button', { name: copy[locale].uploadAndPublishAction }).click();
     await expect(page.getByText(copy[locale].photoApproved)).toBeVisible();
-    await normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness);
+    await normalizeCandidateReviewForVisualEvidence(page);
     await capture(page, evidence, `media-section-approved-photo-${locale}-desktop.png`, {
-      prepare: () => normalizeCandidateReviewForVisualEvidence(page, copy[locale].freshness)
+      prepare: () => normalizeCandidateReviewForVisualEvidence(page)
     });
 
     clearLocalPlaceMedia(candidatePlaceId);

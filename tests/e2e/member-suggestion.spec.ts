@@ -188,17 +188,12 @@ test('private Suggestions reach accepted, rejected, and duplicate outcomes witho
   );
   await expect(moderatorPage.getByRole('heading', { name: 'Publication checklist' })).toBeVisible();
   await expect(moderatorPage.getByText('Ready', { exact: true })).toBeVisible();
-  const publicationEvidence = moderatorPage.locator('#publication-evidence');
-  await expandReviewSection(publicationEvidence);
-  await publicationEvidence
-    .getByRole('group', { name: 'Evidence supporting condition 1' })
-    .getByLabel('Member supplied source')
-    .check();
   await moderatorPage.getByRole('button', { name: 'Verify and publish' }).click();
-  await moderatorPage
-    .getByRole('dialog', { name: 'Publish this Place?' })
-    .getByRole('button', { name: 'Verify and publish' })
-    .click();
+  const publishDialog = moderatorPage.getByRole('dialog', { name: 'Publish this Place?' });
+  await publishDialog
+    .getByLabel('Reason for publishing')
+    .fill('The accepted member suggestion has been reviewed.');
+  await publishDialog.getByRole('button', { name: 'Verify and publish' }).click();
   await expect(moderatorPage.getByText('The Place has been published.')).toBeVisible();
 
   const published = await publicClient.rpc('list_published_places', {

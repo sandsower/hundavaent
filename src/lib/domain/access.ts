@@ -90,7 +90,6 @@ export function isCurrentVerification(
   return (
     verification.status === 'verified' &&
     verification.supersededAt === null &&
-    verification.evidenceIds.length > 0 &&
     Number.isFinite(freshnessUntil) &&
     freshnessUntil > evaluatedAt.getTime()
   );

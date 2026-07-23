@@ -180,8 +180,7 @@ const completePublicationReview = {
     geometryQuality: true,
     icelandicTranslation: true,
     englishTranslation: true,
-    accessCondition: true,
-    evidence: true
+    accessCondition: true
   },
   ready: true
 };
@@ -224,16 +223,12 @@ describe('Publication checklist', () => {
           name: lang === 'is' ? 'Vista' : 'Save'
         })
       ).toBeTruthy();
-      const mapping = screen.getByRole('group', {
-        name: lang === 'is' ? 'Heimildir sem styðja skilyrði 1' : 'Evidence supporting condition 1'
-      });
-      expect(mapping.textContent).toContain(lang === 'is' ? 'utandyra' : 'outdoors');
-      expect(mapping.textContent).toContain(lang === 'is' ? 'Opinber vefsíða' : 'Official website');
-      expect(mapping.textContent).toContain('https://example.invalid/source');
-      expect(mapping.textContent).toContain('Section 4, patio rule');
-      expect(mapping.textContent).toContain(lang === 'is' ? '9. júlí 2026' : '9 July 2026');
-      expect(mapping.textContent).not.toContain('official_website');
-      expect(mapping.textContent).not.toContain('leash_required');
+      expect(
+        screen.queryByRole('group', {
+          name:
+            lang === 'is' ? 'Heimildir sem styðja skilyrði 1' : 'Evidence supporting condition 1'
+        })
+      ).toBeNull();
       const publishButton = screen.getByRole('button', {
         name: publishLabel
       }) as HTMLButtonElement;
@@ -243,6 +238,12 @@ describe('Publication checklist', () => {
         screen.getByRole('button', { name: catalogues[lang]['common.cancel'] })
       );
       expect(publishButton.disabled).toBe(false);
+      await fireEvent.click(publishButton);
+      expect(
+        within(screen.getByRole('dialog')).getByRole('textbox', {
+          name: lang === 'is' ? 'Ástæða birtingar' : 'Reason for publishing'
+        })
+      ).toBeRequired();
     }
   );
 
@@ -314,8 +315,8 @@ describe('Publication checklist', () => {
         form: null
       });
 
-      expect(screen.getAllByText(firstDescription)).toHaveLength(2);
-      expect(screen.getAllByText(secondDescription)).toHaveLength(2);
+      expect(screen.getAllByText(firstDescription)).toHaveLength(1);
+      expect(screen.getAllByText(secondDescription)).toHaveLength(1);
     }
   );
 
