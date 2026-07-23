@@ -16,7 +16,7 @@ import {
   type LocationCorrectionCommand,
   type PublishPlaceCommand,
   type WheelchairAccessibilityCommand,
-  updateCandidatePlaceLocation,
+  updateModeratedPlaceLocation,
   updatePlaceWheelchairAccessibility,
   verifyAndPublish
 } from '$server/moderation/place-moderation';
@@ -233,7 +233,7 @@ const correctionCommand: LocationCorrectionCommand = {
   geometrySource: 'HMS Staðfangaskrá coordinate 10000001'
 };
 
-describe('updateCandidatePlaceLocation', () => {
+describe('updateModeratedPlaceLocation', () => {
   it('sends one version-checked geometry correction command', async () => {
     const rpc = vi.fn(async () => ({
       data: [{ place_id: 'place-1', geometry_precision: 'official_address_point', version: 2 }],
@@ -242,12 +242,12 @@ describe('updateCandidatePlaceLocation', () => {
     const client = { rpc } as unknown as RequestSupabaseClient;
 
     await expect(
-      updateCandidatePlaceLocation(client, correctionCommand, 'request-location')
+      updateModeratedPlaceLocation(client, correctionCommand, 'request-location')
     ).resolves.toEqual({
       status: 'success',
       value: { placeId: 'place-1', geometryPrecision: 'official_address_point', version: 2 }
     });
-    expect(rpc).toHaveBeenCalledWith('update_candidate_place_location', {
+    expect(rpc).toHaveBeenCalledWith('update_moderated_place_location', {
       command_payload: {
         place_id: 'place-1',
         expected_version: 1,
@@ -669,6 +669,27 @@ describe('getCandidatePublicationReview', () => {
             sourceMetadata: { section: 'dogs' }
           }
         ]
+      }
+    });
+  });
+
+  it('keeps a Published Place reviewable without a Candidate lifecycle blocker', async () => {
+    const { client } = createReviewClient({
+      data: [
+        {
+          ...completeReviewRow,
+          lifecycle: 'published',
+          candidate_status: 'published'
+        }
+      ]
+    });
+
+    await expect(getCandidatePublicationReview(client, 'place-1')).resolves.toMatchObject({
+      status: 'success',
+      value: {
+        lifecycle: 'published',
+        checks: { candidate: true },
+        ready: true
       }
     });
   });

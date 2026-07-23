@@ -98,6 +98,18 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   await publishDialog.getByRole('button', { name: 'Verify and publish' }).click();
   await expect(page.getByText('The Place has been published.')).toBeVisible();
 
+  const locationSection = page.locator('#location');
+  await locationSection.locator(':scope > summary').click();
+  await locationSection.getByRole('button', { name: 'Edit Location' }).click();
+  await locationSection.getByText('Edit location details', { exact: true }).click();
+  await locationSection.getByLabel('Latitude').fill('64.1468');
+  await locationSection.getByLabel('Longitude').fill('-21.9427');
+  await locationSection
+    .getByLabel('Geometry source')
+    .fill('Published Place coordinate corrected in the end-to-end review.');
+  await locationSection.getByRole('button', { name: 'Save' }).click();
+  await expect(locationSection.getByRole('button', { name: 'Edit Location' })).toBeVisible();
+
   const status = getLocalSupabaseStatus();
   const publicClient = createClient<Database>(status.apiUrl, status.publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false }
@@ -107,7 +119,11 @@ test('a Moderator verifies and publishes a Candidate through the full applicatio
   });
 
   expect(error).toBeNull();
-  expect(data?.find((place) => place.place_id === candidateId)?.access_condition_count).toBe(2);
+  expect(data?.find((place) => place.place_id === candidateId)).toMatchObject({
+    access_condition_count: 2,
+    latitude: 64.1468,
+    longitude: -21.9427
+  });
 
   const verifiedProfileResponse = await page.request.get(`/api/places/${candidateId}?lang=en`);
   expect(verifiedProfileResponse.status()).toBe(200);

@@ -415,6 +415,29 @@ describe('CandidateReviewPanel', () => {
     });
   });
 
+  it('posts Published Location corrections directly with the Place version', async () => {
+    const { container } = render(CandidateReviewPanel, {
+      data: {
+        ...data,
+        review: {
+          ...data.review,
+          lifecycle: 'published',
+          candidateStatus: 'published' as const
+        }
+      },
+      form: null
+    });
+
+    await beginEditing('Location');
+    const locationForm = sectionForm(container, 'location');
+
+    expect(locationForm.getAttribute('action')).toBe('?/correctLocation');
+    expect(hiddenValue(locationForm, 'expectedVersion')).toBe('3');
+    expect(locationForm.querySelector('[name="expectedItemVersion"]')).toBeNull();
+    expect(locationForm.querySelector('[name="expectedDraftVersion"]')).toBeNull();
+    expect(locationForm.querySelector('[name="sectionId"]')).toBeNull();
+  });
+
   it('normalizes Access Conditions into the strict snake-case patch', async () => {
     const { container } = render(CandidateReviewPanel, { data, form: null });
 
