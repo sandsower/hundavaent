@@ -960,51 +960,13 @@ jobs:
             --commit-message "Deploy ${RELEASE_SHA}" \
             --upload-source-maps
 
-      - name: Verify production health and password gate
+      - name: Verify coherent production readiness
         shell: bash
         run: |
           set -euo pipefail
-          node --experimental-strip-types scripts/wait-for-health.ts \
-            "${PRODUCTION_URL}/api/health" \
-            --expected-release "${RELEASE_SHA}" \
-            --expected-check database=ready \
-            --expected-check map=configured \
-            --expected-check translations=published
-          health_json="$(curl --fail --silent --show-error "${PRODUCTION_URL}/api/health")"
-          jq -e --arg release_sha "${RELEASE_SHA}" '
-            .service == "hundavaent" and
-            .status == "ok" and
-            .release == $release_sha and
-            .checks.database == "ready" and
-            .checks.map == "configured" and
-            .checks.translations == "published"
-          ' <<< "${health_json}" > /dev/null
-          gate_headers="$(curl --silent --show-error --head "${PRODUCTION_URL}/is")"
-          grep -qiE '^location:.*/gate' <<< "${gate_headers}"
-          grep -qi '^x-robots-tag:.*noindex' <<< "${gate_headers}"
-          echo "Password gate verified: unauthenticated requests redirect to /gate with noindex."
-          workspace_headers="${RUNNER_TEMP}/hundavaent-translation-smoke-headers.txt"
-          workspace_body="${RUNNER_TEMP}/hundavaent-translation-smoke-body.html"
-          trap 'rm -f "${workspace_headers}" "${workspace_body}"' EXIT
-          workspace_location="$(curl \
-            --silent \
-            --show-error \
-            --head \
-            "${PRODUCTION_URL}/translations" | tr -d '\r' | awk -F ': ' \
-              'tolower($1) == "location" { print $2 }')"
-          test "${workspace_location}" = "/translations/sign-in?redirectTo=%2Ftranslations"
-          curl \
-            --fail \
-            --silent \
-            --show-error \
-            --dump-header "${workspace_headers}" \
-            --output "${workspace_body}" \
-            "${PRODUCTION_URL}/translations/sign-in"
-          grep -qi '^cache-control:.*private, no-store' "${workspace_headers}"
-          grep -qi '^x-robots-tag:.*noindex' "${workspace_headers}"
-          grep -q 'data-translation-workspace-sign-in' "${workspace_body}"
-          grep -q 'name="password"' "${workspace_body}"
-          echo "Translation workspace password boundary verified without changing translations."
+          node --experimental-strip-types scripts/verify-production-readiness.ts \
+            "${PRODUCTION_URL}" \
+            "${RELEASE_SHA}"
           {
             echo "### Hundavaent production"
             echo
