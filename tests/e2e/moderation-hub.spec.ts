@@ -297,8 +297,11 @@ async function submitReasonDialog(page: Page, confirmLabel: string): Promise<voi
 async function selectWorkItem(page: Page, itemId: string): Promise<void> {
   const item = page.locator(`[data-work-item-id="${itemId}"]`);
   await expect(item).toBeVisible();
-  await item.click();
+  if ((await item.getAttribute('aria-current')) !== 'true') {
+    await item.click();
+  }
   await expect(page).toHaveURL((url) => url.searchParams.get('item') === itemId);
+  await expect(item).toHaveAttribute('aria-current', 'true');
 }
 
 async function chooseQueueStatus(
