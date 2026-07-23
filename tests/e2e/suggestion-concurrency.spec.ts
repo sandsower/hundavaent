@@ -21,6 +21,8 @@ test.afterEach(async () => {
   createdMemberId = undefined;
   runSql(`
     set session_replication_role = replica;
+    delete from private.activity_integrity_observations as observation
+    where observation.member_id = '${memberId}'::uuid;
     delete from private.contributions as contribution
     where contribution.suggestion_id in (
       select suggestion.id
@@ -146,6 +148,16 @@ test('same-request concurrent Suggestion submissions return one idempotent resul
     where suggestion.member_id = '${memberId}'::uuid
       and suggestion.request_id = '${requestId}'::uuid
       and event.status = 'submitted'
+  `)
+  ).toBe('1');
+  expect(
+    queryScalar(`
+    select count(*)
+    from private.activity_integrity_observations
+    where member_id = '${memberId}'::uuid
+      and source_kind = 'suggestion'
+      and request_id = '${requestId}'::uuid
+      and signal_kind = 'request_replay'
   `)
   ).toBe('1');
 });

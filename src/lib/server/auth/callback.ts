@@ -10,7 +10,7 @@ import {
 } from '$server/auth/pending-intent';
 import { normalizeMemberReturnTo, normalizeModerationReturnTo } from '$server/auth/return-to';
 import type { RequestSupabaseClient } from '$server/db/clients';
-import type { FavouriteRecognition } from '$server/member-activity/weekly-rhythm';
+import type { FavouriteRecognition } from '$lib/member-activity/types';
 
 export interface AuthCallbackDependencies {
   resolveMemberAuthConfig(): MemberAuthConfigResolution;

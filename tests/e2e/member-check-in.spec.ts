@@ -64,6 +64,11 @@ test('a Member records a private Check-in with no location permission and sees t
 
   await page.getByRole('button', { name: 'Check in at Published Place' }).click();
   await expect(page.getByRole('status').filter({ hasText: "You're checked in" })).toBeVisible();
+  await expect(
+    page.locator(
+      '[data-weekly-rhythm-acknowledgement][data-recognition-action="check_in"][data-activated-week="true"]'
+    )
+  ).toBeVisible();
   await expect(page.getByText(/Recorded at/)).toBeVisible();
 });
 
@@ -84,13 +89,22 @@ test('a duplicate Check-in within the window, including a rapid resubmission, is
   const repeat = await page.evaluate(async (targetPlaceId) => {
     const response = await fetch(`/api/check-ins/${targetPlaceId}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': crypto.randomUUID()
+      },
       body: JSON.stringify({ proximityDecision: 'unknown' })
     });
     return { status: response.status, body: (await response.json()) as Record<string, unknown> };
   }, placeId);
   expect(repeat.status).toBe(200);
   expect(repeat.body.alreadyCheckedIn).toBe(true);
+  expect(repeat.body.recognition).toMatchObject({
+    action: 'check_in',
+    recognized: false,
+    activatedCurrentWeek: false,
+    currentWeek: { active: true }
+  });
 
   // A reopened Place Profile shows the idempotent already-checked-in state directly, without
   // offering a second Check-in action.

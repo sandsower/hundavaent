@@ -4,7 +4,8 @@ import type { RequestSupabaseClient } from '$server/db/clients';
 import {
   getWeeklyRhythm,
   getWeeklyRhythmHistory,
-  mapFavouriteRecognition
+  mapFavouriteRecognition,
+  mapWeeklyRhythmRecognition
 } from '$server/member-activity/weekly-rhythm';
 
 function clientWith(data: unknown, error: unknown = null) {
@@ -108,6 +109,8 @@ describe('Weekly rhythm server boundary', () => {
         first_saved_at: 'must not be mapped'
       })
     ).toEqual({
+      action: 'favourite',
+      recognized: true,
       firstTimeForPlace: true,
       activatedCurrentWeek: true,
       currentWeek: {
@@ -125,6 +128,31 @@ describe('Weekly rhythm server boundary', () => {
         current_week_ends_on: '2026-07-27',
         current_week_active: true
       })
+    ).toBeNull();
+  });
+
+  it('maps every source-neutral action and rejects impossible recognition', () => {
+    const row = {
+      qualifying_action_recorded: true,
+      activated_current_week: false,
+      current_week_starts_on: '2026-07-20',
+      current_week_ends_on: '2026-07-26',
+      current_week_active: true
+    };
+    expect(mapWeeklyRhythmRecognition(row, 'check_in')).toEqual({
+      action: 'check_in',
+      recognized: true,
+      activatedCurrentWeek: false,
+      currentWeek: { startsOn: '2026-07-20', endsOn: '2026-07-26', active: true }
+    });
+    expect(
+      mapWeeklyRhythmRecognition(
+        { ...row, qualifying_action_recorded: false, activated_current_week: true },
+        'rating'
+      )
+    ).toBeNull();
+    expect(
+      mapWeeklyRhythmRecognition({ ...row, current_week_active: false }, 'suggestion')
     ).toBeNull();
   });
 });

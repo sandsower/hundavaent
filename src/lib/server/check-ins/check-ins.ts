@@ -1,6 +1,8 @@
 import { isProximityDecision, type ProximityDecision } from '$lib/check-ins/proximity';
+import type { WeeklyRhythmRecognition } from '$lib/member-activity/types';
 import type { RequestSupabaseClient } from '$server/db/clients';
 import type { Database } from '$server/db/generated.types';
+import { mapWeeklyRhythmRecognition } from '$server/member-activity/weekly-rhythm';
 
 type RecordCheckInRow = Database['public']['Functions']['record_check_in']['Returns'][number];
 type CheckInStatusRow =
@@ -13,6 +15,7 @@ export interface RecordedCheckIn {
   proximityConfirmed: ProximityDecision;
   checkedInAt: string;
   alreadyCheckedIn: boolean;
+  recognition: WeeklyRhythmRecognition;
 }
 
 export interface CurrentCheckInStatus {
@@ -33,10 +36,6 @@ export type CheckInPolicyResult =
   | { status: 'success'; value: { proximityAssistEnabled: boolean } }
   | { status: 'infrastructure_error' };
 
-// requestId is currently minted per HTTP request by the API route, so the database's exact
-// request-id replay never fires for a client retry; the effective duplicate protection is the
-// rolling 24-hour window plus the per-Member-per-Place advisory lock inside record_check_in.
-// The request-id path exists so a future client-supplied idempotency key can slot in unchanged.
 export async function recordCheckIn(
   client: RequestSupabaseClient,
   placeId: string,
@@ -56,7 +55,9 @@ export async function recordCheckIn(
     }
     const row = Array.isArray(data) && data.length === 1 ? data[0] : null;
     if (!isRecordCheckInRow(row)) return { status: 'infrastructure_error' };
-    return { status: 'success', value: toRecordedCheckIn(row) };
+    const recognition = mapWeeklyRhythmRecognition(row, 'check_in');
+    if (!recognition) return { status: 'infrastructure_error' };
+    return { status: 'success', value: toRecordedCheckIn(row, recognition) };
   } catch {
     return { status: 'infrastructure_error' };
   }
@@ -106,7 +107,10 @@ export async function getCheckInPolicy(
   }
 }
 
-function toRecordedCheckIn(row: RecordCheckInRow): RecordedCheckIn {
+function toRecordedCheckIn(
+  row: RecordCheckInRow,
+  recognition: WeeklyRhythmRecognition
+): RecordedCheckIn {
   return {
     checkInId: row.check_in_id,
     placeId: row.place_id,
@@ -114,7 +118,8 @@ function toRecordedCheckIn(row: RecordCheckInRow): RecordedCheckIn {
       ? row.proximity_confirmed
       : 'unknown',
     checkedInAt: row.checked_in_at,
-    alreadyCheckedIn: row.already_checked_in
+    alreadyCheckedIn: row.already_checked_in,
+    recognition
   };
 }
 
@@ -125,7 +130,12 @@ function isRecordCheckInRow(row: unknown): row is RecordCheckInRow {
     isNonEmptyString(row.place_id) &&
     typeof row.proximity_confirmed === 'string' &&
     isValidDate(row.checked_in_at) &&
-    typeof row.already_checked_in === 'boolean'
+    typeof row.already_checked_in === 'boolean' &&
+    typeof row.qualifying_action_recorded === 'boolean' &&
+    typeof row.activated_current_week === 'boolean' &&
+    typeof row.current_week_starts_on === 'string' &&
+    typeof row.current_week_ends_on === 'string' &&
+    typeof row.current_week_active === 'boolean'
   );
 }
 

@@ -385,6 +385,20 @@ select is(
   :'m2_flag_id',
   'Replaying the exact same Report-creation request id is idempotent'
 );
+reset role;
+select is(
+  (
+    select count(*)::bigint
+    from private.activity_integrity_observations as observation
+    where observation.member_id = '79000000-0000-4000-8000-000000000002'
+      and observation.source_kind = 'report'
+      and observation.request_id = '89000000-0000-4000-8000-000000000003'
+      and observation.signal_kind = 'request_replay'
+  ),
+  1::bigint,
+  'A replayed linked Report request is recorded once for aggregate guardrails'
+);
+set local role authenticated;
 select throws_ok(
   $$select * from public.create_report_from_rating_note(
     '79300000-0000-4000-8000-000000000001', gen_random_uuid()

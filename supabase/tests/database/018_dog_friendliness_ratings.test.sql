@@ -5,7 +5,7 @@ create extension if not exists pgtap with schema extensions;
 alter table private.locations alter column geometry_precision set default 'moderator_confirmed_point';
 alter table private.locations alter column geometry_source set default 'Reviewed database test fixture';
 
-select plan(83);
+select plan(84);
 
 -- Schema surface -------------------------------------------------------------------------------
 
@@ -332,28 +332,34 @@ reset role;
 select set_config('request.jwt.claim.sub', '78000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 
-select is(
+select ok(
   (
-    select welcome_score from public.submit_dog_friendliness_rating(
+    select
+      result.welcome_score = 3
+      and result.qualifying_action_recorded
+      and result.activated_current_week
+    from public.submit_dog_friendliness_rating(
       '30000000-0000-4000-8000-000000000003', 3, null, 5, 4, '90000000-0000-4000-8000-000000000001'
-    )
+    ) as result
   ),
-  3::integer,
-  'Member 1 first Rating is stored (Clarity marked N/A)'
+  'Member 1 first Rating is stored and activates the current week'
 );
 
 reset role;
 select set_config('request.jwt.claim.sub', '78000000-0000-4000-8000-000000000002', true);
 set local role authenticated;
 
-select is(
+select ok(
   (
-    select welcome_score from public.submit_dog_friendliness_rating(
+    select
+      result.welcome_score = 4
+      and result.qualifying_action_recorded
+      and result.activated_current_week
+    from public.submit_dog_friendliness_rating(
       '30000000-0000-4000-8000-000000000003', 4, 5, 3, 2, '90000000-0000-4000-8000-000000000002'
-    )
+    ) as result
   ),
-  4::integer,
-  'Member 2 first Rating is stored'
+  'Member 2 first Rating is stored and independently activates the current week'
 );
 
 reset role;
@@ -411,14 +417,17 @@ reset role;
 select set_config('request.jwt.claim.sub', '78000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 
-select is(
+select ok(
   (
-    select welcome_score from public.submit_dog_friendliness_rating(
+    select
+      result.welcome_score = 3
+      and not result.qualifying_action_recorded
+      and not result.activated_current_week
+    from public.submit_dog_friendliness_rating(
       '30000000-0000-4000-8000-000000000003', 3, null, 5, 4, '90000000-0000-4000-8000-000000000001'
-    )
+    ) as result
   ),
-  3::integer,
-  'Replaying the same request id is idempotent'
+  'Replaying the same request id is idempotent and never another qualifying action'
 );
 
 reset role;
@@ -431,6 +440,18 @@ select is(
   ),
   1::bigint,
   'A replayed identical request id does not append a duplicate event'
+);
+select is(
+  (
+    select count(*)::bigint
+    from private.activity_integrity_observations as observation
+    where observation.member_id = '78000000-0000-4000-8000-000000000001'
+      and observation.source_kind = 'rating'
+      and observation.request_id = '90000000-0000-4000-8000-000000000001'
+      and observation.signal_kind = 'request_replay'
+  ),
+  1::bigint,
+  'A replayed detailed Rating request is recorded once for aggregate guardrails'
 );
 select is(
   (
@@ -460,13 +481,22 @@ select is(
   2::integer,
   'A genuine resubmission with a new request id updates the current Rating'
 );
-select throws_ok(
-  $$select * from public.submit_dog_friendliness_rating(
-    '30000000-0000-4000-8000-000000000003', 3, null, 5, 4, '90000000-0000-4000-8000-000000000001'
-  )$$,
-  '55006',
-  'Rating request identifier was already used',
-  'A stale submit request id replayed after a later update conflicts instead of silently mutating'
+select is(
+  (
+    select result.welcome_score = 2
+      and not result.qualifying_action_recorded
+      and not result.activated_current_week
+    from public.submit_dog_friendliness_rating(
+      '30000000-0000-4000-8000-000000000003',
+      3,
+      null,
+      5,
+      4,
+      '90000000-0000-4000-8000-000000000001'
+    ) as result
+  ),
+  true,
+  'A stale submit request replay returns the current Rating without mutating or recognizing it'
 );
 
 reset role;

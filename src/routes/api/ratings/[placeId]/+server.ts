@@ -40,7 +40,7 @@ export const GET: RequestHandler = async (event) => {
   if (applied.status !== 'success') return privateJson({ error: 'unavailable' }, 503);
   const result = await getMyRating(client, event.params.placeId);
   if (result.status !== 'success') return privateJson({ error: 'unavailable' }, 503);
-  return privateJson({ rating: result.value });
+  return privateJson({ rating: result.value, recognition: applied.value.recognition });
 };
 
 export const PUT: RequestHandler = async (event) => {
@@ -48,6 +48,11 @@ export const PUT: RequestHandler = async (event) => {
     return privateJson({ error: 'invalid_request' }, 400);
   const authError = await requireMember(event);
   if (authError) return authError;
+  const suppliedCommandId = event.request.headers.get('idempotency-key');
+  if (suppliedCommandId !== null && !uuidPattern.test(suppliedCommandId)) {
+    return privateJson({ error: 'invalid_request' }, 400);
+  }
+  const commandId = suppliedCommandId ?? crypto.randomUUID();
   let input: unknown;
   try {
     input = await event.request.json();
@@ -60,7 +65,7 @@ export const PUT: RequestHandler = async (event) => {
     event.locals.supabase as unknown as DogFriendlinessRpcClient,
     event.params.placeId,
     parsed,
-    event.locals.requestId
+    commandId
   );
   if (result.status !== 'success') {
     const status =
@@ -73,5 +78,5 @@ export const PUT: RequestHandler = async (event) => {
             : 503;
     return privateJson({ error: result.status }, status);
   }
-  return privateJson({ rating: result.value });
+  return privateJson({ rating: result.value.rating, recognition: result.value.recognition });
 };

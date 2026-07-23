@@ -133,6 +133,8 @@
         active !== null
       ) {
         const recognition = {
+          action: 'favourite' as const,
+          recognized: true,
           firstTimeForPlace,
           activatedCurrentWeek,
           currentWeek: { startsOn, endsOn, active }

@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 import { isProximityDecision } from '$lib/check-ins/proximity';
 import { getCurrentCheckInStatus, recordCheckIn } from '$server/check-ins/check-ins';
 import { privateJson } from '$server/http/private-json';
@@ -37,6 +35,11 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     return privateJson({ error: 'invalid_request' }, 400);
   }
   if (!locals.supabase) return privateJson({ error: 'unavailable' }, 503);
+  const suppliedCommandId = request.headers.get('idempotency-key');
+  if (suppliedCommandId !== null && !uuidPattern.test(suppliedCommandId)) {
+    return privateJson({ error: 'invalid_request' }, 400);
+  }
+  const commandId = suppliedCommandId ?? crypto.randomUUID();
 
   let body: unknown;
   try {
@@ -66,16 +69,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     return privateJson({ error: 'unavailable' }, 503);
   }
 
-  const result = await recordCheckIn(
-    locals.supabase,
-    params.placeId,
-    proximityDecision,
-    // Minted per request: a client retry gets a new ID, so exact request-id replay in the
-    // database never fires for retries - the rolling 24-hour window and the advisory lock are
-    // the effective duplicate protection. A future client-supplied idempotency key can replace
-    // this without changing the RPC contract.
-    randomUUID()
-  );
+  const result = await recordCheckIn(locals.supabase, params.placeId, proximityDecision, commandId);
   if (result.status === 'place_unavailable') {
     return privateJson({ error: 'place_unavailable' }, 409);
   }
@@ -87,6 +81,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     placeId: result.value.placeId,
     proximityConfirmed: result.value.proximityConfirmed,
     checkedInAt: result.value.checkedInAt,
-    alreadyCheckedIn: result.value.alreadyCheckedIn
+    alreadyCheckedIn: result.value.alreadyCheckedIn,
+    recognition: result.value.recognition
   });
 };

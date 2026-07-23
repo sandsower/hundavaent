@@ -1,6 +1,8 @@
 import type { VerificationStatus } from '$domain/access';
 import type { EvidenceKind } from '$domain/evidence';
 import type { Json } from '$server/db/generated.types';
+import type { WeeklyRhythmRecognition } from '$lib/member-activity/types';
+import { mapWeeklyRhythmRecognition } from '$server/member-activity/weekly-rhythm';
 import type {
   AccessConditionValue,
   CorrectionPayload,
@@ -38,6 +40,7 @@ export interface SubmittedPlaceFlag {
   flagId: string;
   outcome: PlaceFlagOutcome;
   submittedAt: string;
+  recognition: WeeklyRhythmRecognition;
 }
 
 export interface MemberPlaceFlag {
@@ -168,6 +171,7 @@ export async function submitCorrection(
   return submitFlag(
     client,
     'submit_place_correction',
+    'correction',
     payload as unknown as Record<string, unknown>,
     requestId
   );
@@ -181,6 +185,7 @@ export async function submitReport(
   return submitFlag(
     client,
     'submit_place_report',
+    'report',
     payload as unknown as Record<string, unknown>,
     requestId
   );
@@ -189,6 +194,7 @@ export async function submitReport(
 async function submitFlag(
   client: PlaceFlagRpcClient,
   functionName: string,
+  action: PlaceFlagKind,
   payload: Record<string, unknown>,
   requestId: string
 ): Promise<PlaceFlagCommandResult<SubmittedPlaceFlag>> {
@@ -201,9 +207,16 @@ async function submitFlag(
     if (!Array.isArray(data) || data.length !== 1 || !isSubmissionRow(data[0])) {
       return { status: 'infrastructure_error' };
     }
+    const recognition = mapWeeklyRhythmRecognition(data[0], action);
+    if (!recognition) return { status: 'infrastructure_error' };
     return {
       status: 'success',
-      value: { flagId: data[0].flag_id, outcome: data[0].status, submittedAt: data[0].submitted_at }
+      value: {
+        flagId: data[0].flag_id,
+        outcome: data[0].status,
+        submittedAt: data[0].submitted_at,
+        recognition
+      }
     };
   } catch {
     return { status: 'infrastructure_error' };
@@ -557,7 +570,8 @@ function isSubmissionRow(
     isRecord(value) &&
     typeof value.flag_id === 'string' &&
     isOutcome(value.status) &&
-    typeof value.submitted_at === 'string'
+    typeof value.submitted_at === 'string' &&
+    typeof value.qualifying_action_recorded === 'boolean'
   );
 }
 

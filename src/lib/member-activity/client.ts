@@ -1,4 +1,4 @@
-import type { FavouriteRecognition, WeeklyRhythmWeek } from './types';
+import type { FavouriteRecognition, WeeklyRhythmRecognition, WeeklyRhythmWeek } from './types';
 
 export const weeklyRhythmActivatedEventName = 'hundavaent:weekly-rhythm-activated';
 export const deferredFavouriteRecognitionEventName = 'hundavaent:deferred-favourite-recognition';
@@ -20,6 +20,11 @@ export function publishWeeklyRhythmActivation(currentWeek: WeeklyRhythmWeek): vo
       detail: currentWeek
     })
   );
+}
+
+export function applyWeeklyRhythmRecognition(recognition: WeeklyRhythmRecognition): void {
+  publishWeeklyRhythmActivation(recognition.currentWeek);
+  if (recognition.activatedCurrentWeek) publishWeeklyRhythmInvalidation();
 }
 
 export function publishWeeklyRhythmInvalidation(): void {
@@ -143,6 +148,10 @@ function isDeferredFavouriteRecognition(value: unknown): value is DeferredFavour
     'recognition' in value &&
     typeof value.recognition === 'object' &&
     value.recognition !== null &&
+    'action' in value.recognition &&
+    value.recognition.action === 'favourite' &&
+    'recognized' in value.recognition &&
+    typeof value.recognition.recognized === 'boolean' &&
     'firstTimeForPlace' in value.recognition &&
     typeof value.recognition.firstTimeForPlace === 'boolean' &&
     'activatedCurrentWeek' in value.recognition &&

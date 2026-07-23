@@ -101,7 +101,12 @@ describe('Suggestion RPC adapter', () => {
         {
           suggestion_id: 'suggestion-1',
           status: 'submitted',
-          submitted_at: '2026-07-11T09:00:00Z'
+          submitted_at: '2026-07-11T09:00:00Z',
+          qualifying_action_recorded: true,
+          activated_current_week: true,
+          current_week_starts_on: '2026-07-06',
+          current_week_ends_on: '2026-07-12',
+          current_week_active: true
         }
       ],
       error: null
@@ -114,7 +119,13 @@ describe('Suggestion RPC adapter', () => {
       value: {
         suggestionId: 'suggestion-1',
         outcome: 'submitted',
-        submittedAt: '2026-07-11T09:00:00Z'
+        submittedAt: '2026-07-11T09:00:00Z',
+        recognition: {
+          action: 'suggestion',
+          recognized: true,
+          activatedCurrentWeek: true,
+          currentWeek: { startsOn: '2026-07-06', endsOn: '2026-07-12', active: true }
+        }
       }
     });
   });

@@ -134,6 +134,7 @@ It runs isolated static, database, component, browser, accessibility, visual, ma
 - [`docs/auth-provider-checklist.md`](docs/auth-provider-checklist.md) covers authentication-provider readiness.
 - [`docs/launch-inventory-runbook.md`](docs/launch-inventory-runbook.md) covers launch-place ingestion.
 - [`docs/place-photo-acquisition-runbook.md`](docs/place-photo-acquisition-runbook.md) covers licensed place-media acquisition.
+- [`docs/member-retention-reporting-runbook.md`](docs/member-retention-reporting-runbook.md) covers privacy-suppressed Member retention reporting.
 - [`docs/observability-runbook.md`](docs/observability-runbook.md) covers release signals, monitoring, and incidents.
 - [`docs/deployment-runbook.md`](docs/deployment-runbook.md) covers preview, production, and recovery operations.
 

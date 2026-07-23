@@ -43,7 +43,13 @@ test('private Corrections and Reports reach applied, confirmed-useful, and rejec
   const memberEmail = `place-flag-member-${Date.now()}@example.invalid`;
   await signInMember(page, memberEmail);
 
-  const phoneFlagId = await submitCorrection(page, correctable.placeId, 'phone', '+354 555 0199');
+  const phoneFlagId = await submitCorrection(
+    page,
+    correctable.placeId,
+    'phone',
+    '+354 555 0199',
+    true
+  );
   const reportFlagId = await submitAccessConditionReport(
     page,
     correctable.placeId,
@@ -110,7 +116,8 @@ test('a Moderator can open an Access Dispute or retire a Place directly from a R
     {
       reason: 'misleading',
       safetyConcern: false
-    }
+    },
+    true
   );
   const inactivationFlagId = await submitAccessConditionReport(
     page,
@@ -194,7 +201,8 @@ async function submitCorrection(
   page: Page,
   placeId: string,
   field: 'phone' | 'website_url',
-  newValue: string
+  newValue: string,
+  activatedCurrentWeek = false
 ): Promise<string> {
   await page.goto(`/en/places/${placeId}/correct?field=${field}`);
   await page.getByLabel('New value').fill(newValue);
@@ -203,7 +211,11 @@ async function submitCorrection(
     .getByLabel('Private explanation to the Moderator')
     .fill(`The ${field.replace('_', ' ')} changed.`);
   await page.getByRole('button', { name: 'Send private Correction' }).click();
-  await expect(page.getByText('Your submission has been received for review.')).toBeVisible();
+  await expect(
+    page.locator(
+      `[data-weekly-rhythm-acknowledgement][data-recognition-action="correction"][data-activated-week="${activatedCurrentWeek}"]`
+    )
+  ).toBeVisible();
   return submittedFlagId(page);
 }
 
@@ -211,7 +223,8 @@ async function submitAccessConditionReport(
   page: Page,
   placeId: string,
   accessConditionId: string,
-  options: { reason: string; safetyConcern: boolean }
+  options: { reason: string; safetyConcern: boolean },
+  activatedCurrentWeek = false
 ): Promise<string> {
   await page.goto(`/en/places/${placeId}/report?conditionId=${accessConditionId}`);
   await page.getByLabel('What kind of problem is this?').selectOption(options.reason);
@@ -221,7 +234,11 @@ async function submitAccessConditionReport(
   await fillEvidence(page, 'Report source');
   await page.getByLabel('Private explanation to the Moderator').fill('Witnessed in person.');
   await page.getByRole('button', { name: 'Send private Report' }).click();
-  await expect(page.getByText('Your submission has been received for review.')).toBeVisible();
+  await expect(
+    page.locator(
+      `[data-weekly-rhythm-acknowledgement][data-recognition-action="report"][data-activated-week="${activatedCurrentWeek}"]`
+    )
+  ).toBeVisible();
   return submittedFlagId(page);
 }
 

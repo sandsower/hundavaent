@@ -18,6 +18,12 @@
     markCheckInLocationDenied,
     wasCheckInLocationDenied
   } from '$lib/check-ins/permission-memory';
+  import { applyWeeklyRhythmRecognition } from '$lib/member-activity/client';
+  import {
+    parseWeeklyRhythmRecognition,
+    type WeeklyRhythmRecognition
+  } from '$lib/member-activity/types';
+  import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
 
   interface Props {
     placeId: string;
@@ -58,6 +64,8 @@
   );
   let effectiveCheckedInAt = $derived(checkedInAt ?? initialCheckedInAt);
   let locationOutcomeMessage = $state<string | null>(null);
+  let recognition = $state<WeeklyRhythmRecognition | null>(null);
+  let pendingCommandId = $state<string | null>(null);
   let locationDeniedThisSession = $state(
     typeof window !== 'undefined' && typeof sessionStorage !== 'undefined'
       ? wasCheckInLocationDenied(sessionStorage)
@@ -131,10 +139,14 @@
     proximityDecision: 'confirmed' | 'not_confirmed' | 'unknown'
   ): Promise<void> {
     phase = 'submitting';
+    pendingCommandId ??= crypto.randomUUID();
     try {
       const response = await fetch(`/api/check-ins/${encodeURIComponent(placeId)}`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'idempotency-key': pendingCommandId
+        },
         body: JSON.stringify({ proximityDecision })
       });
       if (response.status === 409) {
@@ -149,11 +161,20 @@
       const result = (await response.json()) as {
         checkedInAt?: unknown;
         alreadyCheckedIn?: unknown;
+        recognition?: unknown;
       };
-      if (typeof result.checkedInAt !== 'string') {
+      const parsedRecognition = parseWeeklyRhythmRecognition(result.recognition, 'check_in');
+      if (
+        typeof result.checkedInAt !== 'string' ||
+        !parsedRecognition ||
+        (result.alreadyCheckedIn === true && parsedRecognition.recognized)
+      ) {
         phase = 'failed';
         return;
       }
+      pendingCommandId = null;
+      applyWeeklyRhythmRecognition(parsedRecognition);
+      recognition = parsedRecognition.recognized ? parsedRecognition : null;
       checkedInAt = result.checkedInAt;
       const duplicate = result.alreadyCheckedIn === true;
       phase = duplicate ? 'duplicate' : 'success';
@@ -188,6 +209,9 @@
     </a>
     <!-- eslint-enable svelte/no-navigation-without-resolve -->
   {:else if effectivePhase === 'success' || effectivePhase === 'duplicate'}
+    {#if recognition}
+      <WeeklyRhythmAcknowledgement {recognition} subjectName={placeName} {copy} />
+    {/if}
     <p role="status" class="result hv-status" data-status="success">
       {effectivePhase === 'duplicate'
         ? copy['checkIn.duplicate']

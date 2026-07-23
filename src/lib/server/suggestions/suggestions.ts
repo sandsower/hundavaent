@@ -1,4 +1,6 @@
 import type { Json } from '$server/db/generated.types';
+import type { WeeklyRhythmRecognition } from '$lib/member-activity/types';
+import { mapWeeklyRhythmRecognition } from '$server/member-activity/weekly-rhythm';
 import type { SuggestionProposal } from './suggestion-input';
 
 export type SuggestionOutcome =
@@ -21,6 +23,7 @@ export interface SubmittedSuggestion {
   suggestionId: string;
   outcome: SuggestionOutcome;
   submittedAt: string;
+  recognition: WeeklyRhythmRecognition;
 }
 
 export interface MemberSuggestion {
@@ -132,12 +135,15 @@ export async function submitSuggestion(
     if (!Array.isArray(data) || data.length !== 1 || !isSubmissionRow(data[0])) {
       return { status: 'infrastructure_error' };
     }
+    const recognition = mapWeeklyRhythmRecognition(data[0], 'suggestion');
+    if (!recognition) return { status: 'infrastructure_error' };
     return {
       status: 'success',
       value: {
         suggestionId: data[0].suggestion_id,
         outcome: data[0].status,
-        submittedAt: data[0].submitted_at
+        submittedAt: data[0].submitted_at,
+        recognition
       }
     };
   } catch {
@@ -465,7 +471,8 @@ function isSubmissionRow(value: unknown): value is {
     isRecord(value) &&
     typeof value.suggestion_id === 'string' &&
     isOutcome(value.status) &&
-    typeof value.submitted_at === 'string'
+    typeof value.submitted_at === 'string' &&
+    typeof value.qualifying_action_recorded === 'boolean'
   );
 }
 

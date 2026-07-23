@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { GET, POST } from '../../../src/routes/api/check-ins/[placeId]/+server';
 
 const placeId = '30000000-0000-4000-8000-000000000003';
+const commandId = 'a1000000-0000-4000-8000-000000000001';
 
 function expectPrivate(response: Response, status: number): void {
   expect(response.status).toBe(status);
@@ -13,7 +14,7 @@ function expectPrivate(response: Response, status: number): void {
 function jsonRequest(body: unknown): Request {
   return new Request('http://localhost/api/check-ins', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'idempotency-key': commandId },
     body: JSON.stringify(body)
   });
 }
@@ -23,7 +24,12 @@ const successRow = {
   place_id: placeId,
   proximity_confirmed: 'unknown',
   checked_in_at: '2026-07-12T10:00:00Z',
-  already_checked_in: false
+  already_checked_in: false,
+  qualifying_action_recorded: true,
+  activated_current_week: true,
+  current_week_starts_on: '2026-07-06',
+  current_week_ends_on: '2026-07-12',
+  current_week_active: true
 };
 
 function signedInClient(rpcResult: unknown = { data: [successRow], error: null }) {
@@ -34,6 +40,42 @@ function signedInClient(rpcResult: unknown = { data: [successRow], error: null }
 }
 
 describe('Check-in API request boundary', () => {
+  it('keeps a cached pre-deploy client working with a server-generated command id', async () => {
+    const client = signedInClient();
+    const response = await POST({
+      locals: { supabase: client },
+      params: { placeId },
+      request: new Request('http://localhost/api/check-ins', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ proximityDecision: 'unknown' })
+      })
+    } as never);
+    expectPrivate(response, 200);
+    expect(client.rpc).toHaveBeenCalledWith('record_check_in', {
+      requested_place_id: placeId,
+      requested_proximity_status: 'unknown',
+      command_request_id: expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      )
+    });
+  });
+
+  it('rejects a supplied malformed idempotency key', async () => {
+    const client = signedInClient();
+    const response = await POST({
+      locals: { supabase: client },
+      params: { placeId },
+      request: new Request('http://localhost/api/check-ins', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': 'not-a-uuid' },
+        body: JSON.stringify({ proximityDecision: 'unknown' })
+      })
+    } as never);
+    expectPrivate(response, 400);
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+
   it('accepts exactly the tri-state decision body and nothing else', async () => {
     const client = signedInClient();
     expectPrivate(
@@ -47,7 +89,7 @@ describe('Check-in API request boundary', () => {
     expect(client.rpc).toHaveBeenCalledWith('record_check_in', {
       requested_place_id: placeId,
       requested_proximity_status: 'unknown',
-      command_request_id: expect.stringMatching(/^[0-9a-f-]{36}$/i)
+      command_request_id: commandId
     });
   });
 

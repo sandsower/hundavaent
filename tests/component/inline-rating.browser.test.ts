@@ -21,6 +21,23 @@ async function waitForOverallEnabled(): Promise<void> {
   await waitFor(() => expect(screen.getByRole('radio', { name: '2 stars' })).not.toBeDisabled());
 }
 
+function ratingRecognition(recognized = false, activatedCurrentWeek = false) {
+  return {
+    action: 'rating',
+    recognized,
+    activatedCurrentWeek,
+    currentWeek: {
+      startsOn: '2026-07-13',
+      endsOn: '2026-07-19',
+      active: recognized
+    }
+  };
+}
+
+function ratingResponse(rating: unknown = null): Response {
+  return new Response(JSON.stringify({ rating, recognition: ratingRecognition() }));
+}
+
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -51,7 +68,7 @@ describe('InlineRating', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-        if (!init?.method) return new Response(JSON.stringify({ rating: null }));
+        if (!init?.method) return ratingResponse();
         bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
         return new Response(
           JSON.stringify({
@@ -66,7 +83,8 @@ describe('InlineRating', () => {
               privateNoteClassification: null,
               privateNoteUpdatedAt: null,
               linkedReportId: null
-            }
+            },
+            recognition: ratingRecognition(true, true)
           })
         );
       })
@@ -96,7 +114,7 @@ describe('InlineRating', () => {
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
         if (!init?.method) return initialRead.promise;
         bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
-        return new Response(JSON.stringify({ rating: null }));
+        return ratingResponse();
       })
     );
     render(InlineRating, {
@@ -121,7 +139,8 @@ describe('InlineRating', () => {
             ratedAt: '2026-07-15T00:00:00Z',
             privateNote: null,
             privateNoteUpdatedAt: null
-          }
+          },
+          recognition: ratingRecognition()
         })
       )
     );
@@ -144,10 +163,10 @@ describe('InlineRating', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-        if (!init?.method) return new Response(JSON.stringify({ rating: null }));
+        if (!init?.method) return ratingResponse();
         bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
         if (bodies.length === 1) return firstSave.promise;
-        return new Response(JSON.stringify({ rating: null }));
+        return ratingResponse();
       })
     );
     render(InlineRating, {
@@ -175,10 +194,10 @@ describe('InlineRating', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-        if (!init?.method) return new Response(JSON.stringify({ rating: null }));
+        if (!init?.method) return ratingResponse();
         bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
         if (bodies.length === 2) return firstNoteSave.promise;
-        return new Response(JSON.stringify({ rating: null }));
+        return ratingResponse();
       })
     );
     render(InlineRating, {
@@ -199,7 +218,7 @@ describe('InlineRating', () => {
     expect(bodies).toHaveLength(2);
 
     await fireEvent.input(note, { target: { value: 'Newer note' } });
-    firstNoteSave.resolve(new Response(JSON.stringify({ rating: null })));
+    firstNoteSave.resolve(ratingResponse());
     await vi.advanceTimersByTimeAsync(651);
 
     expect(bodies).toHaveLength(3);
@@ -210,7 +229,7 @@ describe('InlineRating', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-        if (!init?.method) return new Response(JSON.stringify({ rating: null }));
+        if (!init?.method) return ratingResponse();
         return new Response(null, { status: 503 });
       })
     );
@@ -238,7 +257,7 @@ describe('InlineRating', () => {
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
         if (init?.method) {
           bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
-          return new Response(JSON.stringify({ rating: null }));
+          return ratingResponse();
         }
         reads += 1;
         return reads === 1 ? initialRead.promise : retryRead.promise;
@@ -269,7 +288,7 @@ describe('InlineRating', () => {
     expect(bodies).toHaveLength(0);
     await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(overallTwo).toBeDisabled();
-    retryRead.resolve(new Response(JSON.stringify({ rating: null })));
+    retryRead.resolve(ratingResponse());
     await waitForOverallEnabled();
     await fireEvent.click(overallTwo);
     await waitFor(() => expect(bodies).toHaveLength(1));
@@ -282,11 +301,9 @@ describe('InlineRating', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-        if (!init?.method) return new Response(JSON.stringify({ rating: null }));
+        if (!init?.method) return ratingResponse();
         calls.push(init);
-        return init.keepalive
-          ? new Response(JSON.stringify({ rating: null }))
-          : pendingSave.promise;
+        return init.keepalive ? ratingResponse() : pendingSave.promise;
       })
     );
     const view = render(InlineRating, {
@@ -306,6 +323,6 @@ describe('InlineRating', () => {
     const keepalive = calls.find((call) => call.keepalive);
     expect(keepalive).toBeTruthy();
     expect(JSON.parse(String(keepalive?.body))).toMatchObject({ overall: 2, welcome: 4 });
-    pendingSave.resolve(new Response(JSON.stringify({ rating: null })));
+    pendingSave.resolve(ratingResponse());
   });
 });

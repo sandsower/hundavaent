@@ -8,6 +8,7 @@ import {
   requireRole
 } from '$server/auth/require-role';
 import { listMemberSuggestions, type SuggestionRpcClient } from '$server/suggestions/suggestions';
+import { parseRedirectRecognition } from '$server/member-activity/redirect-recognition';
 
 import type { PageServerLoad } from './$types';
 
@@ -48,11 +49,17 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     });
   }
 
+  const submitted = url.searchParams.get('submitted');
+  const submittedIsOwned = result.value.items.some(
+    (suggestion) => suggestion.suggestionId === submitted
+  );
+
   return {
     suggestions: result.value.items,
     nextCursor: result.value.nextCursor,
     hasPrevious: cursor !== null,
-    submitted: url.searchParams.get('submitted')
+    submitted,
+    recognition: submittedIsOwned ? parseRedirectRecognition(url.searchParams, 'suggestion') : null
   };
 };
 

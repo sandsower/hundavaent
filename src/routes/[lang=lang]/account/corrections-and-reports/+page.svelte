@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { afterNavigate, replaceState } from '$app/navigation';
   import { resolve } from '$app/paths';
   import type { MessageKey } from '$i18n';
   import { localizePlaceField } from '$i18n/structured-place';
+  import { applyWeeklyRhythmRecognition } from '$lib/member-activity/client';
+  import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
 
   import type { PageProps } from './$types';
 
@@ -37,6 +40,29 @@
       ? localizePlaceField(item.targetField, data.copy)
       : data.copy['correction.targetAccessCondition'];
   }
+
+  afterNavigate(() => {
+    if (data.recognition) applyWeeklyRhythmRecognition(data.recognition);
+    const url = new URL(window.location.href);
+    let needsCleanup = false;
+    for (const key of [
+      'weeklyAction',
+      'weeklyRecognized',
+      'weeklyActivated',
+      'weeklyStartsOn',
+      'weeklyEndsOn',
+      'weeklyActive'
+    ]) {
+      needsCleanup ||= url.searchParams.has(key);
+      url.searchParams.delete(key);
+    }
+    if (needsCleanup) {
+      requestAnimationFrame(() => {
+        // eslint-disable-next-line svelte/no-navigation-without-resolve -- this only removes transient fields from the already-resolved current URL
+        replaceState(`${url.pathname}${url.search}${url.hash}`, {});
+      });
+    }
+  });
 </script>
 
 <svelte:head>
@@ -60,7 +86,9 @@
     </div>
   </header>
 
-  {#if data.submitted}
+  {#if data.recognition?.recognized}
+    <WeeklyRhythmAcknowledgement recognition={data.recognition} copy={data.copy} />
+  {:else if data.submitted}
     <p class="hv-notice" data-tone="success" role="status">
       {data.copy['flag.acknowledged']}
     </p>

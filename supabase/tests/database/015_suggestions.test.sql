@@ -225,9 +225,13 @@ select throws_ok(
   'Excluded pet-service purposes are not approximated as service or other'
 );
 
-select lives_ok(
-  $$
-    select * from public.submit_place_suggestion(
+select ok(
+  (
+    select
+      result.status = 'submitted'
+      and result.qualifying_action_recorded
+      and result.activated_current_week
+    from public.submit_place_suggestion(
       '{
         "purpose":"dog_access_destination",
         "operator_name":"Hundavænt suggestion operator",
@@ -263,9 +267,9 @@ select lives_ok(
         }
       }'::jsonb,
       '85000000-0000-4000-8000-000000000003'
-    )
-  $$,
-  'A Member can submit one complete structured Suggestion'
+    ) as result
+  ),
+  'A complete structured Suggestion is qualifying activity and activates the current week'
 );
 
 select is(
@@ -280,14 +284,18 @@ select is(
   'The initial private outcome is submitted'
 );
 
-select lives_ok(
-  $$
-    select * from public.submit_place_suggestion(
+select ok(
+  (
+    select
+      result.status = 'submitted'
+      and not result.qualifying_action_recorded
+      and not result.activated_current_week
+    from public.submit_place_suggestion(
       '{"purpose":"dog_access_destination"}'::jsonb,
       '85000000-0000-4000-8000-000000000003'
-    )
-  $$,
-  'A repeated submission with the same request ID returns the existing Suggestion without re-validation'
+    ) as result
+  ),
+  'A repeated Suggestion request returns the existing result without another qualifying action'
 );
 
 reset role;

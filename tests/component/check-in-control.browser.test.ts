@@ -31,6 +31,15 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+function recognition(recognized: boolean, activatedCurrentWeek: boolean) {
+  return {
+    action: 'check_in',
+    recognized,
+    activatedCurrentWeek,
+    currentWeek: { startsOn: '2026-07-06', endsOn: '2026-07-12', active: true }
+  };
+}
+
 describe('CheckInControl', () => {
   it.each([
     ['en', catalogues.en, 'Sign in to check in at Published Place'],
@@ -118,7 +127,8 @@ describe('CheckInControl', () => {
         placeId,
         proximityConfirmed: 'unknown',
         checkedInAt: '2026-07-12T14:32:00Z',
-        alreadyCheckedIn: false
+        alreadyCheckedIn: false,
+        recognition: recognition(true, true)
       })
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -136,15 +146,17 @@ describe('CheckInControl', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Check in at Published Place' }));
 
-    await waitFor(() =>
-      expect(screen.getByRole('status').textContent).toContain("You're checked in")
-    );
-    expect(screen.getByRole('status').classList.contains('hv-status')).toBe(true);
-    expect(screen.getByRole('status').getAttribute('data-status')).toBe('success');
+    const result = await screen.findByText("You're checked in at Published Place.");
+    expect(result.classList.contains('hv-status')).toBe(true);
+    expect(result.getAttribute('data-status')).toBe('success');
+    expect(screen.getByText("This week's trail has begun")).toBeTruthy();
     expect(screen.getByRole('region').getAttribute('data-state')).toBe('committed');
     expect(fetchMock).toHaveBeenCalledWith(`/api/check-ins/${placeId}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': expect.stringMatching(/^[0-9a-f-]{36}$/i)
+      },
       body: JSON.stringify({ proximityDecision: 'unknown' })
     });
     expect(captureAnalytics).toHaveBeenCalledWith('check in completed', {
@@ -161,7 +173,8 @@ describe('CheckInControl', () => {
         placeId,
         proximityConfirmed: 'unknown',
         checkedInAt: '2026-07-12T09:00:00Z',
-        alreadyCheckedIn: true
+        alreadyCheckedIn: true,
+        recognition: recognition(false, false)
       })
     );
 
@@ -297,7 +310,8 @@ describe('CheckInControl', () => {
         placeId,
         proximityConfirmed: 'confirmed',
         checkedInAt: '2026-07-12T14:32:00Z',
-        alreadyCheckedIn: false
+        alreadyCheckedIn: false,
+        recognition: recognition(true, true)
       })
     );
     vi.stubGlobal('fetch', fetchMock);

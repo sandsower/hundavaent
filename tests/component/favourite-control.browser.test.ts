@@ -27,6 +27,8 @@ function mutationPayload(
     isFavourite,
     changedAt,
     recognition: {
+      action: 'favourite',
+      recognized: recognition.firstTimeForPlace ?? false,
       firstTimeForPlace: recognition.firstTimeForPlace ?? false,
       activatedCurrentWeek: recognition.activatedCurrentWeek ?? false,
       currentWeek: {
@@ -224,6 +226,8 @@ describe('FavouriteControl', () => {
 
     await waitFor(() =>
       expect(onRecognized).toHaveBeenCalledWith({
+        action: 'favourite',
+        recognized: true,
         firstTimeForPlace: true,
         activatedCurrentWeek: true,
         currentWeek: {

@@ -1,39 +1,87 @@
 <script lang="ts">
   import type { Catalogue } from '$i18n';
+  import type { QualifyingAction, WeeklyRhythmRecognition } from './types';
   import PawMark from './PawMark.svelte';
 
   interface Props {
-    placeName: string;
-    activatedCurrentWeek: boolean;
+    recognition: WeeklyRhythmRecognition;
+    subjectName?: string;
     copy: Catalogue;
   }
 
-  let { placeName, activatedCurrentWeek, copy }: Props = $props();
+  let { recognition, subjectName = '', copy }: Props = $props();
+
+  let message = $derived(actionMessage(recognition.action, subjectName, copy));
+
+  function actionMessage(action: QualifyingAction, name: string, catalogue: Catalogue) {
+    switch (action) {
+      case 'favourite':
+        return {
+          title: catalogue['weeklyRhythm.favouriteTitle'],
+          detail: catalogue['weeklyRhythm.favouriteDetail'].replace('{name}', name)
+        };
+      case 'check_in':
+        return {
+          title: catalogue['weeklyRhythm.checkInTitle'],
+          detail: catalogue['weeklyRhythm.checkInDetail'].replace('{name}', name)
+        };
+      case 'rating':
+        return {
+          title: catalogue['weeklyRhythm.ratingTitle'],
+          detail: catalogue['weeklyRhythm.ratingDetail'].replace('{name}', name)
+        };
+      case 'suggestion':
+        return {
+          title: catalogue['weeklyRhythm.suggestionTitle'],
+          detail: catalogue['weeklyRhythm.suggestionDetail']
+        };
+      case 'correction':
+        return {
+          title: catalogue['weeklyRhythm.correctionTitle'],
+          detail: catalogue['weeklyRhythm.correctionDetail']
+        };
+      case 'report':
+        return {
+          title: catalogue['weeklyRhythm.reportTitle'],
+          detail: catalogue['weeklyRhythm.reportDetail']
+        };
+    }
+  }
 </script>
 
 <div
   class="acknowledgement"
   data-weekly-rhythm-acknowledgement
-  data-activated-week={activatedCurrentWeek}
+  data-recognition-action={recognition.action}
+  data-activated-week={recognition.activatedCurrentWeek}
   role="status"
   aria-live="polite"
 >
   <div class="trail-motif" aria-hidden="true">
-    <svg class="place-pin" viewBox="0 0 24 24">
-      <path d="M12 21s6-5.5 6-11A6 6 0 0 0 6 10c0 5.5 6 11 6 11Z" />
-      <circle cx="12" cy="10" r="2.1" />
+    <svg class="action-icon" viewBox="0 0 24 24">
+      {#if recognition.action === 'favourite'}
+        <path d="M12 20.2 4.2 12.8A5.2 5.2 0 0 1 11.6 5.5L12 6l.4-.5a5.2 5.2 0 0 1 7.4 7.3Z" />
+      {:else if recognition.action === 'check_in'}
+        <path d="M12 21s6-5.5 6-11A6 6 0 0 0 6 10c0 5.5 6 11 6 11Z" />
+        <circle cx="12" cy="10" r="2.1" />
+      {:else if recognition.action === 'rating'}
+        <path d="m12 3 2.6 5.3 5.9.9-4.3 4.2 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.2 5.9-.9Z" />
+      {:else if recognition.action === 'suggestion'}
+        <path d="M7 3h7l4 4v14H7Z" />
+        <path d="M14 3v5h5M10 12h5M10 16h5" />
+      {:else if recognition.action === 'correction'}
+        <path d="m5 16-1 4 4-1L19 8l-3-3ZM14 7l3 3" />
+      {:else}
+        <path d="M6 21V4m0 1h11l-2 4 2 4H6" />
+      {/if}
     </svg>
     <span class="trail"></span>
     <PawMark active />
   </div>
   <span class="title">
-    {activatedCurrentWeek
-      ? copy['weeklyRhythm.activatedTitle']
-      : copy['weeklyRhythm.recognizedTitle']}
+    {recognition.activatedCurrentWeek ? copy['weeklyRhythm.activatedTitle'] : message.title}
   </span>
-  <span class="detail">
-    {copy['weeklyRhythm.recognizedDetail'].replace('{name}', placeName)}
-  </span>
+  <span class="detail">{message.detail}</span>
 </div>
 
 <style>
@@ -60,13 +108,17 @@
     color: var(--hv-color-fjord);
   }
 
-  .place-pin {
+  .action-icon {
     width: 0.85rem;
-    fill: var(--hv-color-fjord-soft);
+    fill: none;
     stroke: currentColor;
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.7;
+  }
+
+  .action-icon circle {
+    fill: var(--hv-color-fjord-soft);
   }
 
   .trail {
@@ -160,7 +212,7 @@
       animation: acknowledgement-arrives 260ms ease-out both;
     }
 
-    .place-pin {
+    .action-icon {
       animation: pin-settles 280ms ease-out both;
     }
 

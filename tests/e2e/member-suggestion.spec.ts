@@ -94,7 +94,8 @@ test('private Suggestions reach accepted, rejected, and duplicate outcomes witho
     'Bókagata 46',
     '64.1508',
     '-21.9208',
-    'culture'
+    'culture',
+    true
   );
   await submitSuggestion(
     page,
@@ -247,7 +248,8 @@ async function submitSuggestion(
   address: string,
   latitude: string,
   longitude: string,
-  category = 'cafe'
+  category = 'cafe',
+  activatedCurrentWeek = false
 ): Promise<void> {
   await page.goto('/en/suggest');
   await page.getByLabel('Place name').fill(nameEn);
@@ -266,7 +268,11 @@ async function submitSuggestion(
   await page.getByLabel('When did you find out?').fill('2026-07-12');
   await page.getByLabel('What did you see or hear?').fill('Dogs are explicitly allowed outdoors.');
   await page.getByRole('button', { name: 'Send suggestion' }).click();
-  await expect(page.getByText('Thanks - we will take a look.')).toBeVisible();
+  await expect(
+    page.locator(
+      `[data-weekly-rhythm-acknowledgement][data-recognition-action="suggestion"][data-activated-week="${activatedCurrentWeek}"]`
+    )
+  ).toBeVisible();
   await expect(
     page.getByRole('listitem').filter({ hasText: nameEn }).getByText('Submitted', { exact: true })
   ).toBeVisible();

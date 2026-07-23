@@ -22,8 +22,13 @@ export type Database = {
       apply_pending_member_rating: {
         Args: { requested_place_id: string }
         Returns: {
+          activated_current_week: boolean
           applied: boolean
+          current_week_active: boolean
+          current_week_ends_on: string
+          current_week_starts_on: string
           overall_score: number | null
+          qualifying_action_recorded: boolean
         }[]
       }
       approve_place_media: {
@@ -178,7 +183,12 @@ export type Database = {
       create_report_from_rating_note: {
         Args: { command_request_id: string; requested_place_id: string }
         Returns: {
+          activated_current_week: boolean
+          current_week_active: boolean
+          current_week_ends_on: string
+          current_week_starts_on: string
           flag_id: string
+          qualifying_action_recorded: boolean
           status: string
           submitted_at: string
         }[]
@@ -300,6 +310,7 @@ export type Database = {
           policy_version: string
         }[]
       }
+      get_member_retention_report: { Args: never; Returns: Json }
       get_moderation_contributor_status: {
         Args: { requested_member_id: string }
         Returns: {
@@ -1214,11 +1225,16 @@ export type Database = {
           requested_proximity_status: string
         }
         Returns: {
+          activated_current_week: boolean
           already_checked_in: boolean
           check_in_id: string
           checked_in_at: string
+          current_week_active: boolean
+          current_week_ends_on: string
+          current_week_starts_on: string
           place_id: string
           proximity_confirmed: string
+          qualifying_action_recorded: boolean
         }[]
       }
       record_member_auth_event: {
@@ -1410,13 +1426,18 @@ export type Database = {
           requested_welcome_score: number | null
         }
         Returns: {
+          activated_current_week: boolean
           clarity_score: number | null
           comfort_score: number | null
+          current_week_active: boolean
+          current_week_ends_on: string
+          current_week_starts_on: string
           id: string
           overall_score: number
           place_id: string
           private_note: string | null
           private_note_updated_at: string | null
+          qualifying_action_recorded: boolean
           rated_at: string
           thoughtfulness_score: number | null
           welcome_score: number | null
@@ -1506,12 +1527,17 @@ export type Database = {
           requested_welcome_score: number
         }
         Returns: {
+          activated_current_week: boolean
           clarity_score: number | null
           comfort_score: number | null
+          current_week_active: boolean
+          current_week_ends_on: string
+          current_week_starts_on: string
           id: string
           place_id: string
           private_note: string | null
           private_note_updated_at: string | null
+          qualifying_action_recorded: boolean
           rated_at: string
           thoughtfulness_score: number | null
           welcome_score: number | null
@@ -1520,7 +1546,12 @@ export type Database = {
       submit_place_correction: {
         Args: { command_payload: Json; command_request_id: string }
         Returns: {
+          activated_current_week: boolean
+          current_week_active: boolean
+          current_week_ends_on: string
+          current_week_starts_on: string
           flag_id: string
+          qualifying_action_recorded: boolean
           status: string
           submitted_at: string
         }[]
@@ -1528,7 +1559,12 @@ export type Database = {
       submit_place_report: {
         Args: { command_payload: Json; command_request_id: string }
         Returns: {
+          activated_current_week: boolean
+          current_week_active: boolean
+          current_week_ends_on: string
+          current_week_starts_on: string
           flag_id: string
+          qualifying_action_recorded: boolean
           status: string
           submitted_at: string
         }[]
@@ -1536,6 +1572,11 @@ export type Database = {
       submit_place_suggestion: {
         Args: { command_proposal: Json; command_request_id: string }
         Returns: {
+          activated_current_week: boolean
+          current_week_active: boolean
+          current_week_ends_on: string
+          current_week_starts_on: string
+          qualifying_action_recorded: boolean
           status: string
           submitted_at: string
           suggestion_id: string
