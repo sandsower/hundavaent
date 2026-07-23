@@ -12,6 +12,7 @@ import {
 } from '$server/auth/pending-intent';
 import { resolveConfiguredMemberProviders } from '$server/auth/provider-policy';
 import { AuthenticationExpiredError, getMemberSession } from '$server/auth/session';
+import { getWeeklyRhythm } from '$server/member-activity/weekly-rhythm';
 
 export const load: LayoutServerLoad = async ({ cookies, locals, params, url }) => {
   const lang = parseLocale(params.lang);
@@ -110,19 +111,32 @@ export const load: LayoutServerLoad = async ({ cookies, locals, params, url }) =
     }
   }
 
+  const weeklyRhythm = locals.supabase && signedIn ? await getWeeklyRhythm(locals.supabase) : null;
+
   return {
     lang,
     copy: locals.copy,
     ...(providers.email || providers.facebook ? { providers } : {}),
     ...(pendingAuthRequest ? { pendingAuthRequest } : {}),
-    ...(signedIn ? { signedIn: true as const } : {})
+    ...(signedIn ? { signedIn: true as const, weeklyRhythm } : {})
   };
 };
 
 function resolvedPendingIntentUrl(
   source: URL,
   completion:
-    | { status: 'completed'; action: 'favourite' | 'rating'; completionStatus: string }
+    | {
+        status: 'completed';
+        action: 'favourite';
+        placeId: string;
+        completionStatus: string;
+        recognition: {
+          firstTimeForPlace: boolean;
+          activatedCurrentWeek: boolean;
+          currentWeek: { startsOn: string; endsOn: string; active: boolean };
+        };
+      }
+    | { status: 'completed'; action: 'rating'; completionStatus: string }
     | { status: 'unavailable' }
 ): string {
   const target = new URL(source);
@@ -134,6 +148,29 @@ function resolvedPendingIntentUrl(
   );
   if (completion.status === 'completed') {
     target.searchParams.set('pendingAction', completion.action);
+    if (completion.action === 'favourite') {
+      target.searchParams.set('pendingPlaceId', completion.placeId);
+      target.searchParams.set(
+        'pendingFirstTimeForPlace',
+        completion.recognition.firstTimeForPlace ? '1' : '0'
+      );
+      target.searchParams.set(
+        'pendingActivatedCurrentWeek',
+        completion.recognition.activatedCurrentWeek ? '1' : '0'
+      );
+      target.searchParams.set(
+        'pendingCurrentWeekStartsOn',
+        completion.recognition.currentWeek.startsOn
+      );
+      target.searchParams.set(
+        'pendingCurrentWeekEndsOn',
+        completion.recognition.currentWeek.endsOn
+      );
+      target.searchParams.set(
+        'pendingCurrentWeekActive',
+        completion.recognition.currentWeek.active ? '1' : '0'
+      );
+    }
   }
   target.searchParams.set('pendingRetryResolved', '1');
   return `${target.pathname}${target.search}${target.hash}`;

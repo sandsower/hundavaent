@@ -10,6 +10,7 @@ import {
 } from '$server/auth/pending-intent';
 import { normalizeMemberReturnTo, normalizeModerationReturnTo } from '$server/auth/return-to';
 import type { RequestSupabaseClient } from '$server/db/clients';
+import type { FavouriteRecognition } from '$server/member-activity/weekly-rhythm';
 
 export interface AuthCallbackDependencies {
   resolveMemberAuthConfig(): MemberAuthConfigResolution;
@@ -181,6 +182,8 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
       let pendingAction: string | null = null;
       let pendingResult: string | null = pendingIntent ? 'unavailable' : null;
       let retryPendingIntent: string | null = null;
+      let pendingPlaceId: string | null = null;
+      let pendingRecognition: FavouriteRecognition | null = null;
 
       try {
         ({ error: activationError } = await locals.supabase.rpc('activate_current_member', {
@@ -206,6 +209,8 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
         if (completion.status === 'completed') {
           pendingAction = completion.action;
           pendingResult = completion.completionStatus;
+          pendingPlaceId = completion.action === 'favourite' ? completion.placeId : null;
+          pendingRecognition = completion.action === 'favourite' ? completion.recognition : null;
         } else if (completion.status === 'retryable') {
           pendingResult = 'retryable';
           retryPendingIntent = pendingIntent;
@@ -219,7 +224,9 @@ export function createAuthCallback(dependencies: AuthCallbackDependencies): Requ
           authMethod: requestedMethod,
           pendingAction,
           pendingResult,
-          pendingIntent: retryPendingIntent
+          pendingIntent: retryPendingIntent,
+          pendingPlaceId,
+          pendingRecognition
         })
       );
     }
@@ -289,6 +296,8 @@ function withAuthResult(
     pendingAction: string | null;
     pendingResult: string | null;
     pendingIntent: string | null;
+    pendingPlaceId: string | null;
+    pendingRecognition: FavouriteRecognition | null;
   }
 ): string {
   const target = new URL(returnTo, 'https://hundavaent.local');
@@ -296,6 +305,29 @@ function withAuthResult(
   target.searchParams.set('authMethod', result.authMethod);
   if (result.pendingAction) target.searchParams.set('pendingAction', result.pendingAction);
   if (result.pendingResult) target.searchParams.set('pendingResult', result.pendingResult);
+  if (result.pendingAction === 'favourite' && result.pendingPlaceId && result.pendingRecognition) {
+    target.searchParams.set('pendingPlaceId', result.pendingPlaceId);
+    target.searchParams.set(
+      'pendingFirstTimeForPlace',
+      result.pendingRecognition.firstTimeForPlace ? '1' : '0'
+    );
+    target.searchParams.set(
+      'pendingActivatedCurrentWeek',
+      result.pendingRecognition.activatedCurrentWeek ? '1' : '0'
+    );
+    target.searchParams.set(
+      'pendingCurrentWeekStartsOn',
+      result.pendingRecognition.currentWeek.startsOn
+    );
+    target.searchParams.set(
+      'pendingCurrentWeekEndsOn',
+      result.pendingRecognition.currentWeek.endsOn
+    );
+    target.searchParams.set(
+      'pendingCurrentWeekActive',
+      result.pendingRecognition.currentWeek.active ? '1' : '0'
+    );
+  }
   if (
     result.pendingResult === 'retryable' &&
     result.pendingIntent &&

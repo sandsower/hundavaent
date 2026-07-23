@@ -112,7 +112,12 @@ describe('Favourite server boundary', () => {
           {
             place_id: '30000000-0000-4000-8000-000000000003',
             is_favourite: true,
-            changed_at: '2026-07-11T10:00:00Z'
+            changed_at: '2026-07-11T10:00:00Z',
+            first_time_for_place: true,
+            activated_current_week: true,
+            current_week_starts_on: '2026-07-06',
+            current_week_ends_on: '2026-07-12',
+            current_week_active: true
           }
         ],
         error: null
@@ -129,7 +134,16 @@ describe('Favourite server boundary', () => {
       value: {
         placeId: '30000000-0000-4000-8000-000000000003',
         isFavourite: true,
-        changedAt: '2026-07-11T10:00:00Z'
+        changedAt: '2026-07-11T10:00:00Z',
+        recognition: {
+          firstTimeForPlace: true,
+          activatedCurrentWeek: true,
+          currentWeek: {
+            startsOn: '2026-07-06',
+            endsOn: '2026-07-12',
+            active: true
+          }
+        }
       }
     });
     await expect(

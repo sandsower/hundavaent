@@ -134,13 +134,16 @@ reset role;
 select set_config('request.jwt.claim.sub', '74300000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 
-select is(
+select ok(
   (
-    select completion_status
+    select
+      completion_status = 'completed'
+      and first_time_for_place
+      and activated_current_week
+      and current_week_active
     from public.complete_auth_pending_intent(current_setting('test.favourite_intent'), 'complete-favourite')
   ),
-  'completed'::text,
-  'The activated Member completes the pending Favorite'
+  'The activated Member completes the pending Favorite with authoritative weekly recognition'
 );
 select is(
   (

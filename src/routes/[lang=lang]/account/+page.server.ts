@@ -16,6 +16,7 @@ import { resolveConfiguredMemberProviders } from '$server/auth/provider-policy';
 import { hasOptionalRole } from '$server/auth/role-capability';
 import { isValidEmail, normalizeMemberReturnTo } from '$server/auth/return-to';
 import { AuthenticationExpiredError, getMemberSession } from '$server/auth/session';
+import { getWeeklyRhythmHistory } from '$server/member-activity/weekly-rhythm';
 
 import type { Actions, PageServerLoad } from './$types';
 import type { MemberAuthConfigResolution } from '$server/auth/member';
@@ -102,7 +103,10 @@ export function _createLoad(
       };
     }
 
-    const canModerate = await hasOptionalRole(locals.supabase, 'moderator');
+    const [canModerate, weeklyRhythmHistory] = await Promise.all([
+      hasOptionalRole(locals.supabase, 'moderator'),
+      getWeeklyRhythmHistory(locals.supabase)
+    ]);
 
     return {
       member: {
@@ -114,7 +118,8 @@ export function _createLoad(
       returnTo,
       authStatus: null,
       providers,
-      canModerate
+      canModerate,
+      weeklyRhythmHistory
     };
   };
 }

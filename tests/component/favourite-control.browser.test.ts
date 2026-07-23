@@ -13,6 +13,30 @@ vi.mock('$lib/analytics/posthog', () => ({
 
 const placeId = '30000000-0000-4000-8000-000000000003';
 const placeName = 'Published Place';
+const changedAt = '2026-07-13T12:00:00.000Z';
+
+function mutationPayload(
+  isFavourite: boolean,
+  recognition: {
+    firstTimeForPlace?: boolean;
+    activatedCurrentWeek?: boolean;
+  } = {}
+) {
+  return {
+    placeId,
+    isFavourite,
+    changedAt,
+    recognition: {
+      firstTimeForPlace: recognition.firstTimeForPlace ?? false,
+      activatedCurrentWeek: recognition.activatedCurrentWeek ?? false,
+      currentWeek: {
+        startsOn: '2026-07-13',
+        endsOn: '2026-07-19',
+        active: recognition.firstTimeForPlace ?? false
+      }
+    }
+  };
+}
 
 afterEach(() => {
   captureAnalytics.mockClear();
@@ -93,7 +117,7 @@ describe('FavouriteControl', () => {
   it('applies the Favorite immediately for an authenticated Member', async () => {
     const fetchMock = vi.fn(
       async () =>
-        new Response(JSON.stringify({ placeId, isFavourite: true }), {
+        new Response(JSON.stringify(mutationPayload(true)), {
           status: 200,
           headers: { 'content-type': 'application/json' }
         })
@@ -134,7 +158,7 @@ describe('FavouriteControl', () => {
       'fetch',
       vi.fn(
         async () =>
-          new Response(JSON.stringify({ placeId, isFavourite: false }), {
+          new Response(JSON.stringify(mutationPayload(false)), {
             status: 200,
             headers: { 'content-type': 'application/json' }
           })
@@ -161,6 +185,132 @@ describe('FavouriteControl', () => {
       place_id: placeId,
       saved: false
     });
+  });
+
+  it('emits only server-authoritative first-save recognition and same-tab week activation', async () => {
+    const onRecognized = vi.fn();
+    const activation = vi.fn();
+    window.addEventListener('hundavaent:weekly-rhythm-activated', activation);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify(
+              mutationPayload(true, {
+                firstTimeForPlace: true,
+                activatedCurrentWeek: true
+              })
+            ),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' }
+            }
+          )
+      )
+    );
+
+    render(FavouriteControl, {
+      placeId,
+      placeName,
+      signedIn: true,
+      favourite: false,
+      copy: catalogues.en,
+      signInHref: '',
+      onRecognized
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Add Published Place to favorites' }));
+
+    await waitFor(() =>
+      expect(onRecognized).toHaveBeenCalledWith({
+        firstTimeForPlace: true,
+        activatedCurrentWeek: true,
+        currentWeek: {
+          startsOn: '2026-07-13',
+          endsOn: '2026-07-19',
+          active: true
+        }
+      })
+    );
+    expect(activation).toHaveBeenCalledOnce();
+    expect((activation.mock.calls[0][0] as CustomEvent).detail).toEqual({
+      startsOn: '2026-07-13',
+      endsOn: '2026-07-19',
+      active: true
+    });
+    window.removeEventListener('hundavaent:weekly-rhythm-activated', activation);
+  });
+
+  it('applies an authoritative active week even when this save did not activate it', async () => {
+    const activation = vi.fn();
+    window.addEventListener('hundavaent:weekly-rhythm-activated', activation);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify(
+              mutationPayload(true, {
+                firstTimeForPlace: true,
+                activatedCurrentWeek: false
+              })
+            ),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' }
+            }
+          )
+      )
+    );
+
+    render(FavouriteControl, {
+      placeId,
+      placeName,
+      signedIn: true,
+      favourite: false,
+      copy: catalogues.en,
+      signInHref: ''
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Add Published Place to favorites' }));
+
+    await waitFor(() => expect(activation).toHaveBeenCalledOnce());
+    expect((activation.mock.calls[0][0] as CustomEvent).detail).toEqual({
+      startsOn: '2026-07-13',
+      endsOn: '2026-07-19',
+      active: true
+    });
+    window.removeEventListener('hundavaent:weekly-rhythm-activated', activation);
+  });
+
+  it('rejects a successful response without authoritative recognition metadata', async () => {
+    const onChange = vi.fn();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ placeId, isFavourite: true, changedAt }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          })
+      )
+    );
+
+    render(FavouriteControl, {
+      placeId,
+      placeName,
+      signedIn: true,
+      favourite: false,
+      copy: catalogues.en,
+      signInHref: '',
+      onChange
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Add Published Place to favorites' }));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('fails safely without changing state when the server response is unusable', async () => {

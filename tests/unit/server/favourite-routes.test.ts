@@ -239,19 +239,42 @@ describe('Favourite API privacy headers', () => {
         name === 'get_current_member_account'
           ? { data: [{ member_id: 'member' }], error: null }
           : {
-              data: [{ place_id: placeId, is_favourite: true, changed_at: '2026-07-11T10:00:00Z' }],
+              data: [
+                {
+                  place_id: placeId,
+                  is_favourite: true,
+                  changed_at: '2026-07-11T10:00:00Z',
+                  first_time_for_place: true,
+                  activated_current_week: true,
+                  current_week_starts_on: '2026-07-06',
+                  current_week_ends_on: '2026-07-12',
+                  current_week_active: true
+                }
+              ],
               error: null
             }
       )
     };
-    expectPrivate(
-      await PUT({
-        locals: { supabase: success },
-        params: { placeId },
-        request: jsonRequest({ desiredState: true })
-      } as never),
-      200
-    );
+    const successResponse = await PUT({
+      locals: { supabase: success },
+      params: { placeId },
+      request: jsonRequest({ desiredState: true })
+    } as never);
+    expectPrivate(successResponse, 200);
+    await expect(successResponse.json()).resolves.toEqual({
+      placeId,
+      isFavourite: true,
+      changedAt: '2026-07-11T10:00:00Z',
+      recognition: {
+        firstTimeForPlace: true,
+        activatedCurrentWeek: true,
+        currentWeek: {
+          startsOn: '2026-07-06',
+          endsOn: '2026-07-12',
+          active: true
+        }
+      }
+    });
   });
 });
 

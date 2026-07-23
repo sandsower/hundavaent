@@ -4,6 +4,8 @@
   import type { SubmitFunction } from '@sveltejs/kit';
 
   import { formatLocalizedDate } from '$i18n/date';
+  import WeeklyRhythmTrail from '$lib/member-activity/WeeklyRhythmTrail.svelte';
+  import type { WeeklyRhythmHistory } from '$lib/member-activity/types';
 
   import type { PageProps } from './$types';
 
@@ -22,6 +24,13 @@
   const errorCode = $derived(form && 'error' in form ? form.error : data.authStatus);
   const successCode = $derived(form && 'success' in form ? form.success : null);
   const emailValue = $derived(form && 'email' in form ? form.email : '');
+  const weeklyRhythmHistory = $derived(
+    (
+      data as typeof data & {
+        weeklyRhythmHistory?: WeeklyRhythmHistory;
+      }
+    ).weeklyRhythmHistory ?? ({ status: 'unavailable' } as const)
+  );
 
   function providerLabel(provider: string): string {
     if (provider === 'facebook') return data.copy['account.providerFacebook'];
@@ -61,6 +70,8 @@
           {data.copy['account.deletionRequested']}
         </p>
       {/if}
+
+      <WeeklyRhythmTrail history={weeklyRhythmHistory} lang={data.lang} copy={data.copy} />
 
       <div class="account-home hv-grid" data-columns="2">
         <section class="account-destination hv-panel hv-list-card" aria-labelledby="saved-heading">
