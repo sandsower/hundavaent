@@ -29,11 +29,25 @@ import {
 import { verifyRecoveryCopyDump } from '../../../scripts/verify-recovery-copy-dump';
 
 describe('release evaluation orchestration', () => {
-  it('deploys successful main CI commits automatically while retaining manual recovery dispatch', () => {
+  it('deploys successful main CI commits automatically while retaining protected manual operations', () => {
     const workflow = readFileSync(
       new URL('../../../.github/workflows/production.yml', import.meta.url),
       'utf8'
     );
+    const jobsStart = workflow.indexOf('\njobs:\n');
+    const migrateStart = workflow.indexOf('\n  migrate:\n', jobsStart);
+    const deployStart = workflow.indexOf('\n  deploy:\n', migrateStart);
+    const translationFinalizeStart = workflow.indexOf(
+      '\n  finalize-translation-capability:\n',
+      deployStart
+    );
+    const achievementActivationStart = workflow.indexOf(
+      '\n  activate-achievement-milestones:\n',
+      translationFinalizeStart
+    );
+    const migrateJob = workflow.slice(migrateStart, deployStart);
+    const deployJob = workflow.slice(deployStart, translationFinalizeStart);
+    const achievementActivationJob = workflow.slice(achievementActivationStart);
 
     expect(workflow).toContain('workflow_run:');
     expect(workflow).toContain("workflows: ['CI']");
@@ -46,11 +60,21 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain("github.event.workflow_run.conclusion == 'success'");
     expect(workflow).toContain("github.event.workflow_run.event == 'push'");
     expect(workflow).toContain("github.event.workflow_run.head_branch == 'main'");
-    expect(workflow).toContain("if: ${{ github.event_name == 'workflow_run' || inputs.migrate }}");
-    expect(workflow).toContain("if: ${{ github.event_name == 'workflow_run' || inputs.deploy }}");
+    expect(migrateJob).toContain("github.event_name == 'workflow_run'");
+    expect(migrateJob).toContain('(inputs.migrate && !inputs.activate_achievement_milestones)');
+    expect(deployJob).toContain("github.event_name == 'workflow_run'");
+    expect(deployJob).toContain('(inputs.deploy && !inputs.activate_achievement_milestones)');
     expect(workflow.match(/inputs\.sha/g)).toHaveLength(1);
     expect(workflow).toContain('ref: ${{ env.RELEASE_SHA }}');
     expect(workflow).toContain('test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"');
+    expect(workflow).toContain('activate_achievement_milestones:');
+    expect(achievementActivationJob).toContain('needs: recovery-point');
+    expect(achievementActivationJob).toContain(
+      'test "$(jq -r \'.release\' <<< "${health}")" = "${RELEASE_SHA}"'
+    );
+    expect(achievementActivationJob).toContain('set local role service_role;');
+    expect(achievementActivationJob).toContain("'achievement-milestones-v1'");
+    expect(achievementActivationJob).toContain('set local role anon;');
   });
 
   it('excludes hard identity rows while preserving and neutralizing core application data', () => {
