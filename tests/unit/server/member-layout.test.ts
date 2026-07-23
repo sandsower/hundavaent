@@ -14,7 +14,19 @@ function eventWith(
       overall_rating: number | null;
     };
     memberAccount?: boolean;
-    completion?: { action: string; completion_status: string } | 'error' | 'throw' | 'unavailable';
+    completion?:
+      | {
+          action: string;
+          completion_status: string;
+          first_time_for_place?: boolean;
+          activated_current_week?: boolean;
+          current_week_starts_on?: string;
+          current_week_ends_on?: string;
+          current_week_active?: boolean;
+        }
+      | 'error'
+      | 'throw'
+      | 'unavailable';
     authError?: { message: string; name?: string; code?: string; status?: number };
   } = {}
 ) {
@@ -62,6 +74,12 @@ function eventWith(
       if (options.completion === 'unavailable') return { data: [], error: null };
       return { data: options.completion ? [options.completion] : [], error: null };
     }
+    if (name === 'get_current_member_weekly_rhythm') {
+      return {
+        data: [{ starts_on: '2026-07-13', ends_on: '2026-07-19', active: false }],
+        error: null
+      };
+    }
     throw new Error(`Unexpected RPC ${name}`);
   });
   return {
@@ -99,7 +117,18 @@ describe('Member-aware public layout', () => {
     });
     const result = await load(event as never);
 
-    expect(result).toMatchObject({ lang: 'en', signedIn: true });
+    expect(result).toMatchObject({
+      lang: 'en',
+      signedIn: true,
+      weeklyRhythm: {
+        status: 'available',
+        currentWeek: {
+          startsOn: '2026-07-13',
+          endsOn: '2026-07-19',
+          active: false
+        }
+      }
+    });
     expect(getUser).toHaveBeenCalledOnce();
   });
 
@@ -193,6 +222,31 @@ describe('Member-aware public layout', () => {
       'get_current_member_account',
       'complete_auth_pending_intent'
     ]);
+  });
+
+  it('preserves authoritative weekly recognition when a pending Favourite retry completes', async () => {
+    const continuationToken = 'f'.repeat(43);
+    const { event } = eventWith({
+      cookie: 'sb-project-auth-token.0',
+      user: { id: 'member-1' },
+      memberAccount: true,
+      completion: {
+        action: 'favourite',
+        completion_status: 'completed',
+        first_time_for_place: true,
+        activated_current_week: true,
+        current_week_starts_on: '2026-07-13',
+        current_week_ends_on: '2026-07-19',
+        current_week_active: true
+      },
+      url: `https://hundavaent.test/en?pendingResult=retryable&pendingIntent=${continuationToken}`
+    });
+
+    await expect(load(event as never)).rejects.toMatchObject({
+      status: 303,
+      location:
+        '/en?pendingResult=completed&pendingAction=favourite&pendingFirstTimeForPlace=1&pendingActivatedCurrentWeek=1&pendingCurrentWeekStartsOn=2026-07-13&pendingCurrentWeekEndsOn=2026-07-19&pendingCurrentWeekActive=1&pendingRetryResolved=1'
+    });
   });
 
   it.each(['error', 'throw'] as const)(

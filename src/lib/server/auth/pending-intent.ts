@@ -1,11 +1,21 @@
 import type { RequestSupabaseClient } from '$server/db/clients';
+import {
+  mapFavouriteRecognition,
+  type FavouriteRecognition
+} from '$server/member-activity/weekly-rhythm';
 
 export const authPendingIntentTokenPattern = /^[A-Za-z0-9_-]{43}$/;
 
 export type PendingIntentCompletion =
   | {
       status: 'completed';
-      action: 'favourite' | 'rating';
+      action: 'favourite';
+      completionStatus: 'completed';
+      recognition: FavouriteRecognition;
+    }
+  | {
+      status: 'completed';
+      action: 'rating';
       completionStatus: 'completed' | 'queued';
     }
   | { status: 'unavailable' }
@@ -34,9 +44,22 @@ export async function completePendingAuthIntent(
       return { status: 'unavailable' };
     }
 
+    if (completion.action === 'favourite') {
+      const recognition = mapFavouriteRecognition(completion);
+      if (completion.completion_status !== 'completed' || !recognition) {
+        return { status: 'unavailable' };
+      }
+      return {
+        status: 'completed',
+        action: 'favourite',
+        completionStatus: 'completed',
+        recognition
+      };
+    }
+
     return {
       status: 'completed',
-      action: completion.action,
+      action: 'rating',
       completionStatus: completion.completion_status
     };
   } catch {

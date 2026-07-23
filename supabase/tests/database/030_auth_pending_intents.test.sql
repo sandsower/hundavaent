@@ -136,11 +136,17 @@ set local role authenticated;
 
 select is(
   (
-    select completion_status
+    select concat_ws(
+      ':',
+      completion_status,
+      first_time_for_place,
+      activated_current_week,
+      current_week_active
+    )
     from public.complete_auth_pending_intent(current_setting('test.favourite_intent'), 'complete-favourite')
   ),
-  'completed'::text,
-  'The activated Member completes the pending Favorite'
+  'completed:true:true:true'::text,
+  'The activated Member completes the pending Favorite with authoritative weekly recognition'
 );
 select is(
   (
