@@ -9,6 +9,7 @@ export interface MapLibreAdapterOptions {
   style: string | StyleSpecification;
   attribution?: string;
   clusterLabel?: (count: number) => string;
+  clusterRadiusPixels?: number;
 }
 
 export interface MapLibreAdapter extends MapAdapter {
@@ -18,6 +19,7 @@ export interface MapLibreAdapter extends MapAdapter {
 const maximumInteractiveClusterZoom = 18;
 
 export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibreAdapter {
+  const clusterRadiusPixels = options.clusterRadiusPixels ?? 72;
   let map: MapLibreMap | null = null;
   let maplibreModule: typeof import('maplibre-gl') | null = null;
   let callbacks: MapCallbacks | null = null;
@@ -79,7 +81,7 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
   function reconcileMarkers(): void {
     if (!map) return;
 
-    const clusters = clusterMapPlaces(places, map.getZoom(), selectedPlaceId);
+    const clusters = clusterMapPlaces(places, map.getZoom(), selectedPlaceId, clusterRadiusPixels);
     const activeIds = new Set(clusters.map((cluster) => cluster.id));
     for (const [placeId, entry] of markers) {
       if (!activeIds.has(placeId)) {
@@ -122,7 +124,9 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
           const clusterPlaces = places.filter((candidate) =>
             cluster.placeIds.includes(candidate.placeId)
           );
-          if (isTerminalMapCluster(clusterPlaces, maximumInteractiveClusterZoom)) {
+          if (
+            isTerminalMapCluster(clusterPlaces, maximumInteractiveClusterZoom, clusterRadiusPixels)
+          ) {
             callbacks?.onClusterSelect?.([...cluster.placeIds]);
             return;
           }
