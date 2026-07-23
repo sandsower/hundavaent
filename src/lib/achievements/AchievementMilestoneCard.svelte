@@ -52,13 +52,7 @@
     gap: 1rem;
     padding: 1.05rem;
     border-color: color-mix(in srgb, var(--hv-color-fjord) 25%, transparent);
-    background:
-      radial-gradient(
-        circle at 0 0,
-        color-mix(in srgb, var(--hv-color-fjord) 10%, transparent),
-        transparent 42%
-      ),
-      var(--hv-color-snow-raised);
+    background: color-mix(in srgb, var(--hv-color-fjord) 3%, var(--hv-color-snow-raised));
   }
 
   .icon-frame {

@@ -63,17 +63,11 @@
     border: 1px solid color-mix(in srgb, var(--hv-color-coral) 34%, transparent);
     border-radius: 1.5rem;
     overflow: hidden;
-    background:
-      radial-gradient(
-        circle at 15% 18%,
-        color-mix(in srgb, var(--hv-color-signal) 34%, transparent),
-        transparent 34%
-      ),
-      linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--hv-color-coral) 10%, white),
-        var(--hv-color-snow-raised) 64%
-      );
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--hv-color-coral) 10%, white),
+      var(--hv-color-snow-raised) 64%
+    );
     box-shadow: 0 1.15rem 2.8rem rgb(30 45 49 / 12%);
   }
 
