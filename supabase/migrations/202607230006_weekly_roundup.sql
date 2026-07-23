@@ -195,11 +195,14 @@ begin
   end if;
 
   select coalesce(
-    array_agg(distinct value::private.place_category order by value::private.place_category),
+    array_agg(value::private.place_category order by value),
     array[]::private.place_category[]
   )
   into canonical_categories
-  from unnest(requested_categories) as category(value);
+  from (
+    select distinct value
+    from unnest(requested_categories) as category(value)
+  ) as canonical;
 
   if cardinality(canonical_categories) <> cardinality(requested_categories) then
     raise exception using

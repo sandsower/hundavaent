@@ -68,7 +68,7 @@ describe('Weekly roundup page boundary', () => {
           rpc,
           request: formRequest({
             municipalities: ['reykjavik', 'kopavogur'],
-            categories: ['park'],
+            categories: ['restaurant', 'cafe', 'accommodation'],
             roundupLocale: 'is',
             emailInterest: 'true'
           })
@@ -80,7 +80,7 @@ describe('Weekly roundup page boundary', () => {
     });
     expect(rpc).toHaveBeenCalledWith('save_current_member_roundup_preferences', {
       requested_municipalities: ['kopavogur', 'reykjavik'],
-      requested_categories: ['park'],
+      requested_categories: ['accommodation', 'cafe', 'restaurant'],
       requested_locale: 'is',
       requested_email_interest: true
     });

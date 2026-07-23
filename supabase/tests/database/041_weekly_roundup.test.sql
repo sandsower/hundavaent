@@ -585,6 +585,22 @@ select is(
   'The displayed completed Reykjavík week spans Monday through Sunday inclusively'
 );
 
+select results_eq(
+  $$
+    select categories
+    from public.save_current_member_roundup_preferences(
+      array['reykjavik', 'kopavogur'],
+      array['restaurant', 'cafe', 'accommodation'],
+      'en',
+      true
+    )
+  $$,
+  $$
+    values (array['accommodation', 'cafe', 'restaurant']::text[])
+  $$,
+  'Saving multiple categories uses the canonical text order required by the preference constraint'
+);
+
 select lives_ok(
   $$
     select * from public.save_current_member_roundup_preferences(
