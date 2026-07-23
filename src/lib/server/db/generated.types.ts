@@ -51,6 +51,19 @@ export type Database = {
           requested_at: string
         }[]
       }
+      claim_my_achievement_celebrations: {
+        Args: never
+        Returns: {
+          achievement_group: string
+          achievement_key: string
+          description_en: string
+          description_is: string
+          display_order: number
+          earned_at: string
+          name_en: string
+          name_is: string
+        }[]
+      }
       clear_member_conduct_flag: {
         Args: {
           command_request_id: string
@@ -522,6 +535,13 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_my_achievement_status: {
+        Args: never
+        Returns: {
+          enabled: boolean
+          has_unread: boolean
+        }[]
+      }
       get_my_achievements: {
         Args: never
         Returns: {
@@ -532,9 +552,13 @@ export type Database = {
           display_order: number
           earned_at: string
           enabled: boolean
+          entry_kind: string
           is_new: boolean
           name_en: string
           name_is: string
+          progress_current: number
+          progress_kind: string
+          progress_target: number
         }[]
       }
       get_my_contributor_status: {

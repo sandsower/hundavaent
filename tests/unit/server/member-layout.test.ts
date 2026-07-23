@@ -29,6 +29,7 @@ function eventWith(
       | 'throw'
       | 'unavailable';
     authError?: { message: string; name?: string; code?: string; status?: number };
+    achievementStatus?: { enabled: boolean; has_unread: boolean } | 'error' | 'malformed';
   } = {}
 ) {
   const getUser = vi.fn(async () => ({
@@ -81,6 +82,26 @@ function eventWith(
         error: null
       };
     }
+    if (name === 'get_my_achievement_status') {
+      if (options.achievementStatus === 'error') {
+        return { data: null, error: { code: 'temporary_failure' } };
+      }
+      if (options.achievementStatus === 'malformed') {
+        return {
+          data: [{ enabled: true, has_unread: true, achievement_key: 'hidden' }],
+          error: null
+        };
+      }
+      return {
+        data: [
+          options.achievementStatus ?? {
+            enabled: true,
+            has_unread: true
+          }
+        ],
+        error: null
+      };
+    }
     throw new Error(`Unexpected RPC ${name}`);
   });
   return {
@@ -111,7 +132,7 @@ describe('Member-aware public layout', () => {
   });
 
   it('validates a session cookie on the server before showing Member navigation', async () => {
-    const { event, getUser } = eventWith({
+    const { event, getUser, rpc } = eventWith({
       cookie: 'sb-project-auth-token.0',
       user: { id: 'member-1' },
       memberAccount: true
@@ -128,10 +149,34 @@ describe('Member-aware public layout', () => {
           endsOn: '2026-07-19',
           active: false
         }
+      },
+      achievementStatus: {
+        enabled: true,
+        hasUnread: true
       }
     });
     expect(getUser).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalledWith('get_my_achievement_status');
   });
+
+  it.each(['error', 'malformed'] as const)(
+    'fails the Achievement indicator closed without breaking signed-in navigation on %s',
+    async (achievementStatus) => {
+      const { event } = eventWith({
+        cookie: 'sb-project-auth-token.0',
+        user: { id: 'member-1' },
+        memberAccount: true,
+        achievementStatus
+      });
+
+      const result = await load(event as never);
+
+      expect(result).toMatchObject({
+        signedIn: true,
+        achievementStatus: { enabled: false, hasUnread: false }
+      });
+    }
+  );
 
   it('clears an authenticated Auth session that has no canonical Member account', async () => {
     const { event, rpc, signOut, deleteCookie } = eventWith({

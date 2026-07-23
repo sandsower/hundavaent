@@ -4,7 +4,7 @@ create extension if not exists pgtap with schema extensions;
 
 create extension if not exists dblink with schema extensions;
 
-select plan(70);
+select plan(72);
 
 -- Structural surface ------------------------------------------------------------------------
 
@@ -212,7 +212,7 @@ select is(
   'No unlock exists anywhere despite a fully-qualifying Favourite, proving the touch-point trigger no-oped'
 );
 
--- Enable the policy, then explicitly backfill M1''s already-qualifying Favourite --------------
+-- Enable the policy without backfilling M1's historical Favourite -----------------------------
 --
 -- private.achievement_policy is a singleton row. This whole file is one open, never-committed
 -- transaction until the final rollback, so if this transaction itself inserted that row, it would
@@ -244,7 +244,56 @@ select ok(
 );
 
 select private.evaluate_achievement_unlocks(
-  '95000000-0000-4000-8000-000000000001'::uuid, 'backfill_after_enable', now()
+  '95000000-0000-4000-8000-000000000001'::uuid, 'no_backfill_after_enable', now()
+);
+
+select is(
+  (
+    select count(*) from private.achievement_unlocks
+    where member_id = '95000000-0000-4000-8000-000000000001' and achievement_key = 'first_favourite'
+  ),
+  0::bigint,
+  'First activation does not backfill the Favourite saved while Achievements were disabled'
+);
+
+-- The remaining catalogue criteria tests need a deliberately old eligibility boundary so their
+-- injected six- and twelve-month timelines remain deterministic.
+-- This direct private fixture is unavailable to application roles and does not model production
+-- activation, which is already proven future-only above.
+select extensions.dblink_connect(
+  'achievement_policy_fixture',
+  'host=db port=5432 dbname=postgres user=postgres password=postgres sslmode=disable'
+);
+select is(
+  extensions.dblink_exec(
+    'achievement_policy_fixture',
+    $fixture$
+      delete from private.achievement_policy where singleton;
+      insert into private.achievement_policy (
+        singleton,
+        policy_version,
+        credit_spacing_minutes,
+        eligibility_started_at,
+        enabled
+      )
+      values (
+        true,
+        'achievement-test-historical-fixture-v1',
+        1,
+        statement_timestamp() - interval '2 years',
+        true
+      );
+    $fixture$
+  ),
+  'INSERT 0 1',
+  'The deterministic criteria fixture uses an explicit historical eligibility boundary'
+);
+select extensions.dblink_disconnect('achievement_policy_fixture');
+
+select private.evaluate_achievement_unlocks(
+  '95000000-0000-4000-8000-000000000001'::uuid,
+  'eligible_fixture_recalculation',
+  now()
 );
 
 select is(
@@ -253,7 +302,7 @@ select is(
     where member_id = '95000000-0000-4000-8000-000000000001' and achievement_key = 'first_favourite'
   ),
   1::bigint,
-  'Once enabled, an explicit recalculation backfills the Favourite already saved while disabled'
+  'Activity inside the explicit eligibility boundary remains eligible'
 );
 
 -- Replay/idempotency: calling the evaluator again never duplicates an existing unlock -----------
@@ -831,8 +880,8 @@ select is(
 );
 select is(
   (select count(*) from public.get_my_achievements()),
-  10::bigint,
-  'OTHER still sees the full ten-item catalogue as locked entries'
+  1::bigint,
+  'OTHER receives only the enabled empty sentinel and cannot discover the locked catalogue'
 );
 select throws_ok(
   $$select * from public.get_moderation_member_achievements('95000000-0000-4000-8000-000000000001')$$,

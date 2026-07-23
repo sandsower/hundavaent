@@ -18,6 +18,7 @@ import {
   localPlaceFlagFixtures,
   localPrivateRatingNoteFixture,
   provisionLocalAchievementUnlock,
+  provisionLocalAchievementProgress,
   provisionLocalDogFriendlinessFixture,
   provisionLocalModerator,
   provisionLocalPlaceFlagFixtures,
@@ -25,6 +26,7 @@ import {
   provisionLocalPrivateRatingNoteFixture,
   provisionLocalSuggestionFixture,
   retireLocalDogFriendlinessFixture,
+  retireLocalAchievementProgress,
   retireLocalPlaceFlagFixtures,
   retireLocalPrivateRatingNoteFixture,
   setLocalPlaceLifecycle,
@@ -1035,14 +1037,18 @@ test('the private achievements route is keyboard-operable and Axe-clean in both 
       emailLabel: 'Email address',
       sendLabel: 'Send me a sign-in link',
       title: 'Your Achievements',
-      backLink: 'My account'
+      backLink: 'My account',
+      accountUnread: 'New achievement waiting',
+      celebration: 'New achievement: First Check-in'
     },
     {
       locale: 'is',
       emailLabel: 'Netfang',
       sendLabel: 'Senda mér innskráningartengil',
       title: 'Afrekin þín',
-      backLink: 'Reikningurinn minn'
+      backLink: 'Reikningurinn minn',
+      accountUnread: 'Nýtt afrek bíður',
+      celebration: 'Nýtt afrek: Fyrsta innritunin'
     }
   ] as const;
 
@@ -1068,19 +1074,40 @@ test('the private achievements route is keyboard-operable and Axe-clean in both 
       await page.goto(await waitForLocalMagicLink(email));
       await waitForHydration(page);
 
-      // A mixed catalogue: one acknowledged unlock plus one newly-earned unlock, so the Axe pass
-      // covers the earned, newly-earned, and locked treatments at once.
+      // Exercise the complete selective surface: visible milestone progress, one acknowledged
+      // archive entry, one unread surprise, and the account-level cue.
+      await provisionLocalAchievementProgress(email);
       await provisionLocalAchievementUnlock(email, 'first_favourite', '2026-07-01T12:00:00Z', true);
       await provisionLocalAchievementUnlock(email, 'first_checkin', '2026-07-02T12:00:00Z', false);
+      await page.goto(`/${scenario.locale}/account`);
+      await expect(
+        page.locator('header').getByRole('link', {
+          name: `${scenario.backLink} ${scenario.accountUnread}`
+        })
+      ).toBeVisible();
+
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.setViewportSize({ width: 1280, height: 900 });
       await page.goto(`/${scenario.locale}/account/achievements`);
       await waitForHydration(page);
 
       await expect(page.getByRole('heading', { name: scenario.title })).toBeVisible();
+      await expect(page.getByRole('progressbar')).toHaveCount(2);
+      await expect(page.getByRole('region', { name: scenario.celebration })).toHaveAttribute(
+        'data-reduced-motion',
+        'true'
+      );
       // The signed-in header carries an equally-named account link; scope to the page body.
       const backLink = page.locator('main').getByRole('link', { name: scenario.backLink });
       await backLink.focus();
       await expect(backLink).toBeFocused();
       await expectNoSeriousAxeViolations(page, evidence);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expectNoHorizontalPageScroll(page);
+      await expectNoSeriousAxeViolations(page, evidence);
+      await page.emulateMedia({ reducedMotion: null });
+      await retireLocalAchievementProgress(email);
     }
   } finally {
     await disableLocalAchievementPolicy();
