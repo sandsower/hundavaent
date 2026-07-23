@@ -175,7 +175,9 @@
         {copy}
         onOpenDetails={() => selectButton && onSelect(place.placeId, selectButton, true)}
       />
-      <WheelchairAccessibilityBadge state={place.wheelchairAccessibility} {copy} />
+      {#if place.wheelchairAccessibility !== 'unknown'}
+        <WheelchairAccessibilityBadge state={place.wheelchairAccessibility} {copy} />
+      {/if}
     </div>
   </div>
 </article>
@@ -223,9 +225,24 @@
   }
 
   .category-band {
-    background:
-      linear-gradient(90deg, rgb(30 45 49 / 28%), transparent 70%),
-      linear-gradient(145deg, #8ba9a0 0 36%, #b6cbc4 36% 62%, #d9e2dd 62%);
+    background: linear-gradient(
+      145deg,
+      var(--hv-color-moss-soft, #d4f0f3) 0 40%,
+      var(--hv-color-fjord-soft, #c8edf4) 100%
+    );
+  }
+
+  .category-band::after {
+    position: absolute;
+    top: 50%;
+    right: 1rem;
+    width: 2.6rem;
+    height: 2.6rem;
+    background-color: color-mix(in srgb, var(--hv-color-basalt) 18%, transparent);
+    content: '';
+    mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M240,108a28,28,0,1,1-28-28A28,28,0,0,1,240,108ZM72,108a28,28,0,1,0-28,28A28,28,0,0,0,72,108ZM92,88A28,28,0,1,0,64,60,28,28,0,0,0,92,88Zm72,0a28,28,0,1,0-28-28A28,28,0,0,0,164,88Zm23.12,60.86a35.3,35.3,0,0,1-16.87-21.14,44,44,0,0,0-84.5,0A35.25,35.25,0,0,1,69,148.82,40,40,0,0,0,88,224a39.48,39.48,0,0,0,15.52-3.13,64.09,64.09,0,0,1,48.87,0,40,40,0,0,0,34.73-72Z"/></svg>')
+      center / contain no-repeat;
+    transform: translateY(-50%) rotate(-12deg);
   }
 
   .category-badge {

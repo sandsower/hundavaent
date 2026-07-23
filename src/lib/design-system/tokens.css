@@ -23,7 +23,7 @@
     --hv-access-timing: #d9d5e9;
     --hv-access-special: #f1d7bd;
     --hv-access-unknown: #e4e7e5;
-    --hv-access-unknown-foreground: #66716f;
+    --hv-access-unknown-foreground: #5b6563;
     --hv-access-symbol-border: var(--hv-color-basalt);
     --hv-access-detail-accent: var(--hv-color-signal);
     --hv-border-subtle: #92bac5;

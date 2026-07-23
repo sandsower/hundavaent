@@ -51,7 +51,7 @@ test.describe('public discovery locale routes', () => {
       desktopResults
         .getByLabel('Published Place', { exact: true })
         .getByText('Accessibility unknown')
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(page.getByText('Candidate Place')).toHaveCount(0);
     await expect(page.getByText('Unverified Place')).toHaveCount(0);
 
@@ -182,7 +182,7 @@ test.describe('public discovery locale routes', () => {
     }));
 
     expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight);
-    const finalDetail = selectedPlace.locator('.place-links a');
+    const finalDetail = selectedPlace.locator('.place-links a').last();
     await finalDetail.scrollIntoViewIfNeeded();
     await expect(finalDetail).toBeInViewport();
     expect(await scrollBody.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
@@ -209,12 +209,10 @@ test.describe('public discovery locale routes', () => {
     const dogAccessBox = await card
       .getByRole('group', { name: 'Dog access at Published Place' })
       .boundingBox();
-    const wheelchairBadgeBox = await card
-      .locator('[data-wheelchair-accessibility="unknown"]')
-      .boundingBox();
     expect(dogAccessBox).not.toBeNull();
-    expect(wheelchairBadgeBox).not.toBeNull();
-    expect(wheelchairBadgeBox!.y).toBeGreaterThanOrEqual(dogAccessBox!.y + dogAccessBox!.height);
+    // Unknown accessibility stays off compact cards; the selected place's
+    // mobility section remains the explicit home for that fact.
+    await expect(card.locator('[data-wheelchair-accessibility="unknown"]')).toHaveCount(0);
     await expect(card.getByRole('img')).toHaveCount(0);
   });
 

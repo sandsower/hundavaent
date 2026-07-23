@@ -598,9 +598,23 @@
   }
 
   @container directory-shell (max-width: 57.999rem) {
-    .editorial-intro,
     .category-shortcuts {
       display: none;
+    }
+
+    /* Keep the welcome line on small screens, but compact: the eyebrow count
+       already lives in the results button, so only the heading stays. */
+    .editorial-intro {
+      margin-bottom: 0.55rem;
+    }
+
+    .editorial-intro .eyebrow {
+      display: none;
+    }
+
+    .editorial-intro h2 {
+      max-width: none;
+      font-size: 1.15rem;
     }
 
     .shortcut-row {

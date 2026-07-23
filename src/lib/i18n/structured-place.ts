@@ -109,18 +109,47 @@ export function localizePlaceCategory(value: PlaceCategory, copy: Catalogue): st
   return copy[placeCategoryMessageKeys[value]];
 }
 
+const weekdayOrder = Object.keys(openingHoursMessageKeys);
+
+export interface OpeningHoursRow {
+  key: string;
+  text: string;
+}
+
+// Stored opening-hours objects carry no reliable key order, so presentation
+// re-establishes the Monday-to-Sunday week before any free-text entries.
+function orderedOpeningHoursEntries(
+  value: Readonly<Record<string, unknown>>
+): [string, unknown][] {
+  return Object.entries(value).toSorted(([a], [b]) => {
+    const aIndex = weekdayOrder.indexOf(a);
+    const bIndex = weekdayOrder.indexOf(b);
+    if (aIndex === -1 && bIndex === -1) return 0;
+    if (aIndex === -1) return 1;
+    if (bIndex === -1) return -1;
+    return aIndex - bIndex;
+  });
+}
+
+export function formatOpeningHoursRows(
+  value: Readonly<Record<string, unknown>>,
+  copy: Catalogue
+): OpeningHoursRow[] {
+  return orderedOpeningHoursEntries(value).map(([key, item]) => {
+    const messageKey = openingHoursMessageKeys[key];
+    const label = messageKey ? copy[messageKey] : key;
+    return { key, text: `${label}: ${formatStructuredValue(item)}` };
+  });
+}
+
 export function formatOpeningHours(
   value: Readonly<Record<string, unknown>>,
   copy: Catalogue,
   fallback: string
 ): string {
   if (Object.keys(value).length === 0) return fallback;
-  return Object.entries(value)
-    .map(([key, item]) => {
-      const messageKey = openingHoursMessageKeys[key];
-      const label = messageKey ? copy[messageKey] : key;
-      return `${label}: ${formatStructuredValue(item)}`;
-    })
+  return formatOpeningHoursRows(value, copy)
+    .map((row) => row.text)
     .join(' · ');
 }
 

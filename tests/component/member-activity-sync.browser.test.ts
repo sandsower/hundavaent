@@ -1,3 +1,4 @@
+import { waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -77,6 +78,9 @@ describe('weekly rhythm cross-tab invalidation', () => {
         active: true
       });
       external.postMessage({ type: 'invalidate', sourceId: 'external-tab' });
+      // Cross-context BroadcastChannel delivery has no timing guarantee, so wait
+      // for the accepted message, then settle to prove the payload one was ignored.
+      await waitFor(() => expect(invalidate).toHaveBeenCalled());
       await new Promise((resolve) => setTimeout(resolve, 20));
       expect(invalidate).toHaveBeenCalledOnce();
     } finally {
