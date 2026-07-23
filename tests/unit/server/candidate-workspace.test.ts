@@ -4,7 +4,7 @@ import type { RequestSupabaseClient } from '$server/db/clients';
 
 const operations = vi.hoisted(() => ({
   getCandidatePublicationReview: vi.fn(),
-  updateCandidatePlaceLocation: vi.fn(),
+  updateModeratedPlaceLocation: vi.fn(),
   updatePlaceWheelchairAccessibility: vi.fn(),
   verifyAndPublish: vi.fn(),
   getModerationPlaceMedia: vi.fn(),
@@ -27,7 +27,7 @@ vi.mock('$server/moderation/moderation-drafts', async (importOriginal) => ({
 vi.mock('$server/moderation/place-moderation', async (importOriginal) => ({
   ...(await importOriginal()),
   getCandidatePublicationReview: operations.getCandidatePublicationReview,
-  updateCandidatePlaceLocation: operations.updateCandidatePlaceLocation,
+  updateModeratedPlaceLocation: operations.updateModeratedPlaceLocation,
   updatePlaceWheelchairAccessibility: operations.updatePlaceWheelchairAccessibility,
   verifyAndPublish: operations.verifyAndPublish
 }));
@@ -315,7 +315,7 @@ describe('Candidate workspace action orchestration', () => {
   });
 
   it('keeps a corrected Candidate selected after the server confirms the location', async () => {
-    operations.updateCandidatePlaceLocation.mockResolvedValue({
+    operations.updateModeratedPlaceLocation.mockResolvedValue({
       status: 'success',
       value: {
         placeId,
@@ -347,7 +347,7 @@ describe('Candidate workspace action orchestration', () => {
       terminal: false,
       effect: { kind: 'location_corrected' }
     });
-    expect(operations.updateCandidatePlaceLocation).toHaveBeenCalledWith(
+    expect(operations.updateModeratedPlaceLocation).toHaveBeenCalledWith(
       client,
       expect.objectContaining({
         placeId,

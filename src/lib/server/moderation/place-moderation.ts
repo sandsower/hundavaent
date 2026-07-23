@@ -233,13 +233,13 @@ export async function createCandidatePlace(
   }
 }
 
-export async function updateCandidatePlaceLocation(
+export async function updateModeratedPlaceLocation(
   client: RequestSupabaseClient,
   command: LocationCorrectionCommand,
   requestId: string
 ): Promise<CommandResult<CorrectedLocation>> {
   try {
-    const { data, error } = await client.rpc('update_candidate_place_location', {
+    const { data, error } = await client.rpc('update_moderated_place_location', {
       command_payload: {
         place_id: command.placeId,
         expected_version: command.expectedVersion,
@@ -396,6 +396,9 @@ export async function getCandidatePublicationReview(
       englishTranslation: hasText(row.name_en) && hasText(row.description_en),
       accessCondition: accessConditions.length > 0
     };
+    const ready = Object.entries(checks).every(
+      ([check, passed]) => passed || (check === 'candidate' && row.lifecycle === 'published')
+    );
 
     return {
       status: 'success',
@@ -435,7 +438,7 @@ export async function getCandidatePublicationReview(
         accessConditions,
         evidenceRecords,
         checks,
-        ready: Object.values(checks).every(Boolean)
+        ready
       }
     };
   } catch {

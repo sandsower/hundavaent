@@ -1677,6 +1677,14 @@ export type Database = {
           version: number
         }[]
       }
+      update_moderated_place_location: {
+        Args: { command_payload: Json; command_request_id: string }
+        Returns: {
+          geometry_precision: string
+          place_id: string
+          version: number
+        }[]
+      }
       update_place_wheelchair_accessibility: {
         Args: { command_payload: Json; command_request_id: string }
         Returns: {

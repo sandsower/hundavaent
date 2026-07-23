@@ -25,7 +25,7 @@ import {
 } from '$server/moderation/moderation-drafts';
 import {
   getCandidatePublicationReview,
-  updateCandidatePlaceLocation,
+  updateModeratedPlaceLocation,
   updatePlaceWheelchairAccessibility,
   verifyAndPublish,
   type CandidatePublicationReview,
@@ -353,7 +353,7 @@ async function correctCandidateLocation(
   const command = readLocationCorrectionCommand(context.placeId, context.formData);
   if (!command) return failure(400, 'incomplete');
 
-  const result = await updateCandidatePlaceLocation(context.client, command, context.requestId);
+  const result = await updateModeratedPlaceLocation(context.client, command, context.requestId);
   if (result.status === 'success') {
     return {
       status: 'confirmed',

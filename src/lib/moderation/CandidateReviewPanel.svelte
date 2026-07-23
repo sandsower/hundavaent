@@ -120,6 +120,20 @@
       form.success
     )
   );
+  let locationCorrectionError = $derived(
+    form && 'action' in form && form.action === 'correctLocation' && 'error' in form
+      ? form.error
+      : null
+  );
+  let locationCorrectionSucceeded = $derived(
+    Boolean(
+      form &&
+      'action' in form &&
+      form.action === 'correctLocation' &&
+      'success' in form &&
+      form.success
+    )
+  );
   let decisionError = $derived(
     form && 'action' in form && form.action === 'decideCandidate' && 'error' in form
       ? form.error
@@ -251,55 +265,61 @@
     zoom: 16
   });
 
-  const checklist: Array<{
+  type ChecklistItem = {
     key: keyof typeof data.review.checks;
     label: MessageKey;
     recovery: MessageKey;
     target: string;
-  }> = [
-    {
-      key: 'candidate',
-      label: 'moderation.checkCandidate',
-      recovery: 'moderation.addCandidateState',
-      target: 'candidate-overview'
-    },
-    {
-      key: 'operatorAndCategory',
-      label: 'moderation.checkOperator',
-      recovery: 'moderation.addOperator',
-      target: 'candidate-overview'
-    },
-    {
-      key: 'capitalRegionLocation',
-      label: 'moderation.checkLocation',
-      recovery: 'moderation.addLocation',
-      target: 'location'
-    },
-    {
-      key: 'geometryQuality',
-      label: 'moderation.checkGeometry',
-      recovery: 'moderation.correctGeometry',
-      target: 'location'
-    },
-    {
-      key: 'icelandicTranslation',
-      label: 'moderation.checkIcelandic',
-      recovery: 'moderation.addIcelandic',
-      target: 'translations'
-    },
-    {
-      key: 'englishTranslation',
-      label: 'moderation.checkEnglish',
-      recovery: 'moderation.addEnglish',
-      target: 'translations'
-    },
-    {
-      key: 'accessCondition',
-      label: 'moderation.checkAccess',
-      recovery: 'moderation.addAccess',
-      target: 'access-condition'
+  };
+  const checklist = $derived.by((): ChecklistItem[] => {
+    const items: ChecklistItem[] = [
+      {
+        key: 'operatorAndCategory',
+        label: 'moderation.checkOperator',
+        recovery: 'moderation.addOperator',
+        target: 'candidate-overview'
+      },
+      {
+        key: 'capitalRegionLocation',
+        label: 'moderation.checkLocation',
+        recovery: 'moderation.addLocation',
+        target: 'location'
+      },
+      {
+        key: 'geometryQuality',
+        label: 'moderation.checkGeometry',
+        recovery: 'moderation.correctGeometry',
+        target: 'location'
+      },
+      {
+        key: 'icelandicTranslation',
+        label: 'moderation.checkIcelandic',
+        recovery: 'moderation.addIcelandic',
+        target: 'translations'
+      },
+      {
+        key: 'englishTranslation',
+        label: 'moderation.checkEnglish',
+        recovery: 'moderation.addEnglish',
+        target: 'translations'
+      },
+      {
+        key: 'accessCondition',
+        label: 'moderation.checkAccess',
+        recovery: 'moderation.addAccess',
+        target: 'access-condition'
+      }
+    ];
+    if (data.review.lifecycle === 'candidate') {
+      items.unshift({
+        key: 'candidate',
+        label: 'moderation.checkCandidate',
+        recovery: 'moderation.addCandidateState',
+        target: 'candidate-overview'
+      });
     }
-  ];
+    return items;
+  });
 
   const readinessIssues = $derived(
     checklist
@@ -544,7 +564,10 @@
   }
 
   $effect(() => {
-    if ((publishError || wheelchairAccessibilityError || mediaError) && alertElement) {
+    if (
+      (publishError || locationCorrectionError || wheelchairAccessibilityError || mediaError) &&
+      alertElement
+    ) {
       void tick().then(() => alertElement?.focus());
     }
   });
@@ -664,7 +687,8 @@
       id="candidate-overview"
       title={data.copy['moderation.identityHeading']}
       summary={`${data.review.operatorName} · ${localizePlaceCategory(data.review.category as PlaceCategory, data.copy)}`}
-      state={data.review.checks.candidate && data.review.checks.operatorAndCategory
+      state={(data.review.lifecycle !== 'candidate' || data.review.checks.candidate) &&
+      data.review.checks.operatorAndCategory
         ? 'complete'
         : 'blocking'}
     >
@@ -930,14 +954,20 @@
             class="location-correction section-form"
             data-section-form="location"
             method="POST"
-            action="?/saveCandidateSection"
+            action={data.review.lifecycle === 'published'
+              ? '?/correctLocation'
+              : '?/saveCandidateSection'}
             use:enhance={enhanceSection('location')}
             aria-busy={savingSection === 'location'}
           >
             <input type="hidden" name="placeId" value={data.review.placeId} />
-            <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
-            <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
-            <input type="hidden" name="sectionId" value="location" />
+            {#if data.review.lifecycle === 'published'}
+              <input type="hidden" name="expectedVersion" value={data.review.version} />
+            {:else}
+              <input type="hidden" name="expectedItemVersion" value={data.review.itemVersion} />
+              <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
+              <input type="hidden" name="sectionId" value="location" />
+            {/if}
             <div class="wide">
               <ModerationLocationEditor
                 copy={data.copy}
@@ -963,6 +993,11 @@
             onclick={() => beginEditing('location')}
             >{editLabel(data.copy['moderation.locationHeading'])}</button
           >
+        {/if}
+        {#if locationCorrectionError}
+          <p class="message error" role="alert">{locationCorrectionError}</p>
+        {:else if locationCorrectionSucceeded}
+          <p class="message success" role="status">{data.copy['moderation.geometryCorrected']}</p>
         {/if}
       </div>
     </ModerationReviewSection>
