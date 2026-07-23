@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   parseProductionReadinessArguments,
@@ -40,7 +40,32 @@ function workspaceSignInResponse(cacheControl = 'private, no-store'): Response {
   });
 }
 
+function readinessFetch({
+  gateLocation = '/gate?redirectTo=%2Fis',
+  workspaceLocation = '/translations/sign-in?redirectTo=%2Ftranslations',
+  signInResponse = workspaceSignInResponse
+}: {
+  gateLocation?: string;
+  workspaceLocation?: string;
+  signInResponse?: () => Response;
+} = {}): typeof fetch {
+  return vi.fn<typeof fetch>(async (input, init) => {
+    const url = new URL(String(input));
+    if (url.pathname === '/api/health') return healthResponse();
+    if (url.pathname === '/is') return redirectResponse(gateLocation);
+    if (url.pathname === '/translations' && init?.method === 'HEAD') {
+      return redirectResponse(workspaceLocation);
+    }
+    if (url.pathname === '/translations/sign-in') return signInResponse();
+    throw new Error(`Unexpected request: ${url}`);
+  });
+}
+
 describe('production readiness verifier', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('restarts the complete assertion set until staggered edge convergence is coherent', async () => {
     const requestPaths: string[] = [];
     const pendingAssertions: string[] = [];
@@ -144,12 +169,211 @@ describe('production readiness verifier', () => {
       {
         name: 'health.database',
         detail: 'expected "ready", received "starting"'
-      },
-      {
-        name: 'health.database',
-        detail: 'expected "ready", received "starting"'
       }
     ]);
+  });
+
+  it('bounds a never-resolving fetch with the remaining global deadline', async () => {
+    vi.useFakeTimers();
+    let requestWasAborted = false;
+    const pendingAssertions: Array<{ name: string; detail: string }> = [];
+    const readiness = waitForProductionReadiness({
+      productionUrl: 'https://hundavaent.is',
+      expectedRelease: releaseSha,
+      timeoutMs: 25,
+      intervalMs: 100,
+      fetchImplementation: vi.fn<typeof fetch>(
+        async (_input, init) =>
+          new Promise<Response>(() => {
+            if (init?.signal instanceof AbortSignal) {
+              init.signal.addEventListener('abort', () => {
+                requestWasAborted = true;
+              });
+            }
+          })
+      ),
+      onPending: (assertion) => pendingAssertions.push(assertion)
+    });
+    const rejection = expect(readiness).rejects.toThrow(
+      'Production readiness timed out: health.request (global readiness deadline elapsed)'
+    );
+
+    await vi.advanceTimersByTimeAsync(25);
+    await rejection;
+
+    expect(requestWasAborted).toBe(true);
+    expect(pendingAssertions).toEqual([
+      {
+        name: 'health.request',
+        detail: 'global readiness deadline elapsed'
+      }
+    ]);
+  }, 500);
+
+  it('bounds a never-completing response body with the remaining global deadline', async () => {
+    vi.useFakeTimers();
+    const pendingAssertions: Array<{ name: string; detail: string }> = [];
+    const readiness = waitForProductionReadiness({
+      productionUrl: 'https://hundavaent.is',
+      expectedRelease: releaseSha,
+      timeoutMs: 25,
+      intervalMs: 100,
+      fetchImplementation: readinessFetch({
+        signInResponse: () =>
+          new Response(
+            new ReadableStream({
+              start() {
+                // Deliberately never enqueue or close.
+              }
+            }),
+            {
+              headers: {
+                'cache-control': 'private, no-store',
+                'x-robots-tag': 'noindex'
+              }
+            }
+          )
+      }),
+      onPending: (assertion) => pendingAssertions.push(assertion)
+    });
+    const rejection = expect(readiness).rejects.toThrow(
+      'Production readiness timed out: translation-workspace.sign-in-request'
+    );
+
+    await vi.advanceTimersByTimeAsync(25);
+    await rejection;
+
+    expect(pendingAssertions).toEqual([
+      {
+        name: 'translation-workspace.sign-in-request',
+        detail: 'global readiness deadline elapsed'
+      }
+    ]);
+  }, 500);
+
+  it('caps retry sleep to the remaining global budget', async () => {
+    let now = 0;
+    const sleeps: number[] = [];
+
+    await expect(
+      waitForProductionReadiness({
+        productionUrl: 'https://hundavaent.is',
+        expectedRelease: releaseSha,
+        timeoutMs: 5,
+        intervalMs: 100,
+        fetchImplementation: async () =>
+          Response.json({
+            service: 'hundavaent',
+            status: 'ok',
+            release: releaseSha,
+            checks: {
+              database: 'starting',
+              map: 'configured',
+              translations: 'published'
+            }
+          }),
+        sleep: async (milliseconds) => {
+          sleeps.push(milliseconds);
+          now += milliseconds;
+        },
+        now: () => now
+      })
+    ).rejects.toThrow('Production readiness timed out: health.database');
+
+    expect(sleeps).toEqual([5]);
+  });
+
+  it.each([
+    {
+      label: 'relative',
+      gateLocation: '/gate?redirectTo=%2Fis',
+      workspaceLocation: '/translations/sign-in?redirectTo=%2Ftranslations'
+    },
+    {
+      label: 'absolute same-origin',
+      gateLocation: 'https://hundavaent.is/gate?redirectTo=%2Fis',
+      workspaceLocation: 'https://hundavaent.is/translations/sign-in?redirectTo=%2Ftranslations'
+    }
+  ])('accepts $label gate and workspace redirects', async ({ gateLocation, workspaceLocation }) => {
+    await expect(
+      waitForProductionReadiness({
+        productionUrl: 'https://hundavaent.is',
+        expectedRelease: releaseSha,
+        fetchImplementation: readinessFetch({ gateLocation, workspaceLocation })
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  it.each([
+    {
+      assertion: 'gate.redirect',
+      gateLocation: 'https://attacker.invalid/gate?redirectTo=%2Fis',
+      workspaceLocation: '/translations/sign-in?redirectTo=%2Ftranslations'
+    },
+    {
+      assertion: 'translation-workspace.redirect',
+      gateLocation: '/gate?redirectTo=%2Fis',
+      workspaceLocation: 'https://attacker.invalid/translations/sign-in?redirectTo=%2Ftranslations'
+    }
+  ])(
+    'rejects a cross-origin redirect at $assertion',
+    async ({ assertion, gateLocation, workspaceLocation }) => {
+      let now = 0;
+      await expect(
+        waitForProductionReadiness({
+          productionUrl: 'https://hundavaent.is',
+          expectedRelease: releaseSha,
+          timeoutMs: 1,
+          intervalMs: 1,
+          fetchImplementation: readinessFetch({ gateLocation, workspaceLocation }),
+          sleep: async (milliseconds) => {
+            now += milliseconds;
+          },
+          now: () => now
+        })
+      ).rejects.toThrow(`Production readiness timed out: ${assertion}`);
+    }
+  );
+
+  it('sanitizes sign-in body read failures under the endpoint-specific assertion', async () => {
+    const secret = 'do-not-log-this-response-error';
+    const pendingAssertions: Array<{ name: string; detail: string }> = [];
+    let now = 0;
+
+    await expect(
+      waitForProductionReadiness({
+        productionUrl: 'https://hundavaent.is',
+        expectedRelease: releaseSha,
+        timeoutMs: 2,
+        intervalMs: 1,
+        fetchImplementation: readinessFetch({
+          signInResponse: () => {
+            const response = workspaceSignInResponse();
+            vi.spyOn(response, 'text').mockRejectedValue(new Error(secret));
+            return response;
+          }
+        }),
+        sleep: async (milliseconds) => {
+          now += milliseconds;
+        },
+        now: () => now,
+        onPending: (assertion) => pendingAssertions.push(assertion)
+      })
+    ).rejects.toThrow(
+      'Production readiness timed out: translation-workspace.sign-in-request (response body could not be read)'
+    );
+
+    expect(pendingAssertions).toEqual([
+      {
+        name: 'translation-workspace.sign-in-request',
+        detail: 'response body could not be read'
+      },
+      {
+        name: 'translation-workspace.sign-in-request',
+        detail: 'response body could not be read'
+      }
+    ]);
+    expect(JSON.stringify(pendingAssertions)).not.toContain(secret);
   });
 
   it('parses the production URL, release, and retry controls without accepting extras', () => {

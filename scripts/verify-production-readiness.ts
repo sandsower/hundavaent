@@ -20,6 +20,18 @@ interface ProductionReadinessAttemptOptions {
   productionUrl: URL;
   expectedRelease: string;
   fetchImplementation: typeof fetch;
+  deadline?: number;
+  now?: () => number;
+}
+
+interface AttemptBudget {
+  deadline: number;
+  now: () => number;
+}
+
+interface BoundedResponse {
+  response: Response;
+  abort: () => void;
 }
 
 class ProductionAssertionPending extends Error {
@@ -45,12 +57,14 @@ export async function waitForProductionReadiness({
     detail: 'no readiness attempt completed'
   };
 
-  while (now() <= deadline) {
+  while (now() < deadline) {
     try {
       await verifyProductionReadinessAttempt({
         productionUrl: origin,
         expectedRelease,
-        fetchImplementation
+        fetchImplementation,
+        deadline,
+        now
       });
       return;
     } catch (error) {
@@ -59,13 +73,14 @@ export async function waitForProductionReadiness({
           ? error.assertion
           : {
               name: 'production.request',
-              detail: error instanceof Error ? error.message : String(error)
+              detail: 'unexpected verifier failure'
             };
       onPending(lastPending);
     }
 
-    if (now() >= deadline) break;
-    await sleep(intervalMs);
+    const remainingMs = deadline - now();
+    if (remainingMs <= 0) break;
+    await sleep(Math.min(intervalMs, remainingMs));
   }
 
   throw new Error(`Production readiness timed out: ${lastPending.name} (${lastPending.detail})`);
@@ -74,12 +89,19 @@ export async function waitForProductionReadiness({
 export async function verifyProductionReadinessAttempt({
   productionUrl,
   expectedRelease,
-  fetchImplementation
+  fetchImplementation,
+  deadline,
+  now = Date.now
 }: ProductionReadinessAttemptOptions): Promise<void> {
+  const budget: AttemptBudget = {
+    deadline: deadline ?? now() + 90_000,
+    now
+  };
   const health = await fetchJson(
     new URL('/api/health', productionUrl),
     'health.request',
-    fetchImplementation
+    fetchImplementation,
+    budget
   );
   assertEqual('health.service', health.service, 'hundavaent');
   assertEqual('health.status', health.status, 'ok');
@@ -90,39 +112,45 @@ export async function verifyProductionReadinessAttempt({
   assertEqual('health.map', checks.map, 'configured');
   assertEqual('health.translations', checks.translations, 'published');
 
-  const gate = await fetchResponse(
+  const gateRequest = await fetchResponse(
     new URL('/is', productionUrl),
     'gate.request',
     fetchImplementation,
-    { method: 'HEAD', redirect: 'manual' }
+    { method: 'HEAD', redirect: 'manual' },
+    budget
   );
+  const gate = gateRequest.response;
   const gateLocation = gate.headers.get('location');
   assertCondition(
     'gate.redirect',
     isRedirectTo(gateLocation, productionUrl, '/gate'),
-    `expected a redirect to /gate, received ${formatValue(gateLocation)}`
+    'expected a same-origin redirect to /gate'
   );
   assertNoindex('gate.noindex', gate.headers.get('x-robots-tag'));
 
-  const workspace = await fetchResponse(
+  const workspaceRequest = await fetchResponse(
     new URL('/translations', productionUrl),
     'translation-workspace.request',
     fetchImplementation,
-    { method: 'HEAD', redirect: 'manual' }
+    { method: 'HEAD', redirect: 'manual' },
+    budget
   );
+  const workspace = workspaceRequest.response;
   const workspaceLocation = workspace.headers.get('location');
   assertCondition(
     'translation-workspace.redirect',
     isWorkspaceSignInRedirect(workspaceLocation, productionUrl),
-    `expected the translation sign-in redirect, received ${formatValue(workspaceLocation)}`
+    'expected a same-origin translation sign-in redirect'
   );
 
-  const signIn = await fetchResponse(
+  const signInRequest = await fetchResponse(
     new URL('/translations/sign-in', productionUrl),
     'translation-workspace.sign-in-request',
     fetchImplementation,
-    { redirect: 'manual' }
+    { redirect: 'manual' },
+    budget
   );
+  const signIn = signInRequest.response;
   assertCondition(
     'translation-workspace.cache-control',
     hasCacheDirectives(signIn.headers.get('cache-control'), ['private', 'no-store']),
@@ -130,7 +158,13 @@ export async function verifyProductionReadinessAttempt({
   );
   assertNoindex('translation-workspace.noindex', signIn.headers.get('x-robots-tag'));
 
-  const signInBody = await signIn.text();
+  const signInBody = await readResponseBody(
+    signInRequest,
+    'translation-workspace.sign-in-request',
+    budget,
+    (response) => response.text(),
+    'response body could not be read'
+  );
   assertCondition(
     'translation-workspace.form',
     signInBody.includes('data-translation-workspace-sign-in'),
@@ -146,15 +180,27 @@ export async function verifyProductionReadinessAttempt({
 async function fetchJson(
   url: URL,
   assertionName: string,
-  fetchImplementation: typeof fetch
+  fetchImplementation: typeof fetch,
+  budget: AttemptBudget
 ): Promise<Record<string, unknown>> {
-  const response = await fetchResponse(url, assertionName, fetchImplementation, {
-    headers: { accept: 'application/json' },
-    redirect: 'manual'
-  });
+  const request = await fetchResponse(
+    url,
+    assertionName,
+    fetchImplementation,
+    {
+      headers: { accept: 'application/json' },
+      redirect: 'manual'
+    },
+    budget
+  );
 
   try {
-    const body: unknown = await response.json();
+    const body: unknown = await withRemainingBudget(
+      () => request.response.json(),
+      assertionName,
+      budget,
+      request.abort
+    );
     assertCondition(assertionName, isRecord(body), 'response was not a JSON object');
     return body;
   } catch (error) {
@@ -167,13 +213,25 @@ async function fetchResponse(
   url: URL,
   assertionName: string,
   fetchImplementation: typeof fetch,
-  init: RequestInit
-): Promise<Response> {
+  init: RequestInit,
+  budget: AttemptBudget
+): Promise<BoundedResponse> {
+  const controller = new AbortController();
   let response: Response;
   try {
-    response = await fetchImplementation(url, init);
+    response = await withRemainingBudget(
+      () =>
+        fetchImplementation(url, {
+          ...init,
+          signal: controller.signal
+        }),
+      assertionName,
+      budget,
+      () => controller.abort()
+    );
   } catch (error) {
-    pending(assertionName, error instanceof Error ? error.message : String(error));
+    if (error instanceof ProductionAssertionPending) throw error;
+    pending(assertionName, 'request failed before a response was received');
   }
 
   assertCondition(
@@ -181,7 +239,62 @@ async function fetchResponse(
     response.ok || isRedirect(response.status),
     `received HTTP ${response.status}`
   );
-  return response;
+  return {
+    response,
+    abort: () => controller.abort()
+  };
+}
+
+async function readResponseBody<T>(
+  request: BoundedResponse,
+  assertionName: string,
+  budget: AttemptBudget,
+  read: (response: Response) => Promise<T>,
+  failureDetail: string
+): Promise<T> {
+  try {
+    return await withRemainingBudget(
+      () => read(request.response),
+      assertionName,
+      budget,
+      request.abort
+    );
+  } catch (error) {
+    if (error instanceof ProductionAssertionPending) throw error;
+    pending(assertionName, failureDetail);
+  }
+}
+
+async function withRemainingBudget<T>(
+  operation: () => Promise<T>,
+  assertionName: string,
+  budget: AttemptBudget,
+  onTimeout: () => void
+): Promise<T> {
+  const remainingMs = budget.deadline - budget.now();
+  if (remainingMs <= 0) {
+    onTimeout();
+    pending(assertionName, 'global readiness deadline elapsed');
+  }
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      reject(
+        new ProductionAssertionPending({
+          name: assertionName,
+          detail: 'global readiness deadline elapsed'
+        })
+      );
+      onTimeout();
+    }, remainingMs);
+  });
+
+  try {
+    return await Promise.race([operation(), deadline]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 }
 
 function assertEqual(name: string, actual: unknown, expected: string): void {
@@ -218,7 +331,8 @@ function isRedirect(status: number): boolean {
 function isRedirectTo(location: string | null, origin: URL, expectedPath: string): boolean {
   if (!location) return false;
   try {
-    return new URL(location, origin).pathname === expectedPath;
+    const redirect = new URL(location, origin);
+    return redirect.origin === origin.origin && redirect.pathname === expectedPath;
   } catch {
     return false;
   }
@@ -229,6 +343,7 @@ function isWorkspaceSignInRedirect(location: string | null, origin: URL): boolea
   try {
     const redirect = new URL(location, origin);
     return (
+      redirect.origin === origin.origin &&
       redirect.pathname === '/translations/sign-in' &&
       redirect.searchParams.get('redirectTo') === '/translations'
     );
