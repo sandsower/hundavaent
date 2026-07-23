@@ -688,7 +688,7 @@ describe('getCandidatePublicationReview', () => {
       status: 'success',
       value: {
         lifecycle: 'published',
-        checks: { candidate: true },
+        checks: { candidate: false },
         ready: true
       }
     });

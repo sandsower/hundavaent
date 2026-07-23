@@ -265,55 +265,61 @@
     zoom: 16
   });
 
-  const checklist: Array<{
+  type ChecklistItem = {
     key: keyof typeof data.review.checks;
     label: MessageKey;
     recovery: MessageKey;
     target: string;
-  }> = [
-    {
-      key: 'candidate',
-      label: 'moderation.checkCandidate',
-      recovery: 'moderation.addCandidateState',
-      target: 'candidate-overview'
-    },
-    {
-      key: 'operatorAndCategory',
-      label: 'moderation.checkOperator',
-      recovery: 'moderation.addOperator',
-      target: 'candidate-overview'
-    },
-    {
-      key: 'capitalRegionLocation',
-      label: 'moderation.checkLocation',
-      recovery: 'moderation.addLocation',
-      target: 'location'
-    },
-    {
-      key: 'geometryQuality',
-      label: 'moderation.checkGeometry',
-      recovery: 'moderation.correctGeometry',
-      target: 'location'
-    },
-    {
-      key: 'icelandicTranslation',
-      label: 'moderation.checkIcelandic',
-      recovery: 'moderation.addIcelandic',
-      target: 'translations'
-    },
-    {
-      key: 'englishTranslation',
-      label: 'moderation.checkEnglish',
-      recovery: 'moderation.addEnglish',
-      target: 'translations'
-    },
-    {
-      key: 'accessCondition',
-      label: 'moderation.checkAccess',
-      recovery: 'moderation.addAccess',
-      target: 'access-condition'
+  };
+  const checklist = $derived.by((): ChecklistItem[] => {
+    const items: ChecklistItem[] = [
+      {
+        key: 'operatorAndCategory',
+        label: 'moderation.checkOperator',
+        recovery: 'moderation.addOperator',
+        target: 'candidate-overview'
+      },
+      {
+        key: 'capitalRegionLocation',
+        label: 'moderation.checkLocation',
+        recovery: 'moderation.addLocation',
+        target: 'location'
+      },
+      {
+        key: 'geometryQuality',
+        label: 'moderation.checkGeometry',
+        recovery: 'moderation.correctGeometry',
+        target: 'location'
+      },
+      {
+        key: 'icelandicTranslation',
+        label: 'moderation.checkIcelandic',
+        recovery: 'moderation.addIcelandic',
+        target: 'translations'
+      },
+      {
+        key: 'englishTranslation',
+        label: 'moderation.checkEnglish',
+        recovery: 'moderation.addEnglish',
+        target: 'translations'
+      },
+      {
+        key: 'accessCondition',
+        label: 'moderation.checkAccess',
+        recovery: 'moderation.addAccess',
+        target: 'access-condition'
+      }
+    ];
+    if (data.review.lifecycle === 'candidate') {
+      items.unshift({
+        key: 'candidate',
+        label: 'moderation.checkCandidate',
+        recovery: 'moderation.addCandidateState',
+        target: 'candidate-overview'
+      });
     }
-  ];
+    return items;
+  });
 
   const readinessIssues = $derived(
     checklist
@@ -681,7 +687,8 @@
       id="candidate-overview"
       title={data.copy['moderation.identityHeading']}
       summary={`${data.review.operatorName} · ${localizePlaceCategory(data.review.category as PlaceCategory, data.copy)}`}
-      state={data.review.checks.candidate && data.review.checks.operatorAndCategory
+      state={(data.review.lifecycle !== 'candidate' || data.review.checks.candidate) &&
+      data.review.checks.operatorAndCategory
         ? 'complete'
         : 'blocking'}
     >

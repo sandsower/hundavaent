@@ -380,7 +380,7 @@ export async function getCandidatePublicationReview(
     if (!accessConditions || !evidenceRecords) return { status: 'infrastructure_error' };
 
     const checks: PublicationChecks = {
-      candidate: row.lifecycle === 'candidate' || row.lifecycle === 'published',
+      candidate: row.lifecycle === 'candidate',
       operatorAndCategory: hasText(row.operator_name) && hasText(row.category),
       capitalRegionLocation:
         hasText(row.address_line) &&
@@ -396,6 +396,9 @@ export async function getCandidatePublicationReview(
       englishTranslation: hasText(row.name_en) && hasText(row.description_en),
       accessCondition: accessConditions.length > 0
     };
+    const ready = Object.entries(checks).every(
+      ([check, passed]) => passed || (check === 'candidate' && row.lifecycle === 'published')
+    );
 
     return {
       status: 'success',
@@ -435,7 +438,7 @@ export async function getCandidatePublicationReview(
         accessConditions,
         evidenceRecords,
         checks,
-        ready: Object.values(checks).every(Boolean)
+        ready
       }
     };
   } catch {

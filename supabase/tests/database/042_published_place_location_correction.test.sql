@@ -21,10 +21,45 @@ select ok(
 );
 
 insert into auth.users (id, email)
-values ('c2000000-0000-4000-8000-000000000001', 'published-location@example.invalid');
+values
+  ('c2000000-0000-4000-8000-000000000001', 'published-location@example.invalid'),
+  ('c2000000-0000-4000-8000-000000000002', 'location-member@example.invalid');
 
 insert into security.role_grants (user_id, role)
 values ('c2000000-0000-4000-8000-000000000001', 'moderator');
+
+select set_config(
+  'request.jwt.claim.sub',
+  'c2000000-0000-4000-8000-000000000002',
+  true
+);
+
+set local role authenticated;
+
+select throws_ok(
+  $$
+    select * from public.update_moderated_place_location(
+      jsonb_build_object(
+        'place_id', '30000000-0000-4000-8000-000000000003',
+        'expected_version', 1,
+        'address_line', 'Unauthorized correction',
+        'locality', 'Reykjavík',
+        'postal_code', '107',
+        'municipality', 'reykjavik',
+        'latitude', 64.1,
+        'longitude', -21.9,
+        'geometry_precision', 'moderator_confirmed_point',
+        'geometry_source', 'Unauthorized correction'
+      ),
+      'c2900000-0000-4000-8000-000000000000'
+    )
+  $$,
+  '42501',
+  'Moderator role required',
+  'An authenticated non-Moderator cannot correct a Place location'
+);
+
+reset role;
 
 select set_config(
   'request.jwt.claim.sub',

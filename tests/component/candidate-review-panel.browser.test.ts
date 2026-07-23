@@ -436,6 +436,8 @@ describe('CandidateReviewPanel', () => {
     expect(locationForm.querySelector('[name="expectedItemVersion"]')).toBeNull();
     expect(locationForm.querySelector('[name="expectedDraftVersion"]')).toBeNull();
     expect(locationForm.querySelector('[name="sectionId"]')).toBeNull();
+    expect(screen.queryByText('Place is still a Candidate')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Review Candidate state' })).toBeNull();
   });
 
   it('normalizes Access Conditions into the strict snake-case patch', async () => {
