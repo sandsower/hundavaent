@@ -1179,11 +1179,7 @@ test('captures the bilingual weekly roundup states and preferences', async ({ pa
     await page.getByRole('button', { name: scenario.edit }).click();
     await expect(emailInterest).not.toBeChecked();
     await page.setViewportSize({ width: 390, height: 844 });
-    await capture(
-      page,
-      evidence,
-      `weekly-roundup-sparse-${scenario.locale}-mobile-email-off.png`
-    );
+    await capture(page, evidence, `weekly-roundup-sparse-${scenario.locale}-mobile-email-off.png`);
 
     await page.getByRole('checkbox', { name: 'Kópavogur' }).uncheck();
     await page.getByRole('checkbox', { name: 'Kjósarhreppur' }).check();

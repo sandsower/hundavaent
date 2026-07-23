@@ -83,9 +83,7 @@
     return data.copy['roundup.unavailableBody'];
   }
 
-  function isPreferenceActionResult(
-    value: unknown
-  ): value is { preferences: RoundupPreferences } {
+  function isPreferenceActionResult(value: unknown): value is { preferences: RoundupPreferences } {
     if (typeof value !== 'object' || value === null || !('preferences' in value)) return false;
     const preferences = value.preferences;
     return (
@@ -141,9 +139,7 @@
         <h2 id="roundup-state-heading">{stateTitle()}</h2>
         <p>{stateBody()}</p>
       </div>
-      {#if data.roundup.status === 'empty' ||
-      data.roundup.status === 'unconfigured' ||
-      data.roundup.status === 'unavailable'}
+      {#if data.roundup.status === 'empty' || data.roundup.status === 'unconfigured' || data.roundup.status === 'unavailable'}
         <span class="state-icon">
           <RoundupTrailIcon
             kind={data.roundup.status === 'unavailable' ? 'private' : 'empty'}
@@ -197,8 +193,7 @@
     {/if}
   </section>
 
-  {#if data.roundup.status !== 'unavailable' &&
-  (data.roundup.status === 'unconfigured' || settingsOpen)}
+  {#if data.roundup.status !== 'unavailable' && (data.roundup.status === 'unconfigured' || settingsOpen)}
     <div id="roundup-preferences">
       <RoundupPreferencesForm
         preferences={data.roundup.preferences}

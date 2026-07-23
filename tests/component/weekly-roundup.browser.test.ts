@@ -127,7 +127,11 @@ describe('Weekly roundup', () => {
     });
 
     expect(screen.getByRole('heading', { name: 'Choose where your trail begins' })).toBeTruthy();
-    expect(screen.getAllByRole('checkbox', { name: /Reykjavík|Kópavogur|Seltjarnarnes|Garðabær|Hafnarfjörður|Mosfellsbær|Kjósarhreppur/ })).toHaveLength(7);
+    expect(
+      screen.getAllByRole('checkbox', {
+        name: /Reykjavík|Kópavogur|Seltjarnarnes|Garðabær|Hafnarfjörður|Mosfellsbær|Kjósarhreppur/
+      })
+    ).toHaveLength(7);
     expect(screen.getByRole('radio', { name: 'Icelandic' })).toBeChecked();
     expect(
       screen.getByRole('checkbox', {
@@ -139,7 +143,9 @@ describe('Weekly roundup', () => {
         'Weekly email is not active. Saving this preference sends nothing, and you can withdraw it at any time.'
       )
     ).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Browse all places' }).getAttribute('href')).toBe('/en');
+    expect(screen.getByRole('link', { name: 'Browse all places' }).getAttribute('href')).toBe(
+      '/en'
+    );
     expect(screen.getByRole('button', { name: 'Save roundup settings' })).toBeTruthy();
   });
 
@@ -172,13 +178,7 @@ describe('Weekly roundup', () => {
   });
 });
 
-function renderRoundup({
-  lang,
-  roundup
-}: {
-  lang: Locale;
-  roundup: unknown;
-}) {
+function renderRoundup({ lang, roundup }: { lang: Locale; roundup: unknown }) {
   return render(WeeklyRoundupPage, {
     params: { lang },
     data: { lang, copy: catalogues[lang], roundup },

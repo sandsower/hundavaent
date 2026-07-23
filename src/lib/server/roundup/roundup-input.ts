@@ -7,21 +7,13 @@ import {
 import type { PlaceCategory } from '$domain/place';
 
 export type RoundupPreferenceInputResult =
-  | { ok: true; value: RoundupPreferenceInput }
-  | { ok: false; error: 'invalid' };
+  { ok: true; value: RoundupPreferenceInput } | { ok: false; error: 'invalid' };
 
-const allowedFields = new Set([
-  'municipalities',
-  'categories',
-  'roundupLocale',
-  'emailInterest'
-]);
+const allowedFields = new Set(['municipalities', 'categories', 'roundupLocale', 'emailInterest']);
 const municipalitySet = new Set<string>(roundupMunicipalities);
 const categorySet = new Set<string>(roundupCategories);
 
-export function parseRoundupPreferencesFormData(
-  form: FormData
-): RoundupPreferenceInputResult {
+export function parseRoundupPreferencesFormData(form: FormData): RoundupPreferenceInputResult {
   if ([...form.keys()].some((key) => !allowedFields.has(key))) {
     return { ok: false, error: 'invalid' };
   }

@@ -13,15 +13,10 @@ import {
 } from '$lib/roundup/types';
 
 export interface RoundupRpcClient {
-  rpc(
-    name: string,
-    args?: Record<string, unknown>
-  ): Promise<{ data: unknown; error: unknown }>;
+  rpc(name: string, args?: Record<string, unknown>): Promise<{ data: unknown; error: unknown }>;
 }
 
-export async function getWeeklyRoundup(
-  client: RoundupRpcClient
-): Promise<WeeklyRoundupResult> {
+export async function getWeeklyRoundup(client: RoundupRpcClient): Promise<WeeklyRoundupResult> {
   try {
     const [preferenceResponse, roundupResponse] = await Promise.all([
       client.rpc('get_current_member_roundup_preferences'),
@@ -36,9 +31,7 @@ export async function getWeeklyRoundup(
     }
 
     const first = rows[0];
-    const recommendations = rows
-      .filter(isRecommendationRow)
-      .map(mapRecommendation);
+    const recommendations = rows.filter(isRecommendationRow).map(mapRecommendation);
 
     return {
       status: 'success',
@@ -145,10 +138,7 @@ function isPreferenceRow(value: unknown): value is {
   return emailChangedAt !== null && updatedAt !== null;
 }
 
-function isRoundupRows(
-  value: unknown,
-  preferences: RoundupPreferences
-): value is RoundupRow[] {
+function isRoundupRows(value: unknown, preferences: RoundupPreferences): value is RoundupRow[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > 6) return false;
   if (!value.every(isRoundupRow)) return false;
 
@@ -200,8 +190,7 @@ function isRoundupRow(value: unknown): value is RoundupRow {
     (value.roundup_locale === 'is' || value.roundup_locale === 'en') &&
     (value.place_id === null || isUuid(value.place_id)) &&
     (value.place_name === null || hasText(value.place_name)) &&
-    (value.category === null ||
-      roundupCategories.includes(value.category as PlaceCategory)) &&
+    (value.category === null || roundupCategories.includes(value.category as PlaceCategory)) &&
     (value.municipality === null ||
       roundupMunicipalities.includes(value.municipality as RoundupMunicipality)) &&
     (value.recommendation_reason === null ||
@@ -228,9 +217,7 @@ function isSentinelRow(row: RoundupRow): boolean {
   );
 }
 
-function isRecommendationRow(
-  row: RoundupRow
-): row is RoundupRow & {
+function isRecommendationRow(row: RoundupRow): row is RoundupRow & {
   place_id: string;
   place_name: string;
   category: PlaceCategory;

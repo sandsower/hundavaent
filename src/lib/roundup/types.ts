@@ -66,9 +66,7 @@ export interface WeeklyRoundup {
 }
 
 export type WeeklyRoundupResult =
-  | { status: 'success'; value: WeeklyRoundup }
-  | { status: 'unavailable' };
+  { status: 'success'; value: WeeklyRoundup } | { status: 'unavailable' };
 
 export type RoundupPreferencesResult =
-  | { status: 'success'; value: RoundupPreferences }
-  | { status: 'unavailable' };
+  { status: 'success'; value: RoundupPreferences } | { status: 'unavailable' };

@@ -226,10 +226,7 @@ describe('Weekly roundup server boundary', () => {
   });
 });
 
-function clientWith(
-  values: { preferences: unknown; roundup: unknown },
-  error: unknown = null
-) {
+function clientWith(values: { preferences: unknown; roundup: unknown }, error: unknown = null) {
   const rpc = vi.fn(async (name: string) => {
     if (name === 'get_current_member_roundup_preferences') {
       return { data: values.preferences, error };

@@ -1153,9 +1153,7 @@ test('the private weekly roundup is keyboard-operable, responsive, and Axe-clean
     await page.context().clearCookies();
     const email = `weekly-roundup-a11y-${scenario.locale}-${Date.now()}@example.invalid`;
     const roundupPath = `/${scenario.locale}/account/roundup`;
-    await page.goto(
-      `/${scenario.locale}/account?returnTo=${encodeURIComponent(roundupPath)}`
-    );
+    await page.goto(`/${scenario.locale}/account?returnTo=${encodeURIComponent(roundupPath)}`);
     await waitForHydration(page);
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel(scenario.emailLabel).fill(email);
