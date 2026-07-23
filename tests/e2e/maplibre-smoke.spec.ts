@@ -12,7 +12,10 @@ test('the real MapLibre adapter renders, selects, moves, attributes, and dispose
     container.style.width = '640px';
     container.style.height = '420px';
     document.body.append(container);
-    const adapter = createMapLibreAdapter({ style: emptyMapLibreStyle });
+    const adapter = createMapLibreAdapter({
+      style: emptyMapLibreStyle,
+      clusterRadiusPixels: 40
+    });
     await adapter.mount(container, {
       onMarkerSelect: (placeId: string) => {
         document.body.dataset.selectedPlace = placeId;
@@ -63,6 +66,80 @@ test('the real MapLibre adapter renders, selects, moves, attributes, and dispose
       }
     ).smokeMapAdapter;
     adapter.setSelectedPlace(null);
+    adapter.setCamera({ latitude: 64.1423, longitude: -21.9555, zoom: 13 });
+    adapter.setPlaces([
+      {
+        placeId: '30000000-0000-4000-8000-000000000003',
+        name: 'Published Place marker',
+        latitude: 64.1423,
+        longitude: -21.9555
+      },
+      {
+        placeId: '30000000-0000-4000-8000-000000000004',
+        name: 'Nearby Place marker',
+        latitude: 64.1423,
+        longitude: -21.9512
+      }
+    ]);
+  });
+  await expect(smokeMap.getByRole('button', { name: 'Published Place marker' })).toBeVisible();
+  await expect(smokeMap.getByRole('button', { name: 'Nearby Place marker' })).toBeVisible();
+
+  await page.evaluate(() => {
+    const adapter = (
+      window as unknown as {
+        smokeMapAdapter: {
+          setPlaces(places: Array<Record<string, string | number>>): void;
+          setCamera(camera: { latitude: number; longitude: number; zoom: number }): void;
+        };
+      }
+    ).smokeMapAdapter;
+    delete document.body.dataset.clusterPlaces;
+    adapter.setCamera({ latitude: 64.1423, longitude: -21.9555, zoom: 13 });
+    adapter.setPlaces([
+      {
+        placeId: '30000000-0000-4000-8000-000000000003',
+        name: 'Published Place marker',
+        latitude: 64.1423,
+        longitude: -21.9555
+      },
+      {
+        placeId: '30000000-0000-4000-8000-000000000004',
+        name: 'Close Place marker',
+        latitude: 64.1423,
+        longitude: -21.95535
+      }
+    ]);
+  });
+  await smokeMap.getByRole('button', { name: '2 places' }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              smokeMapAdapter: {
+                getCamera(): { zoom: number } | null;
+              };
+            }
+          ).smokeMapAdapter.getCamera()?.zoom ?? 0
+      )
+    )
+    .toBeGreaterThan(13);
+  await expect(page.locator('body')).not.toHaveAttribute('data-cluster-places');
+
+  await page.evaluate(() => {
+    const adapter = (
+      window as unknown as {
+        smokeMapAdapter: {
+          setPlaces(places: Array<Record<string, string | number>>): void;
+          setSelectedPlace(placeId: string | null): void;
+          setCamera(camera: { latitude: number; longitude: number; zoom: number }): void;
+        };
+      }
+    ).smokeMapAdapter;
+    adapter.setSelectedPlace(null);
+    adapter.setCamera({ latitude: 64.1423, longitude: -21.9555, zoom: 13 });
     adapter.setPlaces([
       {
         placeId: '30000000-0000-4000-8000-000000000003',

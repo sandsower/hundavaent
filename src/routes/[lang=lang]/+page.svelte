@@ -8,6 +8,8 @@
 
   import type { PageProps } from './$types';
 
+  const publicDirectoryClusterRadiusPixels = 40;
+
   let { data }: PageProps = $props();
   let mapAdapter = $state<MapAdapter>(
     untrack(() =>
@@ -15,6 +17,7 @@
         ? createFailingMapAdapter()
         : createMapLibreAdapter({
             style: data.mapStyleUrl ?? emptyMapLibreStyle,
+            clusterRadiusPixels: publicDirectoryClusterRadiusPixels,
             clusterLabel: (count) =>
               data.copy['directory.clusterCount'].replace('{count}', String(count))
           })
