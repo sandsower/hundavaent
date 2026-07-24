@@ -553,6 +553,18 @@ export async function provisionLocalAchievementProgress(memberEmail: string): Pr
   `);
 }
 
+// A fresh E2E Member is created moments before historical Check-ins are inserted. Backdate only
+// the local fixture account so the permanent impact projection can exercise a realistic history
+// whose activity occurs after membership began.
+export async function backdateLocalMemberAccountForImpact(memberEmail: string): Promise<void> {
+  const memberId = await resolveLocalMemberIdByEmail(memberEmail);
+  runLocalDatabaseSql(`
+    update private.member_accounts
+    set created_at = statement_timestamp() - interval '6 months'
+    where user_id = '${memberId}'::uuid;
+  `);
+}
+
 export async function retireLocalAchievementProgress(memberEmail: string): Promise<void> {
   const memberId = await resolveLocalMemberIdByEmail(memberEmail);
   runLocalDatabaseSql(`
@@ -725,6 +737,21 @@ export async function provisionLocalConfirmedContribution(
       'dog_access_destination', 'candidate', 'cafe'
     );
 
+    insert into private.place_translations (place_id, locale, name, description)
+    values
+      (
+        '${placeId}'::uuid,
+        'is',
+        'Framlagsstaða prófun',
+        'Prófunarstaða til framlags.'
+      ),
+      (
+        '${placeId}'::uuid,
+        'en',
+        'Contribution status fixture',
+        'A confirmed Contribution fixture place.'
+      );
+
     insert into private.place_suggestions (
       id, member_id, request_id, proposal, status, candidate_place_id, reviewed_proposal, resolved_at
     ) values (
@@ -760,6 +787,106 @@ export async function provisionLocalConfirmedContribution(
   );
 
   return { suggestionId, contributionId, placeId };
+}
+
+export async function provisionLocalUnavailableContributionSuccessor(
+  contribution: LocalConfirmedContribution,
+  moderatorEmail: string
+): Promise<void> {
+  const status = getLocalSupabaseStatus();
+  const admin = createClient(status.apiUrl, status.secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const moderator = data?.users.find((candidate) => candidate.email === moderatorEmail);
+
+  if (error || !moderator || !/^[0-9a-f-]{36}$/i.test(moderator.id)) {
+    throw new Error('Could not identify the local successor fixture Moderator');
+  }
+
+  const operatorId = randomUUID();
+  const locationId = randomUUID();
+  const successorPlaceId = randomUUID();
+  const transitionId = randomUUID();
+  const requestId = randomUUID();
+  const addressLine = `Eftirmannagata ${locationId.slice(0, 8)}`;
+  const sql = `
+    insert into private.operators (id, name)
+    values ('${operatorId}'::uuid, 'Unavailable successor fixture operator');
+
+    insert into private.locations (
+      id, address_line, locality, postal_code, municipality, latitude, longitude,
+      geometry_precision, geometry_source
+    ) values (
+      '${locationId}'::uuid, '${addressLine}', 'Reykjavík', '101', 'reykjavik', 64.146, -21.946,
+      'moderator_confirmed_point', 'Reviewed E2E fixture coordinate'
+    );
+
+    insert into private.places (id, operator_id, location_id, purpose, lifecycle, category)
+    values (
+      '${successorPlaceId}'::uuid, '${operatorId}'::uuid, '${locationId}'::uuid,
+      'dog_access_destination', 'candidate', 'cafe'
+    );
+
+    insert into private.place_translations (place_id, locale, name, description)
+    values
+      (
+        '${successorPlaceId}'::uuid,
+        'is',
+        'Óbirtur eftirmaður',
+        'Óbirtur eftirmaður fyrir áhrifaprófun.'
+      ),
+      (
+        '${successorPlaceId}'::uuid,
+        'en',
+        'Unpublished successor',
+        'An unpublished successor for the impact journey.'
+      );
+
+    update private.places
+    set lifecycle = 'inactive', version = version + 1
+    where id = '${contribution.placeId}'::uuid;
+
+    insert into private.place_identity_transitions (
+      id,
+      predecessor_place_id,
+      successor_place_id,
+      kind,
+      predecessor_version,
+      request_id,
+      decided_by,
+      decided_at,
+      decision_notes
+    ) values (
+      '${transitionId}'::uuid,
+      '${contribution.placeId}'::uuid,
+      '${successorPlaceId}'::uuid,
+      'new_operator',
+      1,
+      '${requestId}'::uuid,
+      '${moderator.id}'::uuid,
+      now(),
+      'Impact record unavailable successor fixture'
+    );
+  `;
+
+  execFileSync(
+    'docker',
+    [
+      'exec',
+      localDatabaseContainer,
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      sql
+    ],
+    { stdio: ['ignore', 'ignore', 'inherit'] }
+  );
 }
 
 export const localInactiveSuggestionPredecessor = {

@@ -4,6 +4,7 @@
   import type { SubmitFunction } from '@sveltejs/kit';
 
   import { formatLocalizedDate } from '$i18n/date';
+  import ImpactPillarIcon from '$lib/impact/ImpactPillarIcon.svelte';
   import WeeklyRhythmTrail from '$lib/member-activity/WeeklyRhythmTrail.svelte';
   import type { WeeklyRhythmHistory } from '$lib/member-activity/types';
   import RoundupTrailIcon from '$lib/roundup/RoundupTrailIcon.svelte';
@@ -75,6 +76,25 @@
       <WeeklyRhythmTrail history={weeklyRhythmHistory} lang={data.lang} copy={data.copy} />
 
       <div class="account-home hv-grid" data-columns="2">
+        <section
+          class="account-destination impact hv-panel hv-list-card"
+          aria-labelledby="impact-heading"
+        >
+          <span class="impact-icon" aria-hidden="true">
+            <ImpactPillarIcon kind="recognition" size="small" />
+          </span>
+          <div>
+            <h2 id="impact-heading">{data.copy['account.impactHeading']}</h2>
+            <p>{data.copy['account.impactIntro']}</p>
+            <a
+              class="hv-control"
+              href={resolve('/[lang=lang]/account/impact', { lang: data.lang })}
+            >
+              {data.copy['account.impactLink']}
+            </a>
+          </div>
+        </section>
+
         <section
           class="account-destination roundup hv-panel hv-list-card"
           aria-labelledby="roundup-heading"
@@ -312,6 +332,24 @@
     grid-template-columns: auto minmax(0, 1fr);
     border-color: color-mix(in srgb, var(--hv-color-fjord) 28%, var(--hv-color-line));
     background: color-mix(in srgb, var(--hv-color-sky) 5%, var(--hv-color-snow-raised));
+  }
+
+  .account-destination.impact {
+    --impact-tone: var(--hv-color-moss);
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: auto minmax(0, 1fr);
+    border-color: color-mix(in srgb, var(--hv-color-moss) 30%, var(--hv-color-line));
+    background:
+      radial-gradient(circle at 5% 10%, rgb(79 143 104 / 12%), transparent 38%),
+      var(--hv-color-snow-raised);
+  }
+
+  .impact-icon {
+    display: grid;
+    width: 2.8rem;
+    height: 2.8rem;
+    place-items: center;
   }
 
   .roundup-icon {

@@ -612,6 +612,25 @@ export type Database = {
           welcome_score: number | null
         }[]
       }
+      get_my_impact_record: {
+        Args: { requested_locale: string }
+        Returns: {
+          active_months: number
+          active_weeks: number
+          confirmed_contributions: number
+          credited_category_groups: number
+          credited_municipalities: number
+          credited_places: number
+          member_since: string
+          pending_submissions: number
+          recent_outcomes: Json
+          rejected_submissions: number
+          resolved_without_contribution: number
+          revoked_contributions: number
+          submissions_total: number
+          valid_ratings: number
+        }[]
+      }
       get_photo_acquisition_inventory: {
         Args: never
         Returns: {

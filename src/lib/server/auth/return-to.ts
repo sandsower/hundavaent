@@ -17,6 +17,7 @@ export function normalizeMemberReturnTo(value: unknown, locale: Locale): string 
   const allowedPrivateAccountPaths = new Set([
     `${accountRoot}/achievements`,
     `${accountRoot}/corrections-and-reports`,
+    `${accountRoot}/impact`,
     `${accountRoot}/suggestions`,
     `${accountRoot}/contributor-status`,
     `${accountRoot}/roundup`
