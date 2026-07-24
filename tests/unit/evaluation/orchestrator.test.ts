@@ -89,8 +89,29 @@ describe('release evaluation orchestration', () => {
       'dump_snapshot_schema "storage" recovery/storage-schema.sql'
     );
     const storageData = workflow.indexOf('dump_snapshot_data "storage" recovery/storage-data.sql');
+    const checkRelaxationDerivation = workflow.indexOf(
+      'order by 1" > recovery/auth-recovery-check-relaxations.txt'
+    );
+    const generatedCheckDrop = workflow.indexOf(
+      'printf \'ALTER TABLE "%s"."%s" DROP CONSTRAINT "%s";\\n\''
+    );
+    const generatedNeutralization = workflow.indexOf(
+      'printf \'UPDATE "%s"."%s" SET "%s" = NULL WHERE "%s" IS NOT NULL;\\n\''
+    );
+    const restoredAbsenceProof = workflow.indexOf(
+      'A recovery-relaxed Auth-dependent check constraint remains installed.'
+    );
+    const manifestAssembly = workflow.indexOf(
+      'auth_recovery_check_relaxations: $auth_recovery_check_relaxations'
+    );
 
     expect(applicationDump).toBeGreaterThan(0);
+    expect(checkRelaxationDerivation).toBeGreaterThan(0);
+    expect(checkRelaxationDerivation).toBeLessThan(applicationDump);
+    expect(generatedCheckDrop).toBeGreaterThan(0);
+    expect(generatedCheckDrop).toBeLessThan(generatedNeutralization);
+    expect(restoredAbsenceProof).toBeGreaterThan(applicationDump);
+    expect(manifestAssembly).toBeGreaterThan(restoredAbsenceProof);
     expect(storageSchema).toBeGreaterThan(applicationDump);
     expect(storageData).toBeGreaterThan(storageSchema);
     expect(workflow).not.toContain('dump_snapshot_schema "auth"');
@@ -108,6 +129,15 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('recovery/auth-hard-excluded-restored-counts.txt');
     expect(workflow).toContain('recovery/auth-neutralized-references.txt');
     expect(workflow).toContain('recovery/auth-neutralized-restored-counts.txt');
+    expect(workflow).toContain('recovery/auth-recovery-check-relaxations.txt');
+    expect(workflow).toContain('f.attnum = any(check_constraint.conkey)');
+    expect(workflow).toContain('ALTER TABLE "%s"."%s" DROP CONSTRAINT "%s";');
+    expect(workflow).toContain('private.place_media|place_media_approval_requires_metadata_check');
+    expect(workflow).toContain('private.auth_pending_intents|auth_pending_intent_lifecycle_check');
+    expect(workflow).toContain('auth_recovery_check_relaxations');
+    expect(workflow).toContain(
+      'A recovery-relaxed Auth-dependent check constraint remains installed.'
+    );
     expect(workflow).toContain(
       'Composite foreign keys cross the disposable Auth recovery boundary.'
     );
@@ -202,7 +232,7 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('--role "postgres"');
     expect(workflow).not.toContain('--exclude-table "auth.schema_migrations"');
     expect(workflow).not.toContain('--exclude-table "storage.migrations"');
-    expect(workflow.match(/snapshot_query/g)).toHaveLength(12);
+    expect(workflow.match(/snapshot_query/g)).toHaveLength(13);
     expect(workflow.match(/dump_snapshot_data/g)).toHaveLength(3);
     expect(exportedSnapshot).toBeGreaterThan(0);
     expect(applicationDump).toBeGreaterThan(exportedSnapshot);
