@@ -122,8 +122,9 @@
       reviewData?.suggestion.outcome === 'needs_information'
   );
   const correctionDecisionAvailable = $derived(
-    correctionReviewData?.flag.outcome === 'submitted' ||
-      correctionReviewData?.flag.outcome === 'needs_information'
+    correctionReviewData?.trustedVerification?.outcome !== 'superseded' &&
+      (correctionReviewData?.flag.outcome === 'submitted' ||
+        correctionReviewData?.flag.outcome === 'needs_information')
   );
   const candidateDecisionAvailable = $derived(
     candidateReviewData?.review.candidateStatus === 'pending' ||

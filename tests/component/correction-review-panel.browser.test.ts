@@ -89,6 +89,55 @@ const data = {
 };
 
 describe('CorrectionReviewPanel', () => {
+  it('labels a superseded Trusted Verification and disables stale moderation decisions', () => {
+    render(CorrectionReviewPanel, {
+      data: {
+        ...data,
+        trustedVerification: {
+          submissionId: 'submission-1',
+          taskId: 'access_freshness:condition-1:verification-1',
+          taskKind: 'access_freshness',
+          outcome: 'superseded',
+          supersededBySubmissionId: 'submission-2'
+        }
+      },
+      form: null,
+      standalone: true
+    });
+
+    expect(screen.getByText('Trusted Verification')).toBeTruthy();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Another contribution already resolved this exact task. Decisions are disabled.'
+    );
+    expect(screen.queryByRole('button', { name: 'Apply Correction' })).toBeNull();
+    expect(
+      screen
+        .getAllByRole('button', { name: /Edit/ })
+        .every((button) => button.hasAttribute('disabled'))
+    ).toBe(true);
+  });
+
+  it('announces a newly confirmed useful Contribution after redirect', () => {
+    render(CorrectionReviewPanel, {
+      data: {
+        ...data,
+        flag: {
+          ...flag,
+          outcome: 'applied',
+          contributionId: 'contribution-1'
+        },
+        contributionConfirmed: true
+      },
+      form: null,
+      standalone: true
+    });
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'The useful Contribution has been confirmed.'
+    );
+    expect(screen.queryByRole('button', { name: 'Confirm useful Contribution' })).toBeNull();
+  });
+
   it('announces a saved draft on the direct route', () => {
     render(CorrectionReviewPage, {
       data: { ...data, draftSaved: true },
