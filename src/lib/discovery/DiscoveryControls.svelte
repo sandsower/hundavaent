@@ -15,6 +15,7 @@
     resultCount: number;
     filtersOpen: boolean;
     resultsOpen: boolean;
+    selectionActive?: boolean;
     copy: Catalogue;
     locationState: 'idle' | 'locating' | 'ready' | 'denied' | 'unavailable';
     suggestHref: string;
@@ -37,6 +38,7 @@
     resultCount,
     filtersOpen,
     resultsOpen,
+    selectionActive = false,
     copy,
     locationState,
     suggestHref,
@@ -110,7 +112,9 @@
     />
   </label>
 
-  <div class="shortcut-row">
+  <!-- The compact answer card owns the screen during a selection: the edge
+       tab carries the slice, so the chip row steps aside until ✕/Esc. -->
+  <div class="shortcut-row" hidden={selectionActive}>
     <div class="category-shortcuts" role="group" aria-label={copy['directory.categoryFilter']}>
       {#each categoryChips as { chip, label, active } (chip)}
         <button
@@ -395,6 +399,10 @@
     gap: 0.3rem;
     min-width: 0;
     pointer-events: none;
+  }
+
+  .shortcut-row[hidden] {
+    display: none;
   }
 
   .category-shortcuts {

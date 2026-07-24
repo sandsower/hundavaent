@@ -525,11 +525,12 @@
     // Any pin exits the folded Focus state; the selection needs its chrome.
     manualFold = false;
     openDetailsIntentPlaceId = openDetails ? placeId : null;
+    // Selection folds, never clears: an open list keeps view=list in the URL
+    // and folds to the edge tab, so ✕/Esc restores exactly the browse state.
     commitState(
       {
         ...discoveryState,
         selectedPlaceId: placeId,
-        view: 'map',
         camera: {
           latitude: place.latitude,
           longitude: place.longitude,
@@ -555,7 +556,7 @@
 
   function clearSelectedPlace(): void {
     const previouslySelectedPlaceId = discoveryState.selectedPlaceId;
-    commitState({ ...discoveryState, selectedPlaceId: null, view: 'map' }, 'replace');
+    commitState({ ...discoveryState, selectedPlaceId: null }, 'replace');
     openDetailsIntentPlaceId = null;
     announcement = '';
     if (previouslySelectedPlaceId) {
@@ -566,7 +567,7 @@
           focusOrigin.focus();
           return;
         }
-        if (mapFailed) {
+        if (mapFailed || discoveryState.view === 'list') {
           const restoredResult = [
             ...document.querySelectorAll<HTMLButtonElement>('.results-overlay [data-place-id]')
           ].find((element) => element.dataset.placeId === previouslySelectedPlaceId);
@@ -717,6 +718,11 @@
 
   function clearFilters(): void {
     updateFilters({ ...defaultDiscoveryFilters }, 'push', 'map');
+  }
+
+  // The edge tab restores the browse state the selection folded away.
+  function expandListTab(): void {
+    clearSelectedPlace();
   }
 
   // The sticky fold collapses the command cluster to a search icon and the
@@ -964,6 +970,7 @@
           resultCount={filteredPlaces.length}
           {filtersOpen}
           resultsOpen={discoveryState.view === 'list' && !mapFailed}
+          selectionActive={selectedPlace !== null}
           {copy}
           {locationState}
           {suggestHref}
@@ -983,7 +990,7 @@
 
       {#if !filtersOpen}
         <div class="rail-stack">
-          {#if selectedPlace && discoveryState.view !== 'list'}
+          {#if selectedPlace}
             <div
               class="selected-place-overlay rail-content"
               data-selected-place-overlay
@@ -1022,11 +1029,11 @@
           {#if filteredPlaces.length > 0 && !manualFold}
             <div
               class="results-overlay rail-content"
-              data-results-visible={discoveryState.view === 'list' || mapFailed}
+              data-results-visible={(discoveryState.view === 'list' && !selectedPlace) || mapFailed}
               role={mapFailed ? 'region' : undefined}
               aria-label={mapFailed ? copy['directory.listLabel'] : undefined}
-              aria-hidden={selectedPlace && !wideDetailLayout ? 'true' : undefined}
-              inert={selectedPlace && !wideDetailLayout ? true : undefined}
+              aria-hidden={selectedPlace ? 'true' : undefined}
+              inert={selectedPlace ? true : undefined}
             >
               <DiscoveryResults
                 places={resultPlaces}
@@ -1058,6 +1065,20 @@
         <button type="button" class="focus-places" onclick={unfoldFromPill}>
           <span class="focus-count">{filteredPlaces.length}</span>
           {focusPillLabel}
+        </button>
+      {/if}
+
+      {#if selectedPlace && discoveryState.view === 'list' && !mapFailed && !manualFold}
+        <button
+          type="button"
+          class="list-edge-tab"
+          aria-label={resultPlaces.length === 1
+            ? copy['directory.showResultOne']
+            : copy['directory.showResults'].replace('{count}', String(resultPlaces.length))}
+          onclick={expandListTab}
+        >
+          <span class="tab-count">{resultPlaces.length}</span>
+          <span class="tab-chevron" aria-hidden="true">›</span>
         </button>
       {/if}
     </aside>
@@ -1232,10 +1253,49 @@
   }
 
   .focus-search:focus-visible,
-  .focus-places:focus-visible {
+  .focus-places:focus-visible,
+  .list-edge-tab:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
     box-shadow: 0 0 0 2px var(--hv-focus-offset);
+  }
+
+  /* A selection folds an open list to the left edge tab; the count badge
+     keeps the slice alive while the card owns the screen. */
+  .list-edge-tab {
+    position: absolute;
+    top: min(38dvh, 24rem);
+    left: calc(-1 * var(--floating-card-inset));
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.55rem 0.5rem 0.5rem 0.6rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-left: 0;
+    border-radius: 0 0.75rem 0.75rem 0;
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
+    color: var(--hv-color-basalt-muted);
+    cursor: pointer;
+    place-items: center;
+    pointer-events: auto;
+  }
+
+  .tab-count {
+    display: inline-grid;
+    min-width: 1.5rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: var(--hv-color-signal);
+    color: var(--hv-color-basalt);
+    font-size: 0.8rem;
+    font-weight: 900;
+    place-items: center;
+  }
+
+  .tab-chevron {
+    font-size: 1.1rem;
+    font-weight: 900;
+    line-height: 1;
   }
 
   .map-stage {
@@ -1245,11 +1305,13 @@
     min-height: 0;
   }
 
+  /* The compact answer card (state 4) sizes to its content; opening
+     "Place details" grows the same card (state 5) - nothing else moves. */
   .selected-place-overlay {
     z-index: 4;
     display: flex;
     width: 100%;
-    flex: 1;
+    flex: 0 1 auto;
     overflow: hidden;
     border: 1px solid var(--hv-border-strong);
     border-radius: var(--hv-radius-shell);
@@ -1258,11 +1320,20 @@
     animation: detail-card-enter 240ms ease-out both;
   }
 
+  .selected-place-overlay:has(:global(details[open])) {
+    flex: 1 1 auto;
+  }
+
   .selected-place-overlay :global(aside) {
     width: 100%;
-    height: 100%;
+    height: auto;
+    min-height: 0;
     max-height: none;
     border-radius: inherit;
+  }
+
+  .selected-place-overlay:has(:global(details[open])) :global(aside) {
+    height: 100%;
   }
 
   .results-overlay {
@@ -1375,10 +1446,23 @@
       position: fixed;
       top: var(--chrome-top);
       right: var(--floating-card-inset);
-      bottom: var(--floating-card-inset);
+      bottom: auto;
       left: auto;
       width: var(--directory-rail-width);
       flex: none;
+    }
+
+    .selected-place-overlay :global(aside) {
+      max-height: calc(100dvh - var(--chrome-top) - var(--floating-card-inset));
+    }
+
+    .selected-place-overlay:has(:global(details[open])) {
+      bottom: var(--floating-card-inset);
+    }
+
+    .selected-place-overlay:has(:global(details[open])) :global(aside) {
+      height: 100%;
+      max-height: none;
     }
 
     .map-list-shell[data-detail-layout='floating'] .map-stage :global(.maplibregl-ctrl-top-right),

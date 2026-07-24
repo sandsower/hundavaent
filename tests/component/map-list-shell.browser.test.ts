@@ -1786,17 +1786,27 @@ describe('MapListShell synchronization', () => {
     expect(screen.queryByRole('combobox', { name: 'Place type' })).toBeNull();
     expect(screen.getByLabelText('Selected place')).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
+    // The card owns the screen: the chip row and sheet step aside while
+    // search stays reachable; Escape restores the browse chrome.
+    expect(screen.queryByRole('button', { name: 'More filters' })).toBeNull();
+    expect(screen.getByRole('searchbox', { name: 'Search for a place' })).toBeTruthy();
+    await fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByLabelText('Selected place')).toBeNull();
-    expect(screen.getByRole('combobox', { name: 'Place type' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'More filters' })).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Published Place' }));
-    expect(screen.queryByRole('combobox', { name: 'Place type' })).toBeNull();
-    expect(screen.getByLabelText('Selected place')).toBeTruthy();
-
+    // Selecting from the open list folds it to the edge tab and never clears
+    // the slice; the tab restores exactly the browse state.
     await fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    expect(screen.getByRole('heading', { name: 'Places found' })).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Select Published Place' }));
+    expect(screen.getByLabelText('Selected place')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Places found' })).toBeNull();
+    expect(window.location.search).toContain('view=list');
+    const edgeTab = screen.getByRole('button', { name: 'Show 1 result' });
+    await fireEvent.click(edgeTab);
     expect(screen.queryByLabelText('Selected place')).toBeNull();
     expect(screen.getByRole('heading', { name: 'Places found' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('restores result and selected-card focus across browser history', async () => {
@@ -2089,6 +2099,49 @@ describe('MapListShell synchronization', () => {
     await fireEvent.click(screen.getByRole('button', { name: /^Published Place$/ }));
     expect(screen.getByLabelText('Selected place')).toBeTruthy();
     expect(screen.getByRole('searchbox', { name: 'Search for a place' })).toBeTruthy();
+  });
+
+  it('grows the same card to full height for details and moves nothing else', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1280, 800);
+    history.replaceState(null, '', '/en');
+
+    try {
+      const { container } = render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: defaultDiscoveryState,
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+
+      await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+      const overlay = container.querySelector<HTMLElement>('[data-selected-place-overlay]');
+      expect(overlay).toBeTruthy();
+      if (!overlay) throw new Error('Expected the compact answer card');
+
+      // State 4: the compact card leaves the map visible below it.
+      await waitFor(() => expect(overlay.getBoundingClientRect().height).toBeGreaterThan(100));
+      const compactRect = overlay.getBoundingClientRect();
+      expect(window.innerHeight - compactRect.bottom).toBeGreaterThan(60);
+
+      // State 5: details stretch the same card to the bottom inset; its
+      // horizontal position never changes.
+      await waitFor(() =>
+        expect(within(overlay).getByText('Place details', { exact: true })).toBeTruthy()
+      );
+      await fireEvent.click(within(overlay).getByText('Place details', { exact: true }));
+      await waitFor(() =>
+        expect(window.innerHeight - overlay.getBoundingClientRect().bottom).toBeLessThan(20)
+      );
+      expect(overlay.getBoundingClientRect().left).toBeCloseTo(compactRect.left, 0);
+      expect(overlay.getBoundingClientRect().width).toBeCloseTo(compactRect.width, 0);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
   });
 
   it('quiets the chrome only while a map gesture lasts and never folds it', async () => {
