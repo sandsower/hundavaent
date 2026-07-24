@@ -560,6 +560,23 @@ describe('Member auth routes', () => {
         }
 
         if (name === 'has_current_user_role') return result;
+        if (name === 'list_trusted_verification_tasks') {
+          return { data: null, error: { code: '42501' } };
+        }
+        if (name === 'get_my_trusted_verification_feedback') {
+          return {
+            data: [
+              {
+                has_unread: false,
+                unread_count: 0,
+                latest_confirmed_at: null,
+                latest_task_kind: null,
+                latest_place_id: null
+              }
+            ],
+            error: null
+          };
+        }
         throw new Error(`Unexpected RPC: ${name}`);
       });
       const accountLoad = _createLoad(() => ({
@@ -616,6 +633,23 @@ describe('Member auth routes', () => {
         };
       }
 
+      if (name === 'list_trusted_verification_tasks') {
+        return { data: null, error: { code: '42501' } };
+      }
+      if (name === 'get_my_trusted_verification_feedback') {
+        return {
+          data: [
+            {
+              has_unread: false,
+              unread_count: 0,
+              latest_confirmed_at: null,
+              latest_task_kind: null,
+              latest_place_id: null
+            }
+          ],
+          error: null
+        };
+      }
       throw new Error('role lookup offline');
     });
     const accountLoad = _createLoad(() => ({
@@ -680,6 +714,23 @@ describe('Member auth routes', () => {
       }
       if (name === 'has_current_user_role') return { data: false, error: null };
       if (name === 'list_current_member_weekly_rhythm') return { data: weeks, error: null };
+      if (name === 'list_trusted_verification_tasks') {
+        return { data: null, error: { code: '42501' } };
+      }
+      if (name === 'get_my_trusted_verification_feedback') {
+        return {
+          data: [
+            {
+              has_unread: false,
+              unread_count: 0,
+              latest_confirmed_at: null,
+              latest_task_kind: null,
+              latest_place_id: null
+            }
+          ],
+          error: null
+        };
+      }
       throw new Error(`Unexpected RPC: ${name}`);
     });
     const accountLoad = _createLoad(() => ({

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { catalogues } from '$i18n';
-import { load } from '../../../src/routes/[lang=lang]/account/impact/+page.server';
+import { actions, load } from '../../../src/routes/[lang=lang]/account/impact/+page.server';
 
 const impactRow = {
   member_since: '2026-01-02T12:00:00Z',
@@ -55,13 +55,43 @@ describe('private impact page boundary', () => {
       achievements: {
         status: 'available',
         value: { enabled: true, achievements: [] }
+      },
+      trustedVerificationFeedback: {
+        status: 'available',
+        value: { hasUnread: true, unreadCount: 1 }
       }
     });
     expect(rpc).toHaveBeenCalledWith('get_my_impact_record', { requested_locale: 'en' });
     expect(rpc).toHaveBeenCalledWith('list_current_member_weekly_rhythm');
     expect(rpc).toHaveBeenCalledWith('get_my_contributor_status');
     expect(rpc).toHaveBeenCalledWith('get_my_achievements');
+    expect(rpc).toHaveBeenCalledWith('list_my_trusted_verification_submissions', {
+      requested_locale: 'en',
+      requested_limit: 30
+    });
+    expect(rpc).toHaveBeenCalledWith('get_my_trusted_verification_feedback');
     expect(rpc).not.toHaveBeenCalledWith(expect.stringMatching(/claim|record|activate|save/));
+  });
+
+  it('acknowledges only the bounded confirmation timestamp sent from the impact page', async () => {
+    const rpc = impactRpc();
+    const request = new Request('https://hundavaent.test/en/account/impact', {
+      method: 'POST',
+      body: new URLSearchParams({ readThrough: '2026-07-24T12:00:00Z' })
+    });
+
+    await expect(
+      actions.markTrustedVerificationRead?.({
+        ...eventWith(rpc),
+        request
+      } as never)
+    ).resolves.toEqual({
+      action: 'markTrustedVerificationRead',
+      acknowledged: true
+    });
+    expect(rpc).toHaveBeenCalledWith('mark_my_trusted_verification_feedback_read', {
+      requested_read_through: '2026-07-24T12:00:00Z'
+    });
   });
 
   it('keeps the durable impact record available when a recognition seam is temporarily down', async () => {
@@ -104,6 +134,29 @@ function impactRpc({
       return achievementsUnavailable
         ? { data: null, error: { code: 'offline' } }
         : { data: [achievementSentinel], error: null };
+    }
+    if (name === 'list_my_trusted_verification_submissions') {
+      return { data: [], error: null };
+    }
+    if (name === 'get_my_trusted_verification_feedback') {
+      return {
+        data: [
+          {
+            has_unread: true,
+            unread_count: 1,
+            latest_confirmed_at: '2026-07-24T12:00:00Z',
+            latest_task_kind: 'dog_amenities',
+            latest_place_id: 'place-1'
+          }
+        ],
+        error: null
+      };
+    }
+    if (name === 'mark_my_trusted_verification_feedback_read') {
+      return {
+        data: [{ read_through_confirmed_at: '2026-07-24T12:00:00Z' }],
+        error: null
+      };
     }
     throw new Error(`Unexpected RPC ${name}`);
   });

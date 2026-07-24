@@ -563,6 +563,16 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_moderation_trusted_verification_context: {
+        Args: { requested_flag_id: string }
+        Returns: {
+          outcome: string
+          submission_id: string
+          superseded_by_submission_id: string
+          task_id: string
+          task_kind: string
+        }[]
+      }
       get_my_achievement_status: {
         Args: never
         Returns: {
@@ -629,6 +639,16 @@ export type Database = {
           revoked_contributions: number
           submissions_total: number
           valid_ratings: number
+        }[]
+      }
+      get_my_trusted_verification_feedback: {
+        Args: never
+        Returns: {
+          has_unread: boolean
+          latest_confirmed_at: string
+          latest_place_id: string
+          latest_task_kind: string
+          unread_count: number
         }[]
       }
       get_photo_acquisition_inventory: {
@@ -758,6 +778,19 @@ export type Database = {
           member_id: string
           place_id: string
           proximity_confirmed: string
+        }[]
+      }
+      get_trusted_verification_task: {
+        Args: { requested_locale: string; requested_task_id: string }
+        Returns: {
+          category: string
+          current_value: Json
+          freshness_until: string
+          municipality: string
+          place_id: string
+          place_name: string
+          task_id: string
+          task_kind: string
         }[]
       }
       has_current_user_role: {
@@ -1065,6 +1098,21 @@ export type Database = {
           updated_at: string
         }[]
       }
+      list_my_trusted_verification_submissions: {
+        Args: { requested_limit?: number; requested_locale: string }
+        Returns: {
+          confirmed_at: string
+          flag_id: string
+          member_reason: string
+          outcome: string
+          place_id: string
+          place_name: string
+          submission_id: string
+          submitted_at: string
+          task_id: string
+          task_kind: string
+        }[]
+      }
       list_personal_check_ins: {
         Args: {
           requested_before_check_in_id?: string
@@ -1240,6 +1288,25 @@ export type Database = {
           operator_name: string
           place_id: string
           same_operator: boolean
+        }[]
+      }
+      list_trusted_verification_tasks: {
+        Args: { requested_limit?: number; requested_locale: string }
+        Returns: {
+          category: string
+          current_value: Json
+          freshness_until: string
+          municipality: string
+          place_id: string
+          place_name: string
+          task_id: string
+          task_kind: string
+        }[]
+      }
+      mark_my_trusted_verification_feedback_read: {
+        Args: { requested_read_through: string }
+        Returns: {
+          read_through_confirmed_at: string
         }[]
       }
       open_access_dispute: {
@@ -1674,6 +1741,22 @@ export type Database = {
           status: string
           submitted_at: string
           suggestion_id: string
+        }[]
+      }
+      submit_trusted_verification_task: {
+        Args: {
+          command_request_id: string
+          requested_evidence: Json
+          requested_explanation: string
+          requested_response: Json
+          requested_task_id: string
+        }
+        Returns: {
+          activated_current_week: boolean
+          flag_id: string
+          outcome: string
+          submission_id: string
+          submitted_at: string
         }[]
       }
       sync_interface_translation_inventory: {

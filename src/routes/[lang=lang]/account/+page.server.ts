@@ -17,6 +17,11 @@ import { hasOptionalRole } from '$server/auth/role-capability';
 import { isValidEmail, normalizeMemberReturnTo } from '$server/auth/return-to';
 import { AuthenticationExpiredError, getMemberSession } from '$server/auth/session';
 import { getWeeklyRhythmHistory } from '$server/member-activity/weekly-rhythm';
+import {
+  getMyTrustedVerificationFeedback,
+  listTrustedVerificationTasks,
+  type TrustedVerificationRpcClient
+} from '$server/trusted-verification/trusted-verification';
 
 import type { Actions, PageServerLoad } from './$types';
 import type { MemberAuthConfigResolution } from '$server/auth/member';
@@ -103,9 +108,12 @@ export function _createLoad(
       };
     }
 
-    const [canModerate, weeklyRhythmHistory] = await Promise.all([
+    const trustedClient = locals.supabase as unknown as TrustedVerificationRpcClient;
+    const [canModerate, weeklyRhythmHistory, trustedTasks, trustedFeedback] = await Promise.all([
       hasOptionalRole(locals.supabase, 'moderator'),
-      getWeeklyRhythmHistory(locals.supabase)
+      getWeeklyRhythmHistory(locals.supabase),
+      listTrustedVerificationTasks(trustedClient, lang, 1),
+      getMyTrustedVerificationFeedback(trustedClient)
     ]);
 
     return {
@@ -119,7 +127,15 @@ export function _createLoad(
       authStatus: null,
       providers,
       canModerate,
-      weeklyRhythmHistory
+      weeklyRhythmHistory,
+      trustedVerification:
+        trustedTasks.status === 'success'
+          ? { status: 'available' as const, hasTasks: trustedTasks.value.length > 0 }
+          : { status: 'unavailable' as const },
+      trustedVerificationFeedback:
+        trustedFeedback.status === 'success'
+          ? { status: 'available' as const, value: trustedFeedback.value }
+          : { status: 'unavailable' as const }
     };
   };
 }

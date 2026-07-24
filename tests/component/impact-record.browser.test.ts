@@ -153,9 +153,43 @@ describe('private impact record', () => {
       screen.queryByText('Your first Achievement will appear here when you earn it.')
     ).toBeNull();
   });
+
+  it('celebrates one unread confirmed verification without exposing it publicly', () => {
+    renderPage('en', true, {
+      status: 'available',
+      value: {
+        hasUnread: true,
+        latestConfirmedAt: '2026-07-24T10:00:00Z',
+        latestTaskKind: 'dog_amenities',
+        latestPlaceId: '94800000-0000-4000-8000-000000000201'
+      }
+    });
+
+    const celebration = screen.getByTestId('trusted-verification-celebration');
+    expect(within(celebration).getByText('A fact you verified was confirmed')).toBeTruthy();
+    expect(within(celebration).getByRole('button', { name: 'Got it' })).toBeTruthy();
+    expect(
+      within(celebration).getByRole('link', { name: 'See the updated place' }).getAttribute('href')
+    ).toBe('/en?place=94800000-0000-4000-8000-000000000201');
+    expect(celebration.querySelectorAll('.spark')).toHaveLength(3);
+  });
 });
 
-function renderPage(lang: 'is' | 'en', achievementsEnabled = true) {
+function renderPage(
+  lang: 'is' | 'en',
+  achievementsEnabled = true,
+  trustedVerificationFeedback:
+    | {
+        status: 'available';
+        value: {
+          hasUnread: boolean;
+          latestConfirmedAt: string | null;
+          latestTaskKind: 'access_freshness' | 'dog_amenities' | null;
+          latestPlaceId: string | null;
+        };
+      }
+    | { status: 'unavailable' } = { status: 'unavailable' }
+) {
   return render(ImpactPage, {
     params: { lang },
     data: {
@@ -254,7 +288,8 @@ function renderPage(lang: 'is' | 'en', achievementsEnabled = true) {
             }
           ]
         }
-      }
+      },
+      trustedVerificationFeedback
     },
     form: null
   } as never);

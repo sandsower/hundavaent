@@ -596,6 +596,150 @@ export async function retireLocalWeeklyRoundupPreferences(memberEmail: string): 
   );
 }
 
+export interface LocalTrustedVerificationPlace {
+  placeId: string;
+  nameEn: string;
+}
+
+export function provisionLocalTrustedVerificationPlace(): LocalTrustedVerificationPlace {
+  const operatorId = randomUUID();
+  const locationId = randomUUID();
+  const placeId = randomUUID();
+  const conditionId = randomUUID();
+  const verificationId = randomUUID();
+  const evidenceId = randomUUID();
+  const nameEn = `Current facts fixture ${placeId.slice(0, 8)}`;
+  const nameIs = `Uppfærsluprófun ${placeId.slice(0, 8)}`;
+  const addressLine = `Uppfærslugata ${locationId.slice(0, 8)}`;
+
+  runLocalDatabaseSql(`
+    insert into private.operators (id, name)
+    values ('${operatorId}'::uuid, 'Trusted Verification fixture operator');
+
+    insert into private.locations (
+      id, address_line, locality, postal_code, municipality, latitude, longitude,
+      geometry_precision, geometry_source
+    ) values (
+      '${locationId}'::uuid, '${addressLine}', 'Kópavogur', '200', 'kopavogur',
+      64.111, -21.91, 'moderator_confirmed_point', 'Trusted Verification E2E fixture'
+    );
+
+    insert into private.places (
+      id, operator_id, location_id, purpose, lifecycle, category, dog_amenities, version,
+      published_at
+    ) values (
+      '${placeId}'::uuid, '${operatorId}'::uuid, '${locationId}'::uuid,
+      'dog_access_destination', 'published', 'park', '[]'::jsonb, 1, statement_timestamp()
+    );
+
+    insert into private.place_translations (place_id, locale, name, description)
+    values
+      (
+        '${placeId}'::uuid, 'is', '${nameIs}',
+        'Opinber prófunarlýsing fyrir staðfestingarverkefni.'
+      ),
+      (
+        '${placeId}'::uuid, 'en', '${nameEn}',
+        'Public fixture for a Trusted Verification task.'
+      );
+
+    insert into private.access_conditions (
+      id, place_id, access_area, restraint_condition, dog_eligibility,
+      availability_window, permission_requirement
+    ) values (
+      '${conditionId}'::uuid, '${placeId}'::uuid, 'outdoors', 'leash_required',
+      '{"scope":"all_dogs"}'::jsonb, '{}'::jsonb, 'standing_permission'
+    );
+
+    insert into private.verifications (
+      id, access_condition_id, status, verified_at, freshness_until
+    ) values (
+      '${verificationId}'::uuid, '${conditionId}'::uuid, 'verified',
+      statement_timestamp(), statement_timestamp() + interval '1 year'
+    );
+
+    insert into private.evidence (
+      id, place_id, kind, source_citation, source_label, observed_at
+    ) values (
+      '${evidenceId}'::uuid, '${placeId}'::uuid, 'direct_observation',
+      'Trusted Verification E2E fixture', 'Local fixture', statement_timestamp()
+    );
+
+    insert into private.verification_evidence (verification_id, evidence_id)
+    values ('${verificationId}'::uuid, '${evidenceId}'::uuid);
+  `);
+
+  return { placeId, nameEn };
+}
+
+export function retireLocalTrustedVerificationPlace(placeId: string): void {
+  assertUuid(placeId, 'Trusted Verification Place');
+  runLocalDatabaseSql(`
+    update private.places
+    set lifecycle = 'inactive', updated_at = statement_timestamp()
+    where id = '${placeId}'::uuid;
+  `);
+}
+
+export async function getLocalTrustedVerificationFlagId(
+  memberEmail: string,
+  placeId: string
+): Promise<string> {
+  assertUuid(placeId, 'Trusted Verification Place');
+  const memberId = await resolveLocalMemberIdByEmail(memberEmail);
+  const output = execFileSync(
+    'docker',
+    [
+      'exec',
+      localDatabaseContainer,
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-At',
+      '-c',
+      `
+        select submission.flag_id
+        from private.trusted_verification_submissions as submission
+        join private.place_flags as flag on flag.id = submission.flag_id
+        where submission.member_id = '${memberId}'::uuid
+          and flag.place_id = '${placeId}'::uuid
+        order by submission.submitted_at desc
+        limit 1;
+      `
+    ],
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }
+  ).trim();
+
+  if (!/^[0-9a-f-]{36}$/i.test(output)) {
+    throw new Error('Could not identify the local Trusted Verification moderation item');
+  }
+
+  return output;
+}
+
+export async function ensureLocalMemberFixtureActivation(memberEmail: string): Promise<void> {
+  const memberId = await resolveLocalMemberIdByEmail(memberEmail);
+  runLocalDatabaseSql(`
+    insert into private.member_accounts (user_id)
+    values ('${memberId}'::uuid)
+    on conflict (user_id) do nothing;
+
+    insert into security.role_grants (user_id, role)
+    select '${memberId}'::uuid, 'member'
+    where not exists (
+      select 1
+      from security.role_grants as role_grant
+      where role_grant.user_id = '${memberId}'::uuid
+        and role_grant.role = 'member'::security.app_role
+        and role_grant.revoked_at is null
+    );
+  `);
+}
+
 async function resolveLocalMemberIdByEmail(memberEmail: string): Promise<string> {
   const status = getLocalSupabaseStatus();
   const admin = createClient(status.apiUrl, status.secretKey, {

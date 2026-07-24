@@ -33,6 +33,22 @@
       }
     ).weeklyRhythmHistory ?? ({ status: 'unavailable' } as const)
   );
+  const trustedVerification = $derived(
+    (
+      data as typeof data & {
+        trustedVerification?:
+          { status: 'available'; hasTasks: boolean } | { status: 'unavailable' };
+      }
+    ).trustedVerification ?? ({ status: 'unavailable' } as const)
+  );
+  const trustedVerificationFeedback = $derived(
+    (
+      data as typeof data & {
+        trustedVerificationFeedback?:
+          { status: 'available'; value: { hasUnread: boolean } } | { status: 'unavailable' };
+      }
+    ).trustedVerificationFeedback ?? ({ status: 'unavailable' } as const)
+  );
 
   function providerLabel(provider: string): string {
     if (provider === 'facebook') return data.copy['account.providerFacebook'];
@@ -84,16 +100,49 @@
             <ImpactPillarIcon kind="recognition" size="small" />
           </span>
           <div>
-            <h2 id="impact-heading">{data.copy['account.impactHeading']}</h2>
+            <div class="destination-heading">
+              <h2 id="impact-heading">{data.copy['account.impactHeading']}</h2>
+              {#if trustedVerificationFeedback.status === 'available' && trustedVerificationFeedback.value.hasUnread}
+                <span class="unread-indicator" aria-hidden="true"></span>
+              {/if}
+            </div>
             <p>{data.copy['account.impactIntro']}</p>
             <a
               class="hv-control"
               href={resolve('/[lang=lang]/account/impact', { lang: data.lang })}
             >
               {data.copy['account.impactLink']}
+              {#if trustedVerificationFeedback.status === 'available' && trustedVerificationFeedback.value.hasUnread}
+                <span class="visually-hidden">
+                  {data.copy['impact.trustedCelebrationTitle']}
+                </span>
+              {/if}
             </a>
           </div>
         </section>
+
+        {#if trustedVerification.status === 'available'}
+          <section
+            class="account-destination trusted-verification hv-panel hv-list-card"
+            aria-labelledby="trusted-verification-heading"
+          >
+            <span class="trusted-verification-icon" aria-hidden="true">
+              <ImpactPillarIcon kind="knowledge" size="small" />
+            </span>
+            <div>
+              <h2 id="trusted-verification-heading">
+                {data.copy['account.trustedVerificationHeading']}
+              </h2>
+              <p>{data.copy['account.trustedVerificationIntro']}</p>
+              <a
+                class="hv-control"
+                href={resolve('/[lang=lang]/account/keep-current', { lang: data.lang })}
+              >
+                {data.copy['account.trustedVerificationLink']}
+              </a>
+            </div>
+          </section>
+        {/if}
 
         <section
           class="account-destination roundup hv-panel hv-list-card"
@@ -343,11 +392,36 @@
     background: linear-gradient(105deg, rgb(79 143 104 / 12%) 0%, var(--hv-color-snow-raised) 38%);
   }
 
-  .impact-icon {
+  .account-destination.trusted-verification {
+    --impact-tone: var(--hv-color-fjord);
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: auto minmax(0, 1fr);
+    border-color: color-mix(in srgb, var(--hv-color-fjord) 24%, var(--hv-color-line));
+    background: color-mix(in srgb, var(--hv-color-sky) 4%, var(--hv-color-snow-raised));
+  }
+
+  .impact-icon,
+  .trusted-verification-icon {
     display: grid;
     width: 2.8rem;
     height: 2.8rem;
     place-items: center;
+  }
+
+  .destination-heading {
+    display: flex;
+    gap: 0.55rem;
+    align-items: center;
+  }
+
+  .unread-indicator {
+    width: 0.65rem;
+    height: 0.65rem;
+    border: 2px solid var(--hv-color-snow-raised);
+    border-radius: 50%;
+    background: var(--hv-color-coral);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--hv-color-coral) 18%, transparent);
   }
 
   .roundup-icon {
@@ -542,6 +616,16 @@
     margin-top: 0.8rem;
   }
 
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   .deletion p {
     color: var(--hv-color-basalt-muted);
     line-height: 1.5;
@@ -561,7 +645,8 @@
       grid-column: auto;
     }
 
-    .account-destination.moderation {
+    .account-destination.moderation,
+    .account-destination.trusted-verification {
       grid-column: auto;
     }
   }

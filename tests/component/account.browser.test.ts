@@ -96,6 +96,43 @@ describe('Member account', () => {
     expect(moderationLink.getAttribute('href')).toBe('/en/moderation');
   });
 
+  it('shows earned verification access and one private unread impact indicator', () => {
+    render(AccountPage, {
+      params: { lang: 'en' },
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        member: {
+          email: 'trusted@example.is',
+          provider: 'email',
+          createdAt: '2026-07-01T12:00:00Z',
+          deletionStatus: 'active',
+          deletionRequestedAt: null
+        },
+        returnTo: '/en',
+        authStatus: null,
+        providers: { email: true, facebook: false },
+        canModerate: false,
+        trustedVerification: { status: 'available', hasTasks: true },
+        trustedVerificationFeedback: {
+          status: 'available',
+          value: { hasUnread: true }
+        }
+      },
+      form: null
+    } as never);
+
+    expect(screen.getByRole('heading', { name: 'Help keep places current' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'See verification tasks' }).getAttribute('href')).toBe(
+      '/en/account/keep-current'
+    );
+    expect(
+      screen.getByRole('link', {
+        name: 'See my impact A fact you verified was confirmed'
+      })
+    ).toBeTruthy();
+  });
+
   it('shows the private eight-week trail oldest-to-newest with neutral open weeks', () => {
     render(AccountPage, {
       params: { lang: 'en' },

@@ -85,6 +85,20 @@ function client(
     if (name === 'list_moderation_place_flags') return { data: [summaryRow], error: null };
     if (name === 'get_moderation_place_flag') return { data: [detailRow], error: null };
     if (name === 'list_related_place_flags') return { data: [relatedRow], error: null };
+    if (name === 'get_moderation_trusted_verification_context') {
+      return {
+        data: [
+          {
+            submission_id: 'submission-1',
+            task_id: 'access_freshness:condition-1:verification-1',
+            task_kind: 'access_freshness',
+            outcome: 'submitted',
+            superseded_by_submission_id: null
+          }
+        ],
+        error: null
+      };
+    }
     if (name === 'resolve_place_flag') {
       return {
         data: [
@@ -239,6 +253,10 @@ describe('Corrections and Reports workspace review assembly', () => {
           currentVerificationEvidence: [{ sourceLabel: 'Published policy' }]
         },
         related: [{ flagId: relatedRow.flag_id }],
+        trustedVerification: {
+          taskKind: 'access_freshness',
+          outcome: 'submitted'
+        },
         resolved: true,
         contributionConfirmed: true
       }
