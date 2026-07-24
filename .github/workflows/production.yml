@@ -181,6 +181,7 @@ jobs:
             if [[ "${schemas}" == "public|private|security" ]]; then
               test -s recovery/auth-hard-excluded-tables.txt
               test -s recovery/auth-neutralized-references.txt
+              test -s recovery/auth-recovery-check-relaxations.txt
               while IFS= read -r table; do
                 exclusion_args+=("--exclude-table-data=${table}")
               done < recovery/auth-hard-excluded-tables.txt
@@ -199,6 +200,12 @@ jobs:
                 sed -E 's/^\\(un)?restrict .*$/-- &/'
               if [[ "${schemas}" == "public|private|security" ]]; then
                 printf '\n-- Neutralize retained references to disposable Auth identity rows.\n'
+                while IFS='|' read -r table constraint_name; do
+                  schema="${table%%.*}"
+                  relation="${table#*.}"
+                  printf 'ALTER TABLE "%s"."%s" DROP CONSTRAINT "%s";\n' \
+                    "${schema}" "${relation}" "${constraint_name}"
+                done < recovery/auth-recovery-check-relaxations.txt
                 while IFS='|' read -r table column _; do
                   schema="${table%%.*}"
                   relation="${table#*.}"
@@ -339,6 +346,59 @@ jobs:
             echo "Could not derive required nullable Auth attribution neutralizations." >&2
             exit 1
           fi
+          snapshot_query "
+            ${hard_auth_tables_cte},
+            neutralized_auth_columns as (
+              select constraint_row.conrelid, constraint_row.conkey[1] as attnum
+              from hard_auth_tables hard_parent
+              join pg_constraint constraint_row
+                on constraint_row.contype = 'f'
+               and constraint_row.confrelid = hard_parent.table_oid
+              join pg_class child on child.oid = constraint_row.conrelid
+              join pg_namespace child_namespace on child_namespace.oid = child.relnamespace
+              join pg_attribute child_attribute
+                on child_attribute.attrelid = child.oid
+               and child_attribute.attnum = constraint_row.conkey[1]
+              where child_namespace.nspname in ('public', 'private', 'security')
+                and child.oid not in (select table_oid from hard_auth_tables)
+                and cardinality(constraint_row.conkey) = 1
+                and cardinality(constraint_row.confkey) = 1
+                and (
+                  not child_attribute.attnotnull or
+                  (
+                    child_namespace.nspname = 'private' and
+                    child.relname = 'place_media' and
+                    child_attribute.attname = 'uploaded_by'
+                  )
+                )
+            )
+            select distinct child_namespace.nspname || '.' || child.relname || '|' ||
+              check_constraint.conname
+            from neutralized_auth_columns f
+            join pg_constraint check_constraint
+              on check_constraint.conrelid = f.conrelid
+             and check_constraint.contype = 'c'
+             and f.attnum = any(check_constraint.conkey)
+            join pg_class child on child.oid = check_constraint.conrelid
+            join pg_namespace child_namespace on child_namespace.oid = child.relnamespace
+            order by 1" > recovery/auth-recovery-check-relaxations.txt
+          while IFS='|' read -r table constraint_name; do
+            if [[ ! "${table}" =~ ^(public|private|security)\.[a-z][a-z0-9_]*$ ]] || \
+                [[ ! "${constraint_name}" =~ ^[a-z][a-z0-9_]*$ ]]; then
+              echo "Unsafe identifier reached the Auth check-relaxation boundary." >&2
+              exit 1
+            fi
+          done < recovery/auth-recovery-check-relaxations.txt
+          if [[ ! -s recovery/auth-recovery-check-relaxations.txt ]] || \
+              ! grep -Fxq \
+                'private.place_media|place_media_approval_requires_metadata_check' \
+                recovery/auth-recovery-check-relaxations.txt || \
+              ! grep -Fxq \
+                'private.auth_pending_intents|auth_pending_intent_lifecycle_check' \
+                recovery/auth-recovery-check-relaxations.txt; then
+            echo "Could not derive required Auth-dependent check relaxations." >&2
+            exit 1
+          fi
           production_uploaded_by_nullable="$(snapshot_query "
             select is_nullable
             from information_schema.columns
@@ -359,8 +419,13 @@ jobs:
             > recovery/auth-hard-excluded-counts.txt
           dump_snapshot_data "public|private|security" recovery/data.sql
           test "$(grep -Ec '^ALTER TABLE .* DROP NOT NULL;$' recovery/data.sql)" -eq 1
+          test "$(grep -Ec '^ALTER TABLE .* DROP CONSTRAINT .*;$' recovery/data.sql)" -eq \
+            "$(wc -l < recovery/auth-recovery-check-relaxations.txt)"
           grep -Fxq \
             'ALTER TABLE "private"."place_media" ALTER COLUMN "uploaded_by" DROP NOT NULL;' \
+            recovery/data.sql
+          grep -Fxq \
+            'ALTER TABLE "private"."place_media" DROP CONSTRAINT "place_media_approval_requires_metadata_check";' \
             recovery/data.sql
           # Hard identity-owned rows are disposable pre-launch test state. Core application rows
           # survive with nullable identity attribution deterministically neutralized.
@@ -532,6 +597,27 @@ jobs:
               exit 1
             fi
           done < recovery/auth-neutralized-references.txt
+          while IFS='|' read -r table constraint_name; do
+            if [[ ! "${table}" =~ ^(public|private|security)\.[a-z][a-z0-9_]*$ ]] || \
+                [[ ! "${constraint_name}" =~ ^[a-z][a-z0-9_]*$ ]]; then
+              echo "Unsafe identifier reached restored Auth check-relaxation proof." >&2
+              exit 1
+            fi
+            schema="${table%%.*}"
+            relation="${table#*.}"
+            remaining_constraint="$(psql -At "${recovery_db_url}" -c "
+              select count(*)
+              from pg_constraint constraint_row
+              join pg_class relation_row on relation_row.oid = constraint_row.conrelid
+              join pg_namespace namespace_row on namespace_row.oid = relation_row.relnamespace
+              where namespace_row.nspname = '${schema}'
+                and relation_row.relname = '${relation}'
+                and constraint_row.conname = '${constraint_name}'")"
+            if [[ "${remaining_constraint}" != "0" ]]; then
+              echo "A recovery-relaxed Auth-dependent check constraint remains installed." >&2
+              exit 1
+            fi
+          done < recovery/auth-recovery-check-relaxations.txt
           if [[ "$(wc -l < recovery/auth-recovery-schema-relaxations.txt)" != "1" ]] || \
               ! grep -Eq '^private\.place_media\|uploaded_by\|drop_not_null\|(YES|NO)$' \
                 recovery/auth-recovery-schema-relaxations.txt; then
@@ -597,6 +683,7 @@ jobs:
             echo "- Storage schema/data: preserved and restore-tested"
             echo "- Managed Auth and hard identity-owned test rows: intentionally skipped"
             echo "- Retained nullable identity attribution: neutralized and restore-tested"
+            echo "- Auth-dependent checks: explicitly relaxed and restore-tested"
             echo "- Restore test: passed against supabase/postgres:17.6.1.141"
           } >> "${GITHUB_STEP_SUMMARY}"
 
@@ -628,6 +715,14 @@ jobs:
                 production_was_nullable: (.[3] == "YES")
               }]' < recovery/auth-recovery-schema-relaxations.txt
           )"
+          auth_recovery_check_relaxations="$(
+            jq -Rn \
+              '[inputs | split("|") | {
+                table: .[0],
+                constraint: .[1],
+                action: "drop_check"
+              }]' < recovery/auth-recovery-check-relaxations.txt
+          )"
           tar --sort=name --mtime='UTC 1970-01-01' \
             --owner=0 --group=0 --numeric-owner \
             -cf - recovery | gzip -n -9 > "${plaintext_archive}"
@@ -644,6 +739,7 @@ jobs:
             --argjson hard_excluded_auth_tables "${hard_excluded_auth_tables}" \
             --argjson neutralized_auth_references "${neutralized_auth_references}" \
             --argjson auth_recovery_schema_relaxations "${auth_recovery_schema_relaxations}" \
+            --argjson auth_recovery_check_relaxations "${auth_recovery_check_relaxations}" \
             '{
               schema_version: 1,
               release_sha: $release_sha,
@@ -659,7 +755,8 @@ jobs:
               managed_auth_mode: "excluded-prelaunch-auth-and-hard-identity-rows-providers-disabled",
               hard_excluded_auth_tables: $hard_excluded_auth_tables,
               neutralized_auth_references: $neutralized_auth_references,
-              auth_recovery_schema_relaxations: $auth_recovery_schema_relaxations
+              auth_recovery_schema_relaxations: $auth_recovery_schema_relaxations,
+              auth_recovery_check_relaxations: $auth_recovery_check_relaxations
             }' > "${manifest}"
           rm -rf recovery
           rm -f "${plaintext_archive}"
@@ -703,6 +800,14 @@ jobs:
              .auth_recovery_schema_relaxations[0].table == "private.place_media" and
              .auth_recovery_schema_relaxations[0].column == "uploaded_by" and
              .auth_recovery_schema_relaxations[0].action == "drop_not_null" and
+             (.auth_recovery_check_relaxations | length > 0) and
+             all(.auth_recovery_check_relaxations[]; .action == "drop_check") and
+             any(.auth_recovery_check_relaxations[];
+               .table == "private.place_media" and
+               .constraint == "place_media_approval_requires_metadata_check") and
+             any(.auth_recovery_check_relaxations[];
+               .table == "private.auth_pending_intents" and
+               .constraint == "auth_pending_intent_lifecycle_check") and
              (.plaintext_archive_sha256 | test("^[0-9a-f]{64}$")) and
              (.ciphertext_sha256 | test("^[0-9a-f]{64}$"))' \
             retained-recovery/recovery-manifest.json > /dev/null

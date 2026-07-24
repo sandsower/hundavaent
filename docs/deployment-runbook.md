@@ -55,10 +55,10 @@ The workflow always creates and restore-tests one consistent recovery point for 
 Managed Supabase Auth identities and tables that are hard-owned through required Auth foreign keys are intentionally excluded while the site has only disposable pre-launch test users.
 Tables reached only through nullable identity attribution remain in the recovery point, and those attribution columns are deterministically set to `NULL` in the restored data.
 This preserves core Places, Place media, Evidence, and other independent application rows without retaining disposable user identities.
-For the first cumulative deployment, the recovery archive contains one explicit schema relaxation for `private.place_media.uploaded_by` before it neutralizes that attribution; migration `202607150036_nullable_place_media_uploader.sql` then converges production to the same nullable contract.
-The workflow proves that no second schema relaxation is present.
+The recovery archive contains one explicit nullability relaxation for `private.place_media.uploaded_by` before it neutralizes that attribution; migration `202607150036_nullable_place_media_uploader.sql` converges production to the same nullable contract.
+It also derives and records every check constraint that depends on a neutralized Auth column, drops only that audited set in the recovery copy, and proves those constraints are absent before accepting the restored data.
 
-The same production snapshot derives the hard-excluded tables and nullable neutralization set, records only table names, column names, and counts in the encrypted bundle manifest, and proves after scratch restoration that hard-owned tables are empty, retained table counts match, every nullable identity reference is neutralized, and no unhandled or composite foreign key crosses the boundary.
+The same production snapshot derives the hard-excluded tables and nullable neutralization set, records table names, column names, row counts, audited constraint names, and recovery relaxation actions in the encrypted bundle manifest, and proves after scratch restoration that hard-owned tables are empty, retained table counts match, every nullable identity reference is neutralized, and no unhandled or composite foreign key crosses the boundary.
 Both production provider variables must be exactly `false`, and the workflow rejects recovery or deployment if either email or Facebook sign-in is enabled.
 Provider activation therefore requires upgrading the workflow to full Auth-capable recovery or replacing this temporary guard before either provider variable can be enabled.
 
