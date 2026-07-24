@@ -377,7 +377,7 @@
     width: 100%;
     height: var(--hv-app-header-height);
     min-height: var(--hv-app-header-height);
-    padding: 0 clamp(1rem, 2vw, 1.5rem);
+    padding: 0 var(--hv-space-edge);
     border-bottom: 1px solid var(--hv-border-subtle);
     gap: 1rem;
     align-items: center;
@@ -591,7 +591,6 @@
       height: var(--hv-app-header-height);
       min-height: var(--hv-app-header-height);
       gap: clamp(0.35rem, 2vw, 0.6rem);
-      padding-inline: clamp(0.7rem, 3vw, 1rem);
     }
 
     .header-actions {

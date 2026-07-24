@@ -37,6 +37,9 @@
     --hv-focus-offset: var(--hv-color-snow-raised);
     --hv-space-context: 1.25rem;
     --hv-space-panel: 1rem;
+    /* One shared inset for everything that hugs the viewport edge: the site
+       header, the discovery rail, and the map controls all align to it. */
+    --hv-space-edge: clamp(0.75rem, 2vw, 1.5rem);
     --hv-space-section: clamp(1.5rem, 4vw, 3rem);
     --hv-control-height: 2.75rem;
     --hv-content-narrow: 42rem;

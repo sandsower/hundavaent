@@ -8,7 +8,7 @@
   <title>{data.copy['legal.privacyTitle']} | {data.copy['site.name']}</title>
 </svelte:head>
 
-<main class="legal-page hv-page-shell" data-width="narrow">
+<main class="legal-page hv-page-shell" data-ui-mode="place" data-width="narrow">
   <article class="hv-panel hv-stack">
     <h1 class="hv-page-title">{data.copy['legal.privacyTitle']}</h1>
     <p>{data.copy['legal.privacyIntro']}</p>

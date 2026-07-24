@@ -520,7 +520,8 @@
 
   .filter-sheet label {
     display: grid;
-    gap: 0.2rem;
+    /* Wide enough that a select's 3px-offset focus ring clears the label. */
+    gap: 0.4rem;
     min-width: 0;
     color: var(--hv-color-basalt-muted);
     font-size: 0.76rem;

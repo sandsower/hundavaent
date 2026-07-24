@@ -239,7 +239,7 @@
     </div>
   {:else}
     <div class="dialog-content">
-      <p class="eyebrow">{copy['auth.continue']}</p>
+      <p class="eyebrow">{copy['site.name']}</p>
       <h2 id="auth-dialog-title">{title}</h2>
       <p class="benefits">{copy['auth.benefits']}</p>
 
