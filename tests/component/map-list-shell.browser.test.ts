@@ -2144,6 +2144,63 @@ describe('MapListShell synchronization', () => {
     }
   });
 
+  it('re-expands the folded list beside the open card on wide screens', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1280, 800);
+    history.replaceState(null, '', '/en');
+    const secondPlace = {
+      ...places[0],
+      placeId: '30000000-0000-4000-8000-000000000004',
+      name: 'Second Café',
+      category: 'cafe' as const
+    };
+
+    try {
+      render(MapListShell, {
+        places: [...places, secondPlace],
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: defaultDiscoveryState,
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+
+      await fireEvent.click(screen.getByRole('button', { name: 'All' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'Select Published Place' }));
+      expect(screen.queryByRole('region', { name: 'Places found' })).toBeNull();
+
+      // The › tab expands the filtered slice beside the card for comparison.
+      await fireEvent.click(screen.getByRole('button', { name: 'Show 2 results' }));
+      expect(screen.getByRole('region', { name: 'Places found' })).toBeTruthy();
+      expect(screen.getByLabelText('Selected place')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Show 2 results' })).toBeNull();
+
+      // Choosing another place swaps the card while the comparison stays.
+      await fireEvent.click(screen.getByRole('button', { name: 'Select Second Café' }));
+      expect(
+        within(screen.getByLabelText('Selected place')).getByRole('heading', {
+          name: 'Second Café'
+        })
+      ).toBeTruthy();
+      expect(screen.getByRole('region', { name: 'Places found' })).toBeTruthy();
+
+      // ‹ folds the list back to the tab; ✕ restores the whole browse state.
+      await fireEvent.click(screen.getByRole('button', { name: 'Collapse list' }));
+      expect(screen.queryByRole('region', { name: 'Places found' })).toBeNull();
+      await waitFor(() =>
+        expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show 2 results' }))
+      );
+      await fireEvent.click(screen.getByRole('button', { name: 'Close selected place' }));
+      expect(screen.queryByLabelText('Selected place')).toBeNull();
+      expect(screen.getByRole('region', { name: 'Places found' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+
   it('quiets the chrome only while a map gesture lasts and never folds it', async () => {
     history.replaceState(null, '', '/en');
     let mountedCallbacks: MapCallbacks | null = null;

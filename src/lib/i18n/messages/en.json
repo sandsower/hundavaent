@@ -335,6 +335,7 @@
   "directory.foldChrome": "Hide controls",
   "directory.openSearch": "Open search",
   "directory.placesInView": "Places in view",
+  "directory.collapseList": "Collapse list",
   "directory.noResultsTitle": "No places match",
   "directory.noResultsBody": "Broaden your search or clear the active filters.",
   "directory.clusterCount": "{count} places in this area",

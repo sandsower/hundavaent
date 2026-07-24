@@ -335,6 +335,7 @@
   "directory.foldChrome": "Fela stjórntæki",
   "directory.openSearch": "Opna leit",
   "directory.placesInView": "Staðir á kortinu",
+  "directory.collapseList": "Fella listann saman",
   "directory.noResultsTitle": "Engir staðir passa",
   "directory.noResultsBody": "Víkkaðu leitina eða hreinsaðu virku síurnar.",
   "directory.clusterCount": "{count} staðir á þessu svæði",

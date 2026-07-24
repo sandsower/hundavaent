@@ -105,6 +105,9 @@
   // while it lasts; the sticky fold is always an explicit choice.
   let mapMoving = $state(false);
   let manualFold = $state(false);
+  // Dual state (state 6): on wide screens the folded edge tab can re-expand
+  // the filtered list beside the open card. Ephemeral, never serialized.
+  let dualList = $state(false);
   let clusterPlaceIds = $state<readonly string[] | null>(null);
   const clusterHistoryKey = 'hundavaentClusterPlaceIds';
   let selectionFocusOrigin = $state<HTMLButtonElement | null>(null);
@@ -138,6 +141,10 @@
     clusterPlaceIds
       ? filteredPlaces.filter((place) => clusterPlaceIds?.includes(place.placeId))
       : filteredPlaces
+  );
+  // Dual only exists where the list and the card genuinely fit side by side.
+  let dualView = $derived(
+    dualList && wideDetailLayout && selectedPlace !== null && discoveryState.view === 'list'
   );
   let areas = $derived(availableAreas(places));
   const categoryLabelKeys = {
@@ -558,6 +565,7 @@
     const previouslySelectedPlaceId = discoveryState.selectedPlaceId;
     commitState({ ...discoveryState, selectedPlaceId: null }, 'replace');
     openDetailsIntentPlaceId = null;
+    dualList = false;
     announcement = '';
     if (previouslySelectedPlaceId) {
       const focusOrigin = selectionFocusOrigin;
@@ -720,9 +728,22 @@
     updateFilters({ ...defaultDiscoveryFilters }, 'push', 'map');
   }
 
-  // The edge tab restores the browse state the selection folded away.
+  // The edge tab re-expands the list beside the card where both fit (state
+  // 6); narrow screens restore the browse state the selection folded away.
   function expandListTab(): void {
+    if (wideDetailLayout) {
+      dualList = true;
+      queueMicrotask(() =>
+        document.querySelector<HTMLButtonElement>('#discovery-results-close')?.focus()
+      );
+      return;
+    }
     clearSelectedPlace();
+  }
+
+  function collapseDualList(): void {
+    dualList = false;
+    queueMicrotask(() => document.querySelector<HTMLButtonElement>('.list-edge-tab')?.focus());
   }
 
   // The sticky fold collapses the command cluster to a search icon and the
@@ -1029,11 +1050,13 @@
           {#if filteredPlaces.length > 0 && !manualFold}
             <div
               class="results-overlay rail-content"
-              data-results-visible={(discoveryState.view === 'list' && !selectedPlace) || mapFailed}
+              data-results-visible={(discoveryState.view === 'list' &&
+                (!selectedPlace || dualView)) ||
+                mapFailed}
               role={mapFailed ? 'region' : undefined}
               aria-label={mapFailed ? copy['directory.listLabel'] : undefined}
-              aria-hidden={selectedPlace ? 'true' : undefined}
-              inert={selectedPlace ? true : undefined}
+              aria-hidden={selectedPlace && !dualView ? 'true' : undefined}
+              inert={selectedPlace && !dualView ? true : undefined}
             >
               <DiscoveryResults
                 places={resultPlaces}
@@ -1043,8 +1066,10 @@
                 {copy}
                 onSelect={(placeId, trigger, openDetails) =>
                   selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list', openDetails)}
-                onClose={closeResults}
+                onClose={dualView ? collapseDualList : closeResults}
                 closable={discoveryState.view === 'list' && !mapFailed}
+                closeLabel={dualView ? copy['directory.collapseList'] : undefined}
+                closeGlyph={dualView ? '‹' : undefined}
                 {signedIn}
                 {favouritePlaceIds}
                 signInHref={favouriteSignInHref}
@@ -1068,7 +1093,7 @@
         </button>
       {/if}
 
-      {#if selectedPlace && discoveryState.view === 'list' && !mapFailed && !manualFold}
+      {#if selectedPlace && discoveryState.view === 'list' && !mapFailed && !manualFold && !dualView}
         <button
           type="button"
           class="list-edge-tab"

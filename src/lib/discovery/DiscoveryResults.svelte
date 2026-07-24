@@ -13,6 +13,8 @@
     onSelect: (placeId: string, trigger: HTMLButtonElement, openDetails?: boolean) => void;
     onClose?: () => void;
     closable?: boolean;
+    closeLabel?: string;
+    closeGlyph?: string;
     signedIn?: boolean;
     favouritePlaceIds?: string[];
     signInHref?: (placeId: string) => string;
@@ -28,6 +30,8 @@
     onSelect,
     onClose = () => undefined,
     closable = true,
+    closeLabel = undefined,
+    closeGlyph = undefined,
     signedIn = false,
     favouritePlaceIds = [],
     signInHref = () => '',
@@ -51,8 +55,8 @@
       <button
         id="discovery-results-close"
         type="button"
-        aria-label={copy['directory.closeResults']}
-        onclick={onClose}>×</button
+        aria-label={closeLabel ?? copy['directory.closeResults']}
+        onclick={onClose}>{closeGlyph ?? '×'}</button
       >
     {/if}
   </div>
