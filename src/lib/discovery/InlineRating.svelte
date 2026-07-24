@@ -333,7 +333,9 @@
     gap: 0.45rem;
     margin-block: 0.75rem;
     padding-block: 0.75rem;
-    border-block: 1px solid var(--hv-border-subtle);
+    /* Top rule only: the details disclosure below draws its own top border,
+       and a bottom rule here would double it. */
+    border-block-start: 1px solid var(--hv-border-subtle);
   }
   .rating-heading {
     display: flex;

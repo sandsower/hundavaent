@@ -193,8 +193,9 @@
   let profileLoading = $derived(selectedProfileState.loading);
   let profileError = $derived(selectedProfileState.error);
   let mapViewportPadding = $derived<MapPadding>(
+    // 36 = the wide-layout --hv-space-edge (24px) plus a 12px gap to the card.
     selectedPlace && wideDetailLayout
-      ? { top: 12, right: directoryRailWidth + 24, bottom: 12, left: 12 }
+      ? { top: 12, right: directoryRailWidth + 36, bottom: 12, left: 12 }
       : { top: 0, right: 0, bottom: 0, left: 0 }
   );
   let mapMotionDuration = $derived(reducedMotion ? 0 : 450);
@@ -1152,7 +1153,7 @@
 
   .map-list-shell {
     --directory-rail-width: clamp(20rem, 29cqw, 26rem);
-    --floating-card-inset: 0.75rem;
+    --floating-card-inset: var(--hv-space-edge, 0.75rem);
     --chrome-top: calc(var(--hv-app-header-height, 4.4rem) + 0.35rem);
     position: relative;
     width: 100%;
@@ -1441,6 +1442,12 @@
     top: var(--chrome-top);
   }
 
+  /* Map controls share the chrome's edge inset instead of MapLibre's 10px. */
+  .map-stage :global(.maplibregl-ctrl-top-right .maplibregl-ctrl),
+  .map-stage :global(.maplibregl-ctrl-bottom-right .maplibregl-ctrl) {
+    margin-right: var(--floating-card-inset);
+  }
+
   /* Without JavaScript the map never mounts: the chrome returns to static
      flow so the server-rendered directory below stays fully readable. */
   :global(body:has(.noscript-results)) .map-list-boundary,
@@ -1489,7 +1496,9 @@
     .map-list-shell[data-detail-layout='floating']
       .map-stage
       :global(.maplibregl-ctrl-bottom-right) {
-      right: var(--detail-safe-right);
+      /* The controls' own margin already contributes the edge inset, so the
+         safe offset backs it out to keep a steady 12px gap to the card. */
+      right: calc(var(--detail-safe-right) - var(--floating-card-inset));
       transition: right 240ms ease-out;
     }
   }
@@ -1512,6 +1521,14 @@
       visibility: hidden;
     }
 
+    /* The tab is the way back to the list while the card owns the screen:
+       it rises clear of the sheet's usual top edge, and stacks above the
+       sheet on short viewports instead of peeking out as a buried sliver. */
+    .map-list-shell[data-detail-layout='rail'] .list-edge-tab {
+      z-index: 10;
+      top: min(26dvh, 18rem);
+    }
+
     /* The cluster spans the full width here, so the map controls move to the
        bottom corner instead of hiding behind it. */
     .map-stage :global(.maplibregl-ctrl-top-right) {
@@ -1523,9 +1540,9 @@
       position: fixed;
       z-index: 9;
       top: auto;
-      right: 0.75rem;
-      bottom: max(0.75rem, env(safe-area-inset-bottom));
-      left: 0.75rem;
+      right: var(--floating-card-inset);
+      bottom: max(var(--floating-card-inset), env(safe-area-inset-bottom));
+      left: var(--floating-card-inset);
       width: auto;
       max-height: min(34rem, calc(100dvh - 6.5rem));
       flex: none;
@@ -1567,8 +1584,8 @@
   @media (max-height: 42rem) {
     .map-list-shell[data-shell-layout='compact'] .selected-place-overlay {
       top: 5.5rem;
-      right: 0.75rem;
-      bottom: 0.75rem;
+      right: var(--floating-card-inset);
+      bottom: var(--floating-card-inset);
       left: auto;
       width: min(24rem, 48vw);
     }
