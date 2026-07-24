@@ -74,7 +74,11 @@
             }${flag.reportReason ? ` · ${localizeReportReason(flag.reportReason, data.copy)}` : ''}`,
             statusLabel: data.copy[`flag.status.${flag.outcome}` as MessageKey],
             meta: formatLocalizedDate(flag.submittedAt, data.lang),
-            priority: flag.isSafetyConcern
+            priority: flag.isSafetyConcern,
+            priorityLabel:
+              flag.trustTier === 'trusted_contributor'
+                ? data.copy['contributor.queueBadge.trusted_contributor']
+                : undefined
           }))
         : data.suggestions.map((suggestion): ModerationWorkItem => ({
             id: suggestion.suggestionId,
@@ -82,7 +86,11 @@
             summary: `${localizePlaceCategory(suggestion.category, data.copy)} · ${suggestion.operatorName} · ${suggestion.addressLine}, ${suggestion.locality}`,
             statusLabel: data.copy[`suggestion.status.${suggestion.outcome}` as MessageKey],
             meta: formatLocalizedDate(suggestion.submittedAt, data.lang),
-            priority: suggestion.trustTier === 'trusted_contributor'
+            priority: false,
+            priorityLabel:
+              suggestion.trustTier === 'trusted_contributor'
+                ? data.copy['contributor.queueBadge.trusted_contributor']
+                : undefined
           }))
   );
   const suggestionReviewSource = $derived(

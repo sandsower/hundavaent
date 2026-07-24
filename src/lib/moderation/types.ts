@@ -26,6 +26,7 @@ export interface ModerationWorkItem {
   readonly statusLabel: string;
   readonly meta: string;
   readonly priority?: boolean;
+  readonly priorityLabel?: string;
 }
 
 export type ModerationReadinessState = 'ready' | 'attention' | 'blocked';

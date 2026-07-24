@@ -36,7 +36,8 @@ const items = [
     summary: 'Pool entrance and access details',
     statusLabel: 'Priority',
     meta: 'Submitted yesterday',
-    priority: true
+    priority: false,
+    priorityLabel: 'Trusted Contributor'
   }
 ] as const;
 
@@ -88,6 +89,9 @@ describe('Compact moderation workspace', () => {
       `/en/moderation?queue=suggestions&item=${suggestionOne}&filter=actionable`
     );
     expect(screen.queryByRole('link', { name: 'Priority' })).toBeNull();
+    const trustedItem = screen.getByRole('link', { name: /Sundhöll Hafnarfjarðar/ });
+    expect(within(trustedItem).getByText('Trusted Contributor')).toBeTruthy();
+    expect(trustedItem.querySelector('svg')).toBeTruthy();
     expect(screen.getByText('J next / K previous')).toBeTruthy();
   });
 

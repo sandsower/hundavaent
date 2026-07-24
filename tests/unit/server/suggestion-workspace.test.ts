@@ -22,6 +22,8 @@ const queueRow = {
   submitted_at: '2026-07-11T09:00:00Z',
   updated_at: '2026-07-11T09:00:00Z',
   queue_rank: 0,
+  trust_tier: 'none',
+  trust_priority: 2,
   item_version: 1,
   draft_version: 0,
   draft_updated_by: null,
@@ -123,11 +125,12 @@ function detailClients(
 }
 
 describe('Suggestions workspace queue assembly', () => {
-  it('parses the legacy cursor tuple without changing its existing previous-page semantics', () => {
+  it('parses the trust-aware cursor tuple without changing previous-page semantics', () => {
     expect(
       parseModerationSuggestionQueueCursor(
         new URLSearchParams({
           cursorRank: '1',
+          cursorTrust: '0',
           cursorTime: '2026-07-11T09:00:00Z',
           cursorId: queueRow.suggestion_id
         })
@@ -135,6 +138,7 @@ describe('Suggestions workspace queue assembly', () => {
     ).toEqual({
       cursor: {
         queueRank: 1,
+        trustPriority: 0,
         submittedAt: '2026-07-11T09:00:00Z',
         suggestionId: queueRow.suggestion_id
       },
@@ -145,31 +149,37 @@ describe('Suggestions workspace queue assembly', () => {
       parseModerationSuggestionQueueCursor(
         new URLSearchParams({
           cursorRank: 'not-a-rank',
+          cursorTrust: '0',
           cursorTime: '2026-07-11T09:00:00Z',
           cursorId: queueRow.suggestion_id
         })
       )
     ).toEqual({ cursor: null, hasPrevious: true });
 
-    expect(parseModerationSuggestionQueueCursor(new URLSearchParams({ cursorRank: '1' }))).toEqual({
-      cursor: null,
-      hasPrevious: false
-    });
+    expect(
+      parseModerationSuggestionQueueCursor(
+        new URLSearchParams({ cursorRank: '1', cursorTrust: '0' })
+      )
+    ).toEqual({ cursor: null, hasPrevious: false });
   });
 
-  it('preserves queue rank and day ordering while using trust only inside a day bucket', async () => {
+  it('preserves the database queue order and narrow trust tier', async () => {
     const rows = [
       {
         ...queueRow,
         suggestion_id: '30000000-0000-4000-8000-000000000004',
         member_id: 'member-next-rank',
         queue_rank: 1,
+        trust_tier: 'trusted_contributor',
+        trust_priority: 0,
         submitted_at: '2026-07-09T08:00:00Z'
       },
       {
         ...queueRow,
         suggestion_id: '30000000-0000-4000-8000-000000000003',
         member_id: 'member-trusted',
+        trust_tier: 'trusted_contributor',
+        trust_priority: 0,
         submitted_at: '2026-07-11T10:00:00Z'
       },
       {
@@ -180,26 +190,17 @@ describe('Suggestions workspace queue assembly', () => {
       },
       queueRow
     ];
-    const { suggestionClient, contributorClient, contributorRpc } = clients(
+    const { suggestionClient } = clients(
       (name) => {
         if (name === 'list_moderation_place_suggestions') return { data: rows, error: null };
         throw new Error(`Unexpected Suggestion RPC: ${name}`);
       },
       (name) => {
-        if (name === 'list_member_contributor_priority') {
-          return {
-            data: [
-              { member_id: 'member-trusted', status: 'trusted_contributor' },
-              { member_id: 'member-next-rank', status: 'trusted_contributor' }
-            ],
-            error: null
-          };
-        }
         throw new Error(`Unexpected Contributor RPC: ${name}`);
       }
     );
 
-    const result = await loadModerationSuggestionQueue(suggestionClient, contributorClient, {
+    const result = await loadModerationSuggestionQueue(suggestionClient, {
       cursor: null,
       hasPrevious: false
     });
@@ -209,16 +210,13 @@ describe('Suggestions workspace queue assembly', () => {
     expect(
       result.value.suggestions.map(({ suggestionId, trustTier }) => [suggestionId, trustTier])
     ).toEqual([
-      ['30000000-0000-4000-8000-000000000002', 'none'],
+      ['30000000-0000-4000-8000-000000000004', 'trusted_contributor'],
       ['30000000-0000-4000-8000-000000000003', 'trusted_contributor'],
-      ['30000000-0000-4000-8000-000000000001', 'none'],
-      ['30000000-0000-4000-8000-000000000004', 'trusted_contributor']
+      ['30000000-0000-4000-8000-000000000002', 'none'],
+      ['30000000-0000-4000-8000-000000000001', 'none']
     ]);
     expect(result.value.nextCursor).toBeNull();
     expect(result.value.hasPrevious).toBe(false);
-    expect(contributorRpc).toHaveBeenCalledWith('list_member_contributor_priority', {
-      requested_member_ids: ['member-next-rank', 'member-trusted', 'member-old-day', 'member-none']
-    });
   });
 
   it('forwards the active cursor and preserves the adapter next-page cursor', async () => {
@@ -227,17 +225,18 @@ describe('Suggestions workspace queue assembly', () => {
       suggestion_id: `30000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
       submitted_at: `2026-07-11T09:${String(index).padStart(2, '0')}:00Z`
     }));
-    const { suggestionClient, contributorClient, suggestionRpc } = clients(
+    const { suggestionClient, suggestionRpc } = clients(
       () => ({ data: rows, error: null }),
       () => ({ data: [], error: null })
     );
     const cursor = {
       queueRank: 1,
+      trustPriority: 0,
       submittedAt: '2026-07-10T09:00:00Z',
       suggestionId: '30000000-0000-4000-8000-000000000099'
     };
 
-    const result = await loadModerationSuggestionQueue(suggestionClient, contributorClient, {
+    const result = await loadModerationSuggestionQueue(suggestionClient, {
       cursor,
       hasPrevious: true
     });
@@ -247,6 +246,7 @@ describe('Suggestions workspace queue assembly', () => {
     expect(result.value.suggestions).toHaveLength(20);
     expect(result.value.nextCursor).toEqual({
       queueRank: 0,
+      trustPriority: 2,
       submittedAt: rows[19].submitted_at,
       suggestionId: rows[19].suggestion_id
     });
@@ -254,37 +254,21 @@ describe('Suggestions workspace queue assembly', () => {
     expect(suggestionRpc).toHaveBeenCalledWith('list_moderation_place_suggestions', {
       requested_filter: 'actionable',
       cursor_queue_rank: cursor.queueRank,
+      cursor_trust_priority: cursor.trustPriority,
       cursor_submitted_at: cursor.submittedAt,
       cursor_suggestion_id: cursor.suggestionId,
       requested_limit: 21
     });
   });
 
-  it('keeps the queue usable with neutral trust when priority context fails', async () => {
-    const { suggestionClient, contributorClient } = clients(
-      () => ({ data: [queueRow], error: null }),
-      () => ({ data: null, error: { code: '50000' } })
-    );
-
-    await expect(
-      loadModerationSuggestionQueue(suggestionClient, contributorClient, {
-        cursor: null,
-        hasPrevious: false
-      })
-    ).resolves.toMatchObject({
-      status: 'success',
-      value: { suggestions: [{ suggestionId: queueRow.suggestion_id, trustTier: 'none' }] }
-    });
-  });
-
-  it('propagates a mandatory queue failure without requesting contributor context', async () => {
-    const { suggestionClient, contributorClient, contributorRpc } = clients(
+  it('propagates a mandatory queue failure without requesting contributor detail', async () => {
+    const { suggestionClient, contributorRpc } = clients(
       () => ({ data: null, error: { code: '42501' } }),
       () => ({ data: [], error: null })
     );
 
     await expect(
-      loadModerationSuggestionQueue(suggestionClient, contributorClient, {
+      loadModerationSuggestionQueue(suggestionClient, {
         cursor: null,
         hasPrevious: false
       })

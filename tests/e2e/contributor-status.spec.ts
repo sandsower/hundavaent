@@ -48,6 +48,8 @@ test('a Member sees a private Contributor status that recalculates as history ch
   const fixture = await provisionLocalConfirmedContribution(memberEmail, evaluationModerator.email);
   await page.reload();
   await expect(page.getByText('Trusted Contributor', { exact: true })).toBeVisible();
+  await expect(page.getByText('A trusted signal, not an automatic decision')).toBeVisible();
+  await expect(page.locator('[data-achievement-icon][data-motif="quality"]')).toBeVisible();
   const qualifiedStatusText = await page.locator('main').innerText();
   expect(qualifiedStatusText).not.toMatch(numericProgressPattern);
 

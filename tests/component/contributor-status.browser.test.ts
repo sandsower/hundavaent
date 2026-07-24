@@ -146,6 +146,9 @@ describe('Member Contributor status view', () => {
       expect(
         screen.getByText(catalogues[lang]['contributor.explanation.trusted_contributor'])
       ).toBeTruthy();
+      expect(screen.getByText(catalogues[lang]['contributor.trustedNote.title'])).toBeTruthy();
+      expect(screen.getByText(catalogues[lang]['contributor.trustedNote.body'])).toBeTruthy();
+      expect(document.querySelector('[data-achievement-icon][data-motif="quality"]')).toBeTruthy();
       expect(document.body.textContent).not.toMatch(/\d+\s*\/\s*\d+/);
       expect(document.body.textContent).not.toMatch(/\d+\s*(more|needed|contributions?)\b/i);
     }
@@ -163,6 +166,7 @@ describe('Member Contributor status view', () => {
 
     expect(screen.getByText(catalogues.en['contributor.status.none'])).toBeTruthy();
     expect(document.body.textContent).not.toContain('Recognized since');
+    expect(screen.queryByText(catalogues.en['contributor.trustedNote.title'])).toBeNull();
   });
 });
 

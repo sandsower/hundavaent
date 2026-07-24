@@ -432,7 +432,7 @@ async function upsertLocalContributorStatusPolicy(enabled: boolean): Promise<voi
   const { error } = await serviceClient.rpc('configure_contributor_status_policy', {
     requested_policy_version: 'e2e-contributor-test-v1',
     requested_trusted_minimum_net_accepted: 1,
-    requested_trusted_window_seconds: 31536000,
+    requested_trusted_window_months: 12,
     requested_trusted_minimum_distinct_months: 1,
     requested_trusted_minimum_distinct_subjects: 1,
     requested_trusted_maximum_revoked_in_window: 0,

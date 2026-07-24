@@ -26,6 +26,11 @@ on:
         required: false
         type: boolean
         default: false
+      activate_trusted_contributor:
+        description: 'Activate the approved Trusted Contributor policy for an exact SHA already live in production'
+        required: false
+        type: boolean
+        default: false
 
 env:
   RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.sha }}
@@ -828,7 +833,11 @@ jobs:
     if: >-
       ${{
         github.event_name == 'workflow_run' ||
-        (inputs.migrate && !inputs.activate_achievement_milestones)
+        (
+          inputs.migrate &&
+          !inputs.activate_achievement_milestones &&
+          !inputs.activate_trusted_contributor
+        )
       }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -905,7 +914,11 @@ jobs:
     if: >-
       ${{
         github.event_name == 'workflow_run' ||
-        (inputs.deploy && !inputs.activate_achievement_milestones)
+        (
+          inputs.deploy &&
+          !inputs.activate_achievement_milestones &&
+          !inputs.activate_trusted_contributor
+        )
       }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -1102,7 +1115,11 @@ jobs:
     if: >-
       ${{
         github.event_name == 'workflow_run' ||
-        (inputs.deploy && !inputs.activate_achievement_milestones)
+        (
+          inputs.deploy &&
+          !inputs.activate_achievement_milestones &&
+          !inputs.activate_trusted_contributor
+        )
       }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -1151,10 +1168,13 @@ jobs:
         env:
           REQUESTED_MIGRATE: ${{ inputs.migrate }}
           REQUESTED_DEPLOY: ${{ inputs.deploy }}
+          REQUESTED_TRUST_ACTIVATION: ${{ inputs.activate_trusted_contributor }}
         run: |
           set -euo pipefail
-          if [[ "${REQUESTED_MIGRATE}" != "false" || "${REQUESTED_DEPLOY}" != "false" ]]; then
-            echo "Achievement activation must run separately with migrate=false and deploy=false." >&2
+          if [[ "${REQUESTED_MIGRATE}" != "false" || \
+                "${REQUESTED_DEPLOY}" != "false" || \
+                "${REQUESTED_TRUST_ACTIVATION}" != "false" ]]; then
+            echo "Achievement activation must run separately with migrate=false, deploy=false, and activate_trusted_contributor=false." >&2
             exit 1
           fi
           [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
@@ -1209,4 +1229,100 @@ jobs:
             echo "- Credit spacing: 15 minutes"
             echo "- Eligibility: future-only boundary established"
             echo "- Public feature status: enabled"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  activate-trusted-contributor:
+    name: Activate Trusted Contributor
+    needs: recovery-point
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.activate_trusted_contributor }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      PRODUCTION_URL: ${{ vars.HUNDAVAENT_PRODUCTION_APP_URL }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_PROJECT_REF }}
+      SUPABASE_POOLER_HOST: aws-0-eu-west-1.pooler.supabase.com
+    steps:
+      - name: Require a standalone activation of the exact live release
+        shell: bash
+        env:
+          REQUESTED_MIGRATE: ${{ inputs.migrate }}
+          REQUESTED_DEPLOY: ${{ inputs.deploy }}
+          REQUESTED_ACHIEVEMENT_ACTIVATION: ${{ inputs.activate_achievement_milestones }}
+        run: |
+          set -euo pipefail
+          if [[ "${REQUESTED_MIGRATE}" != "false" || \
+                "${REQUESTED_DEPLOY}" != "false" || \
+                "${REQUESTED_ACHIEVEMENT_ACTIVATION}" != "false" ]]; then
+            echo "Trusted Contributor activation must run separately with migrate=false, deploy=false, and activate_achievement_milestones=false." >&2
+            exit 1
+          fi
+          [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          health="$(curl --fail --silent --show-error "${PRODUCTION_URL}/api/health")"
+          test "$(jq -r '.status' <<< "${health}")" = "ok"
+          test "$(jq -r '.release' <<< "${health}")" = "${RELEASE_SHA}"
+
+      - name: Activate and verify the approved Trusted Contributor policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          encoded_password="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"], safe=""))')"
+          db_url="postgresql://postgres.${SUPABASE_PROJECT_REF}:${encoded_password}@${SUPABASE_POOLER_HOST}:5432/postgres"
+          psql -X -q -v ON_ERROR_STOP=1 "${db_url}" <<'SQL'
+          begin;
+          set local role service_role;
+          select public.configure_contributor_status_policy(
+            'trusted-contributor-v1',
+            5,
+            12,
+            3,
+            3,
+            0,
+            true
+          );
+          commit;
+          SQL
+          policy="$(
+            psql -X -qAt -v ON_ERROR_STOP=1 "${db_url}" <<'SQL'
+          select concat_ws(
+            '|',
+            policy.policy_version,
+            policy.trusted_minimum_net_accepted,
+            policy.trusted_window,
+            policy.trusted_minimum_distinct_months,
+            policy.trusted_minimum_distinct_subjects,
+            policy.trusted_maximum_revoked_in_window,
+            policy.enabled,
+            reconciliation.missing_unlocks
+          )
+          from private.contributor_status_policy as policy
+          cross join lateral (
+            select count(*) as missing_unlocks
+            from private.member_accounts as member_account
+            cross join lateral private.compute_contributor_status(member_account.user_id) as status
+            where status.status = 'trusted_contributor'
+              and not exists (
+                select 1
+                from private.achievement_unlocks as unlock
+                where unlock.member_id = member_account.user_id
+                  and unlock.achievement_key = 'sustained_quality_contributor'
+              )
+          ) as reconciliation
+          where policy.singleton;
+          SQL
+          )"
+          test "${policy}" = "trusted-contributor-v1|5|1 year|3|3|0|t|0"
+          {
+            echo "### Trusted Contributor activation"
+            echo
+            echo "- Commit: ${RELEASE_SHA}"
+            echo "- Policy: trusted-contributor-v1"
+            echo "- Qualification window: exact 12 calendar months"
+            echo "- Minimum confirmed Contributions: 5"
+            echo "- Minimum active months: 3"
+            echo "- Minimum distinct subjects: 3"
+            echo "- Maximum revocations in window: 0"
+            echo "- Existing qualifying Members: reconciled through immutable Achievement unlocks"
+            echo "- Missing permanent recognitions after reconciliation: 0"
           } >> "${GITHUB_STEP_SUMMARY}"

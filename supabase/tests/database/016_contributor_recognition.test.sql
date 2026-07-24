@@ -5,7 +5,7 @@ create extension if not exists pgtap with schema extensions;
 alter table private.locations alter column geometry_precision set default 'moderator_confirmed_point';
 alter table private.locations alter column geometry_source set default 'Reviewed database test fixture';
 
-select plan(64);
+select plan(79);
 
 -- Function surface -----------------------------------------------------------------------------
 
@@ -272,7 +272,178 @@ select is(
 );
 
 set local role service_role;
-select public.configure_contributor_status_policy('trust-v1-test', 5, 31536000, 3, 3, 0, true);
+select public.configure_achievement_policy('production-shaped-achievements', 30, true);
+select public.configure_achievement_policy('production-shaped-achievements-disabled', 30, false);
+select public.configure_contributor_status_policy('trust-v1-test', 5, 12, 3, 3, 0, true);
+reset role;
+
+select is(
+  (select enabled from private.achievement_policy where singleton),
+  false,
+  'Trusted activation reconciliation does not depend on the separate Achievement policy being enabled'
+);
+
+select ok(
+  (
+    select policy.eligibility_started_at > max(contribution.confirmed_at)
+    from private.achievement_policy as policy
+    cross join private.contributions as contribution
+    where policy.singleton
+      and contribution.member_id = '75000000-0000-4000-8000-0000000000a1'
+    group by policy.eligibility_started_at
+  ),
+  'The reconciliation fixture has the production-shaped future-only Achievement eligibility boundary'
+);
+
+select is(
+  (
+    select count(*)
+    from private.achievement_unlocks
+    where member_id = '75000000-0000-4000-8000-0000000000a1'
+      and achievement_key = 'sustained_quality_contributor'
+  ),
+  1::bigint,
+  'Policy activation reconciles a qualifying historical Contributor despite the Achievement boundary'
+);
+
+select is(
+  (
+    select definition_version
+    from private.achievement_unlocks
+    where member_id = '75000000-0000-4000-8000-0000000000a1'
+      and achievement_key = 'sustained_quality_contributor'
+  ),
+  2,
+  'Trusted activation reconciliation records the latest sustained-quality definition'
+);
+
+select is(
+  (
+    select count(*)
+    from private.achievement_unlocks
+    where member_id = '75000000-0000-4000-8000-0000000000a1'
+      and achievement_key <> 'sustained_quality_contributor'
+  ),
+  0::bigint,
+  'Trusted activation reconciliation never unlocks unrelated historical Achievements'
+);
+
+select is(
+  (
+    select count(*)
+    from private.member_accounts as member_account
+    cross join lateral private.compute_contributor_status(member_account.user_id) as status
+    where status.status = 'trusted_contributor'
+      and not exists (
+        select 1
+        from private.achievement_unlocks as unlock
+        where unlock.member_id = member_account.user_id
+          and unlock.achievement_key = 'sustained_quality_contributor'
+      )
+  ),
+  0::bigint,
+  'The production postcondition finds no live Trusted Member missing permanent recognition'
+);
+
+select earned_at as reconciled_earned_at
+from private.achievement_unlocks
+where member_id = '75000000-0000-4000-8000-0000000000a1'
+  and achievement_key = 'sustained_quality_contributor' \gset
+
+set local role service_role;
+select public.configure_contributor_status_policy('trust-v1-test', 5, 12, 3, 3, 0, true);
+reset role;
+
+select results_eq(
+  $$
+    select count(*), min(earned_at)
+    from private.achievement_unlocks
+    where member_id = '75000000-0000-4000-8000-0000000000a1'
+      and achievement_key = 'sustained_quality_contributor'
+  $$,
+  format(
+    $$values (1::bigint, %L::timestamptz)$$,
+    :'reconciled_earned_at'
+  ),
+  'Replaying Trusted activation preserves the one immutable unlock and its original earned time'
+);
+
+select is(
+  (select trusted_window from private.contributor_status_policy where singleton),
+  interval '12 months',
+  'The approved rolling qualification window is represented as exact calendar months'
+);
+
+select has_function(
+  'public',
+  'list_moderation_place_suggestions',
+  array['text', 'integer', 'integer', 'timestamp with time zone', 'uuid', 'integer'],
+  'The supported Suggestion queue accepts the trust-aware deterministic cursor'
+);
+
+select has_function(
+  'public',
+  'list_moderation_place_flags',
+  array['text', 'integer', 'integer', 'timestamp with time zone', 'uuid', 'integer'],
+  'The supported Correction and Report queue accepts the trust-aware deterministic cursor'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '75000000-0000-4000-8000-0000000000f0', true);
+
+select is(
+  (
+    select trust_tier
+    from public.list_moderation_place_suggestions('resolved', null, null, null, null, 51)
+    where member_id = '75000000-0000-4000-8000-0000000000a1'
+    limit 1
+  ),
+  'trusted_contributor',
+  'The database queue projects only the current narrow trust tier for priority explanation'
+);
+
+select is(
+  (
+    select trust_tier
+    from public.list_moderation_place_suggestions('resolved', null, null, null, null, 51)
+    limit 1
+  ),
+  'trusted_contributor',
+  'Trusted submissions sort before ordinary submissions inside the same queue rank and day'
+);
+
+select lives_ok(
+  $$select count(*) from public.list_moderation_place_flags('actionable', null, null, null, null, 51)$$,
+  'The trust-aware Correction and Report queue executes its complete projected row contract'
+);
+
+select isnt(
+  (
+    select suggestion_id
+    from public.list_moderation_place_suggestions('resolved', null, null, null, null, 1)
+    limit 1
+  ),
+  (
+    with first_page as (
+      select *
+      from public.list_moderation_place_suggestions('resolved', null, null, null, null, 1)
+      limit 1
+    )
+    select next_page.suggestion_id
+    from first_page
+    cross join lateral public.list_moderation_place_suggestions(
+      'resolved',
+      first_page.queue_rank,
+      first_page.trust_priority,
+      first_page.submitted_at,
+      first_page.suggestion_id,
+      1
+    ) as next_page
+    limit 1
+  ),
+  'The trust-aware cursor advances without duplicating the previous page boundary'
+);
+
 reset role;
 
 select is(
@@ -485,6 +656,17 @@ select is(
   (select status from private.compute_contributor_status('75000000-0000-4000-8000-0000000000e1')),
   'contributor',
   'A revoked Contribution within the window blocks Trusted status even though net volume remains high'
+);
+
+select is(
+  (
+    select count(*)
+    from private.achievement_unlocks
+    where member_id = '75000000-0000-4000-8000-0000000000e1'
+      and achievement_key = 'sustained_quality_contributor'
+  ),
+  1::bigint,
+  'Losing live Trusted status never removes the permanent recognition earned at activation'
 );
 
 select is(

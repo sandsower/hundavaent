@@ -112,6 +112,17 @@
                 <strong>{item.title}</strong>
                 <span class:priority={item.priority} class="badge">{item.statusLabel}</span>
               </span>
+              {#if item.priorityLabel}
+                <span class="priority-signal">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M12 3c2.5 2 5 2.5 7.5 3v5c0 5-3.1 8.2-7.5 10-4.4-1.8-7.5-5-7.5-10V6C7 5.5 9.5 5 12 3Z"
+                    />
+                    <path d="m8.7 11.8 2.1 2.1 4.6-4.7" />
+                  </svg>
+                  {item.priorityLabel}
+                </span>
+              {/if}
               <span class="summary">{item.summary}</span>
               <span class="meta">{item.meta}</span>
             </a>
@@ -269,6 +280,26 @@
   .badge.priority {
     background: var(--hv-color-danger-soft);
     color: var(--hv-color-danger);
+  }
+  .priority-signal {
+    display: inline-flex;
+    width: fit-content;
+    gap: 0.28rem;
+    align-items: center;
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-success-soft);
+    padding: 0.2rem 0.45rem;
+    color: var(--hv-color-moss);
+    font-size: 0.68rem;
+    font-weight: 850;
+  }
+  .priority-signal svg {
+    width: 0.9rem;
+    height: 0.9rem;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
   .summary,
   .meta {

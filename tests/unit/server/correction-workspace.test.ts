@@ -24,6 +24,8 @@ const summaryRow = {
   submitted_at: '2026-07-11T09:00:00Z',
   updated_at: '2026-07-11T09:00:00Z',
   priority: 0,
+  trust_tier: 'trusted_contributor',
+  trust_priority: 0,
   item_version: 1,
   draft_version: 0,
   draft_updated_by: null,
@@ -134,11 +136,12 @@ function form(entries: Record<string, string> = {}): FormData {
 }
 
 describe('Corrections and Reports workspace queue assembly', () => {
-  it('parses the complete safety-priority cursor and preserves legacy previous-page semantics', () => {
+  it('parses the complete safety and trust priority cursor', () => {
     expect(
       parseModerationCorrectionQueueCursor(
         new URLSearchParams({
           cursorPriority: '0',
+          cursorTrust: '0',
           cursorTime: summaryRow.submitted_at,
           cursorId: summaryRow.flag_id
         })
@@ -146,6 +149,7 @@ describe('Corrections and Reports workspace queue assembly', () => {
     ).toEqual({
       cursor: {
         priority: 0,
+        trustPriority: 0,
         submittedAt: summaryRow.submitted_at,
         flagId: summaryRow.flag_id
       },
@@ -156,6 +160,7 @@ describe('Corrections and Reports workspace queue assembly', () => {
       parseModerationCorrectionQueueCursor(
         new URLSearchParams({
           cursorPriority: 'not-a-number',
+          cursorTrust: '0',
           cursorTime: summaryRow.submitted_at,
           cursorId: summaryRow.flag_id
         })
@@ -167,6 +172,7 @@ describe('Corrections and Reports workspace queue assembly', () => {
     const { flagClient, rpc } = client();
     const cursor = {
       priority: 0,
+      trustPriority: 0,
       submittedAt: '2026-07-10T09:00:00Z',
       flagId: '90000000-0000-4000-8000-000000000099'
     };
@@ -179,7 +185,14 @@ describe('Corrections and Reports workspace queue assembly', () => {
     expect(result).toMatchObject({
       status: 'success',
       value: {
-        flags: [{ flagId: summaryRow.flag_id, isSafetyConcern: true, priority: 0 }],
+        flags: [
+          {
+            flagId: summaryRow.flag_id,
+            isSafetyConcern: true,
+            priority: 0,
+            trustTier: 'trusted_contributor'
+          }
+        ],
         nextCursor: null,
         hasPrevious: true
       }
@@ -187,6 +200,7 @@ describe('Corrections and Reports workspace queue assembly', () => {
     expect(rpc).toHaveBeenCalledWith('list_moderation_place_flags', {
       requested_filter: 'actionable',
       cursor_priority: cursor.priority,
+      cursor_trust_priority: cursor.trustPriority,
       cursor_submitted_at: cursor.submittedAt,
       cursor_flag_id: cursor.flagId,
       requested_limit: 21

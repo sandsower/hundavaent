@@ -248,7 +248,6 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
   const contributorClient = locals.supabase as unknown as ContributorRpcClient;
   const queueResult = await loadModerationSuggestionQueue(
     suggestionClient,
-    contributorClient,
     suggestionCursorState(state.cursor),
     state.filters[0]
   );
@@ -830,50 +829,56 @@ function encodeCorrectionCursor(cursor: ModerationPlaceFlagCursor | null): strin
   if (!cursor) return null;
   const timestamp = Date.parse(cursor.submittedAt);
   if (!Number.isFinite(timestamp)) return null;
-  return `${cursor.priority.toString(36)}~${timestamp.toString(36)}~${cursor.flagId}`;
+  return `${cursor.priority.toString(36)}~${cursor.trustPriority.toString(36)}~${timestamp.toString(36)}~${cursor.flagId}`;
 }
 
 function decodeCorrectionCursor(cursor: string | null): ModerationPlaceFlagCursor | null {
   if (!cursor) return null;
-  const [priorityToken, timestampToken, flagId, extra] = cursor.split('~');
+  const [priorityToken, trustToken, timestampToken, flagId, extra] = cursor.split('~');
   const priority = Number.parseInt(priorityToken, 36);
+  const trustPriority = Number.parseInt(trustToken, 36);
   const timestamp = Number.parseInt(timestampToken, 36);
   if (
     extra !== undefined ||
     !Number.isInteger(priority) ||
     priority < 0 ||
+    !Number.isInteger(trustPriority) ||
+    trustPriority < 0 ||
     !Number.isSafeInteger(timestamp) ||
     !uuidPattern.test(flagId)
   ) {
     return null;
   }
   const submittedAt = safeIsoTimestamp(timestamp);
-  return submittedAt ? { priority, submittedAt, flagId } : null;
+  return submittedAt ? { priority, trustPriority, submittedAt, flagId } : null;
 }
 
 function encodeSuggestionCursor(cursor: ModerationSuggestionCursor | null): string | null {
   if (!cursor) return null;
   const timestamp = Date.parse(cursor.submittedAt);
   if (!Number.isFinite(timestamp)) return null;
-  return `${cursor.queueRank.toString(36)}~${timestamp.toString(36)}~${cursor.suggestionId}`;
+  return `${cursor.queueRank.toString(36)}~${cursor.trustPriority.toString(36)}~${timestamp.toString(36)}~${cursor.suggestionId}`;
 }
 
 function decodeSuggestionCursor(cursor: string | null): ModerationSuggestionCursor | null {
   if (!cursor) return null;
-  const [rankToken, timestampToken, suggestionId, extra] = cursor.split('~');
+  const [rankToken, trustToken, timestampToken, suggestionId, extra] = cursor.split('~');
   const queueRank = Number.parseInt(rankToken, 36);
+  const trustPriority = Number.parseInt(trustToken, 36);
   const timestamp = Number.parseInt(timestampToken, 36);
   if (
     extra !== undefined ||
     !Number.isInteger(queueRank) ||
     queueRank < 0 ||
+    !Number.isInteger(trustPriority) ||
+    trustPriority < 0 ||
     !Number.isSafeInteger(timestamp) ||
     !uuidPattern.test(suggestionId)
   ) {
     return null;
   }
   const submittedAt = safeIsoTimestamp(timestamp);
-  return submittedAt ? { queueRank, submittedAt, suggestionId } : null;
+  return submittedAt ? { queueRank, trustPriority, submittedAt, suggestionId } : null;
 }
 
 function safeIsoTimestamp(timestamp: number): string | null {

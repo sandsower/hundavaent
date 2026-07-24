@@ -112,7 +112,7 @@ export type Database = {
           requested_trusted_minimum_distinct_months: number
           requested_trusted_minimum_distinct_subjects: number
           requested_trusted_minimum_net_accepted: number
-          requested_trusted_window_seconds: number
+          requested_trusted_window_months: number
         }
         Returns: undefined
       }
@@ -921,6 +921,7 @@ export type Database = {
               cursor_flag_id?: string
               cursor_priority?: number
               cursor_submitted_at?: string
+              cursor_trust_priority?: number
               requested_filter: string
               requested_limit?: number
             }
@@ -944,6 +945,8 @@ export type Database = {
               submitted_at: string
               target_field: string
               target_kind: string
+              trust_priority: number
+              trust_tier: string
               updated_at: string
             }[]
           }
@@ -975,6 +978,7 @@ export type Database = {
               cursor_queue_rank?: number
               cursor_submitted_at?: string
               cursor_suggestion_id?: string
+              cursor_trust_priority?: number
               requested_filter: string
               requested_limit?: number
             }
@@ -995,6 +999,8 @@ export type Database = {
               status: string
               submitted_at: string
               suggestion_id: string
+              trust_priority: number
+              trust_tier: string
               updated_at: string
             }[]
           }
