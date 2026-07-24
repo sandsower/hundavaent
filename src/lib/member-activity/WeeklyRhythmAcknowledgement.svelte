@@ -156,14 +156,14 @@
     white-space: nowrap;
   }
 
+  /* Slides without fading so accessibility scans never sample the copy in a
+     half-transparent state. */
   @keyframes acknowledgement-arrives {
     from {
-      opacity: 0;
       transform: translateY(-0.25rem);
     }
 
     to {
-      opacity: 1;
       transform: translateY(0);
     }
   }

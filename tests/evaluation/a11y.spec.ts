@@ -165,8 +165,9 @@ test('public discovery and floating access details are keyboard-operable and Axe
   await page.setViewportSize({ width: 1024, height: 900 });
   await page.goto('/en?view=map');
   await waitForHydration(page);
-  // The desktop result rail is persistent. The Show results control only exists on the
-  // compact map-first layout, so exercise the rail directly at this wide viewport.
+  // Arrival is a quiet map: the "All" chip is the browse-everything toggle
+  // that opens the floating list.
+  await page.getByRole('button', { name: 'All', exact: true }).click();
   const listSelection = page.getByRole('button', { name: 'Select Published Place' });
   await expect(listSelection).toBeVisible();
   const listAccessSymbols = page
@@ -248,12 +249,12 @@ test('place-mode directory results remain bilingual and reflow without page over
   const scenarios = [
     {
       locale: 'en',
-      resultsButton: /Show \d+ results?/,
+      allChip: 'All',
       resultsRegion: 'Places found'
     },
     {
       locale: 'is',
-      resultsButton: /Sýna \d+ niðurstöð/,
+      allChip: 'Allt',
       resultsRegion: 'Staðir sem fundust'
     }
   ] as const;
@@ -266,9 +267,7 @@ test('place-mode directory results remain bilingual and reflow without page over
       await page.setViewportSize(viewport);
       await page.goto(`/${scenario.locale}?view=map`);
       await waitForHydration(page);
-      if (viewport.width < 928) {
-        await page.getByRole('button', { name: scenario.resultsButton }).click();
-      }
+      await page.getByRole('button', { name: scenario.allChip, exact: true }).click();
       await expect(page.getByRole('region', { name: scenario.resultsRegion })).toBeVisible();
       await expectNoHorizontalPageScroll(page);
       await expectNoSeriousAxeViolations(page, evidence);

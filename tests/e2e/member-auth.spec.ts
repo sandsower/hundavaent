@@ -81,7 +81,9 @@ test('Member authentication recovery states are bilingual and public discovery s
   await expect(page.getByText('Innskráningin tókst ekki. Reyndu aftur.')).toBeVisible();
 
   await page.goto('/en');
-  await expect(page.getByText(/place found|places found/)).toBeVisible();
+  await waitForHydration(page);
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Places found' })).toBeVisible();
 });
 
 test('a passwordless link opened on another device signs in without an originating verifier', async ({

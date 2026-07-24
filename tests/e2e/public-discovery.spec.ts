@@ -370,7 +370,8 @@ test.describe('public discovery locale routes', () => {
     await expect(page.getByText('No places match')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Published Place', exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: 'Clear all filters' }).click();
-    await expect(page.getByRole('button', { name: 'Published Place', exact: true })).toBeVisible();
+    await expect(page.getByText('No places match')).toHaveCount(0);
+    await expect(page.locator('.hundavaent-marker').first()).toBeVisible();
 
     await page.goBack();
     await expect(page.getByRole('searchbox', { name: 'Search for a place' })).toHaveValue(

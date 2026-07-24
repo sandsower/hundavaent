@@ -458,7 +458,8 @@ for (const locale of ['is', 'en'] as const) {
     retireLocalDogFriendlinessFixture();
     provisionLocalDogFriendlinessFixture();
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto(`/${locale}?view=map`);
+    // The "All" chip opens the browse-everything list over the quiet map.
+    await page.goto(`/${locale}?view=list`);
     await expect(page.getByRole('heading', { name: copy[locale].directory })).toBeVisible();
     await expect(page.getByRole('button', { name: copy[locale].place, exact: true })).toBeVisible();
     await expect(
@@ -470,11 +471,7 @@ for (const locale of ['is', 'en'] as const) {
     await page.goto(`/${locale}?view=map`);
     await expect(page.getByRole('heading', { name: copy[locale].map })).toBeVisible();
     await expect(page.getByRole('button', { name: copy[locale].place, exact: true })).toBeVisible();
-    await page
-      .getByRole('button', {
-        name: locale === 'is' ? /Sýna \d+ niðurstöð/ : /Show \d+ results?/
-      })
-      .click();
+    await page.getByRole('button', { name: locale === 'is' ? 'Allt' : 'All', exact: true }).click();
     await expect(
       page.getByRole('region', { name: locale === 'is' ? 'Staðir sem fundust' : 'Places found' })
     ).toBeVisible();

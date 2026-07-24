@@ -575,7 +575,7 @@
           focusOrigin.focus();
           return;
         }
-        if (mapFailed || discoveryState.view === 'list') {
+        if (mapFailed) {
           const restoredResult = [
             ...document.querySelectorAll<HTMLButtonElement>('.results-overlay [data-place-id]')
           ].find((element) => element.dataset.placeId === previouslySelectedPlaceId);
