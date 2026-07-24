@@ -837,7 +837,6 @@
         resultCount={filteredPlaces.length}
         {filtersOpen}
         resultsOpen={discoveryState.view === 'list' && !mapFailed}
-        showResultsToggle={!persistentRailLayout}
         {copy}
         {locationState}
         {suggestHref}
@@ -908,7 +907,7 @@
                 onSelect={(placeId, trigger, openDetails) =>
                   selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list', openDetails)}
                 onClose={closeResults}
-                closable={discoveryState.view === 'list' && !mapFailed && !persistentRailLayout}
+                closable={discoveryState.view === 'list' && !mapFailed}
                 {signedIn}
                 {favouritePlaceIds}
                 signInHref={favouriteSignInHref}
@@ -975,49 +974,53 @@
   .map-list-shell {
     --directory-rail-width: clamp(20rem, 29cqw, 26rem);
     --floating-card-inset: 0.75rem;
+    --chrome-top: calc(var(--hv-app-header-height, 4.4rem) + 0.35rem);
     position: relative;
-    display: grid;
-    grid-template-columns: var(--directory-rail-width) minmax(0, 1fr);
     width: 100%;
     height: 100%;
     min-height: 0;
     overflow: hidden;
-    border-block: 1px solid var(--hv-border-subtle);
-    background: var(--hv-color-snow-raised);
+    background: var(--hv-color-snow);
   }
 
+  /* The map owns the viewport; every other surface floats above it. */
   .directory-sidebar {
-    position: relative;
+    position: absolute;
     z-index: 2;
+    top: var(--chrome-top);
+    bottom: var(--floating-card-inset);
+    left: var(--floating-card-inset);
+    display: flex;
+    width: var(--directory-rail-width);
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    gap: 0.6rem;
+    pointer-events: none;
+  }
+
+  .rail-stack {
     display: flex;
     min-width: 0;
     min-height: 0;
     flex-direction: column;
-    overflow: hidden;
-    border-inline-end: 1px solid var(--hv-border-subtle);
-    background: var(--hv-color-snow-raised);
-  }
-
-  .rail-stack {
-    position: relative;
-    min-width: 0;
-    min-height: 0;
-    flex: 1;
-    overflow: hidden;
+    gap: 0.6rem;
+    pointer-events: none;
   }
 
   .rail-content {
     min-width: 0;
     min-height: 0;
-    flex: 1;
+    flex: 0 1 auto;
     overflow: auto;
-    border-block-start: 1px solid var(--hv-border-subtle);
     overscroll-behavior: contain;
+    pointer-events: auto;
   }
 
   .map-panel {
-    position: relative;
+    position: absolute;
     z-index: 0;
+    inset: 0;
     min-width: 0;
     min-height: 0;
     isolation: isolate;
@@ -1031,13 +1034,15 @@
   }
 
   .selected-place-overlay {
-    position: absolute;
     z-index: 4;
-    inset: 0;
     display: flex;
     width: 100%;
+    flex: 1;
     overflow: hidden;
+    border: 1px solid var(--hv-border-strong);
+    border-radius: var(--hv-radius-shell);
     background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-floating);
     animation: detail-card-enter 240ms ease-out both;
   }
 
@@ -1045,11 +1050,19 @@
     width: 100%;
     height: 100%;
     max-height: none;
+    border-radius: inherit;
   }
 
   .results-overlay {
     width: 100%;
-    height: 100%;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-shell);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-floating);
+  }
+
+  .results-overlay[data-results-visible='false'] {
+    display: none;
   }
 
   @keyframes detail-card-enter {
@@ -1067,7 +1080,10 @@
     align-content: start;
     gap: 0.4rem;
     padding: 1rem;
-    background: var(--hv-color-snow);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-shell);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-floating);
   }
 
   .empty-state button {
@@ -1116,25 +1132,41 @@
     padding: 0;
   }
 
-  @container directory-shell (min-width: 76rem) {
-    .directory-sidebar,
-    .rail-stack {
-      position: static;
-    }
+  /* The floating header owns the top strip, so the map's own controls start
+     below it. */
+  .map-stage :global(.maplibregl-ctrl-top-right) {
+    top: var(--chrome-top);
+  }
 
+  /* Without JavaScript the map never mounts: the chrome returns to static
+     flow so the server-rendered directory below stays fully readable. */
+  :global(body:has(.noscript-results)) .map-list-boundary,
+  :global(body:has(.noscript-results)) .map-list-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  :global(body:has(.noscript-results)) .directory-sidebar {
+    position: static;
+    width: auto;
+    pointer-events: auto;
+  }
+
+  :global(body:has(.noscript-results)) .map-panel {
+    display: none;
+  }
+
+  @container directory-shell (min-width: 76rem) {
+    /* The boundary's size containment makes it the containing block for
+       fixed descendants, so the card pins to the shell's top-right corner. */
     .selected-place-overlay {
-      top: var(--floating-card-inset);
+      position: fixed;
+      top: var(--chrome-top);
       right: var(--floating-card-inset);
       bottom: var(--floating-card-inset);
       left: auto;
       width: var(--directory-rail-width);
-      border: 1px solid var(--hv-border-strong);
-      border-radius: var(--hv-radius-shell);
-      box-shadow: var(--hv-shadow-floating);
-    }
-
-    .selected-place-overlay :global(aside) {
-      border-radius: inherit;
+      flex: none;
     }
 
     .map-list-shell[data-detail-layout='floating'] .map-stage :global(.maplibregl-ctrl-top-right),
@@ -1147,43 +1179,28 @@
   }
 
   @container directory-shell (max-width: 57.999rem) {
-    .map-list-shell {
-      display: block;
-      height: auto;
-      min-height: 100%;
-      overflow: visible;
-      border-block-end: 0;
-    }
-
     .directory-sidebar {
-      overflow: visible;
-      border-inline-end: 0;
-      border-block-end: 1px solid var(--hv-border-subtle);
+      right: var(--floating-card-inset);
+      width: auto;
     }
 
     .map-list-shell[data-detail-layout='rail'] .directory-sidebar {
       z-index: 10;
     }
 
-    .rail-stack {
-      position: static;
-      overflow: visible;
-    }
-
     .rail-content {
       max-height: min(34rem, 46dvh);
     }
 
-    .map-panel {
-      min-height: max(26rem, calc(100dvh - var(--hv-app-header-height, 4.4rem)));
-    }
-
-    .map-stage {
-      min-height: inherit;
-    }
-
     .map-list-shell[data-detail-layout='rail'] .map-stage :global(.maplibregl-ctrl-top-right) {
       visibility: hidden;
+    }
+
+    /* The cluster spans the full width here, so the map controls move to the
+       bottom corner instead of hiding behind it. */
+    .map-stage :global(.maplibregl-ctrl-top-right) {
+      top: auto;
+      bottom: 2.4rem;
     }
 
     .selected-place-overlay {
@@ -1196,24 +1213,12 @@
       width: auto;
       max-height: min(34rem, calc(100dvh - 6.5rem));
       flex: none;
-      border: 1px solid var(--hv-border-strong);
-      box-shadow: var(--hv-shadow-floating);
     }
 
     .selected-place-overlay :global(aside) {
       height: auto;
       min-height: 0;
       max-height: min(34rem, calc(100dvh - 6.5rem));
-    }
-
-    .results-overlay[data-results-visible='false'] {
-      display: none;
-    }
-
-    .map-stage :global(.map-surface),
-    .map-stage :global(.map-container),
-    .map-stage :global(.map-failure) {
-      min-height: inherit;
     }
   }
 

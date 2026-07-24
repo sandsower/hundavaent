@@ -639,7 +639,7 @@ describe('MapListShell synchronization', () => {
     expect(document.activeElement).toBe(marker);
   });
 
-  it('keeps the desktop result rail visible while a matching-width detail card floats over the map', async () => {
+  it('arrives on a quiet map and floats a matching-width detail card over it on desktop', async () => {
     const initialViewport = { width: window.innerWidth, height: window.innerHeight };
     await browserPage.viewport(1280, 800);
     history.replaceState(null, '', '/en');
@@ -657,30 +657,26 @@ describe('MapListShell synchronization', () => {
       });
 
       const sidebar = container.querySelector<HTMLElement>('[data-directory-sidebar]');
-      const results = screen.getByRole('region', { name: 'Places found' });
-      expect(sidebar?.contains(results)).toBe(true);
-      expect(within(sidebar!).getByText('Capital region · 1 place')).toBeTruthy();
-      expect(
-        within(sidebar!).getByRole('heading', { name: 'Find somewhere to go together' })
-      ).toBeTruthy();
-      expect(within(sidebar!).getByRole('button', { name: 'All' })).toHaveAttribute(
+      expect(sidebar).toBeTruthy();
+      if (!sidebar) throw new Error('Expected the floating command cluster');
+      expect(screen.queryByRole('region', { name: 'Places found' })).toBeNull();
+      expect(within(sidebar).getByRole('button', { name: 'All' })).toHaveAttribute(
         'aria-pressed',
-        'true'
+        'false'
       );
-      expect(within(sidebar!).getByRole('button', { name: 'Food' })).toBeTruthy();
-      expect(within(sidebar!).getByRole('button', { name: 'Shops' })).toBeTruthy();
-      expect(within(sidebar!).getByRole('button', { name: 'Outdoors' })).toBeTruthy();
-      expect(within(sidebar!).getByRole('button', { name: 'More filters' })).toBeTruthy();
-      const accessibleResultsHeading = screen.getByRole('heading', { name: 'Places found' });
-      const visuallyHiddenHeading = accessibleResultsHeading.closest<HTMLElement>('.tray-heading');
-      expect(visuallyHiddenHeading).toBeTruthy();
-      expect(visuallyHiddenHeading!.getBoundingClientRect().width).toBe(1);
-      expect(visuallyHiddenHeading!.getBoundingClientRect().height).toBe(1);
-      expect(getComputedStyle(visuallyHiddenHeading!).overflow).toBe('hidden');
-      expect(screen.queryByRole('button', { name: 'Show 1 result' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Close results' })).toBeNull();
+      expect(within(sidebar).getByRole('button', { name: 'Food' })).toBeTruthy();
+      expect(within(sidebar).getByRole('button', { name: 'Shops' })).toBeTruthy();
+      expect(within(sidebar).getByRole('button', { name: 'Outdoors' })).toBeTruthy();
+      expect(within(sidebar).getByRole('button', { name: 'More filters' })).toBeTruthy();
+      expect(within(sidebar).getByRole('button', { name: 'Show 1 result' })).toBeTruthy();
 
-      const resultCard = within(sidebar!).getByLabelText('Published Place');
+      await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
+      const results = screen.getByRole('region', { name: 'Places found' });
+      expect(sidebar.contains(results)).toBe(true);
+      expect(screen.getByRole('heading', { name: 'Places found' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Close results' })).toBeTruthy();
+
+      const resultCard = within(sidebar).getByLabelText('Published Place');
       const photo = within(resultCard).getByAltText('A dog in a public park');
       const photoRect = photo.getBoundingClientRect();
       const mediaRect = resultCard
@@ -691,19 +687,16 @@ describe('MapListShell synchronization', () => {
       expect(within(resultCard).getByText('Outdoor place · Park', { exact: true })).toBeTruthy();
       expect(resultCard.querySelector('[data-place-card-media="photo"]')).toBeTruthy();
 
-      await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
-      expect(resultCard.classList.contains('selected')).toBe(true);
-      expect(
+      await fireEvent.click(
         within(resultCard).getByRole('button', { name: 'Select Published Place' })
-      ).toHaveAttribute('aria-pressed', 'true');
-      expect(getComputedStyle(resultCard).boxShadow).toContain('rgb(242, 201, 76)');
+      );
       const cardOverlay = container.querySelector<HTMLElement>('[data-selected-place-overlay]');
       expect(cardOverlay).toBeTruthy();
-      if (!sidebar || !cardOverlay) throw new Error('Expected desktop rail and detail card');
+      if (!cardOverlay) throw new Error('Expected the floating detail card');
       expect(
         within(cardOverlay).getByAltText('A dog in a public park').getBoundingClientRect().height
       ).toBeCloseTo(83.2, 0);
-      expect(screen.getByRole('region', { name: 'Places found' })).toBeTruthy();
+      expect(screen.queryByRole('region', { name: 'Places found' })).toBeNull();
 
       const sidebarWidth = sidebar.getBoundingClientRect().width;
       expect(sidebarWidth).toBeLessThanOrEqual(416.5);
@@ -804,8 +797,7 @@ describe('MapListShell synchronization', () => {
       const all = within(shortcuts).getByRole('button', { name: 'All' });
       const food = within(shortcuts).getByRole('button', { name: 'Food' });
       const moreFilters = screen.getByRole('button', { name: 'More filters' });
-      expect(screen.getByText('Kópavogur · 1 place')).toBeTruthy();
-      expect(all).toHaveAttribute('aria-pressed', 'true');
+      expect(all).toHaveAttribute('aria-pressed', 'false');
       expect(moreFilters.closest('.shortcut-row')).toContainElement(shortcuts);
       expect(moreFilters.getBoundingClientRect().top).toBeCloseTo(
         food.getBoundingClientRect().top,
@@ -822,7 +814,8 @@ describe('MapListShell synchronization', () => {
       expect(window.location.search).toContain('area=K%C3%B3pavogur');
 
       await fireEvent.click(all);
-      expect(all).toHaveAttribute('aria-pressed', 'true');
+      // Until the chip also opens the list (state 2), "All" stays quiet on the map view.
+      expect(all).toHaveAttribute('aria-pressed', 'false');
       expect(window.location.search).not.toContain('category=');
       expect(window.location.search).toContain('area=K%C3%B3pavogur');
 
@@ -868,7 +861,7 @@ describe('MapListShell synchronization', () => {
         sidebar.getBoundingClientRect().width,
         0
       );
-      expect(getComputedStyle(cardOverlay).position).toBe('absolute');
+      expect(sidebar.contains(cardOverlay)).toBe(true);
       await waitFor(() =>
         expect(cardOverlay.getBoundingClientRect().left).toBeCloseTo(
           sidebar.getBoundingClientRect().left,
@@ -1040,11 +1033,11 @@ describe('MapListShell synchronization', () => {
 
     try {
       for (const scenario of [
-        { width: breakpointPx - 1, layout: 'compact', display: 'block', controls: true },
-        { width: breakpointPx, layout: 'rail', display: 'grid', controls: false },
-        { width: breakpointPx + 1, layout: 'rail', display: 'grid', controls: false },
+        { width: breakpointPx - 1, layout: 'compact' },
+        { width: breakpointPx, layout: 'rail' },
+        { width: breakpointPx + 1, layout: 'rail' },
         // A 640 CSS-pixel container is a 1280px host's effective width at 200% zoom.
-        { width: 640, layout: 'compact', display: 'block', controls: true }
+        { width: 640, layout: 'compact' }
       ] as const) {
         history.replaceState(null, '', '/en?view=list');
         const target = document.createElement('div');
@@ -1069,27 +1062,14 @@ describe('MapListShell synchronization', () => {
 
         await waitFor(() => expect(shell.dataset.shellLayout).toBe(scenario.layout));
         expect(window.innerWidth).toBe(1280);
-        expect(getComputedStyle(shell).display).toBe(scenario.display);
-        expect(within(container).queryByRole('button', { name: 'Show 1 result' }) !== null).toBe(
-          scenario.controls
+        expect(within(container).getByRole('button', { name: 'Show 1 result' })).toBeTruthy();
+        expect(within(container).getByRole('button', { name: 'Close results' })).toBeTruthy();
+        const shortcutNames = ['All', 'Food', 'Shops', 'Outdoors', 'More filters'];
+        const shortcutButtons = shortcutNames.map((name) =>
+          within(container).getByRole('button', { name })
         );
-        expect(within(container).queryByRole('button', { name: 'Close results' }) !== null).toBe(
-          scenario.controls
-        );
-        if (scenario.layout === 'rail') {
-          const shortcutNames = ['All', 'Food', 'Shops', 'Outdoors', 'More filters'];
-          const shortcutButtons = shortcutNames.map((name) =>
-            within(container).getByRole('button', { name })
-          );
-          const shortcutTop = shortcutButtons[0].getBoundingClientRect().top;
-          expect(
-            shortcutButtons.every(
-              (button) => Math.abs(button.getBoundingClientRect().top - shortcutTop) < 0.5
-            )
-          ).toBe(true);
-          const shortcutRow = shortcutButtons[0].closest<HTMLElement>('.shortcut-row')!;
-          expect(shortcutRow.scrollWidth).toBeLessThanOrEqual(shortcutRow.clientWidth);
-        }
+        const shortcutRow = shortcutButtons[0].closest<HTMLElement>('.shortcut-row')!;
+        expect(shortcutRow.scrollWidth).toBeLessThanOrEqual(shortcutRow.clientWidth);
 
         unmount();
         target.remove();
@@ -1921,9 +1901,10 @@ describe('MapListShell synchronization', () => {
     );
   });
 
-  it('uses the approved desktop rail-map grid geometry', async () => {
+  it('gives the map the full shell and floats the command cluster above it on arrival', async () => {
     const initialViewport = { width: window.innerWidth, height: window.innerHeight };
     await browserPage.viewport(1200, 800);
+    history.replaceState(null, '', '/en');
 
     try {
       const { container } = render(MapListShell, {
@@ -1937,16 +1918,28 @@ describe('MapListShell synchronization', () => {
         loadPlace: vi.fn(async () => complexProfile)
       });
       const shell = container.querySelector<HTMLElement>('[data-responsive-shell]');
+      const mapPanel = container.querySelector<HTMLElement>('.map-panel');
+      const sidebar = container.querySelector<HTMLElement>('[data-directory-sidebar]');
       expect(shell).toBeTruthy();
-      if (!shell) throw new Error('Expected the discovery shell');
+      expect(mapPanel).toBeTruthy();
+      expect(sidebar).toBeTruthy();
+      if (!shell || !mapPanel || !sidebar) throw new Error('Expected the discovery shell parts');
 
-      const shellStyle = getComputedStyle(shell);
-      const desktopColumns = shellStyle.gridTemplateColumns.split(' ').map(Number.parseFloat);
-      expect(shellStyle.display).toBe('grid');
-      expect(desktopColumns).toHaveLength(2);
-      expect(desktopColumns[0]).toBeGreaterThanOrEqual(320);
-      expect(desktopColumns[0]).toBeLessThanOrEqual(416);
-      expect(desktopColumns[1]).toBeGreaterThan(desktopColumns[0]);
+      const shellRect = shell.getBoundingClientRect();
+      const mapRect = mapPanel.getBoundingClientRect();
+      const sidebarRect = sidebar.getBoundingClientRect();
+      expect(getComputedStyle(shell).display).not.toBe('grid');
+      expect(mapRect.width).toBeCloseTo(shellRect.width, 0);
+      expect(mapRect.height).toBeCloseTo(shellRect.height, 0);
+      expect(sidebarRect.width).toBeGreaterThanOrEqual(320);
+      expect(sidebarRect.width).toBeLessThanOrEqual(416.5);
+      expect(sidebarRect.left).toBeGreaterThanOrEqual(mapRect.left);
+      expect(sidebarRect.right).toBeLessThan(mapRect.right);
+      expect(getComputedStyle(sidebar).pointerEvents).toBe('none');
+
+      expect(screen.queryByRole('region', { name: 'Places found' })).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'Places found' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Show 1 result' })).toBeTruthy();
     } finally {
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }

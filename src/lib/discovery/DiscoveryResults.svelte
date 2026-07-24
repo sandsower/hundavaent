@@ -133,22 +133,4 @@
     gap: 0.25rem;
     padding: 0.75rem 0;
   }
-
-  @container directory-shell (min-width: 58rem) {
-    .tray-heading button {
-      display: none;
-    }
-
-    .tray-heading {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
-    }
-  }
 </style>

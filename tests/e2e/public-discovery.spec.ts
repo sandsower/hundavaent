@@ -17,6 +17,11 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL(/\/is$/);
     await expect(page.locator('html')).toHaveAttribute('lang', 'is');
     await expect(page.getByRole('heading', { name: 'Hundavænt' })).toBeVisible();
+    // Arrival is a quiet map: the command cluster invites, the list waits.
+    await expect(page.getByRole('region', { name: 'Staðir sem fundust' })).toHaveCount(0);
+    await expect(page.getByRole('searchbox', { name: 'Leita að stað' })).toBeVisible();
+    await waitForHydration(page);
+    await page.getByRole('button', { name: /Sýna \d+ niðurstöð/ }).click();
     await expect(page.getByRole('region', { name: 'Staðir sem fundust' })).toBeVisible();
     await expect(page.getByText('Finndu hundvæna staði á höfuðborgarsvæðinu.')).toHaveCount(0);
   });
@@ -43,6 +48,8 @@ test.describe('public discovery locale routes', () => {
       'href',
       '/en/account?returnTo=%2Fen'
     );
+    await waitForHydration(page);
+    await page.getByRole('button', { name: /Show \d+ results?/ }).click();
     const desktopResults = page.getByRole('region', { name: 'Places found' });
     await expect(
       desktopResults.getByRole('button', { name: 'Select Published Place' })
@@ -197,6 +204,7 @@ test.describe('public discovery locale routes', () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/en');
     await waitForHydration(page);
+    await page.getByRole('button', { name: /Show \d+ results?/ }).click();
 
     const card = page.locator('[data-place-card]').filter({ hasText: 'Published Place' });
     const media = card.locator('[data-place-card-media="category-band"]');
@@ -341,6 +349,7 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL(/access=outdoors/);
     await expect(page).toHaveURL(/q=Reykjav%C3%ADk/);
     await page.getByRole('button', { name: 'Hide filters' }).click();
+    await page.getByRole('button', { name: /Show \d+ results?/ }).click();
     await page.getByRole('button', { name: 'Select Published Place' }).click();
     await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
 
