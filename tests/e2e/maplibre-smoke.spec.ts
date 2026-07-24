@@ -111,6 +111,10 @@ test('the real MapLibre adapter renders, selects, moves, attributes, and dispose
       }
     ]);
   });
+  await expect(smokeMap.getByRole('button', { name: '2 places' })).toHaveCSS(
+    'background-color',
+    'rgb(40, 126, 145)'
+  );
   await smokeMap.getByRole('button', { name: '2 places' }).click();
   await expect
     .poll(() =>
