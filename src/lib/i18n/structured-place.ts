@@ -118,9 +118,7 @@ export interface OpeningHoursRow {
 
 // Stored opening-hours objects carry no reliable key order, so presentation
 // re-establishes the Monday-to-Sunday week before any free-text entries.
-function orderedOpeningHoursEntries(
-  value: Readonly<Record<string, unknown>>
-): [string, unknown][] {
+function orderedOpeningHoursEntries(value: Readonly<Record<string, unknown>>): [string, unknown][] {
   return Object.entries(value).toSorted(([a], [b]) => {
     const aIndex = weekdayOrder.indexOf(a);
     const bIndex = weekdayOrder.indexOf(b);
