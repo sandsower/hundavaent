@@ -2041,6 +2041,96 @@ describe('MapListShell synchronization', () => {
     expect(window.location.search).not.toContain('category=');
   });
 
+  it('folds the chrome to a search icon and a dark places pill, and every exit restores it', async () => {
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Outdoors' }));
+    expect(screen.getByRole('region', { name: 'Parks and outdoors' })).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide controls' }));
+
+    expect(screen.queryByRole('searchbox', { name: 'Search for a place' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Parks and outdoors' })).toBeNull();
+    const pill = screen.getByRole('button', { name: '1 Outdoors' });
+    expect(pill).toBeTruthy();
+    // The fold is ephemeral: the URL still describes the folded browse state.
+    expect(window.location.search).toContain('view=list');
+    expect(window.location.search).toContain('category=outdoors');
+
+    await fireEvent.click(pill);
+    expect(screen.getByRole('region', { name: 'Parks and outdoors' })).toBeTruthy();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Outdoors' }))
+    );
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide controls' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Open search' }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('searchbox', { name: 'Search for a place' })
+      )
+    );
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide controls' }));
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByRole('region', { name: 'Parks and outdoors' })).toBeTruthy();
+
+    // Any pin exits the folded state and brings the chrome back with the card.
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide controls' }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Published Place$/ }));
+    expect(screen.getByLabelText('Selected place')).toBeTruthy();
+    expect(screen.getByRole('searchbox', { name: 'Search for a place' })).toBeTruthy();
+  });
+
+  it('quiets the chrome only while a map gesture lasts and never folds it', async () => {
+    history.replaceState(null, '', '/en');
+    let mountedCallbacks: MapCallbacks | null = null;
+    const adapter: MapAdapter = {
+      mount: vi.fn((_container, callbacks) => {
+        mountedCallbacks = callbacks;
+      }),
+      setPlaces: vi.fn(),
+      setSelectedPlace: vi.fn(),
+      focusPlace: vi.fn(),
+      setCamera: vi.fn(),
+      destroy: vi.fn()
+    };
+    const { container } = render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter,
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+    await waitFor(() => expect(adapter.setPlaces).toHaveBeenCalled());
+    const callbacks = mountedCallbacks as unknown as MapCallbacks;
+    const shell = container.querySelector<HTMLElement>('[data-responsive-shell]')!;
+    const sidebar = container.querySelector<HTMLElement>('[data-directory-sidebar]')!;
+
+    callbacks.onMoveStateChange?.(true);
+    await waitFor(() => expect(shell.getAttribute('data-map-moving')).toBe('true'));
+    await waitFor(() => expect(Number(getComputedStyle(sidebar).opacity)).toBeLessThan(1));
+    // A drag de-emphasizes but never sticky-folds the cluster.
+    expect(screen.getByRole('searchbox', { name: 'Search for a place' })).toBeTruthy();
+    expect(shell.getAttribute('data-focus-fold')).toBe('false');
+
+    callbacks.onMoveStateChange?.(false);
+    await waitFor(() => expect(shell.getAttribute('data-map-moving')).toBe('false'));
+    await waitFor(() => expect(getComputedStyle(sidebar).opacity).toBe('1'));
+  });
+
   it('opens only terminal cluster members in the selectable result tray', async () => {
     history.replaceState(null, '', '/en');
     const clusteredPlace = {

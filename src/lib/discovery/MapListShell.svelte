@@ -101,6 +101,10 @@
   let announcement = $state('');
   let mapFailed = $state(false);
   let filtersOpen = $state(false);
+  // Focus state (state 3): a user gesture on the map quiets the chrome only
+  // while it lasts; the sticky fold is always an explicit choice.
+  let mapMoving = $state(false);
+  let manualFold = $state(false);
   let clusterPlaceIds = $state<readonly string[] | null>(null);
   const clusterHistoryKey = 'hundavaentClusterPlaceIds';
   let selectionFocusOrigin = $state<HTMLButtonElement | null>(null);
@@ -149,6 +153,19 @@
     discoveryState.filters.category
       ? copy[categoryLabelKeys[discoveryState.filters.category]]
       : null
+  );
+  const categoryChipLabelKeys = {
+    food_drink: 'directory.categoryFoodShort',
+    shopping: 'directory.categoryShoppingShort',
+    outdoors: 'directory.categoryOutdoorsShort',
+    accommodation: 'directory.categoryAccommodation',
+    public_cultural: 'directory.categoryPublicCultural'
+  } as const satisfies Record<DiscoveryCategory, keyof Catalogue>;
+  // The folded state keeps an active filter alive as the dark places pill.
+  let focusPillLabel = $derived(
+    discoveryState.filters.category
+      ? copy[categoryChipLabelKeys[discoveryState.filters.category]]
+      : copy['directory.placesInView']
   );
   let suggestionPoint = $derived(selectedPlace ?? discoveryState.camera);
   let suggestHref = $derived(
@@ -344,6 +361,11 @@
         clearSelectedPlace();
         return;
       }
+      if (manualFold) {
+        event.preventDefault();
+        unfoldFromPill();
+        return;
+      }
       if (filtersOpen) {
         event.preventDefault();
         toggleFilters();
@@ -500,6 +522,8 @@
 
     clusterPlaceIds = null;
     filtersOpen = false;
+    // Any pin exits the folded Focus state; the selection needs its chrome.
+    manualFold = false;
     openDetailsIntentPlaceId = openDetails ? placeId : null;
     commitState(
       {
@@ -695,6 +719,31 @@
     updateFilters({ ...defaultDiscoveryFilters }, 'push', 'map');
   }
 
+  // The sticky fold collapses the command cluster to a search icon and the
+  // dark places pill without touching URL state: unfolding restores exactly
+  // the browse state that was folded away.
+  function foldChrome(): void {
+    filtersOpen = false;
+    manualFold = true;
+  }
+
+  function unfoldToSearch(): void {
+    manualFold = false;
+    queueMicrotask(() =>
+      document.querySelector<HTMLInputElement>('.discovery-controls input[type="search"]')?.focus()
+    );
+  }
+
+  function unfoldFromPill(): void {
+    const chip = discoveryState.filters.category ?? 'all';
+    manualFold = false;
+    queueMicrotask(() =>
+      document
+        .querySelector<HTMLButtonElement>(`.discovery-controls [data-chip="${chip}"]`)
+        ?.focus()
+    );
+  }
+
   // Closing the list mirrors the active chip's dismissal: the slice that
   // opened it (category or search) clears with it, and focus returns to the
   // chip that owned the slice.
@@ -872,6 +921,8 @@
     class="map-list-shell"
     data-responsive-shell
     data-map-failed={mapFailed}
+    data-map-moving={mapMoving}
+    data-focus-fold={manualFold}
     data-reduced-motion={reducedMotion}
     data-shell-layout={wideDetailLayout ? 'wide' : persistentRailLayout ? 'rail' : 'compact'}
     data-detail-layout={selectedPlace && wideDetailLayout
@@ -892,26 +943,43 @@
           : 'results'}
       aria-label={copy['directory.listLabel']}
     >
-      <DiscoveryControls
-        filters={discoveryState.filters}
-        {areas}
-        resultCount={filteredPlaces.length}
-        {filtersOpen}
-        resultsOpen={discoveryState.view === 'list' && !mapFailed}
-        {copy}
-        {locationState}
-        {suggestHref}
-        showSuggest={filteredPlaces.length === 0}
-        {signedIn}
-        {favouritesAvailable}
-        onQueryChange={updateQuery}
-        onFiltersChange={updateFilters}
-        onChipToggle={toggleCategoryChip}
-        onClear={clearFilters}
-        onUseLocation={() => requestLocation()}
-        onRetryLocation={retryLocation}
-        onToggleFilters={toggleFilters}
-      />
+      {#if manualFold}
+        <div class="focus-cluster">
+          <button
+            type="button"
+            class="focus-search"
+            aria-label={copy['directory.openSearch']}
+            onclick={unfoldToSearch}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="10.5" cy="10.5" r="6.75" fill="none" stroke-width="2.2" />
+              <line x1="15.6" y1="15.6" x2="21" y2="21" stroke-width="2.2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+      {:else}
+        <DiscoveryControls
+          filters={discoveryState.filters}
+          {areas}
+          resultCount={filteredPlaces.length}
+          {filtersOpen}
+          resultsOpen={discoveryState.view === 'list' && !mapFailed}
+          {copy}
+          {locationState}
+          {suggestHref}
+          showSuggest={filteredPlaces.length === 0}
+          {signedIn}
+          {favouritesAvailable}
+          onQueryChange={updateQuery}
+          onFiltersChange={updateFilters}
+          onChipToggle={toggleCategoryChip}
+          onClear={clearFilters}
+          onFold={foldChrome}
+          onUseLocation={() => requestLocation()}
+          onRetryLocation={retryLocation}
+          onToggleFilters={toggleFilters}
+        />
+      {/if}
 
       {#if !filtersOpen}
         <div class="rail-stack">
@@ -951,7 +1019,7 @@
             </div>
           {/if}
 
-          {#if filteredPlaces.length > 0}
+          {#if filteredPlaces.length > 0 && !manualFold}
             <div
               class="results-overlay rail-content"
               data-results-visible={discoveryState.view === 'list' || mapFailed}
@@ -976,7 +1044,7 @@
                 onFavouriteChange={applyFavouriteState}
               />
             </div>
-          {:else}
+          {:else if !manualFold}
             <div class="empty-state rail-content" role="status">
               <strong>{copy['directory.noResultsTitle']}</strong>
               <span>{copy['directory.noResultsBody']}</span>
@@ -984,6 +1052,13 @@
             </div>
           {/if}
         </div>
+      {/if}
+
+      {#if manualFold}
+        <button type="button" class="focus-places" onclick={unfoldFromPill}>
+          <span class="focus-count">{filteredPlaces.length}</span>
+          {focusPillLabel}
+        </button>
       {/if}
     </aside>
 
@@ -999,6 +1074,7 @@
           onMarkerSelect={selectPlace}
           onClusterSelect={showClusterResults}
           onCameraChange={updateCamera}
+          onMoveStateChange={(moving) => (mapMoving = moving)}
           onFailureChange={(failed) => (mapFailed = failed)}
           viewportPadding={mapViewportPadding}
           motionDurationMs={mapMotionDuration}
@@ -1086,6 +1162,80 @@
     min-width: 0;
     min-height: 0;
     isolation: isolate;
+  }
+
+  /* Map gestures are quiet: while the user pans or zooms, the browse chrome
+     steps back and returns on its own when the gesture settles. Opacity only:
+     a transform would become the containing block for the fixed detail card. */
+  .directory-sidebar {
+    transition: opacity 200ms ease;
+  }
+
+  .map-list-shell[data-map-moving='true'][data-detail-layout='none'] .directory-sidebar {
+    opacity: 0.35;
+  }
+
+  .focus-cluster {
+    display: flex;
+    pointer-events: none;
+  }
+
+  .focus-search {
+    display: grid;
+    width: var(--hv-control-height);
+    height: var(--hv-control-height);
+    padding: 0;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: 999px;
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
+    color: var(--hv-color-basalt-muted);
+    cursor: pointer;
+    place-items: center;
+    pointer-events: auto;
+  }
+
+  .focus-search svg {
+    width: 1.2rem;
+    height: 1.2rem;
+    stroke: currentColor;
+  }
+
+  .focus-places {
+    display: inline-flex;
+    margin-top: auto;
+    padding: 0.5rem 1rem 0.5rem 0.55rem;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: 999px;
+    background: var(--hv-color-basalt);
+    box-shadow: var(--hv-shadow-floating);
+    color: var(--hv-color-snow-raised);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 850;
+    gap: 0.55rem;
+    align-items: center;
+    align-self: start;
+    pointer-events: auto;
+  }
+
+  .focus-count {
+    display: inline-grid;
+    min-width: 1.5rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: var(--hv-color-signal);
+    color: var(--hv-color-basalt);
+    font-size: 0.8rem;
+    font-weight: 900;
+    place-items: center;
+  }
+
+  .focus-search:focus-visible,
+  .focus-places:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   .map-stage {

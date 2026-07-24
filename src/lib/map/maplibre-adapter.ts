@@ -52,6 +52,7 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
       })
     );
     map.addControl(new maplibre.NavigationControl({ showCompass: false }), 'top-right');
+    map.on('movestart', handleMoveStart);
     map.on('moveend', handleMoveEnd);
     map.on('click', handleMapClick);
 
@@ -256,9 +257,16 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
     );
   }
 
+  // Only user gestures (drag, wheel, pinch) carry an originalEvent; camera
+  // animations must not de-emphasize the floating chrome.
+  function handleMoveStart(event?: { originalEvent?: unknown }): void {
+    if (event?.originalEvent) callbacks?.onMoveStateChange?.(true);
+  }
+
   function handleMoveEnd(event?: { hundavaentProgrammatic?: boolean }): void {
     if (!map) return;
     reconcileMarkers();
+    callbacks?.onMoveStateChange?.(false);
     if (event?.hundavaentProgrammatic) return;
     if (applyingCamera) {
       applyingCamera = false;
@@ -283,6 +291,7 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
     for (const entry of markers.values()) entry.marker.remove();
     markers.clear();
     markerPlaceIds.clear();
+    map?.off('movestart', handleMoveStart);
     map?.off('moveend', handleMoveEnd);
     map?.off('click', handleMapClick);
     map?.remove();

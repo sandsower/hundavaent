@@ -16,6 +16,7 @@
     onCameraChange: (camera: MapCamera) => void;
     onMapSelect?: (point: MapPoint) => void;
     onMarkerMove?: (placeId: string, point: MapPoint) => void;
+    onMoveStateChange?: (moving: boolean) => void;
     failureContent?: Snippet;
     onFailureChange?: (failed: boolean) => void;
     compact?: boolean;
@@ -35,6 +36,7 @@
     onCameraChange,
     onMapSelect,
     onMarkerMove,
+    onMoveStateChange,
     failureContent,
     onFailureChange = () => undefined,
     compact = false,
@@ -65,6 +67,7 @@
         onClusterSelect,
         onMapSelect,
         onMarkerMove,
+        onMoveStateChange,
         onCameraChange: (nextCamera) => {
           if (cameraInitialized) onCameraChange(nextCamera);
         }

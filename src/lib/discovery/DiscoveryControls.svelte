@@ -25,6 +25,7 @@
     onFiltersChange: (filters: DiscoveryFilters) => void;
     onChipToggle: (chip: DiscoveryChip) => void;
     onClear: () => void;
+    onFold?: () => void;
     onUseLocation: () => void;
     onRetryLocation: () => void;
     onToggleFilters: () => void;
@@ -46,6 +47,7 @@
     onFiltersChange,
     onChipToggle,
     onClear,
+    onFold,
     onUseLocation,
     onRetryLocation,
     onToggleFilters
@@ -137,6 +139,24 @@
       {filtersOpen ? copy['directory.hideFilters'] : copy['directory.moreFilters']}
       {#if count > 0}<span aria-hidden="true">{count}</span>{/if}
     </button>
+    {#if onFold}
+      <button
+        type="button"
+        class="fold-button"
+        aria-label={copy['directory.foldChrome']}
+        onclick={onFold}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M5 14.5l7-6 7 6"
+            fill="none"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+    {/if}
   </div>
 
   {#if showSuggest}
@@ -429,6 +449,25 @@
   .chip-meta {
     margin-left: 0.3rem;
     white-space: nowrap;
+  }
+
+  .fold-button {
+    display: grid;
+    width: 2.1rem;
+    min-height: 2.1rem;
+    padding: 0;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: 999px;
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
+    color: var(--hv-color-basalt-muted);
+    place-items: center;
+  }
+
+  .fold-button svg {
+    width: 1rem;
+    height: 1rem;
+    stroke: currentColor;
   }
 
   .suggest-row {

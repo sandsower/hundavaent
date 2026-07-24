@@ -440,6 +440,14 @@
     color: var(--hv-color-basalt);
   }
 
+  /* The folded Focus state compresses the brand pill to its wordmark. */
+  :global(body:has(.map-list-shell[data-focus-fold='true']))
+    .site-header[data-floating-chrome='true']
+    .brand-cluster
+    nav {
+    display: none;
+  }
+
   .site-header[data-floating-chrome='true'] .header-actions > * {
     pointer-events: auto;
   }

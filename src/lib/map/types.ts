@@ -19,6 +19,8 @@ export interface MapCallbacks {
   onCameraChange: (camera: MapCamera) => void;
   onMapSelect?: (point: MapPoint) => void;
   onMarkerMove?: (placeId: string, point: MapPoint) => void;
+  /** Fires true while a user gesture moves the map, false when it settles. */
+  onMoveStateChange?: (moving: boolean) => void;
 }
 
 export interface MapPoint {
