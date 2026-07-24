@@ -17,6 +17,24 @@
 
   let { data }: PageProps = $props();
 
+  const trustedVerificationFeedback = $derived(
+    (
+      data as typeof data & {
+        trustedVerificationFeedback?:
+          | {
+              status: 'available';
+              value: {
+                hasUnread: boolean;
+                latestConfirmedAt: string | null;
+                latestTaskKind: 'access_freshness' | 'dog_amenities' | null;
+                latestPlaceId: string | null;
+              };
+            }
+          | { status: 'unavailable' };
+      }
+    ).trustedVerificationFeedback ?? ({ status: 'unavailable' } as const)
+  );
+
   const number = (value: number): string => new Intl.NumberFormat(data.lang).format(value);
   const contributionKindKey = (kind: ImpactContributionKind): MessageKey =>
     `impact.outcome.kind.${kind}` as MessageKey;
@@ -79,6 +97,48 @@
       )}
     </p>
   </header>
+
+  {#if trustedVerificationFeedback.status === 'available' && trustedVerificationFeedback.value.hasUnread && trustedVerificationFeedback.value.latestConfirmedAt}
+    <section
+      class="trusted-celebration hv-panel"
+      aria-labelledby="trusted-celebration-title"
+      data-testid="trusted-verification-celebration"
+    >
+      <div class="trusted-celebration-mark" aria-hidden="true">
+        <ImpactPillarIcon
+          kind={trustedVerificationFeedback.value.latestTaskKind === 'access_freshness'
+            ? 'knowledge'
+            : 'contribution'}
+        />
+        <span class="spark spark-one"></span>
+        <span class="spark spark-two"></span>
+        <span class="spark spark-three"></span>
+      </div>
+      <div>
+        <p class="hv-eyebrow">{data.copy['impact.trustedCelebrationEyebrow']}</p>
+        <h2 id="trusted-celebration-title">{data.copy['impact.trustedCelebrationTitle']}</h2>
+        <p>{data.copy['impact.trustedCelebrationBody']}</p>
+        <div class="trusted-celebration-actions">
+          {#if trustedVerificationFeedback.value.latestPlaceId}
+            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+            <a class="hv-control" href={placeHref(trustedVerificationFeedback.value.latestPlaceId)}>
+              {data.copy['impact.trustedCelebrationOpenPlace']}
+            </a>
+          {/if}
+          <form method="POST" action="?/markTrustedVerificationRead">
+            <input
+              type="hidden"
+              name="readThrough"
+              value={trustedVerificationFeedback.value.latestConfirmedAt}
+            />
+            <button class="hv-control" data-intent="primary" type="submit">
+              {data.copy['impact.trustedCelebrationAcknowledge']}
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+  {/if}
 
   <section class="pillar-grid" aria-label={data.copy['impact.pillarsLabel']}>
     <article class="pillar rhythm hv-panel" data-impact-pillar="rhythm">
@@ -346,6 +406,99 @@
     );
   }
 
+  .trusted-celebration {
+    --impact-tone: var(--hv-color-moss);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: clamp(1rem, 3vw, 1.8rem);
+    align-items: center;
+    overflow: hidden;
+    border-color: color-mix(in srgb, var(--hv-color-moss) 38%, var(--hv-color-line));
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--hv-color-moss) 16%, var(--hv-color-snow-raised)) 0%,
+      var(--hv-color-snow-raised) 30%
+    );
+  }
+
+  .trusted-celebration h2,
+  .trusted-celebration p {
+    margin: 0;
+  }
+
+  .trusted-celebration > div:last-child {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .trusted-celebration-mark {
+    position: relative;
+    display: grid;
+    width: 4.5rem;
+    height: 4.5rem;
+    place-items: center;
+    animation: trusted-confirmed 680ms cubic-bezier(0.2, 0.95, 0.25, 1.2) both;
+  }
+
+  .spark {
+    position: absolute;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--hv-color-coral);
+    animation: trusted-spark 820ms 140ms ease-out both;
+  }
+
+  .spark-one {
+    top: 0.15rem;
+    right: 0.55rem;
+  }
+
+  .spark-two {
+    right: 0;
+    bottom: 0.75rem;
+    animation-delay: 220ms;
+  }
+
+  .spark-three {
+    bottom: 0.2rem;
+    left: 0.45rem;
+    animation-delay: 300ms;
+  }
+
+  .trusted-celebration-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 0.45rem;
+  }
+
+  @keyframes trusted-confirmed {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem) rotate(-8deg) scale(0.72);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) rotate(0) scale(1);
+    }
+  }
+
+  @keyframes trusted-spark {
+    from {
+      opacity: 0;
+      transform: scale(0.2);
+    }
+    55% {
+      opacity: 1;
+      transform: scale(1.35);
+    }
+    to {
+      opacity: 0.75;
+      transform: scale(1);
+    }
+  }
+
   .hero-mark {
     --impact-tone: var(--hv-color-moss);
     position: relative;
@@ -353,6 +506,13 @@
     place-items: center;
     width: 5.5rem;
     height: 5.5rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .trusted-celebration-mark,
+    .spark {
+      animation: none;
+    }
   }
 
   .hero-mark :global(.impact-icon) {

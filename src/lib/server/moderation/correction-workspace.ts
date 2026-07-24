@@ -17,6 +17,10 @@ import {
   type PlaceFlagRpcClient,
   type RelatedPlaceFlag
 } from '$server/place-flags/place-flags';
+import {
+  getModerationTrustedVerificationContext,
+  type ModerationTrustedVerificationContext
+} from '$server/trusted-verification/trusted-verification';
 
 type PlaceFlagFailureStatus = Exclude<
   PlaceFlagCommandResult<never>,
@@ -41,6 +45,7 @@ export interface ModerationCorrectionQueueData {
 export interface ModerationCorrectionReviewData {
   readonly flag: ModerationPlaceFlag;
   readonly related: RelatedPlaceFlag[];
+  readonly trustedVerification: ModerationTrustedVerificationContext | null;
   readonly resolved: boolean;
   readonly contributionConfirmed: boolean;
 }
@@ -135,12 +140,14 @@ export async function loadModerationCorrectionReview(
   flagId: string,
   searchParams: URLSearchParams
 ): Promise<CorrectionWorkspaceLoadResult<ModerationCorrectionReviewData>> {
-  const [detail, related] = await Promise.all([
+  const [detail, related, trustedVerification] = await Promise.all([
     getModerationPlaceFlag(flagClient, flagId),
-    listRelatedPlaceFlags(flagClient, flagId)
+    listRelatedPlaceFlags(flagClient, flagId),
+    getModerationTrustedVerificationContext(flagClient, flagId)
   ]);
   if (detail.status !== 'success') return { status: detail.status };
   if (related.status !== 'success') return { status: related.status };
+  if (trustedVerification.status !== 'success') return { status: trustedVerification.status };
   if (!detail.value) return { status: 'not_found' };
 
   return {
@@ -148,6 +155,7 @@ export async function loadModerationCorrectionReview(
     value: {
       flag: detail.value,
       related: related.value,
+      trustedVerification: trustedVerification.value,
       resolved: searchParams.get('resolved') === detail.value.outcome,
       contributionConfirmed: searchParams.get('contribution') === 'confirmed'
     }

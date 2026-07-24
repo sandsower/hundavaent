@@ -21,6 +21,7 @@
     PlaceFlagOutcome,
     RelatedPlaceFlag
   } from '$server/place-flags/place-flags';
+  import type { ModerationTrustedVerificationContext } from '$server/trusted-verification/trusted-verification';
   import type { SuggestionProposal } from '$server/suggestions/suggestion-input';
   import CorrectionDecisionControls from './CorrectionDecisionControls.svelte';
   import ModerationActionBar from './ModerationActionBar.svelte';
@@ -39,6 +40,7 @@
     copy: Catalogue;
     flag: ModerationPlaceFlag;
     related: RelatedPlaceFlag[];
+    trustedVerification?: ModerationTrustedVerificationContext | null;
     resolved: boolean;
     contributionConfirmed: boolean;
   }
@@ -71,7 +73,10 @@
   const isOpen = $derived(
     data.flag.outcome === 'submitted' || data.flag.outcome === 'needs_information'
   );
-  const showDecision = $derived(isOpen);
+  const trustedVerificationSuperseded = $derived(
+    data.trustedVerification?.outcome === 'superseded'
+  );
+  const showDecision = $derived(isOpen && !trustedVerificationSuperseded);
   const hasLiveDrift = $derived(
     JSON.stringify(data.flag.currentLiveValue) !== JSON.stringify(data.flag.currentValueSnapshot)
   );
@@ -174,6 +179,7 @@
   }
 
   function beginEditing(sectionId: EditableSectionId): void {
+    if (trustedVerificationSuperseded) return;
     const draft = data.flag.draftPayload;
     if (sectionId === 'application') {
       const application = draft?.application_payload ?? null;
@@ -368,6 +374,24 @@
   </p>
   {#if errorMessage}<p class="message error" role="alert">{errorMessage}</p>{/if}
   {#if data.resolved}<p class="message success" role="status">{data.copy['flag.resolved']}</p>{/if}
+  {#if data.trustedVerification}
+    <aside
+      class="trusted-context"
+      data-outcome={data.trustedVerification.outcome}
+      role={trustedVerificationSuperseded ? 'status' : undefined}
+    >
+      <strong>{data.copy['trustedVerification.moderation.heading']}</strong>
+      <span>
+        {data.trustedVerification.taskKind === 'access_freshness'
+          ? data.copy['trustedVerification.kind.accessFreshness']
+          : data.copy['trustedVerification.kind.dogAmenities']}
+        ·
+        {trustedVerificationSuperseded
+          ? data.copy['trustedVerification.moderation.superseded']
+          : data.copy['trustedVerification.moderation.submitted']}
+      </span>
+    </aside>
+  {/if}
 
   <h2 class="readiness-title">{data.copy['flag.reviewSummary']}</h2>
   <ModerationReadinessSummary
@@ -708,8 +732,10 @@
     />
   {/if}
 
-  {#if data.flag.outcome === 'applied' || data.flag.outcome === 'confirmed_useful'}
-    {#if data.flag.contributionId && !data.contributionConfirmed}<p class="message success">
+  {#if !trustedVerificationSuperseded && (data.flag.outcome === 'applied' || data.flag.outcome === 'confirmed_useful')}
+    {#if data.contributionConfirmed}
+      <p class="message success" role="status">{data.copy['flag.contributionConfirmed']}</p>
+    {:else if data.flag.contributionId}<p class="message success">
         {data.copy['flag.contributionAlreadyConfirmed']}
       </p>{:else if !data.flag.contributionId}<form
         method="POST"
@@ -747,6 +773,7 @@
   <button
     type="button"
     class="edit-section"
+    disabled={trustedVerificationSuperseded}
     aria-label={data.copy['moderation.workbench.editSection'].replace('{section}', title)}
     onclick={() => beginEditing(sectionId)}
     >{data.copy['moderation.workbench.editSection'].replace('{section}', title)}</button
@@ -762,6 +789,18 @@
   .review-shell.standalone {
     width: min(100% - 2rem, 64rem);
     margin: 2rem auto;
+  }
+  .trusted-context {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.7rem;
+    align-items: baseline;
+    border-left: 0.3rem solid var(--hv-color-moss);
+    background: color-mix(in srgb, var(--hv-color-moss) 9%, var(--hv-color-snow-raised));
+    padding: 0.75rem 0.85rem;
+  }
+  .trusted-context[data-outcome='superseded'] {
+    border-left-color: var(--hv-color-muted);
   }
   header,
   .review-sections,
