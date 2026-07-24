@@ -17,6 +17,11 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL(/\/is$/);
     await expect(page.locator('html')).toHaveAttribute('lang', 'is');
     await expect(page.getByRole('heading', { name: 'Hundavænt' })).toBeVisible();
+    // Arrival is a quiet map: the command cluster invites, the list waits.
+    await expect(page.getByRole('region', { name: 'Staðir sem fundust' })).toHaveCount(0);
+    await expect(page.getByRole('searchbox', { name: 'Leita að stað' })).toBeVisible();
+    await waitForHydration(page);
+    await page.getByRole('button', { name: 'Allt', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Staðir sem fundust' })).toBeVisible();
     await expect(page.getByText('Finndu hundvæna staði á höfuðborgarsvæðinu.')).toHaveCount(0);
   });
@@ -43,6 +48,8 @@ test.describe('public discovery locale routes', () => {
       'href',
       '/en/account?returnTo=%2Fen'
     );
+    await waitForHydration(page);
+    await page.getByRole('button', { name: 'All', exact: true }).click();
     const desktopResults = page.getByRole('region', { name: 'Places found' });
     await expect(
       desktopResults.getByRole('button', { name: 'Select Published Place' })
@@ -51,7 +58,7 @@ test.describe('public discovery locale routes', () => {
       desktopResults
         .getByLabel('Published Place', { exact: true })
         .getByText('Accessibility unknown')
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(page.getByText('Candidate Place')).toHaveCount(0);
     await expect(page.getByText('Unverified Place')).toHaveCount(0);
 
@@ -182,7 +189,7 @@ test.describe('public discovery locale routes', () => {
     }));
 
     expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight);
-    const finalDetail = selectedPlace.locator('.place-links a');
+    const finalDetail = selectedPlace.locator('.place-links a').last();
     await finalDetail.scrollIntoViewIfNeeded();
     await expect(finalDetail).toBeInViewport();
     expect(await scrollBody.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
@@ -197,6 +204,7 @@ test.describe('public discovery locale routes', () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/en');
     await waitForHydration(page);
+    await page.getByRole('button', { name: 'All', exact: true }).click();
 
     const card = page.locator('[data-place-card]').filter({ hasText: 'Published Place' });
     const media = card.locator('[data-place-card-media="category-band"]');
@@ -209,12 +217,10 @@ test.describe('public discovery locale routes', () => {
     const dogAccessBox = await card
       .getByRole('group', { name: 'Dog access at Published Place' })
       .boundingBox();
-    const wheelchairBadgeBox = await card
-      .locator('[data-wheelchair-accessibility="unknown"]')
-      .boundingBox();
     expect(dogAccessBox).not.toBeNull();
-    expect(wheelchairBadgeBox).not.toBeNull();
-    expect(wheelchairBadgeBox!.y).toBeGreaterThanOrEqual(dogAccessBox!.y + dogAccessBox!.height);
+    // Unknown accessibility stays off compact cards; the selected place's
+    // mobility section remains the explicit home for that fact.
+    await expect(card.locator('[data-wheelchair-accessibility="unknown"]')).toHaveCount(0);
     await expect(card.getByRole('img')).toHaveCount(0);
   });
 
@@ -342,7 +348,8 @@ test.describe('public discovery locale routes', () => {
     await expect(page).toHaveURL(/area=Reykjav%C3%ADk/);
     await expect(page).toHaveURL(/access=outdoors/);
     await expect(page).toHaveURL(/q=Reykjav%C3%ADk/);
-    await page.getByRole('button', { name: 'Hide filters' }).click();
+    // Typing opened the list with the combined slice and folded the sheet.
+    await expect(page.getByRole('button', { name: 'Hide filters' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Select Published Place' }).click();
     await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
 
@@ -363,7 +370,8 @@ test.describe('public discovery locale routes', () => {
     await expect(page.getByText('No places match')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Published Place', exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: 'Clear all filters' }).click();
-    await expect(page.getByRole('button', { name: 'Published Place', exact: true })).toBeVisible();
+    await expect(page.getByText('No places match')).toHaveCount(0);
+    await expect(page.locator('.hundavaent-marker').first()).toBeVisible();
 
     await page.goBack();
     await expect(page.getByRole('searchbox', { name: 'Search for a place' })).toHaveValue(
@@ -440,9 +448,11 @@ test.describe('public discovery locale routes', () => {
 
     await page.getByRole('button', { name: 'More filters' }).click();
     await expect(page.getByRole('combobox', { name: 'Place type' })).toBeFocused();
-    await page.getByRole('button', { name: /Show \d+ results?/ }).click();
+    const allChip = page.getByRole('button', { name: 'All', exact: true });
+    await allChip.click();
     await expect(page.getByRole('combobox', { name: 'Place type' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Close results' })).toBeFocused();
+    await expect(page.getByRole('heading', { name: 'Places found' })).toBeVisible();
+    await expect(allChip).toBeFocused();
 
     await page.getByRole('button', { name: 'More filters' }).click();
     await expect(page.getByRole('heading', { name: 'Places found' })).toHaveCount(0);
@@ -450,10 +460,9 @@ test.describe('public discovery locale routes', () => {
     await page.getByRole('button', { name: 'Hide filters' }).click();
     await expect(page.getByRole('button', { name: 'More filters' })).toBeFocused();
 
-    const showResults = page.getByRole('button', { name: /Show \d+ results?/ });
-    await showResults.click();
+    await allChip.click();
     await page.getByRole('button', { name: 'Close results' }).click();
-    await expect(showResults).toBeFocused();
+    await expect(allChip).toBeFocused();
   });
 
   test('keeps the selected Place usable on a short landscape phone', async ({ page }) => {

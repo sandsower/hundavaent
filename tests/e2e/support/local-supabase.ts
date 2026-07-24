@@ -3051,7 +3051,9 @@ function assertUuid(value: string, label: string): void {
 
 export async function waitForLocalMagicLink(email: string): Promise<string> {
   const { inbucketUrl } = getLocalSupabaseStatus();
-  const deadline = Date.now() + 10_000;
+  // A freshly restarted local auth service can take over ten seconds to send
+  // its first email; the generous deadline absorbs that cold start.
+  const deadline = Date.now() + 30_000;
 
   while (Date.now() < deadline) {
     const response = await fetch(`${inbucketUrl}/api/v1/messages`);

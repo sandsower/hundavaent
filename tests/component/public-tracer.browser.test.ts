@@ -25,7 +25,7 @@ describe('public directory tracer', () => {
       form: null
     });
 
-    expect(screen.getByRole('button', { name: 'Sýna 0 niðurstöður' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Allt' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByText('Engir staðir passa')).toBeTruthy();
     expect(screen.queryByText('Finndu hundvæna staði á höfuðborgarsvæðinu.')).toBeNull();
   });

@@ -3,7 +3,7 @@
 
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import type { PlaceCategory } from '$domain/place';
-  import { formatDogAmenities, formatOpeningHours } from '$i18n/structured-place';
+  import { formatDogAmenities, formatOpeningHoursRows } from '$i18n/structured-place';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import type { PublishedPlaceProfile } from '$server/discovery/public-places';
   import { explainAccessCondition } from '$domain/access-explanation';
@@ -271,7 +271,15 @@
 
           <section>
             <h3>{copy['place.openingHours']}</h3>
-            <p>{formatOpeningHours(profile.openingHours, copy, copy['common.notAvailable'])}</p>
+            {#if Object.keys(profile.openingHours).length > 0}
+              <ul class="opening-hours">
+                {#each formatOpeningHoursRows(profile.openingHours, copy) as row (row.key)}
+                  <li>{row.text}</li>
+                {/each}
+              </ul>
+            {:else}
+              <p>{copy['common.notAvailable']}</p>
+            {/if}
           </section>
           <section>
             <h3>{copy['place.amenities']}</h3>
@@ -281,10 +289,22 @@
                 : copy['place.amenitiesUnknown']}
             </p>
           </section>
-          {#if profile.websiteUrl}
+          <p class="place-address">
+            {profile.location.addressLine}, {profile.location.postalCode}
+            {profile.location.locality}
+          </p>
+          {#if profile.websiteUrl || profile.phone}
             <nav class="place-links" aria-label={copy['place.usefulLinks']}>
-              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external place URL -->
-              <a href={profile.websiteUrl} rel="noreferrer">{copy['place.website']}</a>
+              {#if profile.websiteUrl}
+                <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external place URL -->
+                <a href={profile.websiteUrl} rel="noreferrer">{copy['place.website']}</a>
+              {/if}
+              {#if profile.phone}
+                <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external tel URL -->
+                <a href={`tel:${profile.phone.replaceAll(' ', '')}`}>
+                  {copy['place.phone']} · {profile.phone}
+                </a>
+              {/if}
             </nav>
           {/if}
         </div>
@@ -458,6 +478,22 @@
   .conditions p {
     margin: 0.3rem 0;
     line-height: 1.4;
+  }
+
+  .opening-hours {
+    display: grid;
+    gap: 0.2rem;
+    margin: 0.3rem 0;
+    padding: 0;
+    list-style: none;
+    line-height: 1.4;
+  }
+
+  .place-address {
+    margin: 0;
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.85rem;
+    font-weight: 700;
   }
 
   .place-links {

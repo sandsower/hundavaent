@@ -4,6 +4,7 @@
   import {
     activeFilterCount,
     type DiscoveryCategory,
+    type DiscoveryChip,
     type DiscoveryDistanceKm,
     type DiscoveryFilters
   } from './state';
@@ -14,7 +15,7 @@
     resultCount: number;
     filtersOpen: boolean;
     resultsOpen: boolean;
-    showResultsToggle?: boolean;
+    selectionActive?: boolean;
     copy: Catalogue;
     locationState: 'idle' | 'locating' | 'ready' | 'denied' | 'unavailable';
     suggestHref: string;
@@ -23,8 +24,9 @@
     favouritesAvailable?: boolean;
     onQueryChange: (query: string) => void;
     onFiltersChange: (filters: DiscoveryFilters) => void;
+    onChipToggle: (chip: DiscoveryChip) => void;
     onClear: () => void;
-    onShowResults: () => void;
+    onFold?: () => void;
     onUseLocation: () => void;
     onRetryLocation: () => void;
     onToggleFilters: () => void;
@@ -36,7 +38,7 @@
     resultCount,
     filtersOpen,
     resultsOpen,
-    showResultsToggle = true,
+    selectionActive = false,
     copy,
     locationState,
     suggestHref,
@@ -45,15 +47,40 @@
     favouritesAvailable = true,
     onQueryChange,
     onFiltersChange,
+    onChipToggle,
     onClear,
-    onShowResults,
+    onFold,
     onUseLocation,
     onRetryLocation,
     onToggleFilters
   }: Props = $props();
   let searchInput = $state<HTMLInputElement>();
-  const count = $derived(activeFilterCount(filters));
-  const eyebrowArea = $derived(filters.area ?? copy['directory.capitalRegion']);
+  // The badge counts only the sheet's own filters: category and query already
+  // announce themselves through the chips and the search pill.
+  const count = $derived(activeFilterCount({ ...filters, category: null, query: '' }));
+  // Arrival keeps every chip quiet: "All" only reads active once the
+  // unfiltered, unsearched list is open.
+  const allActive = $derived(
+    filters.category === null && resultsOpen && filters.query.trim() === ''
+  );
+  const categoryChips = $derived([
+    { chip: 'all' as const, label: copy['directory.categoryAllShort'], active: allActive },
+    {
+      chip: 'food_drink' as const,
+      label: copy['directory.categoryFoodShort'],
+      active: filters.category === 'food_drink'
+    },
+    {
+      chip: 'shopping' as const,
+      label: copy['directory.categoryShoppingShort'],
+      active: filters.category === 'shopping'
+    },
+    {
+      chip: 'outdoors' as const,
+      label: copy['directory.categoryOutdoorsShort'],
+      active: filters.category === 'outdoors'
+    }
+  ]);
 
   function value(event: Event): string {
     return event.currentTarget instanceof HTMLSelectElement ? event.currentTarget.value : '';
@@ -69,83 +96,69 @@
   }
 </script>
 
-<section class="discovery-controls hv-panel" aria-label={copy['directory.filters']}>
-  <header class="editorial-intro" data-directory-editorial>
-    <p class="eyebrow">
-      {resultCount === 1
-        ? copy['directory.railEyebrowOne'].replace('{area}', eyebrowArea)
-        : copy['directory.railEyebrowMany']
-            .replace('{area}', eyebrowArea)
-            .replace('{count}', String(resultCount))}
-    </p>
-    <h2>{copy['directory.discoveryHeading']}</h2>
-  </header>
+<section class="discovery-controls" aria-label={copy['directory.filters']}>
+  <label class="search-label">
+    <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="10.5" cy="10.5" r="6.75" fill="none" stroke-width="2.2" />
+      <line x1="15.6" y1="15.6" x2="21" y2="21" stroke-width="2.2" stroke-linecap="round" />
+    </svg>
+    <span>{copy['directory.searchLabel']}</span>
+    <input
+      bind:this={searchInput}
+      type="search"
+      value={filters.query}
+      placeholder={copy['directory.searchPlaceholder']}
+      oninput={(event) => onQueryChange(event.currentTarget.value)}
+    />
+  </label>
 
-  <div class="search-row">
-    <label class="search-label">
-      <span>{copy['directory.searchLabel']}</span>
-      <input
-        bind:this={searchInput}
-        type="search"
-        value={filters.query}
-        placeholder={copy['directory.searchPlaceholder']}
-        oninput={(event) => onQueryChange(event.currentTarget.value)}
-      />
-    </label>
-    <div class="shortcut-row">
-      <div class="category-shortcuts" role="group" aria-label={copy['directory.categoryFilter']}>
+  <!-- The compact answer card owns the screen during a selection: the edge
+       tab carries the slice, so the chip row steps aside until ✕/Esc. -->
+  <div class="shortcut-row" hidden={selectionActive}>
+    <div class="category-shortcuts" role="group" aria-label={copy['directory.categoryFilter']}>
+      {#each categoryChips as { chip, label, active } (chip)}
         <button
           type="button"
-          class:active={filters.category === null}
-          aria-pressed={filters.category === null}
-          onclick={() => patchFilters({ category: null })}
-          >{copy['directory.categoryAllShort']}</button
+          data-chip={chip}
+          class:active
+          aria-pressed={active}
+          aria-label={label}
+          aria-controls="discovery-results"
+          onclick={() => onChipToggle(chip)}
         >
-        <button
-          type="button"
-          class:active={filters.category === 'food_drink'}
-          aria-pressed={filters.category === 'food_drink'}
-          onclick={() => patchFilters({ category: 'food_drink' })}
-          >{copy['directory.categoryFoodShort']}</button
-        >
-        <button
-          type="button"
-          class:active={filters.category === 'shopping'}
-          aria-pressed={filters.category === 'shopping'}
-          onclick={() => patchFilters({ category: 'shopping' })}
-          >{copy['directory.categoryShoppingShort']}</button
-        >
-        <button
-          type="button"
-          class:active={filters.category === 'outdoors'}
-          aria-pressed={filters.category === 'outdoors'}
-          onclick={() => patchFilters({ category: 'outdoors' })}
-          >{copy['directory.categoryOutdoorsShort']}</button
-        >
-      </div>
-      <button
-        type="button"
-        class="filters-button"
-        class:active={count > 0}
-        aria-expanded={filtersOpen}
-        aria-controls="discovery-filter-sheet"
-        onclick={onToggleFilters}
-      >
-        {filtersOpen ? copy['directory.hideFilters'] : copy['directory.moreFilters']}
-        {#if count > 0}<span aria-hidden="true">{count}</span>{/if}
-      </button>
+          {label}{#if active}<span class="chip-meta" aria-hidden="true"
+              >· {resultCount}{resultsOpen ? ' ✕' : ''}</span
+            >{/if}
+        </button>
+      {/each}
     </div>
-    {#if showResultsToggle}
+    <button
+      type="button"
+      class="filters-button"
+      class:active={count > 0}
+      aria-expanded={filtersOpen}
+      aria-controls="discovery-filter-sheet"
+      onclick={onToggleFilters}
+    >
+      {filtersOpen ? copy['directory.hideFilters'] : copy['directory.moreFilters']}
+      {#if count > 0}<span aria-hidden="true">{count}</span>{/if}
+    </button>
+    {#if onFold}
       <button
         type="button"
-        class="results-button"
-        aria-expanded={resultsOpen}
-        aria-controls="discovery-results"
-        onclick={onShowResults}
+        class="fold-button"
+        aria-label={copy['directory.foldChrome']}
+        onclick={onFold}
       >
-        {resultCount === 1
-          ? copy['directory.showResultOne']
-          : copy['directory.showResults'].replace('{count}', String(resultCount))}
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M5 14.5l7-6 7 6"
+            fill="none"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
       </button>
     {/if}
   </div>
@@ -314,93 +327,35 @@
 </section>
 
 <style>
+  /* Floating command cluster: every control is its own pill over the map,
+     and the gaps between pills stay transparent to map gestures. */
   .discovery-controls {
+    display: grid;
     width: 100%;
-    max-height: 100%;
-    overflow: auto;
-    padding: 1.15rem 1rem 1rem;
-    border: 0;
-    border-radius: 0;
-    background: var(--hv-color-snow-raised);
-    box-shadow: none;
+    gap: 0.5rem;
+    justify-items: start;
+    pointer-events: none;
   }
 
-  .editorial-intro {
-    display: grid;
-    gap: 0.35rem;
-    margin-bottom: 0.85rem;
-  }
-
-  .editorial-intro :is(p, h2) {
-    margin: 0;
-  }
-
-  .eyebrow {
-    color: var(--hv-color-fjord);
-    font-size: 0.68rem;
-    font-weight: 900;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-  }
-
-  .editorial-intro h2 {
-    max-width: 15ch;
-    font-family: var(--hv-font-display);
-    font-size: clamp(1.45rem, 2.2vw, 1.75rem);
-    font-weight: 650;
-    line-height: 1.03;
-    letter-spacing: -0.025em;
-  }
-
-  .search-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.55rem;
-    align-items: end;
-  }
-
-  .shortcut-row {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.25rem;
-    min-width: 0;
-  }
-
-  .category-shortcuts {
-    display: contents;
-  }
-
-  label {
-    display: grid;
-    gap: 0.2rem;
-    min-width: 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.76rem;
-    font-weight: 800;
-  }
-
-  input,
-  select,
-  button {
+  .search-label {
+    display: flex;
+    width: 100%;
     min-height: var(--hv-control-height);
-    box-sizing: border-box;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0 1.1rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: 999px;
     background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-    font: inherit;
-    font-weight: 760;
+    box-shadow: var(--hv-shadow-raised);
+    pointer-events: auto;
   }
 
-  input,
-  select {
-    width: 100%;
-    padding: 0.45rem 0.65rem;
-  }
-
-  .search-row > label {
-    grid-column: 1 / -1;
+  .search-icon {
+    width: 1.1rem;
+    height: 1.1rem;
+    flex: 0 0 auto;
+    stroke: var(--hv-color-basalt-muted);
   }
 
   .search-label > span {
@@ -415,104 +370,183 @@
     border: 0;
   }
 
-  .search-row input {
-    padding-inline: 0;
+  .search-label input {
+    min-width: 0;
+    min-height: 0;
+    flex: 1;
+    padding: 0.45rem 0;
     border: 0;
-    border-bottom: 2px solid var(--hv-color-basalt);
-    border-radius: 0;
     background: transparent;
+    color: var(--hv-color-basalt);
+    font: inherit;
+    font-weight: 760;
+  }
+
+  .search-label input:focus-visible {
+    box-shadow: none;
+    outline: none;
+  }
+
+  .search-label:focus-within {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
+  }
+
+  .shortcut-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    min-width: 0;
+    pointer-events: none;
+  }
+
+  .shortcut-row[hidden] {
+    display: none;
+  }
+
+  .category-shortcuts {
+    display: contents;
   }
 
   button {
-    padding: 0.45rem 0.75rem;
     cursor: pointer;
+    pointer-events: auto;
   }
 
   .category-shortcuts button,
   .shortcut-row > .filters-button {
-    min-width: 0;
-    min-height: 1.9rem;
-    padding: 0.3rem 0.2rem;
-    border-color: transparent;
-    background: var(--hv-color-moss-soft);
-    font-size: clamp(0.56rem, 0.7cqw, 0.7rem);
+    min-height: 2.1rem;
+    padding: 0.3rem 0.85rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: 999px;
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
+    color: var(--hv-color-basalt);
+    font: inherit;
+    font-size: 0.8rem;
     font-weight: 850;
     letter-spacing: -0.015em;
     white-space: nowrap;
   }
 
-  .shortcut-row > .filters-button {
-    position: relative;
-  }
-
-  .shortcut-row > .filters-button span[aria-hidden='true'] {
-    position: absolute;
-    top: -0.3rem;
-    right: -0.2rem;
-    min-width: 0.95rem;
-    min-height: 0.95rem;
-    margin: 0;
-    font-size: 0.6rem;
-  }
-
-  .category-shortcuts button.active {
+  .category-shortcuts button.active,
+  button.active {
     border-color: var(--hv-color-fjord);
     background: var(--hv-color-fjord);
     color: var(--hv-color-snow-raised);
   }
 
-  .results-button {
-    background: var(--hv-color-basalt);
-    color: var(--hv-color-snow-raised);
-  }
-
-  button.active {
-    background: var(--hv-color-fjord);
-    color: var(--hv-color-snow-raised);
-  }
-
-  button span[aria-hidden='true'] {
+  .filters-button span[aria-hidden='true'] {
     display: inline-grid;
-    min-width: 1.25rem;
-    min-height: 1.25rem;
-    margin-left: 0.25rem;
+    min-width: 1.15rem;
+    min-height: 1.15rem;
+    margin-left: 0.3rem;
     border-radius: 999px;
     background: var(--hv-color-basalt);
     color: var(--hv-color-snow-raised);
+    font-size: 0.7rem;
     place-items: center;
   }
 
-  /* A quieter, right-aligned secondary action so it stops reading as part of the search flow. */
+  .filters-button.active span[aria-hidden='true'] {
+    background: var(--hv-color-snow-raised);
+    color: var(--hv-color-basalt);
+  }
+
+  .chip-meta {
+    margin-left: 0.3rem;
+    white-space: nowrap;
+  }
+
+  .fold-button {
+    display: grid;
+    width: 2.1rem;
+    min-height: 2.1rem;
+    padding: 0;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: 999px;
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
+    color: var(--hv-color-basalt-muted);
+    place-items: center;
+  }
+
+  .fold-button svg {
+    width: 1rem;
+    height: 1rem;
+    stroke: currentColor;
+  }
+
   .suggest-row {
     display: flex;
-    margin-top: 0.55rem;
-    justify-content: flex-end;
+    pointer-events: none;
   }
 
   .suggest-link {
     display: inline-block;
-    padding: 0.35rem 0.7rem;
+    padding: 0.4rem 0.85rem;
     border: 1px solid var(--hv-color-moss);
-    border-radius: var(--hv-radius-control);
+    border-radius: 999px;
     background: var(--hv-color-moss-soft);
+    box-shadow: var(--hv-shadow-raised);
     color: var(--hv-color-basalt);
     font-size: 0.85rem;
     font-weight: 800;
+    pointer-events: auto;
     text-decoration: none;
   }
 
   .filter-sheet {
     display: grid;
+    width: 100%;
+    max-height: min(28rem, 52dvh);
     gap: 0.65rem;
-    margin-top: 0.65rem;
-    padding-top: 0.65rem;
-    border-top: 1px solid var(--hv-border-subtle);
+    padding: 0.9rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-floating);
+    overflow: auto;
+    overscroll-behavior: contain;
+    pointer-events: auto;
   }
 
   .filter-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.55rem;
+  }
+
+  .filter-sheet label {
+    display: grid;
+    gap: 0.2rem;
+    min-width: 0;
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.76rem;
+    font-weight: 800;
+  }
+
+  .filter-sheet input,
+  .filter-sheet select,
+  .filter-sheet button {
+    min-height: var(--hv-control-height);
+    box-sizing: border-box;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-snow-raised);
+    color: var(--hv-color-basalt);
+    font: inherit;
+    font-weight: 760;
+  }
+
+  .filter-sheet select {
+    width: 100%;
+    padding: 0.45rem 0.65rem;
+  }
+
+  .filter-sheet button {
+    padding: 0.45rem 0.75rem;
   }
 
   .favorites-only {
@@ -551,8 +585,8 @@
   }
 
   button:focus-visible,
-  input:focus-visible,
-  select:focus-visible,
+  .filter-sheet input:focus-visible,
+  .filter-sheet select:focus-visible,
   a:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
@@ -565,66 +599,9 @@
     opacity: 0.62;
   }
 
-  @container directory-shell (max-width: 48rem) {
-    .discovery-controls {
-      width: 100%;
-      max-height: none;
-      overflow: visible;
-    }
-
-    .search-row {
-      grid-template-columns: minmax(0, 1fr) auto;
-    }
-
-    .search-row label {
-      grid-column: 1 / -1;
-    }
-
-    .filter-grid {
-      grid-template-columns: 1fr 1fr;
-    }
-  }
-
-  @container directory-shell (min-width: 58rem) {
-    .results-button {
-      display: none;
-    }
-  }
-
   @container directory-shell (max-width: 28rem) {
     .filter-grid {
       grid-template-columns: 1fr;
-    }
-  }
-
-  @container directory-shell (max-width: 57.999rem) {
-    .editorial-intro,
-    .category-shortcuts {
-      display: none;
-    }
-
-    .shortcut-row {
-      display: contents;
-    }
-
-    .shortcut-row > .filters-button {
-      position: static;
-      min-height: var(--hv-control-height);
-      padding: 0.45rem 0.75rem;
-      border-color: var(--hv-color-basalt);
-      font-size: inherit;
-    }
-
-    .shortcut-row > .filters-button span[aria-hidden='true'] {
-      position: static;
-      min-width: 1.25rem;
-      min-height: 1.25rem;
-      margin-left: 0.25rem;
-      font-size: inherit;
-    }
-
-    .discovery-controls {
-      padding-top: 1rem;
     }
   }
 </style>

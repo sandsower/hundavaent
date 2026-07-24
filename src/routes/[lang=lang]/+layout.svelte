@@ -243,45 +243,61 @@
   <meta name="description" content={data.copy['meta.description']} />
 </svelte:head>
 
-<header class="site-header" data-ui-mode={northStarMode} data-app-hydrated={hydrated}>
-  <a
-    class="brand"
-    href={resolve('/[lang=lang]', { lang: data.lang })}
-    aria-label={data.copy['site.name']}
-  >
-    <svg class="brand-mark" viewBox="0 0 256 256" aria-hidden="true">
-      <path
-        d="M240,108a28,28,0,1,1-28-28A28,28,0,0,1,240,108ZM72,108a28,28,0,1,0-28,28A28,28,0,0,0,72,108ZM92,88A28,28,0,1,0,64,60,28,28,0,0,0,92,88Zm72,0a28,28,0,1,0-28-28A28,28,0,0,0,164,88Zm23.12,60.86a35.3,35.3,0,0,1-16.87-21.14,44,44,0,0,0-84.5,0A35.25,35.25,0,0,1,69,148.82,40,40,0,0,0,88,224a39.48,39.48,0,0,0,15.52-3.13,64.09,64.09,0,0,1,48.87,0,40,40,0,0,0,34.73-72Z"
-      />
-    </svg>
+{#snippet languageNav()}
+  <nav class="language-switcher" aria-label={data.copy['nav.language']}>
+    <a
+      href={resolve(replaceLocaleInUrl(currentBrowserUrl, 'is'))}
+      onclick={(event) => refreshLanguageHref(event, 'is')}
+      lang="is"
+      aria-current={data.lang === 'is' ? 'page' : undefined}
+    >
+      {data.copy['language.is']}
+    </a>
+    <a
+      href={resolve(replaceLocaleInUrl(currentBrowserUrl, 'en'))}
+      onclick={(event) => refreshLanguageHref(event, 'en')}
+      lang="en"
+      aria-current={data.lang === 'en' ? 'page' : undefined}
+    >
+      {data.copy['language.en']}
+    </a>
+  </nav>
+{/snippet}
+
+<header
+  class="site-header"
+  data-ui-mode={northStarMode}
+  data-app-hydrated={hydrated}
+  data-floating-chrome={isDiscovery}
+>
+  <div class="brand-cluster">
+    <a
+      class="brand"
+      href={resolve('/[lang=lang]', { lang: data.lang })}
+      aria-label={data.copy['site.name']}
+    >
+      <svg class="brand-mark" viewBox="0 0 256 256" aria-hidden="true">
+        <path
+          d="M240,108a28,28,0,1,1-28-28A28,28,0,0,1,240,108ZM72,108a28,28,0,1,0-28,28A28,28,0,0,0,72,108ZM92,88A28,28,0,1,0,64,60,28,28,0,0,0,92,88Zm72,0a28,28,0,1,0-28-28A28,28,0,0,0,164,88Zm23.12,60.86a35.3,35.3,0,0,1-16.87-21.14,44,44,0,0,0-84.5,0A35.25,35.25,0,0,1,69,148.82,40,40,0,0,0,88,224a39.48,39.48,0,0,0,15.52-3.13,64.09,64.09,0,0,1,48.87,0,40,40,0,0,0,34.73-72Z"
+        />
+      </svg>
+      {#if isDiscovery}
+        <h1>{data.copy['site.name']}</h1>
+      {:else}
+        <span>{data.copy['site.name']}</span>
+      {/if}
+    </a>
     {#if isDiscovery}
-      <h1>{data.copy['site.name']}</h1>
-    {:else}
-      <span>{data.copy['site.name']}</span>
+      {@render languageNav()}
     {/if}
-  </a>
+  </div>
   <div class="header-actions">
     <a class="about-link" href={resolve('/[lang=lang]/about', { lang: data.lang })}>
       {data.copy['nav.about']}
     </a>
-    <nav class="language-switcher" aria-label={data.copy['nav.language']}>
-      <a
-        href={resolve(replaceLocaleInUrl(currentBrowserUrl, 'is'))}
-        onclick={(event) => refreshLanguageHref(event, 'is')}
-        lang="is"
-        aria-current={data.lang === 'is' ? 'page' : undefined}
-      >
-        {data.copy['language.is']}
-      </a>
-      <a
-        href={resolve(replaceLocaleInUrl(currentBrowserUrl, 'en'))}
-        onclick={(event) => refreshLanguageHref(event, 'en')}
-        lang="en"
-        aria-current={data.lang === 'en' ? 'page' : undefined}
-      >
-        {data.copy['language.en']}
-      </a>
-    </nav>
+    {#if !isDiscovery}
+      {@render languageNav()}
+    {/if}
     <details class="mobile-menu">
       <summary>{data.copy['nav.menu']}</summary>
       <div class="mobile-menu-panel">
@@ -366,6 +382,109 @@
     gap: 1rem;
     align-items: center;
     justify-content: space-between;
+    background: var(--hv-color-snow-raised);
+  }
+
+  .brand-cluster {
+    display: contents;
+  }
+
+  /* On discovery the header dissolves into floating pills over the map. */
+  .site-header[data-floating-chrome='true'] {
+    position: absolute;
+    z-index: 30;
+    top: 0;
+    right: 0;
+    left: 0;
+    border-bottom: 0;
+    background: transparent;
+    pointer-events: none;
+  }
+
+  .site-header[data-floating-chrome='true'] .brand-cluster {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.6rem 0.3rem 0.9rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: 999px;
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
+    pointer-events: auto;
+  }
+
+  .site-header[data-floating-chrome='true'] .brand-cluster .brand {
+    padding: 0.2rem 0;
+  }
+
+  .site-header[data-floating-chrome='true'] .brand-cluster nav {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .site-header[data-floating-chrome='true'] .brand-cluster nav a {
+    padding: 0.2rem 0.45rem;
+    border-radius: 0;
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.82rem;
+    font-weight: 750;
+    text-decoration: none;
+  }
+
+  .site-header[data-floating-chrome='true'] .brand-cluster nav a[aria-current='page'] {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: inset 0 -2px 0 var(--hv-color-fjord);
+    color: var(--hv-color-basalt);
+  }
+
+  /* The folded Focus state compresses the brand pill to its wordmark. */
+  :global(body:has(.map-list-shell[data-focus-fold='true']))
+    .site-header[data-floating-chrome='true']
+    .brand-cluster
+    nav {
+    display: none;
+  }
+
+  .site-header[data-floating-chrome='true'] .header-actions > * {
+    pointer-events: auto;
+  }
+
+  .site-header[data-floating-chrome='true'] .about-link {
+    border-color: var(--hv-border-subtle);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
+    text-decoration: none;
+  }
+
+  .site-header[data-floating-chrome='true'] .account-link {
+    box-shadow: var(--hv-shadow-raised);
+  }
+
+  .site-header[data-floating-chrome='true'] .mobile-menu summary {
+    box-shadow: var(--hv-shadow-raised);
+  }
+
+  /* Without JavaScript the header returns to a solid in-flow bar. */
+  :global(body:has(.noscript-results)) .site-header[data-floating-chrome='true'] {
+    position: relative;
+    border-bottom: 1px solid var(--hv-border-subtle);
+    background: var(--hv-color-snow-raised);
+    pointer-events: auto;
+  }
+
+  :global(body:has(.noscript-results)) .site-header[data-floating-chrome='true'] .brand-cluster {
+    display: contents;
+  }
+
+  :global(body:has(.noscript-results))
+    .site-header[data-floating-chrome='true']
+    .brand-cluster
+    nav {
+    padding: 0.15rem;
+    border: 1px solid var(--hv-border-subtle);
     background: var(--hv-color-snow-raised);
   }
 
@@ -490,6 +609,10 @@
     .brand-mark {
       width: clamp(1.15rem, 5vw, 1.35rem);
       height: clamp(1.15rem, 5vw, 1.35rem);
+    }
+
+    .site-header[data-floating-chrome='true'] .brand-cluster {
+      padding: 0.25rem 0.55rem;
     }
 
     .about-link {

@@ -3,8 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   defaultCameraForPlaces,
   defaultDiscoveryState,
+  isChipActive,
   parseDiscoveryState,
-  serializeDiscoveryState
+  serializeDiscoveryState,
+  toggleChip,
+  viewAfterQueryChange
 } from '$lib/discovery/state';
 
 describe('discovery URL state', () => {
@@ -118,5 +121,84 @@ describe('discovery URL state', () => {
     const state = parseDiscoveryState(new URLSearchParams('lat=64.15&lng=-21.94&z=12&view=list'));
 
     expect(parseDiscoveryState(serializeDiscoveryState(state))).toEqual(state);
+  });
+});
+
+describe('chip-driven list toggling', () => {
+  it('opens the list with the chosen slice from a quiet map', () => {
+    expect(toggleChip({ view: 'map', category: null, query: '' }, 'food_drink')).toEqual({
+      category: 'food_drink',
+      query: '',
+      view: 'list'
+    });
+    expect(toggleChip({ view: 'map', category: null, query: '' }, 'all')).toEqual({
+      category: null,
+      query: '',
+      view: 'list'
+    });
+  });
+
+  it('dismisses the filter and the list together on the active chip', () => {
+    expect(toggleChip({ view: 'list', category: 'food_drink', query: '' }, 'food_drink')).toEqual({
+      category: null,
+      query: '',
+      view: 'map'
+    });
+    expect(toggleChip({ view: 'list', category: null, query: '' }, 'all')).toEqual({
+      category: null,
+      query: '',
+      view: 'map'
+    });
+  });
+
+  it('returns to a clean arrival even when a search narrowed the slice', () => {
+    expect(
+      toggleChip({ view: 'list', category: 'food_drink', query: 'kaffi' }, 'food_drink')
+    ).toEqual({ category: null, query: '', view: 'map' });
+  });
+
+  it('swaps the slice in place and keeps a narrowing query on category chips', () => {
+    expect(
+      toggleChip({ view: 'list', category: 'food_drink', query: 'kaffi' }, 'shopping')
+    ).toEqual({ category: 'shopping', query: 'kaffi', view: 'list' });
+    expect(toggleChip({ view: 'list', category: 'food_drink', query: 'kaffi' }, 'all')).toEqual({
+      category: null,
+      query: '',
+      view: 'list'
+    });
+  });
+
+  it('reopens a folded slice from its active chip instead of clearing it', () => {
+    expect(isChipActive({ view: 'map', category: 'food_drink', query: '' }, 'food_drink')).toBe(
+      true
+    );
+    expect(toggleChip({ view: 'map', category: 'food_drink', query: '' }, 'food_drink')).toEqual({
+      category: 'food_drink',
+      query: '',
+      view: 'list'
+    });
+    expect(toggleChip({ view: 'list', category: 'food_drink', query: '' }, 'food_drink')).toEqual({
+      category: null,
+      query: '',
+      view: 'map'
+    });
+  });
+
+  it('treats "All" as active only while the unfiltered, unsearched list is open', () => {
+    expect(isChipActive({ view: 'list', category: null, query: '' }, 'all')).toBe(true);
+    expect(isChipActive({ view: 'map', category: null, query: '' }, 'all')).toBe(false);
+    expect(isChipActive({ view: 'list', category: null, query: 'kaffi' }, 'all')).toBe(false);
+    expect(isChipActive({ view: 'list', category: 'food_drink', query: '' }, 'all')).toBe(false);
+    expect(isChipActive({ view: 'list', category: 'food_drink', query: '' }, 'food_drink')).toBe(
+      true
+    );
+  });
+
+  it('lets search open the list and closes it only when no slice remains', () => {
+    expect(viewAfterQueryChange('kaffi', null, 'map')).toBe('list');
+    expect(viewAfterQueryChange('kaffi', 'food_drink', 'map')).toBe('list');
+    expect(viewAfterQueryChange('', 'food_drink', 'list')).toBe('list');
+    expect(viewAfterQueryChange('', null, 'list')).toBe('map');
+    expect(viewAfterQueryChange('   ', null, 'list')).toBe('map');
   });
 });

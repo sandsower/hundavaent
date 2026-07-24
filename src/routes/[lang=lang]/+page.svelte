@@ -52,29 +52,18 @@
     font-family: var(--font-sans);
   }
 
+  /* The map owns the full viewport; the app header floats above it. */
   .directory-shell {
     width: 100%;
-    height: calc(100dvh - var(--hv-app-header-height, 4.4rem));
+    height: 100dvh;
     overflow: hidden;
   }
 
-  @media (min-width: 58.0625rem) {
-    :global(body:has(.noscript-results)) .directory-shell {
-      height: auto;
-      min-height: calc(100dvh - var(--hv-app-header-height, 4.4rem));
-      overflow: visible;
-    }
-
-    :global(body:has(.noscript-results)) .directory-shell :global(.map-list-shell) {
-      height: calc(100dvh - var(--hv-app-header-height, 4.4rem));
-    }
-  }
-
-  @media (max-width: 57.999rem) {
-    .directory-shell {
-      height: auto;
-      min-height: calc(100dvh - var(--hv-app-header-height, 4.4rem));
-      overflow: visible;
-    }
+  /* Without JavaScript the header returns to flow and the server-rendered
+     directory scrolls as a normal document. */
+  :global(body:has(.noscript-results)) .directory-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
   }
 </style>

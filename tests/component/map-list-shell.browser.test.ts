@@ -398,7 +398,7 @@ describe('MapListShell synchronization', () => {
     await fireEvent.click(screen.getByRole('checkbox', { name: 'Favorites only' }));
 
     expect(window.location.search).toContain('favorites=1');
-    expect(screen.getByRole('button', { name: 'Show 0 results' })).toBeTruthy();
+    expect(screen.getByText('0 places found')).toBeTruthy();
   });
 
   it('does not expose Favorites-only when the private projection is unavailable', async () => {
@@ -419,7 +419,7 @@ describe('MapListShell synchronization', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
 
     expect(screen.queryByRole('checkbox', { name: 'Favorites only' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Show 1 result' })).toBeTruthy();
+    expect(screen.getByText('One place found')).toBeTruthy();
   });
 
   it.each([
@@ -639,7 +639,7 @@ describe('MapListShell synchronization', () => {
     expect(document.activeElement).toBe(marker);
   });
 
-  it('keeps the desktop result rail visible while a matching-width detail card floats over the map', async () => {
+  it('arrives on a quiet map and floats a matching-width detail card over it on desktop', async () => {
     const initialViewport = { width: window.innerWidth, height: window.innerHeight };
     await browserPage.viewport(1280, 800);
     history.replaceState(null, '', '/en');
@@ -657,30 +657,27 @@ describe('MapListShell synchronization', () => {
       });
 
       const sidebar = container.querySelector<HTMLElement>('[data-directory-sidebar]');
-      const results = screen.getByRole('region', { name: 'Places found' });
-      expect(sidebar?.contains(results)).toBe(true);
-      expect(within(sidebar!).getByText('Capital region · 1 place')).toBeTruthy();
-      expect(
-        within(sidebar!).getByRole('heading', { name: 'Find somewhere to go together' })
-      ).toBeTruthy();
-      expect(within(sidebar!).getByRole('button', { name: 'All' })).toHaveAttribute(
+      expect(sidebar).toBeTruthy();
+      if (!sidebar) throw new Error('Expected the floating command cluster');
+      expect(screen.queryByRole('region', { name: 'Places found' })).toBeNull();
+      expect(within(sidebar).getByRole('button', { name: 'All' })).toHaveAttribute(
         'aria-pressed',
-        'true'
+        'false'
       );
-      expect(within(sidebar!).getByRole('button', { name: 'Food' })).toBeTruthy();
-      expect(within(sidebar!).getByRole('button', { name: 'Shops' })).toBeTruthy();
-      expect(within(sidebar!).getByRole('button', { name: 'Outdoors' })).toBeTruthy();
-      expect(within(sidebar!).getByRole('button', { name: 'More filters' })).toBeTruthy();
-      const accessibleResultsHeading = screen.getByRole('heading', { name: 'Places found' });
-      const visuallyHiddenHeading = accessibleResultsHeading.closest<HTMLElement>('.tray-heading');
-      expect(visuallyHiddenHeading).toBeTruthy();
-      expect(visuallyHiddenHeading!.getBoundingClientRect().width).toBe(1);
-      expect(visuallyHiddenHeading!.getBoundingClientRect().height).toBe(1);
-      expect(getComputedStyle(visuallyHiddenHeading!).overflow).toBe('hidden');
-      expect(screen.queryByRole('button', { name: 'Show 1 result' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Close results' })).toBeNull();
+      expect(within(sidebar).getByRole('button', { name: 'Food' })).toBeTruthy();
+      expect(within(sidebar).getByRole('button', { name: 'Shops' })).toBeTruthy();
+      expect(within(sidebar).getByRole('button', { name: 'Outdoors' })).toBeTruthy();
+      expect(within(sidebar).getByRole('button', { name: 'More filters' })).toBeTruthy();
 
-      const resultCard = within(sidebar!).getByLabelText('Published Place');
+      await fireEvent.click(screen.getByRole('button', { name: 'All' }));
+      const results = screen.getByRole('region', { name: 'Places found' });
+      expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: 'All' }).textContent).toContain('· 1 ✕');
+      expect(sidebar.contains(results)).toBe(true);
+      expect(screen.getByRole('heading', { name: 'Places found' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Close results' })).toBeTruthy();
+
+      const resultCard = within(sidebar).getByLabelText('Published Place');
       const photo = within(resultCard).getByAltText('A dog in a public park');
       const photoRect = photo.getBoundingClientRect();
       const mediaRect = resultCard
@@ -691,19 +688,16 @@ describe('MapListShell synchronization', () => {
       expect(within(resultCard).getByText('Outdoor place · Park', { exact: true })).toBeTruthy();
       expect(resultCard.querySelector('[data-place-card-media="photo"]')).toBeTruthy();
 
-      await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
-      expect(resultCard.classList.contains('selected')).toBe(true);
-      expect(
+      await fireEvent.click(
         within(resultCard).getByRole('button', { name: 'Select Published Place' })
-      ).toHaveAttribute('aria-pressed', 'true');
-      expect(getComputedStyle(resultCard).boxShadow).toContain('rgb(242, 201, 76)');
+      );
       const cardOverlay = container.querySelector<HTMLElement>('[data-selected-place-overlay]');
       expect(cardOverlay).toBeTruthy();
-      if (!sidebar || !cardOverlay) throw new Error('Expected desktop rail and detail card');
+      if (!cardOverlay) throw new Error('Expected the floating detail card');
       expect(
         within(cardOverlay).getByAltText('A dog in a public park').getBoundingClientRect().height
       ).toBeCloseTo(83.2, 0);
-      expect(screen.getByRole('region', { name: 'Places found' })).toBeTruthy();
+      expect(screen.queryByRole('region', { name: 'Places found' })).toBeNull();
 
       const sidebarWidth = sidebar.getBoundingClientRect().width;
       expect(sidebarWidth).toBeLessThanOrEqual(416.5);
@@ -804,8 +798,7 @@ describe('MapListShell synchronization', () => {
       const all = within(shortcuts).getByRole('button', { name: 'All' });
       const food = within(shortcuts).getByRole('button', { name: 'Food' });
       const moreFilters = screen.getByRole('button', { name: 'More filters' });
-      expect(screen.getByText('Kópavogur · 1 place')).toBeTruthy();
-      expect(all).toHaveAttribute('aria-pressed', 'true');
+      expect(all).toHaveAttribute('aria-pressed', 'false');
       expect(moreFilters.closest('.shortcut-row')).toContainElement(shortcuts);
       expect(moreFilters.getBoundingClientRect().top).toBeCloseTo(
         food.getBoundingClientRect().top,
@@ -822,7 +815,10 @@ describe('MapListShell synchronization', () => {
       expect(window.location.search).toContain('area=K%C3%B3pavogur');
 
       await fireEvent.click(all);
+      // "All" is the browse-everything toggle: it opens the list and clears
+      // the category while unrelated filters survive.
       expect(all).toHaveAttribute('aria-pressed', 'true');
+      expect(window.location.search).toContain('view=list');
       expect(window.location.search).not.toContain('category=');
       expect(window.location.search).toContain('area=K%C3%B3pavogur');
 
@@ -868,7 +864,7 @@ describe('MapListShell synchronization', () => {
         sidebar.getBoundingClientRect().width,
         0
       );
-      expect(getComputedStyle(cardOverlay).position).toBe('absolute');
+      expect(sidebar.contains(cardOverlay)).toBe(true);
       await waitFor(() =>
         expect(cardOverlay.getBoundingClientRect().left).toBeCloseTo(
           sidebar.getBoundingClientRect().left,
@@ -1040,11 +1036,11 @@ describe('MapListShell synchronization', () => {
 
     try {
       for (const scenario of [
-        { width: breakpointPx - 1, layout: 'compact', display: 'block', controls: true },
-        { width: breakpointPx, layout: 'rail', display: 'grid', controls: false },
-        { width: breakpointPx + 1, layout: 'rail', display: 'grid', controls: false },
+        { width: breakpointPx - 1, layout: 'compact' },
+        { width: breakpointPx, layout: 'rail' },
+        { width: breakpointPx + 1, layout: 'rail' },
         // A 640 CSS-pixel container is a 1280px host's effective width at 200% zoom.
-        { width: 640, layout: 'compact', display: 'block', controls: true }
+        { width: 640, layout: 'compact' }
       ] as const) {
         history.replaceState(null, '', '/en?view=list');
         const target = document.createElement('div');
@@ -1069,27 +1065,14 @@ describe('MapListShell synchronization', () => {
 
         await waitFor(() => expect(shell.dataset.shellLayout).toBe(scenario.layout));
         expect(window.innerWidth).toBe(1280);
-        expect(getComputedStyle(shell).display).toBe(scenario.display);
-        expect(within(container).queryByRole('button', { name: 'Show 1 result' }) !== null).toBe(
-          scenario.controls
+        expect(within(container).getByRole('button', { name: 'All' })).toBeTruthy();
+        expect(within(container).getByRole('button', { name: 'Close results' })).toBeTruthy();
+        const shortcutNames = ['All', 'Food', 'Shops', 'Outdoors', 'More filters'];
+        const shortcutButtons = shortcutNames.map((name) =>
+          within(container).getByRole('button', { name })
         );
-        expect(within(container).queryByRole('button', { name: 'Close results' }) !== null).toBe(
-          scenario.controls
-        );
-        if (scenario.layout === 'rail') {
-          const shortcutNames = ['All', 'Food', 'Shops', 'Outdoors', 'More filters'];
-          const shortcutButtons = shortcutNames.map((name) =>
-            within(container).getByRole('button', { name })
-          );
-          const shortcutTop = shortcutButtons[0].getBoundingClientRect().top;
-          expect(
-            shortcutButtons.every(
-              (button) => Math.abs(button.getBoundingClientRect().top - shortcutTop) < 0.5
-            )
-          ).toBe(true);
-          const shortcutRow = shortcutButtons[0].closest<HTMLElement>('.shortcut-row')!;
-          expect(shortcutRow.scrollWidth).toBeLessThanOrEqual(shortcutRow.clientWidth);
-        }
+        const shortcutRow = shortcutButtons[0].closest<HTMLElement>('.shortcut-row')!;
+        expect(shortcutRow.scrollWidth).toBeLessThanOrEqual(shortcutRow.clientWidth);
 
         unmount();
         target.remove();
@@ -1726,13 +1709,14 @@ describe('MapListShell synchronization', () => {
     });
     expect(screen.getByRole('combobox', { name: 'Leash and restraint' })).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
+    // The sheet set category=outdoors, so the active Outdoors chip reopens
+    // its folded slice as the list.
+    await fireEvent.click(screen.getByRole('button', { name: 'Outdoors' }));
     expect(screen.queryByRole('combobox', { name: 'Place type' })).toBeNull();
-    const closeResults = screen.getByRole('button', { name: 'Close results' });
-    await waitFor(() => expect(document.activeElement).toBe(closeResults));
+    expect(screen.getByRole('region', { name: 'Parks and outdoors' })).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
-    expect(screen.queryByRole('heading', { name: 'Places found' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Parks and outdoors' })).toBeNull();
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Place type' }))
     );
@@ -1742,11 +1726,17 @@ describe('MapListShell synchronization', () => {
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'More filters' }))
     );
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Outdoors' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Close results' }));
     await waitFor(() =>
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show 1 result' }))
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Outdoors' }))
     );
+    // Closing the list mirrored the chip dismissal: the slice cleared with it.
+    expect(screen.getByRole('button', { name: 'Outdoors' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+    expect(window.location.search).not.toContain('category=');
   });
 
   it('offers a missing-place suggestion only when no place matches', async () => {
@@ -1796,17 +1786,27 @@ describe('MapListShell synchronization', () => {
     expect(screen.queryByRole('combobox', { name: 'Place type' })).toBeNull();
     expect(screen.getByLabelText('Selected place')).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
+    // The card owns the screen: the chip row and sheet step aside while
+    // search stays reachable; Escape restores the browse chrome.
+    expect(screen.queryByRole('button', { name: 'More filters' })).toBeNull();
+    expect(screen.getByRole('searchbox', { name: 'Search for a place' })).toBeTruthy();
+    await fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByLabelText('Selected place')).toBeNull();
-    expect(screen.getByRole('combobox', { name: 'Place type' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'More filters' })).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Published Place' }));
-    expect(screen.queryByRole('combobox', { name: 'Place type' })).toBeNull();
+    // Selecting from the open list folds it to the edge tab and never clears
+    // the slice; the tab restores exactly the browse state.
+    await fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    expect(screen.getByRole('heading', { name: 'Places found' })).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Select Published Place' }));
     expect(screen.getByLabelText('Selected place')).toBeTruthy();
-
-    await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
+    expect(screen.queryByRole('heading', { name: 'Places found' })).toBeNull();
+    expect(window.location.search).toContain('view=list');
+    const edgeTab = screen.getByRole('button', { name: 'Show 1 result' });
+    await fireEvent.click(edgeTab);
     expect(screen.queryByLabelText('Selected place')).toBeNull();
     expect(screen.getByRole('heading', { name: 'Places found' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('restores result and selected-card focus across browser history', async () => {
@@ -1822,7 +1822,7 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'All' }));
     const resultsUrl = window.location.href;
     await fireEvent.click(screen.getByRole('button', { name: 'Select Published Place' }));
     await waitFor(() =>
@@ -1904,7 +1904,7 @@ describe('MapListShell synchronization', () => {
     expect(screen.getByRole('button', { name: 'Second Café' })).toBeTruthy();
     expect(window.location.search).toContain('q=cafe+kopavogur');
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
+    // Search behaves like a chip: typing already opened the list.
     const resultsHeading = screen.getByRole('heading', { name: 'Places found' });
     expect(resultsHeading).toBeTruthy();
     expect(sidebar.contains(resultsHeading)).toBe(true);
@@ -1921,9 +1921,10 @@ describe('MapListShell synchronization', () => {
     );
   });
 
-  it('uses the approved desktop rail-map grid geometry', async () => {
+  it('gives the map the full shell and floats the command cluster above it on arrival', async () => {
     const initialViewport = { width: window.innerWidth, height: window.innerHeight };
     await browserPage.viewport(1200, 800);
+    history.replaceState(null, '', '/en');
 
     try {
       const { container } = render(MapListShell, {
@@ -1937,19 +1938,307 @@ describe('MapListShell synchronization', () => {
         loadPlace: vi.fn(async () => complexProfile)
       });
       const shell = container.querySelector<HTMLElement>('[data-responsive-shell]');
+      const mapPanel = container.querySelector<HTMLElement>('.map-panel');
+      const sidebar = container.querySelector<HTMLElement>('[data-directory-sidebar]');
       expect(shell).toBeTruthy();
-      if (!shell) throw new Error('Expected the discovery shell');
+      expect(mapPanel).toBeTruthy();
+      expect(sidebar).toBeTruthy();
+      if (!shell || !mapPanel || !sidebar) throw new Error('Expected the discovery shell parts');
 
-      const shellStyle = getComputedStyle(shell);
-      const desktopColumns = shellStyle.gridTemplateColumns.split(' ').map(Number.parseFloat);
-      expect(shellStyle.display).toBe('grid');
-      expect(desktopColumns).toHaveLength(2);
-      expect(desktopColumns[0]).toBeGreaterThanOrEqual(320);
-      expect(desktopColumns[0]).toBeLessThanOrEqual(416);
-      expect(desktopColumns[1]).toBeGreaterThan(desktopColumns[0]);
+      const shellRect = shell.getBoundingClientRect();
+      const mapRect = mapPanel.getBoundingClientRect();
+      const sidebarRect = sidebar.getBoundingClientRect();
+      expect(getComputedStyle(shell).display).not.toBe('grid');
+      expect(mapRect.width).toBeCloseTo(shellRect.width, 0);
+      expect(mapRect.height).toBeCloseTo(shellRect.height, 0);
+      expect(sidebarRect.width).toBeGreaterThanOrEqual(320);
+      expect(sidebarRect.width).toBeLessThanOrEqual(416.5);
+      expect(sidebarRect.left).toBeGreaterThanOrEqual(mapRect.left);
+      expect(sidebarRect.right).toBeLessThan(mapRect.right);
+      expect(getComputedStyle(sidebar).pointerEvents).toBe('none');
+
+      expect(screen.queryByRole('region', { name: 'Places found' })).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'Places found' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false');
     } finally {
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }
+  });
+
+  it('opens the list from a chip, heads it with the slice, and dismisses both together', async () => {
+    history.replaceState(null, '', '/en');
+    const cafePlace = {
+      ...places[0],
+      placeId: '30000000-0000-4000-8000-000000000004',
+      name: 'Chip Café',
+      category: 'cafe' as const
+    };
+    render(MapListShell, {
+      places: [...places, cafePlace],
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    const food = screen.getByRole('button', { name: 'Food' });
+    await fireEvent.click(food);
+    expect(food).toHaveAttribute('aria-pressed', 'true');
+    expect(food.textContent).toContain('· 1 ✕');
+    expect(window.location.search).toContain('category=food_drink');
+    expect(window.location.search).toContain('view=list');
+    const foodRegion = screen.getByRole('region', { name: 'Food and drink' });
+    expect(within(foodRegion).getByRole('heading', { name: 'Food and drink' })).toBeTruthy();
+    expect(within(foodRegion).getByRole('button', { name: 'Select Chip Café' })).toBeTruthy();
+    expect(within(foodRegion).queryByRole('button', { name: 'Select Published Place' })).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Outdoors' }));
+    const outdoorsRegion = screen.getByRole('region', { name: 'Parks and outdoors' });
+    expect(
+      within(outdoorsRegion).getByRole('button', { name: 'Select Published Place' })
+    ).toBeTruthy();
+    expect(food).toHaveAttribute('aria-pressed', 'false');
+
+    const outdoors = screen.getByRole('button', { name: 'Outdoors' });
+    await fireEvent.click(outdoors);
+    expect(outdoors).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('region', { name: 'Parks and outdoors' })).toBeNull();
+    expect(window.location.search).toContain('view=map');
+    expect(window.location.search).not.toContain('category=');
+  });
+
+  it('treats search as a chip that opens the list and closes it with the last slice', async () => {
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    const search = screen.getByRole('searchbox', { name: 'Search for a place' });
+    await fireEvent.input(search, { target: { value: 'published' } });
+    expect(screen.getByRole('region', { name: 'Places found' })).toBeTruthy();
+    // A query-owned list keeps every chip quiet.
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false');
+    expect(window.location.search).toContain('view=list');
+
+    await fireEvent.input(search, { target: { value: '' } });
+    expect(screen.queryByRole('region', { name: 'Places found' })).toBeNull();
+    expect(window.location.search).toContain('view=map');
+
+    // With a category slice open, clearing the query keeps the slice.
+    await fireEvent.click(screen.getByRole('button', { name: 'Outdoors' }));
+    await fireEvent.input(search, { target: { value: 'published' } });
+    expect(screen.getByRole('region', { name: 'Parks and outdoors' })).toBeTruthy();
+    await fireEvent.input(search, { target: { value: '' } });
+    expect(screen.getByRole('region', { name: 'Parks and outdoors' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Outdoors' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    // Escape walks the open list back to the quiet map.
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('region', { name: 'Parks and outdoors' })).toBeNull();
+    expect(window.location.search).not.toContain('category=');
+  });
+
+  it('folds the chrome to a search icon and a dark places pill, and every exit restores it', async () => {
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Outdoors' }));
+    expect(screen.getByRole('region', { name: 'Parks and outdoors' })).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide controls' }));
+
+    expect(screen.queryByRole('searchbox', { name: 'Search for a place' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Parks and outdoors' })).toBeNull();
+    const pill = screen.getByRole('button', { name: '1 Outdoors' });
+    expect(pill).toBeTruthy();
+    // The fold is ephemeral: the URL still describes the folded browse state.
+    expect(window.location.search).toContain('view=list');
+    expect(window.location.search).toContain('category=outdoors');
+
+    await fireEvent.click(pill);
+    expect(screen.getByRole('region', { name: 'Parks and outdoors' })).toBeTruthy();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Outdoors' }))
+    );
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide controls' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Open search' }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('searchbox', { name: 'Search for a place' })
+      )
+    );
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide controls' }));
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByRole('region', { name: 'Parks and outdoors' })).toBeTruthy();
+
+    // Any pin exits the folded state and brings the chrome back with the card.
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide controls' }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Published Place$/ }));
+    expect(screen.getByLabelText('Selected place')).toBeTruthy();
+    expect(screen.getByRole('searchbox', { name: 'Search for a place' })).toBeTruthy();
+  });
+
+  it('grows the same card to full height for details and moves nothing else', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1280, 800);
+    history.replaceState(null, '', '/en');
+
+    try {
+      const { container } = render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: defaultDiscoveryState,
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+
+      await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+      const overlay = container.querySelector<HTMLElement>('[data-selected-place-overlay]');
+      expect(overlay).toBeTruthy();
+      if (!overlay) throw new Error('Expected the compact answer card');
+
+      // State 4: the compact card leaves the map visible below it.
+      await waitFor(() => expect(overlay.getBoundingClientRect().height).toBeGreaterThan(100));
+      const compactRect = overlay.getBoundingClientRect();
+      expect(window.innerHeight - compactRect.bottom).toBeGreaterThan(60);
+
+      // State 5: details stretch the same card to the bottom inset; its
+      // horizontal position never changes.
+      await waitFor(() =>
+        expect(within(overlay).getByText('Place details', { exact: true })).toBeTruthy()
+      );
+      await fireEvent.click(within(overlay).getByText('Place details', { exact: true }));
+      await waitFor(() =>
+        expect(window.innerHeight - overlay.getBoundingClientRect().bottom).toBeLessThan(20)
+      );
+      expect(overlay.getBoundingClientRect().left).toBeCloseTo(compactRect.left, 0);
+      expect(overlay.getBoundingClientRect().width).toBeCloseTo(compactRect.width, 0);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+
+  it('re-expands the folded list beside the open card on wide screens', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1280, 800);
+    history.replaceState(null, '', '/en');
+    const secondPlace = {
+      ...places[0],
+      placeId: '30000000-0000-4000-8000-000000000004',
+      name: 'Second Café',
+      category: 'cafe' as const
+    };
+
+    try {
+      render(MapListShell, {
+        places: [...places, secondPlace],
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: defaultDiscoveryState,
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+
+      await fireEvent.click(screen.getByRole('button', { name: 'All' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'Select Published Place' }));
+      expect(screen.queryByRole('region', { name: 'Places found' })).toBeNull();
+
+      // The › tab expands the filtered slice beside the card for comparison.
+      await fireEvent.click(screen.getByRole('button', { name: 'Show 2 results' }));
+      expect(screen.getByRole('region', { name: 'Places found' })).toBeTruthy();
+      expect(screen.getByLabelText('Selected place')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Show 2 results' })).toBeNull();
+
+      // Choosing another place swaps the card while the comparison stays.
+      await fireEvent.click(screen.getByRole('button', { name: 'Select Second Café' }));
+      expect(
+        within(screen.getByLabelText('Selected place')).getByRole('heading', {
+          name: 'Second Café'
+        })
+      ).toBeTruthy();
+      expect(screen.getByRole('region', { name: 'Places found' })).toBeTruthy();
+
+      // ‹ folds the list back to the tab; ✕ restores the whole browse state.
+      await fireEvent.click(screen.getByRole('button', { name: 'Collapse list' }));
+      expect(screen.queryByRole('region', { name: 'Places found' })).toBeNull();
+      await waitFor(() =>
+        expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show 2 results' }))
+      );
+      await fireEvent.click(screen.getByRole('button', { name: 'Close selected place' }));
+      expect(screen.queryByLabelText('Selected place')).toBeNull();
+      expect(screen.getByRole('region', { name: 'Places found' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+
+  it('quiets the chrome only while a map gesture lasts and never folds it', async () => {
+    history.replaceState(null, '', '/en');
+    let mountedCallbacks: MapCallbacks | null = null;
+    const adapter: MapAdapter = {
+      mount: vi.fn((_container, callbacks) => {
+        mountedCallbacks = callbacks;
+      }),
+      setPlaces: vi.fn(),
+      setSelectedPlace: vi.fn(),
+      focusPlace: vi.fn(),
+      setCamera: vi.fn(),
+      destroy: vi.fn()
+    };
+    const { container } = render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter,
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+    await waitFor(() => expect(adapter.setPlaces).toHaveBeenCalled());
+    const callbacks = mountedCallbacks as unknown as MapCallbacks;
+    const shell = container.querySelector<HTMLElement>('[data-responsive-shell]')!;
+    const sidebar = container.querySelector<HTMLElement>('[data-directory-sidebar]')!;
+
+    callbacks.onMoveStateChange?.(true);
+    await waitFor(() => expect(shell.getAttribute('data-map-moving')).toBe('true'));
+    await waitFor(() => expect(Number(getComputedStyle(sidebar).opacity)).toBeLessThan(1));
+    // A drag de-emphasizes but never sticky-folds the cluster.
+    expect(screen.getByRole('searchbox', { name: 'Search for a place' })).toBeTruthy();
+    expect(shell.getAttribute('data-focus-fold')).toBe('false');
+
+    callbacks.onMoveStateChange?.(false);
+    await waitFor(() => expect(shell.getAttribute('data-map-moving')).toBe('false'));
+    await waitFor(() => expect(getComputedStyle(sidebar).opacity).toBe('1'));
   });
 
   it('opens only terminal cluster members in the selectable result tray', async () => {

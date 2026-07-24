@@ -483,6 +483,7 @@
               >
             {/if}
           </span>
+          <span class="chip-label" aria-hidden="true">{label(symbol)}</span>
         </button>
       {/each}
     </div>
@@ -530,30 +531,35 @@
   }
 
   .symbols {
-    display: grid;
-    grid-template-columns: repeat(5, 2.75rem);
-    gap: 0.45rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
     justify-content: start;
   }
 
   .symbol {
     position: relative;
-    display: grid;
-    width: 2.75rem;
-    height: 2.75rem;
-    min-width: 2.75rem;
-    min-height: 2.75rem;
-    padding: 0;
+    display: inline-flex;
+    gap: 0.4rem;
+    min-height: 2rem;
+    align-items: center;
+    padding: 0.28rem 0.65rem 0.28rem 0.4rem;
     border: 1px solid var(--hv-access-symbol-border, var(--hv-color-basalt, #1e2d31));
     border-radius: 999px;
     background: var(--hv-access-area, #dce7e1);
     color: var(--hv-color-basalt);
     font: inherit;
-    place-items: center;
     transition:
       border-color 160ms ease,
       transform 160ms ease,
       box-shadow 160ms ease;
+  }
+
+  .chip-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1.05;
+    white-space: nowrap;
   }
 
   .symbol.restraint {
@@ -573,7 +579,7 @@
   }
   .symbol.not-stated {
     background: var(--hv-access-unknown, #e4e7e5);
-    color: var(--hv-access-unknown-foreground, #66716f);
+    color: var(--hv-access-unknown-foreground, #5b6563);
   }
 
   .symbol:hover,
@@ -593,8 +599,9 @@
   .icon,
   .icon svg {
     display: block;
-    width: 1.55rem;
-    height: 1.55rem;
+    width: 1.3rem;
+    height: 1.3rem;
+    flex: 0 0 auto;
     place-items: center;
   }
 
@@ -632,13 +639,13 @@
     font-size: 0.75rem;
     font-weight: 700;
     line-height: 1.35;
+    /* Visibility flips instantly so an accessibility scan never samples a
+       half-faded tooltip; only the slide is animated. */
     opacity: 0;
     pointer-events: auto;
     text-align: left;
     transform: translateY(var(--tooltip-reveal-y, 0.25rem));
-    transition:
-      opacity 160ms ease,
-      transform 160ms ease;
+    transition: transform 160ms ease;
   }
 
   .tooltip[data-open='true'] {
@@ -651,9 +658,8 @@
     height: auto;
     min-height: 2.75rem;
     border-radius: var(--hv-radius-control);
-    grid-template-columns: auto 1fr;
     gap: 0.55rem;
-    justify-items: start;
+    justify-content: start;
     padding: 0.65rem 0.8rem;
     font-weight: 800;
   }

@@ -149,6 +149,62 @@ export function serializeDiscoveryState(state: DiscoveryState): URLSearchParams 
   return params;
 }
 
+export type DiscoveryChip = DiscoveryCategory | 'all';
+
+export interface ChipContext {
+  view: DiscoveryView;
+  category: DiscoveryCategory | null;
+  query: string;
+}
+
+export interface ChipToggleResult {
+  category: DiscoveryCategory | null;
+  query: string;
+  view: DiscoveryView;
+}
+
+// A chip is both the filter and the list's toggle. A category chip reads
+// active whenever its filter is set - with its list open it dismisses (the
+// ✕), with its list folded it reopens the slice. "All" is the
+// browse-everything toggle: active only while the unfiltered list is open
+// and no search query owns it.
+export function isChipActive(context: ChipContext, chip: DiscoveryChip): boolean {
+  return chip === 'all'
+    ? context.view === 'list' && context.category === null && !normalizeQuery(context.query)
+    : context.category === chip;
+}
+
+// Dismissing the active chip returns to a clean arrival; activating "All"
+// clears any query because it means "browse everything", while a category
+// chip keeps the query so search can narrow the slice. An active chip whose
+// list is folded (selection, sheet-set filter, deep link) reopens its slice
+// instead of clearing - the ✕ only appears while the list is showing.
+export function toggleChip(context: ChipContext, chip: DiscoveryChip): ChipToggleResult {
+  if (chip !== 'all' && context.category === chip && context.view !== 'list') {
+    return { category: chip, query: context.query, view: 'list' };
+  }
+
+  if (isChipActive(context, chip)) {
+    return { category: null, query: '', view: 'map' };
+  }
+
+  return chip === 'all'
+    ? { category: null, query: '', view: 'list' }
+    : { category: chip, query: context.query, view: 'list' };
+}
+
+// Search behaves like a chip: typing opens the list, and clearing the query
+// closes it only when no category slice remains open.
+export function viewAfterQueryChange(
+  query: string,
+  category: DiscoveryCategory | null,
+  currentView: DiscoveryView
+): DiscoveryView {
+  if (normalizeQuery(query)) return 'list';
+  if (category !== null) return currentView;
+  return 'map';
+}
+
 export function activeFilterCount(filters: DiscoveryFilters): number {
   return [
     normalizeQuery(filters.query) || null,

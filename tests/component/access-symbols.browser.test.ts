@@ -81,7 +81,7 @@ describe('AccessSymbols', () => {
     );
   });
 
-  it('uses the approved circular controls and exact pictograms', () => {
+  it('uses the approved labelled pill controls and exact pictograms', () => {
     const { container } = render(AccessSymbols, {
       placeName: 'Brikk',
       conditions: [simpleCondition],
@@ -90,8 +90,10 @@ describe('AccessSymbols', () => {
     const symbols = container.querySelectorAll<HTMLButtonElement>('.symbols > .symbol');
     const firstStyle = getComputedStyle(symbols[0]);
 
-    expect(firstStyle.width).toBe('44px');
-    expect(firstStyle.height).toBe('44px');
+    // Every symbol answers in plain words next to its pictogram, so the row
+    // reads without hover, click, or icon memory.
+    expect(symbols[0].querySelector('.chip-label')?.textContent).toBe('Welcome indoors');
+    expect(Number.parseFloat(firstStyle.height)).toBeGreaterThanOrEqual(32);
     expect(firstStyle.borderRadius).toBe('999px');
     expect(firstStyle.backgroundColor).toBe('rgb(220, 231, 225)');
     expect(symbols[0].querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 15 15');
@@ -190,7 +192,9 @@ describe('AccessSymbols', () => {
     await waitFor(() => expect(activeTooltip().getAttribute('data-open')).toBe('true'));
     const tooltip = activeTooltip();
 
-    expect(getComputedStyle(tooltip).transitionProperty).toContain('opacity');
+    // The tooltip slides but never fades, so an accessibility scan can never
+    // sample a half-transparent state.
+    expect(getComputedStyle(tooltip).transitionProperty).toBe('transform');
     expect(getComputedStyle(tooltip).backgroundColor).toBe('rgb(30, 45, 49)');
     expect(getComputedStyle(tooltip).color).toBe('rgb(251, 252, 249)');
     expect(Number.parseFloat(getComputedStyle(tooltip).borderRadius)).toBeGreaterThan(0);
@@ -223,7 +227,9 @@ describe('AccessSymbols', () => {
     await waitFor(() => expect(activeTooltip().getAttribute('data-open')).toBe('true'));
     const tooltip = activeTooltip();
 
-    expect(getComputedStyle(tooltip).transitionProperty).toContain('opacity');
+    // The tooltip slides but never fades, so an accessibility scan can never
+    // sample a half-transparent state.
+    expect(getComputedStyle(tooltip).transitionProperty).toBe('transform');
     expect(tooltip.textContent).toContain('Use the covered entrance beside the courtyard');
     expectContained(tooltip, document.documentElement);
     expectVerticallyContained(tooltip, document.documentElement);

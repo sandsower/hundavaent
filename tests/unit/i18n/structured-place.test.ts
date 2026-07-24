@@ -13,16 +13,17 @@ import {
 describe('structured Place copy', () => {
   it('localizes supported opening-hours and amenity identifiers without altering free text', () => {
     const hours = {
-      monday: ['09:00-17:00'],
-      seasonal_note: 'Call ahead on holidays'
+      seasonal_note: 'Call ahead on holidays',
+      friday: ['08:00-18:00'],
+      monday: ['09:00-17:00']
     };
     const amenities = ['water_bowl', 'covered patio hook'];
 
     expect(formatOpeningHours(hours, catalogues.en, 'Not available')).toBe(
-      'Monday: 09:00-17:00 · seasonal_note: Call ahead on holidays'
+      'Monday: 09:00-17:00 · Friday: 08:00-18:00 · seasonal_note: Call ahead on holidays'
     );
     expect(formatOpeningHours(hours, catalogues.is, 'Ekki tiltækt')).toBe(
-      'Mánudagur: 09:00-17:00 · seasonal_note: Call ahead on holidays'
+      'Mánudagur: 09:00-17:00 · Föstudagur: 08:00-18:00 · seasonal_note: Call ahead on holidays'
     );
     expect(formatDogAmenities(amenities, catalogues.en)).toBe('Water bowl, covered patio hook');
     expect(formatDogAmenities(amenities, catalogues.is)).toBe('Vatnsskál, covered patio hook');

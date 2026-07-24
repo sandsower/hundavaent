@@ -66,7 +66,9 @@ describe('PlaceList', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
     expect(screen.getByText('Outdoor place · Park', { exact: true })).toBeTruthy();
     expect(screen.getByText('Wheelchair accessible')).toBeTruthy();
-    expect(screen.getByText('Accessibility unknown')).toBeTruthy();
+    // Unknown accessibility is not a discovery fact; it stays out of compact
+    // cards and is disclosed in the selected place's mobility section instead.
+    expect(screen.queryByText('Accessibility unknown')).toBeNull();
 
     const firstCard = document.querySelector<HTMLElement>('[aria-label="Published Place"]');
     const dogAccess = screen.getByRole('group', { name: 'Dog access at Published Place' });

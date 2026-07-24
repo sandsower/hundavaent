@@ -61,7 +61,9 @@
     open(initialRequest ?? fallbackRequest(url) ?? { origin: 'header' });
     const status = url.searchParams.get('authStatus');
     if (status === 'denied' || status === 'provider_failed') error = copy['auth.facebookFailed'];
-    else if (status) error = copy['auth.failed'];
+    // 'unavailable' is a configuration state, not a failed attempt; the provider
+    // notice in the dialog body already explains it without alarming the visitor.
+    else if (status && status !== 'unavailable') error = copy['auth.failed'];
   }
 
   function open(nextRequest: AuthRequest): void {

@@ -46,8 +46,13 @@
     defaultDiscoveryFilters,
     parseDiscoveryState,
     serializeDiscoveryState,
+    toggleChip,
+    viewAfterQueryChange,
+    type DiscoveryCategory,
+    type DiscoveryChip,
     type DiscoveryFilters,
-    type DiscoveryState
+    type DiscoveryState,
+    type DiscoveryView
   } from './state';
 
   interface Props {
@@ -96,6 +101,13 @@
   let announcement = $state('');
   let mapFailed = $state(false);
   let filtersOpen = $state(false);
+  // Focus state (state 3): a user gesture on the map quiets the chrome only
+  // while it lasts; the sticky fold is always an explicit choice.
+  let mapMoving = $state(false);
+  let manualFold = $state(false);
+  // Dual state (state 6): on wide screens the folded edge tab can re-expand
+  // the filtered list beside the open card. Ephemeral, never serialized.
+  let dualList = $state(false);
   let clusterPlaceIds = $state<readonly string[] | null>(null);
   const clusterHistoryKey = 'hundavaentClusterPlaceIds';
   let selectionFocusOrigin = $state<HTMLButtonElement | null>(null);
@@ -130,7 +142,38 @@
       ? filteredPlaces.filter((place) => clusterPlaceIds?.includes(place.placeId))
       : filteredPlaces
   );
+  // Dual only exists where the list and the card genuinely fit side by side.
+  let dualView = $derived(
+    dualList && wideDetailLayout && selectedPlace !== null && discoveryState.view === 'list'
+  );
   let areas = $derived(availableAreas(places));
+  const categoryLabelKeys = {
+    food_drink: 'directory.categoryFoodDrink',
+    shopping: 'directory.categoryShopping',
+    outdoors: 'directory.categoryOutdoors',
+    accommodation: 'directory.categoryAccommodation',
+    public_cultural: 'directory.categoryPublicCultural'
+  } as const satisfies Record<DiscoveryCategory, keyof Catalogue>;
+  // The list panel is headed by the active slice's full name; slices without
+  // a category (all, search, cluster) keep the generic results title.
+  let sliceLabel = $derived(
+    discoveryState.filters.category
+      ? copy[categoryLabelKeys[discoveryState.filters.category]]
+      : null
+  );
+  const categoryChipLabelKeys = {
+    food_drink: 'directory.categoryFoodShort',
+    shopping: 'directory.categoryShoppingShort',
+    outdoors: 'directory.categoryOutdoorsShort',
+    accommodation: 'directory.categoryAccommodation',
+    public_cultural: 'directory.categoryPublicCultural'
+  } as const satisfies Record<DiscoveryCategory, keyof Catalogue>;
+  // The folded state keeps an active filter alive as the dark places pill.
+  let focusPillLabel = $derived(
+    discoveryState.filters.category
+      ? copy[categoryChipLabelKeys[discoveryState.filters.category]]
+      : copy['directory.placesInView']
+  );
   let suggestionPoint = $derived(selectedPlace ?? discoveryState.camera);
   let suggestHref = $derived(
     `${resolve('/[lang=lang]/suggest', { lang })}?latitude=${formatCoordinate(suggestionPoint.latitude)}&longitude=${formatCoordinate(suggestionPoint.longitude)}`
@@ -268,6 +311,10 @@
       clusterPlaceIds =
         next.view === 'list' && restoredClusterIds.length > 1 ? restoredClusterIds : null;
       filtersOpen = false;
+      // Ephemeral chrome never belongs to a history entry: navigating always
+      // lands on the plain rendering of the restored URL state.
+      manualFold = false;
+      dualList = false;
       const restoredSelection = nextFiltered.find(
         (place) => place.placeId === discoveryState.selectedPlaceId
       );
@@ -301,13 +348,11 @@
         }
 
         if (previousView !== discoveryState.view) {
-          document
-            .querySelector<HTMLButtonElement>(
-              discoveryState.view === 'list'
-                ? '#discovery-results-close'
-                : '.discovery-controls .results-button'
-            )
-            ?.focus();
+          if (discoveryState.view === 'list') {
+            document.querySelector<HTMLButtonElement>('#discovery-results-close')?.focus();
+          } else {
+            focusOwningChip(discoveryState.filters.category ?? 'all');
+          }
           return;
         }
 
@@ -316,21 +361,39 @@
         }
       });
     };
-    const closeSelectedOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || !discoveryState.selectedPlaceId || event.defaultPrevented)
+    // Escape walks backwards through the states: selection first, then the
+    // filter sheet, then the open list back to the quiet map.
+    const walkBackOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (discoveryState.selectedPlaceId) {
+        event.preventDefault();
+        clearSelectedPlace();
         return;
-      event.preventDefault();
-      clearSelectedPlace();
+      }
+      if (manualFold) {
+        event.preventDefault();
+        unfoldFromPill();
+        return;
+      }
+      if (filtersOpen) {
+        event.preventDefault();
+        toggleFilters();
+        return;
+      }
+      if (discoveryState.view === 'list' && !mapFailed) {
+        event.preventDefault();
+        closeResults();
+      }
     };
     window.addEventListener('popstate', syncHistory);
-    window.addEventListener('keydown', closeSelectedOnEscape);
+    window.addEventListener('keydown', walkBackOnEscape);
     const unsubscribeFavourites = signedIn
       ? subscribeToFavouriteInvalidation(() => void refreshFavourites())
       : () => undefined;
     return () => {
       if (filterAnalyticsTimer) clearTimeout(filterAnalyticsTimer);
       window.removeEventListener('popstate', syncHistory);
-      window.removeEventListener('keydown', closeSelectedOnEscape);
+      window.removeEventListener('keydown', walkBackOnEscape);
       reducedMotionQuery.removeEventListener('change', syncReducedMotion);
       boundaryObserver?.disconnect();
       railObserver?.disconnect();
@@ -468,12 +531,15 @@
 
     clusterPlaceIds = null;
     filtersOpen = false;
+    // Any pin exits the folded Focus state; the selection needs its chrome.
+    manualFold = false;
     openDetailsIntentPlaceId = openDetails ? placeId : null;
+    // Selection folds, never clears: an open list keeps view=list in the URL
+    // and folds to the edge tab, so ✕/Esc restores exactly the browse state.
     commitState(
       {
         ...discoveryState,
         selectedPlaceId: placeId,
-        view: 'map',
         camera: {
           latitude: place.latitude,
           longitude: place.longitude,
@@ -499,8 +565,9 @@
 
   function clearSelectedPlace(): void {
     const previouslySelectedPlaceId = discoveryState.selectedPlaceId;
-    commitState({ ...discoveryState, selectedPlaceId: null, view: 'map' }, 'replace');
+    commitState({ ...discoveryState, selectedPlaceId: null }, 'replace');
     openDetailsIntentPlaceId = null;
+    dualList = false;
     announcement = '';
     if (previouslySelectedPlaceId) {
       const focusOrigin = selectionFocusOrigin;
@@ -602,14 +669,47 @@
   }
 
   function updateQuery(query: string): void {
-    updateFilters({ ...discoveryState.filters, query }, 'replace');
+    const view = viewAfterQueryChange(query, discoveryState.filters.category, discoveryState.view);
+    const opensList = view === 'list' && discoveryState.view !== 'list';
+    if (opensList) selectionFocusOrigin = null;
+    updateFilters(
+      { ...discoveryState.filters, query },
+      'replace',
+      view,
+      opensList ? 'clear' : 'keep'
+    );
+  }
+
+  // A chip is both the filter and the list's toggle: selecting opens the
+  // list with that slice, the active chip dismisses filter and list together.
+  function toggleCategoryChip(chip: DiscoveryChip): void {
+    const next = toggleChip(
+      {
+        view: discoveryState.view,
+        category: discoveryState.filters.category,
+        query: discoveryState.filters.query
+      },
+      chip
+    );
+    // Opening a slice replaces any selection until selection folding lands;
+    // the card would otherwise sit inert under the list.
+    if (next.view === 'list') selectionFocusOrigin = null;
+    updateFilters(
+      { ...discoveryState.filters, category: next.category, query: next.query },
+      'push',
+      next.view,
+      next.view === 'list' ? 'clear' : 'keep'
+    );
   }
 
   function updateFilters(
     filters: DiscoveryFilters,
-    historyMode: 'push' | 'replace' = 'push'
+    historyMode: 'push' | 'replace' = 'push',
+    view: DiscoveryView = discoveryState.view,
+    selection: 'keep' | 'clear' = 'keep'
   ): void {
     clusterPlaceIds = null;
+    filtersOpen = view === 'list' ? false : filtersOpen;
     const nextFiltered = filterPublishedPlaces(
       places,
       filters,
@@ -617,34 +717,75 @@
       locationOrigin,
       favouritePlaceIds
     );
-    const selectedPlaceId = reconcileSelectedPlace(discoveryState.selectedPlaceId, nextFiltered);
-    commitState({ ...discoveryState, filters, selectedPlaceId }, historyMode);
+    const selectedPlaceId =
+      selection === 'clear'
+        ? null
+        : reconcileSelectedPlace(discoveryState.selectedPlaceId, nextFiltered);
+    commitState({ ...discoveryState, filters, view, selectedPlaceId }, historyMode);
     announceResultCount(nextFiltered.length);
     captureFilteredDiscovery(filters, nextFiltered.length, historyMode === 'replace');
   }
 
   function clearFilters(): void {
-    updateFilters({ ...defaultDiscoveryFilters });
+    updateFilters({ ...defaultDiscoveryFilters }, 'push', 'map');
   }
 
-  function showResults(): void {
-    clusterPlaceIds = null;
-    filtersOpen = false;
-    selectionFocusOrigin = null;
-    commitState({ ...discoveryState, selectedPlaceId: null, view: 'list' }, 'push');
-    if (!mapFailed) {
+  // The edge tab re-expands the list beside the card where both fit (state
+  // 6); narrow screens restore the browse state the selection folded away.
+  function expandListTab(): void {
+    if (wideDetailLayout) {
+      dualList = true;
       queueMicrotask(() =>
         document.querySelector<HTMLButtonElement>('#discovery-results-close')?.focus()
       );
+      return;
     }
+    clearSelectedPlace();
   }
 
-  function closeResults(): void {
-    clusterPlaceIds = null;
-    commitState({ ...discoveryState, view: 'map' }, 'push');
+  function collapseDualList(): void {
+    dualList = false;
+    queueMicrotask(() => document.querySelector<HTMLButtonElement>('.list-edge-tab')?.focus());
+  }
+
+  // Categories without a chip of their own (accommodation, culture) fall
+  // back to the browse-everything chip so keyboard focus is never dropped.
+  function focusOwningChip(chip: string): void {
+    const target =
+      document.querySelector<HTMLButtonElement>(`.discovery-controls [data-chip="${chip}"]`) ??
+      document.querySelector<HTMLButtonElement>('.discovery-controls [data-chip="all"]');
+    target?.focus();
+  }
+
+  // The sticky fold collapses the command cluster to a search icon and the
+  // dark places pill without touching URL state: unfolding restores exactly
+  // the browse state that was folded away.
+  function foldChrome(): void {
+    filtersOpen = false;
+    manualFold = true;
+    queueMicrotask(() => document.querySelector<HTMLButtonElement>('.focus-search')?.focus());
+  }
+
+  function unfoldToSearch(): void {
+    manualFold = false;
     queueMicrotask(() =>
-      document.querySelector<HTMLButtonElement>('.discovery-controls .results-button')?.focus()
+      document.querySelector<HTMLInputElement>('.discovery-controls input[type="search"]')?.focus()
     );
+  }
+
+  function unfoldFromPill(): void {
+    const chip = discoveryState.filters.category ?? 'all';
+    manualFold = false;
+    queueMicrotask(() => focusOwningChip(chip));
+  }
+
+  // Closing the list mirrors the active chip's dismissal: the slice that
+  // opened it (category or search) clears with it, and focus returns to the
+  // chip that owned the slice.
+  function closeResults(): void {
+    const dismissedChip = discoveryState.filters.category ?? 'all';
+    updateFilters({ ...discoveryState.filters, category: null, query: '' }, 'push', 'map');
+    queueMicrotask(() => focusOwningChip(dismissedChip));
   }
 
   function toggleFilters(): void {
@@ -811,6 +952,8 @@
     class="map-list-shell"
     data-responsive-shell
     data-map-failed={mapFailed}
+    data-map-moving={mapMoving}
+    data-focus-fold={manualFold}
     data-reduced-motion={reducedMotion}
     data-shell-layout={wideDetailLayout ? 'wide' : persistentRailLayout ? 'rail' : 'compact'}
     data-detail-layout={selectedPlace && wideDetailLayout
@@ -824,43 +967,51 @@
       class="directory-sidebar"
       bind:this={directorySidebar}
       data-directory-sidebar
-      data-rail-view={filtersOpen
-        ? 'filters'
-        : selectedPlace && discoveryState.view !== 'list'
-          ? 'selected'
-          : 'results'}
       aria-label={copy['directory.listLabel']}
     >
-      <DiscoveryControls
-        filters={discoveryState.filters}
-        {areas}
-        resultCount={filteredPlaces.length}
-        {filtersOpen}
-        resultsOpen={discoveryState.view === 'list' && !mapFailed}
-        showResultsToggle={!persistentRailLayout}
-        {copy}
-        {locationState}
-        {suggestHref}
-        showSuggest={filteredPlaces.length === 0}
-        {signedIn}
-        {favouritesAvailable}
-        onQueryChange={updateQuery}
-        onFiltersChange={updateFilters}
-        onClear={clearFilters}
-        onShowResults={showResults}
-        onUseLocation={() => requestLocation()}
-        onRetryLocation={retryLocation}
-        onToggleFilters={toggleFilters}
-      />
+      {#if manualFold}
+        <div class="focus-cluster">
+          <button
+            type="button"
+            class="focus-search"
+            aria-label={copy['directory.openSearch']}
+            onclick={unfoldToSearch}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="10.5" cy="10.5" r="6.75" fill="none" stroke-width="2.2" />
+              <line x1="15.6" y1="15.6" x2="21" y2="21" stroke-width="2.2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+      {:else}
+        <DiscoveryControls
+          filters={discoveryState.filters}
+          {areas}
+          resultCount={filteredPlaces.length}
+          {filtersOpen}
+          resultsOpen={discoveryState.view === 'list' && !mapFailed}
+          selectionActive={selectedPlace !== null}
+          {copy}
+          {locationState}
+          {suggestHref}
+          showSuggest={filteredPlaces.length === 0}
+          {signedIn}
+          {favouritesAvailable}
+          onQueryChange={updateQuery}
+          onFiltersChange={updateFilters}
+          onChipToggle={toggleCategoryChip}
+          onClear={clearFilters}
+          onFold={foldChrome}
+          onUseLocation={() => requestLocation()}
+          onRetryLocation={retryLocation}
+          onToggleFilters={toggleFilters}
+        />
+      {/if}
 
       {#if !filtersOpen}
         <div class="rail-stack">
-          {#if selectedPlace && discoveryState.view !== 'list'}
-            <div
-              class="selected-place-overlay rail-content"
-              data-selected-place-overlay
-              data-floating={wideDetailLayout}
-            >
+          {#if selectedPlace}
+            <div class="selected-place-overlay rail-content" data-selected-place-overlay>
               <!-- Keyed so selecting a different Place recreates the card: its internal
                interaction state (for example a completed Check-in) must never carry over. -->
               {#key `${lang}:${selectedPlace.placeId}`}
@@ -891,31 +1042,36 @@
             </div>
           {/if}
 
-          {#if filteredPlaces.length > 0}
+          {#if filteredPlaces.length > 0 && !manualFold}
             <div
               class="results-overlay rail-content"
-              data-results-visible={discoveryState.view === 'list' || mapFailed}
+              data-results-visible={(discoveryState.view === 'list' &&
+                (!selectedPlace || dualView)) ||
+                mapFailed}
               role={mapFailed ? 'region' : undefined}
               aria-label={mapFailed ? copy['directory.listLabel'] : undefined}
-              aria-hidden={selectedPlace && !wideDetailLayout ? 'true' : undefined}
-              inert={selectedPlace && !wideDetailLayout ? true : undefined}
+              aria-hidden={selectedPlace && !dualView ? 'true' : undefined}
+              inert={selectedPlace && !dualView ? true : undefined}
             >
               <DiscoveryResults
                 places={resultPlaces}
                 selectedPlaceId={discoveryState.selectedPlaceId}
+                sliceLabel={clusterPlaceIds ? null : sliceLabel}
                 {lang}
                 {copy}
                 onSelect={(placeId, trigger, openDetails) =>
                   selectPlace(placeId, true, trigger, mapFailed ? 'fallback' : 'list', openDetails)}
-                onClose={closeResults}
-                closable={discoveryState.view === 'list' && !mapFailed && !persistentRailLayout}
+                onClose={dualView ? collapseDualList : closeResults}
+                closable={discoveryState.view === 'list' && !mapFailed}
+                closeLabel={dualView ? copy['directory.collapseList'] : undefined}
+                closeGlyph={dualView ? '‹' : undefined}
                 {signedIn}
                 {favouritePlaceIds}
                 signInHref={favouriteSignInHref}
                 onFavouriteChange={applyFavouriteState}
               />
             </div>
-          {:else}
+          {:else if !manualFold}
             <div class="empty-state rail-content" role="status">
               <strong>{copy['directory.noResultsTitle']}</strong>
               <span>{copy['directory.noResultsBody']}</span>
@@ -923,6 +1079,27 @@
             </div>
           {/if}
         </div>
+      {/if}
+
+      {#if manualFold}
+        <button type="button" class="focus-places" onclick={unfoldFromPill}>
+          <span class="focus-count">{filteredPlaces.length}</span>
+          {focusPillLabel}
+        </button>
+      {/if}
+
+      {#if selectedPlace && discoveryState.view === 'list' && !mapFailed && !manualFold && !dualView}
+        <button
+          type="button"
+          class="list-edge-tab"
+          aria-label={resultPlaces.length === 1
+            ? copy['directory.showResultOne']
+            : copy['directory.showResults'].replace('{count}', String(resultPlaces.length))}
+          onclick={expandListTab}
+        >
+          <span class="tab-count">{resultPlaces.length}</span>
+          <span class="tab-chevron" aria-hidden="true">›</span>
+        </button>
       {/if}
     </aside>
 
@@ -938,6 +1115,7 @@
           onMarkerSelect={selectPlace}
           onClusterSelect={showClusterResults}
           onCameraChange={updateCamera}
+          onMoveStateChange={(moving) => (mapMoving = moving)}
           onFailureChange={(failed) => (mapFailed = failed)}
           viewportPadding={mapViewportPadding}
           motionDurationMs={mapMotionDuration}
@@ -975,52 +1153,169 @@
   .map-list-shell {
     --directory-rail-width: clamp(20rem, 29cqw, 26rem);
     --floating-card-inset: 0.75rem;
+    --chrome-top: calc(var(--hv-app-header-height, 4.4rem) + 0.35rem);
     position: relative;
-    display: grid;
-    grid-template-columns: var(--directory-rail-width) minmax(0, 1fr);
     width: 100%;
     height: 100%;
     min-height: 0;
     overflow: hidden;
-    border-block: 1px solid var(--hv-border-subtle);
-    background: var(--hv-color-snow-raised);
+    background: var(--hv-color-snow);
   }
 
+  /* The map owns the viewport; every other surface floats above it. */
   .directory-sidebar {
-    position: relative;
+    position: absolute;
     z-index: 2;
+    top: var(--chrome-top);
+    bottom: var(--floating-card-inset);
+    left: var(--floating-card-inset);
+    display: flex;
+    width: var(--directory-rail-width);
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    gap: 0.6rem;
+    pointer-events: none;
+  }
+
+  .rail-stack {
     display: flex;
     min-width: 0;
     min-height: 0;
     flex-direction: column;
-    overflow: hidden;
-    border-inline-end: 1px solid var(--hv-border-subtle);
-    background: var(--hv-color-snow-raised);
-  }
-
-  .rail-stack {
-    position: relative;
-    min-width: 0;
-    min-height: 0;
-    flex: 1;
-    overflow: hidden;
+    gap: 0.6rem;
+    pointer-events: none;
   }
 
   .rail-content {
     min-width: 0;
     min-height: 0;
-    flex: 1;
+    flex: 0 1 auto;
     overflow: auto;
-    border-block-start: 1px solid var(--hv-border-subtle);
     overscroll-behavior: contain;
+    pointer-events: auto;
   }
 
   .map-panel {
-    position: relative;
+    position: absolute;
     z-index: 0;
+    inset: 0;
     min-width: 0;
     min-height: 0;
     isolation: isolate;
+  }
+
+  /* Map gestures are quiet: while the user pans or zooms, the browse chrome
+     steps back and returns on its own when the gesture settles. Opacity only:
+     a transform would become the containing block for the fixed detail card. */
+  .directory-sidebar {
+    transition: opacity 200ms ease;
+  }
+
+  .map-list-shell[data-map-moving='true'][data-detail-layout='none'] .directory-sidebar {
+    opacity: 0.35;
+  }
+
+  .focus-cluster {
+    display: flex;
+    pointer-events: none;
+  }
+
+  .focus-search {
+    display: grid;
+    width: var(--hv-control-height);
+    height: var(--hv-control-height);
+    padding: 0;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: 999px;
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
+    color: var(--hv-color-basalt-muted);
+    cursor: pointer;
+    place-items: center;
+    pointer-events: auto;
+  }
+
+  .focus-search svg {
+    width: 1.2rem;
+    height: 1.2rem;
+    stroke: currentColor;
+  }
+
+  .focus-places {
+    display: inline-flex;
+    margin-top: auto;
+    padding: 0.5rem 1rem 0.5rem 0.55rem;
+    border: 1px solid var(--hv-color-basalt);
+    border-radius: 999px;
+    background: var(--hv-color-basalt);
+    box-shadow: var(--hv-shadow-floating);
+    color: var(--hv-color-snow-raised);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 850;
+    gap: 0.55rem;
+    align-items: center;
+    align-self: start;
+    pointer-events: auto;
+  }
+
+  .focus-count {
+    display: inline-grid;
+    min-width: 1.5rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: var(--hv-color-signal);
+    color: var(--hv-color-basalt);
+    font-size: 0.8rem;
+    font-weight: 900;
+    place-items: center;
+  }
+
+  .focus-search:focus-visible,
+  .focus-places:focus-visible,
+  .list-edge-tab:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
+  }
+
+  /* A selection folds an open list to the left edge tab; the count badge
+     keeps the slice alive while the card owns the screen. */
+  .list-edge-tab {
+    position: absolute;
+    top: min(38dvh, 24rem);
+    left: calc(-1 * var(--floating-card-inset));
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.55rem 0.5rem 0.5rem 0.6rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-left: 0;
+    border-radius: 0 0.75rem 0.75rem 0;
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
+    color: var(--hv-color-basalt-muted);
+    cursor: pointer;
+    place-items: center;
+    pointer-events: auto;
+  }
+
+  .tab-count {
+    display: inline-grid;
+    min-width: 1.5rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: var(--hv-color-signal);
+    color: var(--hv-color-basalt);
+    font-size: 0.8rem;
+    font-weight: 900;
+    place-items: center;
+  }
+
+  .tab-chevron {
+    font-size: 1.1rem;
+    font-weight: 900;
+    line-height: 1;
   }
 
   .map-stage {
@@ -1030,26 +1325,47 @@
     min-height: 0;
   }
 
+  /* The compact answer card (state 4) sizes to its content; opening
+     "Place details" grows the same card (state 5) - nothing else moves. */
   .selected-place-overlay {
-    position: absolute;
     z-index: 4;
-    inset: 0;
     display: flex;
     width: 100%;
+    flex: 0 1 auto;
     overflow: hidden;
+    border: 1px solid var(--hv-border-strong);
+    border-radius: var(--hv-radius-shell);
     background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-floating);
     animation: detail-card-enter 240ms ease-out both;
+  }
+
+  .selected-place-overlay:has(:global(details[open])) {
+    flex: 1 1 auto;
   }
 
   .selected-place-overlay :global(aside) {
     width: 100%;
-    height: 100%;
+    height: auto;
+    min-height: 0;
     max-height: none;
+    border-radius: inherit;
+  }
+
+  .selected-place-overlay:has(:global(details[open])) :global(aside) {
+    height: 100%;
   }
 
   .results-overlay {
     width: 100%;
-    height: 100%;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-shell);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-floating);
+  }
+
+  .results-overlay[data-results-visible='false'] {
+    display: none;
   }
 
   @keyframes detail-card-enter {
@@ -1067,7 +1383,10 @@
     align-content: start;
     gap: 0.4rem;
     padding: 1rem;
-    background: var(--hv-color-snow);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-shell);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-floating);
   }
 
   .empty-state button {
@@ -1116,25 +1435,54 @@
     padding: 0;
   }
 
-  @container directory-shell (min-width: 76rem) {
-    .directory-sidebar,
-    .rail-stack {
-      position: static;
-    }
+  /* The floating header owns the top strip, so the map's own controls start
+     below it. */
+  .map-stage :global(.maplibregl-ctrl-top-right) {
+    top: var(--chrome-top);
+  }
 
+  /* Without JavaScript the map never mounts: the chrome returns to static
+     flow so the server-rendered directory below stays fully readable. */
+  :global(body:has(.noscript-results)) .map-list-boundary,
+  :global(body:has(.noscript-results)) .map-list-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  :global(body:has(.noscript-results)) .directory-sidebar {
+    position: static;
+    width: auto;
+    pointer-events: auto;
+  }
+
+  :global(body:has(.noscript-results)) .map-panel {
+    display: none;
+  }
+
+  @container directory-shell (min-width: 76rem) {
+    /* The boundary's size containment makes it the containing block for
+       fixed descendants, so the card pins to the shell's top-right corner. */
     .selected-place-overlay {
-      top: var(--floating-card-inset);
+      position: fixed;
+      top: var(--chrome-top);
       right: var(--floating-card-inset);
-      bottom: var(--floating-card-inset);
+      bottom: auto;
       left: auto;
       width: var(--directory-rail-width);
-      border: 1px solid var(--hv-border-strong);
-      border-radius: var(--hv-radius-shell);
-      box-shadow: var(--hv-shadow-floating);
+      flex: none;
     }
 
     .selected-place-overlay :global(aside) {
-      border-radius: inherit;
+      max-height: calc(100dvh - var(--chrome-top) - var(--floating-card-inset));
+    }
+
+    .selected-place-overlay:has(:global(details[open])) {
+      bottom: var(--floating-card-inset);
+    }
+
+    .selected-place-overlay:has(:global(details[open])) :global(aside) {
+      height: 100%;
+      max-height: none;
     }
 
     .map-list-shell[data-detail-layout='floating'] .map-stage :global(.maplibregl-ctrl-top-right),
@@ -1147,43 +1495,28 @@
   }
 
   @container directory-shell (max-width: 57.999rem) {
-    .map-list-shell {
-      display: block;
-      height: auto;
-      min-height: 100%;
-      overflow: visible;
-      border-block-end: 0;
-    }
-
     .directory-sidebar {
-      overflow: visible;
-      border-inline-end: 0;
-      border-block-end: 1px solid var(--hv-border-subtle);
+      right: var(--floating-card-inset);
+      width: auto;
     }
 
     .map-list-shell[data-detail-layout='rail'] .directory-sidebar {
       z-index: 10;
     }
 
-    .rail-stack {
-      position: static;
-      overflow: visible;
-    }
-
     .rail-content {
       max-height: min(34rem, 46dvh);
     }
 
-    .map-panel {
-      min-height: max(26rem, calc(100dvh - var(--hv-app-header-height, 4.4rem)));
-    }
-
-    .map-stage {
-      min-height: inherit;
-    }
-
     .map-list-shell[data-detail-layout='rail'] .map-stage :global(.maplibregl-ctrl-top-right) {
       visibility: hidden;
+    }
+
+    /* The cluster spans the full width here, so the map controls move to the
+       bottom corner instead of hiding behind it. */
+    .map-stage :global(.maplibregl-ctrl-top-right) {
+      top: auto;
+      bottom: 2.4rem;
     }
 
     .selected-place-overlay {
@@ -1196,24 +1529,12 @@
       width: auto;
       max-height: min(34rem, calc(100dvh - 6.5rem));
       flex: none;
-      border: 1px solid var(--hv-border-strong);
-      box-shadow: var(--hv-shadow-floating);
     }
 
     .selected-place-overlay :global(aside) {
       height: auto;
       min-height: 0;
       max-height: min(34rem, calc(100dvh - 6.5rem));
-    }
-
-    .results-overlay[data-results-visible='false'] {
-      display: none;
-    }
-
-    .map-stage :global(.map-surface),
-    .map-stage :global(.map-container),
-    .map-stage :global(.map-failure) {
-      min-height: inherit;
     }
   }
 
