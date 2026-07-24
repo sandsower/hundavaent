@@ -207,6 +207,8 @@ describe('Suggestion RPC adapter', () => {
       submitted_at: '2026-07-11T09:00:00Z',
       updated_at: '2026-07-11T09:00:00Z',
       queue_rank: 0,
+      trust_tier: 'trusted_contributor',
+      trust_priority: 0,
       item_version: 1,
       draft_version: 0,
       draft_updated_by: null,
@@ -236,12 +238,18 @@ describe('Suggestion RPC adapter', () => {
     }
     await listModerationSuggestions(
       { rpc },
-      { queueRank: 0, submittedAt: queueRow.submitted_at, suggestionId: 'suggestion-2' },
+      {
+        queueRank: 0,
+        trustPriority: 0,
+        submittedAt: queueRow.submitted_at,
+        suggestionId: 'suggestion-2'
+      },
       200
     );
     expect(rpc).toHaveBeenLastCalledWith('list_moderation_place_suggestions', {
       requested_filter: 'actionable',
       cursor_queue_rank: 0,
+      cursor_trust_priority: 0,
       cursor_submitted_at: queueRow.submitted_at,
       cursor_suggestion_id: 'suggestion-2',
       requested_limit: 51
@@ -305,6 +313,8 @@ describe('Suggestion RPC adapter', () => {
         submitted_at: '2026-07-11T09:00:00Z',
         updated_at: '2026-07-11T09:00:00Z',
         queue_rank: 0,
+        trust_tier: index === 0 ? 'trusted_contributor' : 'none',
+        trust_priority: index === 0 ? 0 : 2,
         item_version: 1,
         draft_version: 0,
         draft_updated_by: null,
@@ -322,6 +332,7 @@ describe('Suggestion RPC adapter', () => {
       expect(rpc).toHaveBeenCalledWith('list_moderation_place_suggestions', {
         requested_filter: 'actionable',
         cursor_queue_rank: null,
+        cursor_trust_priority: null,
         cursor_submitted_at: null,
         cursor_suggestion_id: null,
         requested_limit: 3

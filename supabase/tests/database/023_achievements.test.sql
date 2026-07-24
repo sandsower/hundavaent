@@ -559,13 +559,6 @@ select is(
 -- Contribution-quality Achievements: fixtures via direct, backdated private.contributions rows,
 -- following the same pattern 016_contributor_recognition.test.sql uses. ------------------------
 
-set local role service_role;
-select lives_ok(
-  $$select public.configure_contributor_status_policy('achievement-test-contributor-v1', 3, 31536000, 2, 2, 0, true)$$,
-  'The service role can enable the Trusted Contributor policy for the sustained_quality_contributor fixture'
-);
-reset role;
-
 insert into private.place_suggestions (
   id, member_id, request_id, proposal, status, candidate_place_id, reviewed_proposal, resolved_at
 )
@@ -615,6 +608,13 @@ values
     '95000000-0000-4000-8000-00000000000b', '96000000-0000-4000-8000-0000000000a3',
     '93000000-0000-4000-8000-000000000003', now() - interval '40 days'
   );
+
+set local role service_role;
+select lives_ok(
+  $$select public.configure_contributor_status_policy('achievement-test-contributor-v1', 3, 12, 2, 2, 0, true)$$,
+  'Policy activation reconciles existing qualifying Members through the sustained-quality Achievement boundary'
+);
+reset role;
 
 select is(
   (

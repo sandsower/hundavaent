@@ -1,6 +1,7 @@
 import type { Json } from '$server/db/generated.types';
 import type { WeeklyRhythmRecognition } from '$lib/member-activity/types';
 import { mapWeeklyRhythmRecognition } from '$server/member-activity/weekly-rhythm';
+import type { ContributorTier } from '$server/contributors/contributor-status';
 import type { SuggestionProposal } from './suggestion-input';
 
 export type SuggestionOutcome =
@@ -53,6 +54,7 @@ export interface MemberSuggestionCursor {
 
 export interface ModerationSuggestionCursor extends MemberSuggestionCursor {
   queueRank: number;
+  trustPriority: number;
 }
 
 export interface ModerationSuggestionSummary {
@@ -68,6 +70,8 @@ export interface ModerationSuggestionSummary {
   submittedAt: string;
   updatedAt: string;
   queueRank: number;
+  trustTier: ContributorTier;
+  trustPriority: number;
   itemVersion: number;
   draftVersion: number;
   draftUpdatedBy: string | null;
@@ -207,6 +211,7 @@ export async function listModerationSuggestions(
     const { data, error } = await client.rpc('list_moderation_place_suggestions', {
       requested_filter: filter,
       cursor_queue_rank: cursor?.queueRank ?? null,
+      cursor_trust_priority: cursor?.trustPriority ?? null,
       cursor_submitted_at: cursor?.submittedAt ?? null,
       cursor_suggestion_id: cursor?.suggestionId ?? null,
       requested_limit: pageSize + 1
@@ -233,6 +238,8 @@ export async function listModerationSuggestions(
           submittedAt: row.submitted_at,
           updatedAt: row.updated_at,
           queueRank: row.queue_rank,
+          trustTier: row.trust_tier,
+          trustPriority: row.trust_priority,
           itemVersion: row.item_version,
           draftVersion: row.draft_version,
           draftUpdatedBy: row.draft_updated_by,
@@ -241,6 +248,7 @@ export async function listModerationSuggestions(
         }),
         (row) => ({
           queueRank: row.queue_rank,
+          trustPriority: row.trust_priority,
           submittedAt: row.submitted_at,
           suggestionId: row.suggestion_id
         })
@@ -520,6 +528,8 @@ function isModerationRow(value: unknown): value is Record<string, unknown> & {
   submitted_at: string;
   updated_at: string;
   queue_rank: number;
+  trust_tier: ContributorTier;
+  trust_priority: number;
   item_version: number;
   draft_version: number;
   draft_updated_by: string | null;
@@ -540,12 +550,18 @@ function isModerationRow(value: unknown): value is Record<string, unknown> & {
     typeof value.submitted_at === 'string' &&
     typeof value.updated_at === 'string' &&
     Number.isInteger(value.queue_rank) &&
+    isContributorTier(value.trust_tier) &&
+    Number.isInteger(value.trust_priority) &&
     Number.isInteger(value.item_version) &&
     Number.isInteger(value.draft_version) &&
     isStringOrNull(value.draft_updated_by) &&
     isStringOrNull(value.draft_updated_at) &&
     (value.readiness_state === 'ready' || value.readiness_state === 'blocked')
   );
+}
+
+function isContributorTier(value: unknown): value is ContributorTier {
+  return value === 'none' || value === 'contributor' || value === 'trusted_contributor';
 }
 
 function isModerationDetailRow(value: unknown): value is Record<string, unknown> & {

@@ -855,6 +855,8 @@
   "contributor.explanation.none": "Submitting a Suggestion, Correction, or Report that a Moderator confirms as useful earns Contributor status.",
   "contributor.explanation.contributor": "Hundavænt recognizes at least one confirmed useful Contribution from you. Sustained accurate, recent, and varied accepted Contributions can lead to Trusted Contributor status over time.",
   "contributor.explanation.trusted_contributor": "Hundavænt recognizes a sustained history of accurate, recent, and varied accepted Contributions from you. Trusted Contributor status helps Moderators prioritize review - it never verifies, publishes, or bypasses moderation.",
+  "contributor.trustedNote.title": "A trusted signal, not an automatic decision",
+  "contributor.trustedNote.body": "Your Suggestions, Corrections, and Reports are brought forward for Moderator review while this status is active. Every submission still needs evidence and an independent decision.",
   "contributor.since": "Recognized since {date}",
   "contributor.unavailable": "Contributor status is not available right now.",
   "contributor.moderation.heading": "Contributor signal",

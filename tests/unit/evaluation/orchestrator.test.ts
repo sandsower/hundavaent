@@ -45,9 +45,17 @@ describe('release evaluation orchestration', () => {
       '\n  activate-achievement-milestones:\n',
       translationFinalizeStart
     );
+    const trustedActivationStart = workflow.indexOf(
+      '\n  activate-trusted-contributor:\n',
+      achievementActivationStart
+    );
     const migrateJob = workflow.slice(migrateStart, deployStart);
     const deployJob = workflow.slice(deployStart, translationFinalizeStart);
-    const achievementActivationJob = workflow.slice(achievementActivationStart);
+    const achievementActivationJob = workflow.slice(
+      achievementActivationStart,
+      trustedActivationStart
+    );
+    const trustedActivationJob = workflow.slice(trustedActivationStart);
 
     expect(workflow).toContain('workflow_run:');
     expect(workflow).toContain("workflows: ['CI']");
@@ -61,9 +69,13 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain("github.event.workflow_run.event == 'push'");
     expect(workflow).toContain("github.event.workflow_run.head_branch == 'main'");
     expect(migrateJob).toContain("github.event_name == 'workflow_run'");
-    expect(migrateJob).toContain('(inputs.migrate && !inputs.activate_achievement_milestones)');
+    expect(migrateJob).toContain('inputs.migrate &&');
+    expect(migrateJob).toContain('!inputs.activate_achievement_milestones');
+    expect(migrateJob).toContain('!inputs.activate_trusted_contributor');
     expect(deployJob).toContain("github.event_name == 'workflow_run'");
-    expect(deployJob).toContain('(inputs.deploy && !inputs.activate_achievement_milestones)');
+    expect(deployJob).toContain('inputs.deploy &&');
+    expect(deployJob).toContain('!inputs.activate_achievement_milestones');
+    expect(deployJob).toContain('!inputs.activate_trusted_contributor');
     expect(workflow.match(/inputs\.sha/g)).toHaveLength(1);
     expect(workflow).toContain('ref: ${{ env.RELEASE_SHA }}');
     expect(workflow).toContain('test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"');
@@ -75,6 +87,15 @@ describe('release evaluation orchestration', () => {
     expect(achievementActivationJob).toContain('set local role service_role;');
     expect(achievementActivationJob).toContain("'achievement-milestones-v1'");
     expect(achievementActivationJob).toContain('set local role anon;');
+    expect(workflow).toContain('activate_trusted_contributor:');
+    expect(trustedActivationJob).toContain('needs: recovery-point');
+    expect(trustedActivationJob).toContain(
+      'test "$(jq -r \'.release\' <<< "${health}")" = "${RELEASE_SHA}"'
+    );
+    expect(trustedActivationJob).toContain('set local role service_role;');
+    expect(trustedActivationJob).toContain("'trusted-contributor-v1'");
+    expect(trustedActivationJob).toContain("'sustained_quality_contributor'");
+    expect(trustedActivationJob).toContain('"trusted-contributor-v1|5|1 year|3|3|0|t|0"');
   });
 
   it('excludes hard identity rows while preserving and neutralizing core application data', () => {

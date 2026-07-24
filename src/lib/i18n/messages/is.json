@@ -855,6 +855,8 @@
   "contributor.explanation.none": "Þegar umsjónarfólk staðfestir að tillaga, leiðrétting eða ábending frá þér hafi verið gagnleg færðu stöðu framlagsgjafa.",
   "contributor.explanation.contributor": "Hundavænt hefur staðfest að minnsta kosti eitt gagnlegt framlag frá þér. Samfelld, nákvæm, nýleg og fjölbreytt samþykkt framlög geta leitt til stöðu trausts framlagsgjafa með tímanum.",
   "contributor.explanation.trusted_contributor": "Hundavænt hefur staðfest samfellda sögu nákvæmra, nýlegra og fjölbreyttra samþykktra framlaga frá þér. Staða trausts framlagsgjafa hjálpar umsjónarfólki að forgangsraða yfirferð - hún staðfestir aldrei, birtir aldrei og sniðgengur aldrei yfirferð.",
+  "contributor.trustedNote.title": "Traust merki, ekki sjálfvirk ákvörðun",
+  "contributor.trustedNote.body": "Tillögur þínar, leiðréttingar og ábendingar færast framar í yfirferð umsjónarfólks meðan staðan er virk. Hvert framlag þarf áfram gögn og sjálfstæða ákvörðun.",
   "contributor.since": "Viðurkennt frá {date}",
   "contributor.unavailable": "Staða framlagsgjafa er ekki tiltæk núna.",
   "contributor.moderation.heading": "Merki um framlagsgjafa",

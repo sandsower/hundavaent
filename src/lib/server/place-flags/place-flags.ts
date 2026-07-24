@@ -3,6 +3,7 @@ import type { EvidenceKind } from '$domain/evidence';
 import type { Json } from '$server/db/generated.types';
 import type { WeeklyRhythmRecognition } from '$lib/member-activity/types';
 import { mapWeeklyRhythmRecognition } from '$server/member-activity/weekly-rhythm';
+import type { ContributorTier } from '$server/contributors/contributor-status';
 import type {
   AccessConditionValue,
   CorrectionPayload,
@@ -70,6 +71,7 @@ export interface MemberPlaceFlagCursor {
 
 export interface ModerationPlaceFlagCursor extends MemberPlaceFlagCursor {
   priority: number;
+  trustPriority: number;
 }
 
 export interface ModerationPlaceFlagSummary {
@@ -88,6 +90,8 @@ export interface ModerationPlaceFlagSummary {
   submittedAt: string;
   updatedAt: string;
   priority: number;
+  trustTier: ContributorTier;
+  trustPriority: number;
   itemVersion: number;
   draftVersion: number;
   draftUpdatedBy: string | null;
@@ -279,6 +283,7 @@ export async function listModerationPlaceFlags(
     const { data, error } = await client.rpc('list_moderation_place_flags', {
       requested_filter: filter,
       cursor_priority: cursor?.priority ?? null,
+      cursor_trust_priority: cursor?.trustPriority ?? null,
       cursor_submitted_at: cursor?.submittedAt ?? null,
       cursor_flag_id: cursor?.flagId ?? null,
       requested_limit: pageSize + 1
@@ -308,13 +313,20 @@ export async function listModerationPlaceFlags(
           submittedAt: row.submitted_at,
           updatedAt: row.updated_at,
           priority: row.priority,
+          trustTier: row.trust_tier,
+          trustPriority: row.trust_priority,
           itemVersion: row.item_version,
           draftVersion: row.draft_version,
           draftUpdatedBy: row.draft_updated_by,
           draftUpdatedAt: row.draft_updated_at,
           readinessState: row.readiness_state
         }),
-        (row) => ({ priority: row.priority, submittedAt: row.submitted_at, flagId: row.flag_id })
+        (row) => ({
+          priority: row.priority,
+          trustPriority: row.trust_priority,
+          submittedAt: row.submitted_at,
+          flagId: row.flag_id
+        })
       )
     };
   } catch {
@@ -622,6 +634,8 @@ function isModerationRow(value: unknown): value is Record<string, unknown> & {
   submitted_at: string;
   updated_at: string;
   priority: number;
+  trust_tier: ContributorTier;
+  trust_priority: number;
   item_version: number;
   draft_version: number;
   draft_updated_by: string | null;
@@ -645,12 +659,18 @@ function isModerationRow(value: unknown): value is Record<string, unknown> & {
     typeof value.submitted_at === 'string' &&
     typeof value.updated_at === 'string' &&
     Number.isInteger(value.priority) &&
+    isContributorTier(value.trust_tier) &&
+    Number.isInteger(value.trust_priority) &&
     Number.isInteger(value.item_version) &&
     Number.isInteger(value.draft_version) &&
     isStringOrNull(value.draft_updated_by) &&
     isStringOrNull(value.draft_updated_at) &&
     (value.readiness_state === 'ready' || value.readiness_state === 'needs_attention')
   );
+}
+
+function isContributorTier(value: unknown): value is ContributorTier {
+  return value === 'none' || value === 'contributor' || value === 'trusted_contributor';
 }
 
 function isModerationDetailRow(value: unknown): value is Record<string, unknown> & {

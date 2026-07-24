@@ -86,15 +86,28 @@ export function parseModerationCorrectionQueueCursor(
   params: URLSearchParams
 ): ModerationCorrectionQueueCursorState {
   const cursorPriority = params.get('cursorPriority');
+  const cursorTrust = params.get('cursorTrust');
   const cursorTime = params.get('cursorTime');
   const cursorId = params.get('cursorId');
   const requestedCursor =
-    cursorPriority !== null && cursorTime && cursorId
-      ? { priority: Number(cursorPriority), submittedAt: cursorTime, flagId: cursorId }
+    cursorPriority !== null && cursorTrust !== null && cursorTime && cursorId
+      ? {
+          priority: Number(cursorPriority),
+          trustPriority: Number(cursorTrust),
+          submittedAt: cursorTime,
+          flagId: cursorId
+        }
       : null;
 
   return {
-    cursor: requestedCursor && Number.isInteger(requestedCursor.priority) ? requestedCursor : null,
+    cursor:
+      requestedCursor &&
+      Number.isInteger(requestedCursor.priority) &&
+      requestedCursor.priority >= 0 &&
+      Number.isInteger(requestedCursor.trustPriority) &&
+      requestedCursor.trustPriority >= 0
+        ? requestedCursor
+        : null,
     hasPrevious: requestedCursor !== null
   };
 }

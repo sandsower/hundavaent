@@ -2,6 +2,7 @@
   import { resolve } from '$app/paths';
   import { formatLocalizedDate } from '$i18n/date';
   import type { MessageKey } from '$i18n';
+  import AchievementIcon from '$lib/achievements/AchievementIcon.svelte';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
@@ -43,6 +44,20 @@
     {#if since}
       <p class="since hv-meta">{since}</p>
     {/if}
+    {#if data.contributor.status === 'trusted_contributor'}
+      <aside class="trusted-note" aria-labelledby="trusted-note-heading">
+        <span class="trusted-icon">
+          <AchievementIcon
+            achievementKey="sustained_quality_contributor"
+            group="contribution_quality"
+          />
+        </span>
+        <span>
+          <strong id="trusted-note-heading">{data.copy['contributor.trustedNote.title']}</strong>
+          <span>{data.copy['contributor.trustedNote.body']}</span>
+        </span>
+      </aside>
+    {/if}
   </section>
 
   <a class="back-link hv-control" href={resolve('/[lang=lang]/account', { lang: data.lang })}>
@@ -75,6 +90,35 @@
 
   .since {
     margin: 0;
+  }
+
+  .trusted-note {
+    display: grid;
+    grid-template-columns: 2.8rem minmax(0, 1fr);
+    gap: 0.8rem;
+    align-items: center;
+    border: 1px solid color-mix(in srgb, var(--hv-color-moss) 32%, transparent);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-success-soft);
+    padding: 0.9rem;
+  }
+
+  .trusted-note > span:last-child {
+    display: grid;
+    gap: 0.2rem;
+    line-height: 1.45;
+  }
+
+  .trusted-note strong {
+    color: var(--hv-color-moss);
+  }
+
+  .trusted-icon {
+    width: 2.8rem;
+    color: var(--hv-color-moss);
+    filter: drop-shadow(
+      0 0.25rem 0.45rem color-mix(in srgb, var(--hv-color-moss) 18%, transparent)
+    );
   }
 
   .back-link {

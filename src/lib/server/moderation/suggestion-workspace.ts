@@ -3,14 +3,12 @@ import { env } from '$env/dynamic/public';
 import {
   clearMemberConductFlag,
   getModerationContributorStatus,
-  listMemberContributorPriority,
   listModerationContributorEvidence,
   recordMemberConductFlag,
   revokeContribution,
   type ConductFlagKind,
   type ContributorEvidenceItem,
   type ContributorRpcClient,
-  type ContributorTier,
   type ModerationContributorStatus
 } from '$server/contributors/contributor-status';
 import {
@@ -47,9 +45,7 @@ export interface ModerationSuggestionQueueCursorState {
   readonly hasPrevious: boolean;
 }
 
-export type ModerationSuggestionQueueItem = ModerationSuggestionSummary & {
-  trustTier: ContributorTier;
-};
+export type ModerationSuggestionQueueItem = ModerationSuggestionSummary;
 
 export interface ModerationSuggestionQueueData {
   readonly suggestions: ModerationSuggestionQueueItem[];
@@ -125,38 +121,44 @@ export function parseModerationSuggestionQueueCursor(
   params: URLSearchParams
 ): ModerationSuggestionQueueCursorState {
   const cursorRank = params.get('cursorRank');
+  const cursorTrust = params.get('cursorTrust');
   const cursorTime = params.get('cursorTime');
   const cursorId = params.get('cursorId');
   const requestedCursor =
-    cursorRank !== null && cursorTime && cursorId
-      ? { queueRank: Number(cursorRank), submittedAt: cursorTime, suggestionId: cursorId }
+    cursorRank !== null && cursorTrust !== null && cursorTime && cursorId
+      ? {
+          queueRank: Number(cursorRank),
+          trustPriority: Number(cursorTrust),
+          submittedAt: cursorTime,
+          suggestionId: cursorId
+        }
       : null;
 
   return {
-    cursor: requestedCursor && Number.isInteger(requestedCursor.queueRank) ? requestedCursor : null,
+    cursor:
+      requestedCursor &&
+      Number.isInteger(requestedCursor.queueRank) &&
+      requestedCursor.queueRank >= 0 &&
+      Number.isInteger(requestedCursor.trustPriority) &&
+      requestedCursor.trustPriority >= 0
+        ? requestedCursor
+        : null,
     hasPrevious: requestedCursor !== null
   };
 }
 
 export async function loadModerationSuggestionQueue(
   suggestionClient: SuggestionRpcClient,
-  contributorClient: ContributorRpcClient,
   cursorState: ModerationSuggestionQueueCursorState,
   filter: 'actionable' | 'deferred' | 'resolved' = 'actionable'
 ): Promise<SuggestionWorkspaceLoadResult<ModerationSuggestionQueueData>> {
   const result = await listModerationSuggestions(suggestionClient, cursorState.cursor, 20, filter);
   if (result.status !== 'success') return { status: result.status };
 
-  const memberIds = [...new Set(result.value.items.map((item) => item.memberId))];
-  const priority = await listMemberContributorPriority(contributorClient, memberIds);
-  const tierByMember = new Map(
-    priority.status === 'success' ? priority.value.map((row) => [row.memberId, row.status]) : []
-  );
-
   return {
     status: 'success',
     value: {
-      suggestions: applyBoundedTrustOrder(result.value.items, tierByMember),
+      suggestions: result.value.items,
       nextCursor: result.value.nextCursor,
       hasPrevious: cursorState.hasPrevious
     }
@@ -425,29 +427,4 @@ function failure(
   error: ModerationSuggestionActionError
 ): ModerationSuggestionActionResult {
   return { status: 'failure', httpStatus, error };
-}
-
-const tierWeight: Record<ContributorTier, number> = {
-  trusted_contributor: 0,
-  contributor: 1,
-  none: 2
-};
-
-// Trust can only reorder Suggestions inside the same queue rank and calendar-day bucket.
-// This preserves database pagination and prevents a newer Suggestion from jumping ahead by days.
-function applyBoundedTrustOrder(
-  items: readonly ModerationSuggestionSummary[],
-  tierByMember: ReadonlyMap<string, ContributorTier>
-): ModerationSuggestionQueueItem[] {
-  const dayBucket = (submittedAt: string) => submittedAt.slice(0, 10);
-  return items
-    .map((item) => ({ ...item, trustTier: tierByMember.get(item.memberId) ?? 'none' }))
-    .sort((a, b) => {
-      if (a.queueRank !== b.queueRank) return a.queueRank - b.queueRank;
-      const dayCompare = dayBucket(a.submittedAt).localeCompare(dayBucket(b.submittedAt));
-      if (dayCompare !== 0) return dayCompare;
-      const tierCompare = tierWeight[a.trustTier] - tierWeight[b.trustTier];
-      if (tierCompare !== 0) return tierCompare;
-      return a.submittedAt.localeCompare(b.submittedAt);
-    });
 }
