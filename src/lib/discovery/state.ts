@@ -164,9 +164,10 @@ export interface ChipToggleResult {
 }
 
 // A chip is both the filter and the list's toggle. A category chip reads
-// active whenever its filter is set (even with the list folded), so its ✕
-// can always clear the filter. "All" is the browse-everything toggle: active
-// only while the unfiltered list is open and no search query owns it.
+// active whenever its filter is set - with its list open it dismisses (the
+// ✕), with its list folded it reopens the slice. "All" is the
+// browse-everything toggle: active only while the unfiltered list is open
+// and no search query owns it.
 export function isChipActive(context: ChipContext, chip: DiscoveryChip): boolean {
   return chip === 'all'
     ? context.view === 'list' && context.category === null && !normalizeQuery(context.query)

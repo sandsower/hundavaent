@@ -311,6 +311,10 @@
       clusterPlaceIds =
         next.view === 'list' && restoredClusterIds.length > 1 ? restoredClusterIds : null;
       filtersOpen = false;
+      // Ephemeral chrome never belongs to a history entry: navigating always
+      // lands on the plain rendering of the restored URL state.
+      manualFold = false;
+      dualList = false;
       const restoredSelection = nextFiltered.find(
         (place) => place.placeId === discoveryState.selectedPlaceId
       );
@@ -344,13 +348,11 @@
         }
 
         if (previousView !== discoveryState.view) {
-          document
-            .querySelector<HTMLButtonElement>(
-              discoveryState.view === 'list'
-                ? '#discovery-results-close'
-                : `.discovery-controls [data-chip="${discoveryState.filters.category ?? 'all'}"]`
-            )
-            ?.focus();
+          if (discoveryState.view === 'list') {
+            document.querySelector<HTMLButtonElement>('#discovery-results-close')?.focus();
+          } else {
+            focusOwningChip(discoveryState.filters.category ?? 'all');
+          }
           return;
         }
 
@@ -746,12 +748,22 @@
     queueMicrotask(() => document.querySelector<HTMLButtonElement>('.list-edge-tab')?.focus());
   }
 
+  // Categories without a chip of their own (accommodation, culture) fall
+  // back to the browse-everything chip so keyboard focus is never dropped.
+  function focusOwningChip(chip: string): void {
+    const target =
+      document.querySelector<HTMLButtonElement>(`.discovery-controls [data-chip="${chip}"]`) ??
+      document.querySelector<HTMLButtonElement>('.discovery-controls [data-chip="all"]');
+    target?.focus();
+  }
+
   // The sticky fold collapses the command cluster to a search icon and the
   // dark places pill without touching URL state: unfolding restores exactly
   // the browse state that was folded away.
   function foldChrome(): void {
     filtersOpen = false;
     manualFold = true;
+    queueMicrotask(() => document.querySelector<HTMLButtonElement>('.focus-search')?.focus());
   }
 
   function unfoldToSearch(): void {
@@ -764,11 +776,7 @@
   function unfoldFromPill(): void {
     const chip = discoveryState.filters.category ?? 'all';
     manualFold = false;
-    queueMicrotask(() =>
-      document
-        .querySelector<HTMLButtonElement>(`.discovery-controls [data-chip="${chip}"]`)
-        ?.focus()
-    );
+    queueMicrotask(() => focusOwningChip(chip));
   }
 
   // Closing the list mirrors the active chip's dismissal: the slice that
@@ -777,11 +785,7 @@
   function closeResults(): void {
     const dismissedChip = discoveryState.filters.category ?? 'all';
     updateFilters({ ...discoveryState.filters, category: null, query: '' }, 'push', 'map');
-    queueMicrotask(() =>
-      document
-        .querySelector<HTMLButtonElement>(`.discovery-controls [data-chip="${dismissedChip}"]`)
-        ?.focus()
-    );
+    queueMicrotask(() => focusOwningChip(dismissedChip));
   }
 
   function toggleFilters(): void {
@@ -963,11 +967,6 @@
       class="directory-sidebar"
       bind:this={directorySidebar}
       data-directory-sidebar
-      data-rail-view={filtersOpen
-        ? 'filters'
-        : selectedPlace && discoveryState.view !== 'list'
-          ? 'selected'
-          : 'results'}
       aria-label={copy['directory.listLabel']}
     >
       {#if manualFold}
@@ -1012,11 +1011,7 @@
       {#if !filtersOpen}
         <div class="rail-stack">
           {#if selectedPlace}
-            <div
-              class="selected-place-overlay rail-content"
-              data-selected-place-overlay
-              data-floating={wideDetailLayout}
-            >
+            <div class="selected-place-overlay rail-content" data-selected-place-overlay>
               <!-- Keyed so selecting a different Place recreates the card: its internal
                interaction state (for example a completed Check-in) must never carry over. -->
               {#key `${lang}:${selectedPlace.placeId}`}
