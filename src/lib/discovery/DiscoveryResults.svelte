@@ -7,6 +7,7 @@
   interface Props {
     places: PublishedPlaceSummary[];
     selectedPlaceId: string | null;
+    sliceLabel?: string | null;
     lang: Locale;
     copy: Catalogue;
     onSelect: (placeId: string, trigger: HTMLButtonElement, openDetails?: boolean) => void;
@@ -21,6 +22,7 @@
   let {
     places,
     selectedPlaceId,
+    sliceLabel = null,
     lang,
     copy,
     onSelect,
@@ -39,14 +41,12 @@
   aria-labelledby="discovery-results-heading"
 >
   <div class="tray-heading">
-    <div>
-      <h3 id="discovery-results-heading">{copy['directory.resultsTitle']}</h3>
-      <p>
-        {places.length === 1
-          ? copy['directory.resultCountOne']
-          : copy['directory.resultCountMany'].replace('{count}', String(places.length))}
-      </p>
-    </div>
+    <h3 id="discovery-results-heading">{sliceLabel ?? copy['directory.resultsTitle']}</h3>
+    <p>
+      {places.length === 1
+        ? copy['directory.resultCountOne']
+        : copy['directory.resultCountMany'].replace('{count}', String(places.length))}
+    </p>
     {#if closable}
       <button
         id="discovery-results-close"
@@ -89,9 +89,8 @@
 
   .tray-heading {
     display: flex;
-    gap: 1rem;
-    align-items: start;
-    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: baseline;
     margin-bottom: 0.7rem;
   }
 
@@ -100,11 +99,26 @@
     margin: 0;
   }
 
+  h3 {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--hv-font-display);
+    font-size: 1.15rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+
   p {
-    margin-top: 0.15rem;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.82rem;
-    font-weight: 750;
+    color: var(--hv-color-fjord);
+    font-size: 0.7rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .tray-heading button {
+    align-self: center;
   }
 
   button {

@@ -398,7 +398,7 @@ describe('MapListShell synchronization', () => {
     await fireEvent.click(screen.getByRole('checkbox', { name: 'Favorites only' }));
 
     expect(window.location.search).toContain('favorites=1');
-    expect(screen.getByRole('button', { name: 'Show 0 results' })).toBeTruthy();
+    expect(screen.getByText('0 places found')).toBeTruthy();
   });
 
   it('does not expose Favorites-only when the private projection is unavailable', async () => {
@@ -419,7 +419,7 @@ describe('MapListShell synchronization', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
 
     expect(screen.queryByRole('checkbox', { name: 'Favorites only' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Show 1 result' })).toBeTruthy();
+    expect(screen.getByText('One place found')).toBeTruthy();
   });
 
   it.each([
@@ -668,10 +668,11 @@ describe('MapListShell synchronization', () => {
       expect(within(sidebar).getByRole('button', { name: 'Shops' })).toBeTruthy();
       expect(within(sidebar).getByRole('button', { name: 'Outdoors' })).toBeTruthy();
       expect(within(sidebar).getByRole('button', { name: 'More filters' })).toBeTruthy();
-      expect(within(sidebar).getByRole('button', { name: 'Show 1 result' })).toBeTruthy();
 
-      await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'All' }));
       const results = screen.getByRole('region', { name: 'Places found' });
+      expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: 'All' }).textContent).toContain('· 1 ✕');
       expect(sidebar.contains(results)).toBe(true);
       expect(screen.getByRole('heading', { name: 'Places found' })).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Close results' })).toBeTruthy();
@@ -814,8 +815,10 @@ describe('MapListShell synchronization', () => {
       expect(window.location.search).toContain('area=K%C3%B3pavogur');
 
       await fireEvent.click(all);
-      // Until the chip also opens the list (state 2), "All" stays quiet on the map view.
-      expect(all).toHaveAttribute('aria-pressed', 'false');
+      // "All" is the browse-everything toggle: it opens the list and clears
+      // the category while unrelated filters survive.
+      expect(all).toHaveAttribute('aria-pressed', 'true');
+      expect(window.location.search).toContain('view=list');
       expect(window.location.search).not.toContain('category=');
       expect(window.location.search).toContain('area=K%C3%B3pavogur');
 
@@ -1062,7 +1065,7 @@ describe('MapListShell synchronization', () => {
 
         await waitFor(() => expect(shell.dataset.shellLayout).toBe(scenario.layout));
         expect(window.innerWidth).toBe(1280);
-        expect(within(container).getByRole('button', { name: 'Show 1 result' })).toBeTruthy();
+        expect(within(container).getByRole('button', { name: 'All' })).toBeTruthy();
         expect(within(container).getByRole('button', { name: 'Close results' })).toBeTruthy();
         const shortcutNames = ['All', 'Food', 'Shops', 'Outdoors', 'More filters'];
         const shortcutButtons = shortcutNames.map((name) =>
@@ -1706,13 +1709,14 @@ describe('MapListShell synchronization', () => {
     });
     expect(screen.getByRole('combobox', { name: 'Leash and restraint' })).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
+    // The sheet set category=outdoors, so the active Outdoors chip reopens
+    // its folded slice as the list.
+    await fireEvent.click(screen.getByRole('button', { name: 'Outdoors' }));
     expect(screen.queryByRole('combobox', { name: 'Place type' })).toBeNull();
-    const closeResults = screen.getByRole('button', { name: 'Close results' });
-    await waitFor(() => expect(document.activeElement).toBe(closeResults));
+    expect(screen.getByRole('region', { name: 'Parks and outdoors' })).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
-    expect(screen.queryByRole('heading', { name: 'Places found' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Parks and outdoors' })).toBeNull();
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Place type' }))
     );
@@ -1722,11 +1726,17 @@ describe('MapListShell synchronization', () => {
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'More filters' }))
     );
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Outdoors' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Close results' }));
     await waitFor(() =>
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show 1 result' }))
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Outdoors' }))
     );
+    // Closing the list mirrored the chip dismissal: the slice cleared with it.
+    expect(screen.getByRole('button', { name: 'Outdoors' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+    expect(window.location.search).not.toContain('category=');
   });
 
   it('offers a missing-place suggestion only when no place matches', async () => {
@@ -1784,7 +1794,7 @@ describe('MapListShell synchronization', () => {
     expect(screen.queryByRole('combobox', { name: 'Place type' })).toBeNull();
     expect(screen.getByLabelText('Selected place')).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'All' }));
     expect(screen.queryByLabelText('Selected place')).toBeNull();
     expect(screen.getByRole('heading', { name: 'Places found' })).toBeTruthy();
   });
@@ -1802,7 +1812,7 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'All' }));
     const resultsUrl = window.location.href;
     await fireEvent.click(screen.getByRole('button', { name: 'Select Published Place' }));
     await waitFor(() =>
@@ -1884,7 +1894,7 @@ describe('MapListShell synchronization', () => {
     expect(screen.getByRole('button', { name: 'Second Café' })).toBeTruthy();
     expect(window.location.search).toContain('q=cafe+kopavogur');
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Show 1 result' }));
+    // Search behaves like a chip: typing already opened the list.
     const resultsHeading = screen.getByRole('heading', { name: 'Places found' });
     expect(resultsHeading).toBeTruthy();
     expect(sidebar.contains(resultsHeading)).toBe(true);
@@ -1939,10 +1949,96 @@ describe('MapListShell synchronization', () => {
 
       expect(screen.queryByRole('region', { name: 'Places found' })).toBeNull();
       expect(screen.queryByRole('heading', { name: 'Places found' })).toBeNull();
-      expect(screen.getByRole('button', { name: 'Show 1 result' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false');
     } finally {
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }
+  });
+
+  it('opens the list from a chip, heads it with the slice, and dismisses both together', async () => {
+    history.replaceState(null, '', '/en');
+    const cafePlace = {
+      ...places[0],
+      placeId: '30000000-0000-4000-8000-000000000004',
+      name: 'Chip Café',
+      category: 'cafe' as const
+    };
+    render(MapListShell, {
+      places: [...places, cafePlace],
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    const food = screen.getByRole('button', { name: 'Food' });
+    await fireEvent.click(food);
+    expect(food).toHaveAttribute('aria-pressed', 'true');
+    expect(food.textContent).toContain('· 1 ✕');
+    expect(window.location.search).toContain('category=food_drink');
+    expect(window.location.search).toContain('view=list');
+    const foodRegion = screen.getByRole('region', { name: 'Food and drink' });
+    expect(within(foodRegion).getByRole('heading', { name: 'Food and drink' })).toBeTruthy();
+    expect(within(foodRegion).getByRole('button', { name: 'Select Chip Café' })).toBeTruthy();
+    expect(within(foodRegion).queryByRole('button', { name: 'Select Published Place' })).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Outdoors' }));
+    const outdoorsRegion = screen.getByRole('region', { name: 'Parks and outdoors' });
+    expect(
+      within(outdoorsRegion).getByRole('button', { name: 'Select Published Place' })
+    ).toBeTruthy();
+    expect(food).toHaveAttribute('aria-pressed', 'false');
+
+    const outdoors = screen.getByRole('button', { name: 'Outdoors' });
+    await fireEvent.click(outdoors);
+    expect(outdoors).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('region', { name: 'Parks and outdoors' })).toBeNull();
+    expect(window.location.search).toContain('view=map');
+    expect(window.location.search).not.toContain('category=');
+  });
+
+  it('treats search as a chip that opens the list and closes it with the last slice', async () => {
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    const search = screen.getByRole('searchbox', { name: 'Search for a place' });
+    await fireEvent.input(search, { target: { value: 'published' } });
+    expect(screen.getByRole('region', { name: 'Places found' })).toBeTruthy();
+    // A query-owned list keeps every chip quiet.
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false');
+    expect(window.location.search).toContain('view=list');
+
+    await fireEvent.input(search, { target: { value: '' } });
+    expect(screen.queryByRole('region', { name: 'Places found' })).toBeNull();
+    expect(window.location.search).toContain('view=map');
+
+    // With a category slice open, clearing the query keeps the slice.
+    await fireEvent.click(screen.getByRole('button', { name: 'Outdoors' }));
+    await fireEvent.input(search, { target: { value: 'published' } });
+    expect(screen.getByRole('region', { name: 'Parks and outdoors' })).toBeTruthy();
+    await fireEvent.input(search, { target: { value: '' } });
+    expect(screen.getByRole('region', { name: 'Parks and outdoors' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Outdoors' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    // Escape walks the open list back to the quiet map.
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('region', { name: 'Parks and outdoors' })).toBeNull();
+    expect(window.location.search).not.toContain('category=');
   });
 
   it('opens only terminal cluster members in the selectable result tray', async () => {

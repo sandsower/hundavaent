@@ -4,6 +4,7 @@
   import {
     activeFilterCount,
     type DiscoveryCategory,
+    type DiscoveryChip,
     type DiscoveryDistanceKm,
     type DiscoveryFilters
   } from './state';
@@ -14,7 +15,6 @@
     resultCount: number;
     filtersOpen: boolean;
     resultsOpen: boolean;
-    showResultsToggle?: boolean;
     copy: Catalogue;
     locationState: 'idle' | 'locating' | 'ready' | 'denied' | 'unavailable';
     suggestHref: string;
@@ -23,8 +23,8 @@
     favouritesAvailable?: boolean;
     onQueryChange: (query: string) => void;
     onFiltersChange: (filters: DiscoveryFilters) => void;
+    onChipToggle: (chip: DiscoveryChip) => void;
     onClear: () => void;
-    onShowResults: () => void;
     onUseLocation: () => void;
     onRetryLocation: () => void;
     onToggleFilters: () => void;
@@ -36,7 +36,6 @@
     resultCount,
     filtersOpen,
     resultsOpen,
-    showResultsToggle = true,
     copy,
     locationState,
     suggestHref,
@@ -45,16 +44,39 @@
     favouritesAvailable = true,
     onQueryChange,
     onFiltersChange,
+    onChipToggle,
     onClear,
-    onShowResults,
     onUseLocation,
     onRetryLocation,
     onToggleFilters
   }: Props = $props();
   let searchInput = $state<HTMLInputElement>();
-  const count = $derived(activeFilterCount(filters));
-  // Arrival keeps every chip quiet: "All" only reads active once the list is open.
-  const allActive = $derived(filters.category === null && resultsOpen);
+  // The badge counts only the sheet's own filters: category and query already
+  // announce themselves through the chips and the search pill.
+  const count = $derived(activeFilterCount({ ...filters, category: null, query: '' }));
+  // Arrival keeps every chip quiet: "All" only reads active once the
+  // unfiltered, unsearched list is open.
+  const allActive = $derived(
+    filters.category === null && resultsOpen && filters.query.trim() === ''
+  );
+  const categoryChips = $derived([
+    { chip: 'all' as const, label: copy['directory.categoryAllShort'], active: allActive },
+    {
+      chip: 'food_drink' as const,
+      label: copy['directory.categoryFoodShort'],
+      active: filters.category === 'food_drink'
+    },
+    {
+      chip: 'shopping' as const,
+      label: copy['directory.categoryShoppingShort'],
+      active: filters.category === 'shopping'
+    },
+    {
+      chip: 'outdoors' as const,
+      label: copy['directory.categoryOutdoorsShort'],
+      active: filters.category === 'outdoors'
+    }
+  ]);
 
   function value(event: Event): string {
     return event.currentTarget instanceof HTMLSelectElement ? event.currentTarget.value : '';
@@ -88,34 +110,21 @@
 
   <div class="shortcut-row">
     <div class="category-shortcuts" role="group" aria-label={copy['directory.categoryFilter']}>
-      <button
-        type="button"
-        class:active={allActive}
-        aria-pressed={allActive}
-        onclick={() => patchFilters({ category: null })}
-        >{copy['directory.categoryAllShort']}</button
-      >
-      <button
-        type="button"
-        class:active={filters.category === 'food_drink'}
-        aria-pressed={filters.category === 'food_drink'}
-        onclick={() => patchFilters({ category: 'food_drink' })}
-        >{copy['directory.categoryFoodShort']}</button
-      >
-      <button
-        type="button"
-        class:active={filters.category === 'shopping'}
-        aria-pressed={filters.category === 'shopping'}
-        onclick={() => patchFilters({ category: 'shopping' })}
-        >{copy['directory.categoryShoppingShort']}</button
-      >
-      <button
-        type="button"
-        class:active={filters.category === 'outdoors'}
-        aria-pressed={filters.category === 'outdoors'}
-        onclick={() => patchFilters({ category: 'outdoors' })}
-        >{copy['directory.categoryOutdoorsShort']}</button
-      >
+      {#each categoryChips as { chip, label, active } (chip)}
+        <button
+          type="button"
+          data-chip={chip}
+          class:active
+          aria-pressed={active}
+          aria-label={label}
+          aria-controls="discovery-results"
+          onclick={() => onChipToggle(chip)}
+        >
+          {label}{#if active}<span class="chip-meta" aria-hidden="true"
+              >· {resultCount}{resultsOpen ? ' ✕' : ''}</span
+            >{/if}
+        </button>
+      {/each}
     </div>
     <button
       type="button"
@@ -129,20 +138,6 @@
       {#if count > 0}<span aria-hidden="true">{count}</span>{/if}
     </button>
   </div>
-
-  {#if showResultsToggle}
-    <button
-      type="button"
-      class="results-button"
-      aria-expanded={resultsOpen}
-      aria-controls="discovery-results"
-      onclick={onShowResults}
-    >
-      {resultCount === 1
-        ? copy['directory.showResultOne']
-        : copy['directory.showResults'].replace('{count}', String(resultCount))}
-    </button>
-  {/if}
 
   {#if showSuggest}
     <div class="suggest-row">
@@ -414,7 +409,7 @@
     color: var(--hv-color-snow-raised);
   }
 
-  button span[aria-hidden='true'] {
+  .filters-button span[aria-hidden='true'] {
     display: inline-grid;
     min-width: 1.15rem;
     min-height: 1.15rem;
@@ -431,16 +426,9 @@
     color: var(--hv-color-basalt);
   }
 
-  .results-button {
-    min-height: 2.4rem;
-    padding: 0.45rem 1rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: 999px;
-    background: var(--hv-color-basalt);
-    box-shadow: var(--hv-shadow-raised);
-    color: var(--hv-color-snow-raised);
-    font: inherit;
-    font-weight: 800;
+  .chip-meta {
+    margin-left: 0.3rem;
+    white-space: nowrap;
   }
 
   .suggest-row {

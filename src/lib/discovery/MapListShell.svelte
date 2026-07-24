@@ -46,8 +46,13 @@
     defaultDiscoveryFilters,
     parseDiscoveryState,
     serializeDiscoveryState,
+    toggleChip,
+    viewAfterQueryChange,
+    type DiscoveryCategory,
+    type DiscoveryChip,
     type DiscoveryFilters,
-    type DiscoveryState
+    type DiscoveryState,
+    type DiscoveryView
   } from './state';
 
   interface Props {
@@ -131,6 +136,20 @@
       : filteredPlaces
   );
   let areas = $derived(availableAreas(places));
+  const categoryLabelKeys = {
+    food_drink: 'directory.categoryFoodDrink',
+    shopping: 'directory.categoryShopping',
+    outdoors: 'directory.categoryOutdoors',
+    accommodation: 'directory.categoryAccommodation',
+    public_cultural: 'directory.categoryPublicCultural'
+  } as const satisfies Record<DiscoveryCategory, keyof Catalogue>;
+  // The list panel is headed by the active slice's full name; slices without
+  // a category (all, search, cluster) keep the generic results title.
+  let sliceLabel = $derived(
+    discoveryState.filters.category
+      ? copy[categoryLabelKeys[discoveryState.filters.category]]
+      : null
+  );
   let suggestionPoint = $derived(selectedPlace ?? discoveryState.camera);
   let suggestHref = $derived(
     `${resolve('/[lang=lang]/suggest', { lang })}?latitude=${formatCoordinate(suggestionPoint.latitude)}&longitude=${formatCoordinate(suggestionPoint.longitude)}`
@@ -305,7 +324,7 @@
             .querySelector<HTMLButtonElement>(
               discoveryState.view === 'list'
                 ? '#discovery-results-close'
-                : '.discovery-controls .results-button'
+                : `.discovery-controls [data-chip="${discoveryState.filters.category ?? 'all'}"]`
             )
             ?.focus();
           return;
@@ -316,21 +335,34 @@
         }
       });
     };
-    const closeSelectedOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || !discoveryState.selectedPlaceId || event.defaultPrevented)
+    // Escape walks backwards through the states: selection first, then the
+    // filter sheet, then the open list back to the quiet map.
+    const walkBackOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (discoveryState.selectedPlaceId) {
+        event.preventDefault();
+        clearSelectedPlace();
         return;
-      event.preventDefault();
-      clearSelectedPlace();
+      }
+      if (filtersOpen) {
+        event.preventDefault();
+        toggleFilters();
+        return;
+      }
+      if (discoveryState.view === 'list' && !mapFailed) {
+        event.preventDefault();
+        closeResults();
+      }
     };
     window.addEventListener('popstate', syncHistory);
-    window.addEventListener('keydown', closeSelectedOnEscape);
+    window.addEventListener('keydown', walkBackOnEscape);
     const unsubscribeFavourites = signedIn
       ? subscribeToFavouriteInvalidation(() => void refreshFavourites())
       : () => undefined;
     return () => {
       if (filterAnalyticsTimer) clearTimeout(filterAnalyticsTimer);
       window.removeEventListener('popstate', syncHistory);
-      window.removeEventListener('keydown', closeSelectedOnEscape);
+      window.removeEventListener('keydown', walkBackOnEscape);
       reducedMotionQuery.removeEventListener('change', syncReducedMotion);
       boundaryObserver?.disconnect();
       railObserver?.disconnect();
@@ -602,14 +634,47 @@
   }
 
   function updateQuery(query: string): void {
-    updateFilters({ ...discoveryState.filters, query }, 'replace');
+    const view = viewAfterQueryChange(query, discoveryState.filters.category, discoveryState.view);
+    const opensList = view === 'list' && discoveryState.view !== 'list';
+    if (opensList) selectionFocusOrigin = null;
+    updateFilters(
+      { ...discoveryState.filters, query },
+      'replace',
+      view,
+      opensList ? 'clear' : 'keep'
+    );
+  }
+
+  // A chip is both the filter and the list's toggle: selecting opens the
+  // list with that slice, the active chip dismisses filter and list together.
+  function toggleCategoryChip(chip: DiscoveryChip): void {
+    const next = toggleChip(
+      {
+        view: discoveryState.view,
+        category: discoveryState.filters.category,
+        query: discoveryState.filters.query
+      },
+      chip
+    );
+    // Opening a slice replaces any selection until selection folding lands;
+    // the card would otherwise sit inert under the list.
+    if (next.view === 'list') selectionFocusOrigin = null;
+    updateFilters(
+      { ...discoveryState.filters, category: next.category, query: next.query },
+      'push',
+      next.view,
+      next.view === 'list' ? 'clear' : 'keep'
+    );
   }
 
   function updateFilters(
     filters: DiscoveryFilters,
-    historyMode: 'push' | 'replace' = 'push'
+    historyMode: 'push' | 'replace' = 'push',
+    view: DiscoveryView = discoveryState.view,
+    selection: 'keep' | 'clear' = 'keep'
   ): void {
     clusterPlaceIds = null;
+    filtersOpen = view === 'list' ? false : filtersOpen;
     const nextFiltered = filterPublishedPlaces(
       places,
       filters,
@@ -617,33 +682,29 @@
       locationOrigin,
       favouritePlaceIds
     );
-    const selectedPlaceId = reconcileSelectedPlace(discoveryState.selectedPlaceId, nextFiltered);
-    commitState({ ...discoveryState, filters, selectedPlaceId }, historyMode);
+    const selectedPlaceId =
+      selection === 'clear'
+        ? null
+        : reconcileSelectedPlace(discoveryState.selectedPlaceId, nextFiltered);
+    commitState({ ...discoveryState, filters, view, selectedPlaceId }, historyMode);
     announceResultCount(nextFiltered.length);
     captureFilteredDiscovery(filters, nextFiltered.length, historyMode === 'replace');
   }
 
   function clearFilters(): void {
-    updateFilters({ ...defaultDiscoveryFilters });
+    updateFilters({ ...defaultDiscoveryFilters }, 'push', 'map');
   }
 
-  function showResults(): void {
-    clusterPlaceIds = null;
-    filtersOpen = false;
-    selectionFocusOrigin = null;
-    commitState({ ...discoveryState, selectedPlaceId: null, view: 'list' }, 'push');
-    if (!mapFailed) {
-      queueMicrotask(() =>
-        document.querySelector<HTMLButtonElement>('#discovery-results-close')?.focus()
-      );
-    }
-  }
-
+  // Closing the list mirrors the active chip's dismissal: the slice that
+  // opened it (category or search) clears with it, and focus returns to the
+  // chip that owned the slice.
   function closeResults(): void {
-    clusterPlaceIds = null;
-    commitState({ ...discoveryState, view: 'map' }, 'push');
+    const dismissedChip = discoveryState.filters.category ?? 'all';
+    updateFilters({ ...discoveryState.filters, category: null, query: '' }, 'push', 'map');
     queueMicrotask(() =>
-      document.querySelector<HTMLButtonElement>('.discovery-controls .results-button')?.focus()
+      document
+        .querySelector<HTMLButtonElement>(`.discovery-controls [data-chip="${dismissedChip}"]`)
+        ?.focus()
     );
   }
 
@@ -845,8 +906,8 @@
         {favouritesAvailable}
         onQueryChange={updateQuery}
         onFiltersChange={updateFilters}
+        onChipToggle={toggleCategoryChip}
         onClear={clearFilters}
-        onShowResults={showResults}
         onUseLocation={() => requestLocation()}
         onRetryLocation={retryLocation}
         onToggleFilters={toggleFilters}
@@ -902,6 +963,7 @@
               <DiscoveryResults
                 places={resultPlaces}
                 selectedPlaceId={discoveryState.selectedPlaceId}
+                sliceLabel={clusterPlaceIds ? null : sliceLabel}
                 {lang}
                 {copy}
                 onSelect={(placeId, trigger, openDetails) =>
