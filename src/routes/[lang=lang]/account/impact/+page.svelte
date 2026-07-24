@@ -338,9 +338,12 @@
     overflow: hidden;
     padding: clamp(1.35rem, 5vw, 3rem);
     border-color: color-mix(in srgb, var(--hv-color-moss) 28%, var(--hv-color-line));
-    background:
-      radial-gradient(circle at 8% 12%, rgb(79 143 104 / 14%), transparent 34%),
-      linear-gradient(135deg, var(--hv-color-snow-raised), rgb(248 251 246));
+    background: linear-gradient(
+      135deg,
+      rgb(79 143 104 / 14%) 0%,
+      var(--hv-color-snow-raised) 38%,
+      rgb(248 251 246) 100%
+    );
   }
 
   .hero-mark {

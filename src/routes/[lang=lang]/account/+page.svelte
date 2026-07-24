@@ -340,9 +340,7 @@
     grid-column: 1 / -1;
     grid-template-columns: auto minmax(0, 1fr);
     border-color: color-mix(in srgb, var(--hv-color-moss) 30%, var(--hv-color-line));
-    background:
-      radial-gradient(circle at 5% 10%, rgb(79 143 104 / 12%), transparent 38%),
-      var(--hv-color-snow-raised);
+    background: linear-gradient(105deg, rgb(79 143 104 / 12%) 0%, var(--hv-color-snow-raised) 38%);
   }
 
   .impact-icon {
