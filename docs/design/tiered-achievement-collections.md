@@ -142,7 +142,7 @@ No new colour tokens are introduced.
 
 `tokens.css` defines only basalt, moss, signal, snow and snow-raised, gold must not borrow Signal Yellow because the north star reserves it for verified access, selection and committed actions and lists decorative Signal Yellow as an anti-pattern, and a vault note records that undefined CSS custom properties fail silently and invisibly rather than erroring.
 
-Accessibility: each collection reads as text, and `role="progressbar"` appears only on a collection's *nearest unearned* tier.
+Accessibility: each collection reads as text, and `role="progressbar"` appears only on a collection's _nearest unearned_ tier.
 
 The original rule here was "only on in-progress tiers", which was wrong: any tier of a started collection has `current > 0`, so all three would have reported the same number and a screen reader would have heard it three times per collection.
 
@@ -183,7 +183,7 @@ The rule itself is untouched.
 
 ## Files / Modules
 
-- `supabase/migrations/202607250002_tiered_achievement_collections.sql` — new. Everything below in one transaction.
+- `supabase/migrations/202607250003_tiered_achievement_collections.sql` — new. Everything below in one transaction.
 - `private.achievement_collections` — new table, four seeded rows.
 - `private.achievement_definitions` — add `collection`, `tier`; drop `locked_visibility`; relax the four copy columns to nullable; extend the `progress_kind` vocabulary; new constraints and unique index.
 - `private.member_achievement_metrics` — new, single-pass metrics.
@@ -247,7 +247,7 @@ get_my_achievements()
 
 ## Verification Plan
 
-- `pnpm test:database` — new `supabase/tests/database/048_achievement_collections.test.sql` covering: twelve tier slots returned in all three states; an unstarted tier visible at current 0; a surprise definition absent while locked and present once earned; the contribution metric respecting `revoked_at` and `eligibility_started_at`; threshold monotonicity within each collection; the empty-ledger assertion raising. Updates to `016`, `023`, `038`, `039`, `040` for the dropped column and renamed keys. Run `supabase db reset` first; evaluation fixtures pollute the database.
+- `pnpm test:database` — new `supabase/tests/database/049_achievement_collections.test.sql` covering: twelve tier slots returned in all three states; an unstarted tier visible at current 0; a surprise definition absent while locked and present once earned; the contribution metric respecting `revoked_at` and `eligibility_started_at`; threshold monotonicity within each collection; the empty-ledger assertion raising. Updates to `016`, `023`, `038`, `039`, `040` for the dropped column and renamed keys. Run `supabase db reset` first; evaluation fixtures pollute the database.
 - `pnpm test:unit` — parser cases for locked-at-zero, earned, tier versus bespoke discrimination, and removal of the two-milestone rejection. Update `achievements.test.ts`, `impact-page.test.ts`, `achievement-page.test.ts`.
 - Component tests — grid renders visible gaps, the three cell states, and one progressbar per in-progress tier. Update `achievements.browser.test.ts` and `impact-record.browser.test.ts`. Note that browser tests fail in a worktree whose `node_modules` is symlinked; a real `CI=true pnpm install` is required.
 - `pnpm test:e2e -- member-achievements.spec.ts` — earn a bronze through the real member flow and assert the grid, the gap and the celebration.
