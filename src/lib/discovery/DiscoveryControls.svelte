@@ -96,7 +96,7 @@
   }
 </script>
 
-<section class="discovery-controls" aria-label={copy['directory.filters']}>
+<section class="discovery-controls" data-motion="tokenized" aria-label={copy['directory.filters']}>
   <label class="search-label">
     <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="10.5" cy="10.5" r="6.75" fill="none" stroke-width="2.2" />
@@ -356,6 +356,13 @@
     height: 1.1rem;
     flex: 0 0 auto;
     stroke: var(--hv-color-basalt-muted);
+    transition: stroke var(--hv-fade-quick) linear;
+  }
+
+  /* The icon takes full ink while the field has focus, so the pill reads as live without
+     moving anything the Member is trying to type into. Colour, so reduced motion keeps it. */
+  .search-label:focus-within .search-icon {
+    stroke: var(--hv-color-basalt);
   }
 
   .search-label > span {
@@ -428,6 +435,38 @@
     font-weight: 850;
     letter-spacing: -0.015em;
     white-space: nowrap;
+  }
+
+  /* Every pill in the command cluster answers the same way: it lifts to say it can be pressed
+     and presses in to confirm it was.
+
+     Movement only - the colour swap is deliberately instant. Selecting a chip inverts its pair
+     (basalt on snow becomes snow on fjord), so interpolating between them walks the label
+     straight through the middle where it matches its own background: Axe measured 2.41:1 there
+     against the required 4.5:1. An inverted pair has no safe path between its ends, so the
+     toggle lands in one frame and only the transform is allowed to take time. */
+  .category-shortcuts button,
+  .shortcut-row > .filters-button,
+  .fold-button,
+  .suggest-link,
+  .filter-actions button {
+    transition: transform var(--hv-motion-instant) var(--hv-ease-settle);
+  }
+
+  .category-shortcuts button:not(:disabled):hover,
+  .shortcut-row > .filters-button:hover,
+  .fold-button:hover,
+  .suggest-link:hover,
+  .filter-actions button:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+
+  .category-shortcuts button:not(:disabled):active,
+  .shortcut-row > .filters-button:active,
+  .fold-button:active,
+  .suggest-link:active,
+  .filter-actions button:not(:disabled):active {
+    transform: scale(0.94);
   }
 
   .category-shortcuts button.active,

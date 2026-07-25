@@ -574,6 +574,52 @@ test('reduced motion stills movement while keeping the Favourite flourish legibl
   await expectNoSeriousAxeViolations(page, evidence);
 });
 
+test('reduced motion keeps the selected card legible without wiping the bar open', async ({
+  page,
+  evidence
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/en?view=list');
+  await waitForHydration(page);
+
+  // Selecting folds the list away behind the answer card. The edge tab is the only route back
+  // to a list that shows its own selection, so it is also the only place this bar is visible.
+  await page
+    .locator('[data-place-card]')
+    .first()
+    .getByRole('button', { name: /^Select / })
+    .click();
+  await page.getByRole('button', { name: /^Show \d+ results?$/ }).click();
+
+  const selected = page.locator('[data-place-card].selected');
+  await expect(selected).toBeVisible();
+
+  // The bar is the state, not decoration. Reduced motion takes the wipe away; a Member who
+  // asked for less motion still has to see which card is selected, so the bar has to arrive at
+  // full height rather than being suppressed alongside the movement.
+  // Only the selected card is read here. Whether an unselected card keeps its bar shut is
+  // covered by tests/component/everyday-motion.browser.test.ts, which can render both states on
+  // demand; asserting it here would tie this test to how many Places the fixture set publishes,
+  // and the accessibility fixtures publish exactly one.
+  const bar = await selected.evaluate((element) => {
+    const styles = getComputedStyle(element, '::before');
+    const duration = styles.transitionDuration;
+    // matrix(a, b, c, d, e, f): d carries the Y scale, so a fully wiped bar reads as 1.
+    return {
+      verticalScale: Number.parseFloat(
+        styles.transform.replace(/^matrix\(|\)$/g, '').split(',')[3]
+      ),
+      duration: duration.endsWith('ms')
+        ? Number.parseFloat(duration)
+        : Number.parseFloat(duration) * 1_000
+    };
+  });
+  expect(bar.duration).toBeLessThanOrEqual(0.01);
+  expect(bar.verticalScale).toBe(1);
+
+  await expectNoSeriousAxeViolations(page, evidence);
+});
+
 test('Member sign-in is keyboard-operable and Axe-clean in both product languages', async ({
   page,
   evidence

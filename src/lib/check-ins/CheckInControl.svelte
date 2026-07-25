@@ -59,6 +59,9 @@
   // SelectedPlaceCard sites in {#key selectedPlace.placeId} for exactly this reason.
   let phase = $state<Phase>('idle');
   let checkedInAt = $state<string | null>(null);
+  // A check-in loaded with the page is a fact; only the Member's own submission is a moment.
+  // Without this, revisiting a Place already checked into would replay the arrival every load.
+  let justCommitted = $state(false);
   let effectivePhase = $derived<Phase>(
     phase === 'idle' && initialCheckedInAt ? 'duplicate' : phase
   );
@@ -178,6 +181,7 @@
       checkedInAt = result.checkedInAt;
       const duplicate = result.alreadyCheckedIn === true;
       phase = duplicate ? 'duplicate' : 'success';
+      justCommitted = true;
       postHogAnalytics.capture('check in completed', {
         place_id: placeId,
         outcome: duplicate ? 'duplicate' : 'created',
@@ -191,6 +195,7 @@
 
 <section
   class="check-in"
+  data-motion="tokenized"
   data-state={semanticState}
   aria-busy={semanticState === 'busy'}
   aria-label={copy['checkIn.title'].replace('{name}', placeName)}
@@ -212,13 +217,13 @@
     {#if recognition}
       <WeeklyRhythmAcknowledgement {recognition} subjectName={placeName} {copy} />
     {/if}
-    <p role="status" class="result hv-status" data-status="success">
+    <p role="status" class="result hv-status" data-status="success" class:arrived={justCommitted}>
       {effectivePhase === 'duplicate'
         ? copy['checkIn.duplicate']
         : copy['checkIn.success'].replace('{name}', placeName)}
     </p>
     {#if effectiveCheckedInAt}
-      <p class="result-time">
+      <p class="result-time" class:arrived={justCommitted}>
         {copy['checkIn.successAt'].replace('{time}', formatCheckInTime(effectiveCheckedInAt, lang))}
       </p>
     {/if}
@@ -298,11 +303,43 @@
   .hv-control {
     font-size: 0.85rem;
     cursor: pointer;
+    /* Movement only, for the same reason the chips carry no colour transition: these controls
+       invert their pair between intents, and there is no readable path across an inversion. */
+    transition: transform var(--hv-motion-instant) var(--hv-ease-settle);
+  }
+
+  .hv-control:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+
+  .hv-control:not(:disabled):active {
+    transform: scale(0.97);
   }
 
   .hv-control:disabled {
     cursor: wait;
     opacity: 0.72;
+  }
+
+  /* The committed state settles into place rather than appearing.
+     Movement only, deliberately no fade. An opacity fade starts text at a 1:1 contrast ratio
+     and climbs, so for the length of the fade the confirmation is unreadable: Axe measured
+     this exact element at 1.66:1 against the required 4.5:1. Anything that carries state in
+     words arrives at full contrast and moves into place, never the other way round.
+     Under reduced motion this collapses to nothing and the text simply appears, which is the
+     right outcome - the words are the announcement, and role="status" carries it either way. */
+  .arrived {
+    animation: committed-rise var(--hv-motion-considered) var(--hv-ease-settle);
+  }
+
+  @keyframes committed-rise {
+    from {
+      transform: translateY(0.35rem);
+    }
+
+    to {
+      transform: translateY(0);
+    }
   }
 
   .location-explanation {

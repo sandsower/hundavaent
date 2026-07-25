@@ -100,7 +100,13 @@
   );
 </script>
 
-<article data-place-card class:selected aria-label={place.name}>
+<article
+  data-place-card
+  data-motion="tokenized"
+  data-interactive={interactive}
+  class:selected
+  aria-label={place.name}
+>
   <div
     class:photo={displayPhoto !== null}
     class:category-band={displayPhoto === null}
@@ -190,6 +196,20 @@
     border-radius: var(--hv-radius-panel);
     background: var(--hv-color-snow-raised);
     box-shadow: none;
+    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
+  }
+
+  /* Transform only, never box-shadow: the card is one of many in a scrolling list, and an
+     animated shadow repaints the whole column on every hover. The flat bordered card carries
+     a lift perfectly well without one. */
+  article[data-interactive='true']:hover {
+    transform: translateY(-2px);
+  }
+
+  /* The press belongs to the card's own target. Pressing the Favourite heart is the heart's
+     gesture, and the card must not answer on its behalf. */
+  article[data-interactive='true']:has(.place-target:active) {
+    transform: translateY(0) scale(0.99);
   }
 
   .card-media {
@@ -208,6 +228,13 @@
     width: 100%;
     height: 5.2rem;
     object-fit: cover;
+    transition: transform var(--hv-motion-considered) var(--hv-ease-settle);
+  }
+
+  /* The photo pushes gently past its frame on hover. The article clips it, so the growth reads
+     as depth in the card rather than as the image escaping it. */
+  article[data-interactive='true']:hover .primary-photo :global(img) {
+    transform: scale(1.04);
   }
 
   .primary-photo figcaption {
@@ -260,9 +287,31 @@
     text-transform: uppercase;
   }
 
+  /* The selection bar was an inset box-shadow, which cannot move without repainting the card.
+     As a pseudo-element it wipes down the edge on a transform instead. It also runs the full
+     height now rather than disappearing behind the media, so the selected card reads as
+     selected from across the list. The article's own overflow rounds its corners. */
+  article::before {
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 0.3rem;
+    background: var(--hv-color-signal, #f2c94c);
+    content: '';
+    pointer-events: none;
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform var(--hv-motion-considered) var(--hv-ease-settle);
+  }
+
+  article.selected::before {
+    transform: scaleY(1);
+  }
+
   article.selected {
     border-color: var(--hv-color-basalt, #1e2d31);
-    box-shadow: inset 0.3rem 0 0 var(--hv-color-signal, #f2c94c);
   }
 
   .card-body {

@@ -58,7 +58,18 @@
        zero for Members who prefer reduced motion. --hv-fade-* drives appearance changes that
        stay put (opacity, colour, fill) and keeps its full duration, so the interface reads as
        calm rather than broken. A single @keyframes cannot carry two durations, so anything
-       that both moves and fades is written as two animation entries, one per family. */
+       that both moves and fades is written as two animation entries, one per family.
+
+       One hard limit on the fade family: it never touches text. Both ways of getting it wrong
+       were measured on this codebase rather than reasoned about.
+       Fading opacity on words starts them at a 1:1 contrast ratio and climbs, so for the length
+       of the fade they fail WCAG 1.4.3 outright - Axe caught a check-in confirmation at 1.66:1.
+       Interpolating a colour pair that inverts (basalt on snow becoming snow on fjord) walks the
+       label through the middle where it matches its own background - Axe caught a selected chip
+       at 2.41:1. An inverted pair has no readable path between its ends.
+       So: words arrive at full contrast and move into place, and state colour lands in one
+       frame. The fade family is for decoration that carries no reading - glows, scrims, the
+       Favourite heart's fill - where contrast is not being asserted. */
     --hv-motion-instant: 120ms;
     --hv-motion-quick: 200ms;
     --hv-motion-considered: 320ms;
