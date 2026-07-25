@@ -315,6 +315,135 @@ describe('CorrectionReviewPanel', () => {
     expect(screen.getByRole('dialog', { name: 'Inactivate this Place?' })).toBeTruthy();
   });
 
+  it('blocks applying a half-translated name and prefills the flagged locale empty', async () => {
+    // The omitted-locale hatch reaches the database as a valid draft, so nothing below this panel
+    // stops a Moderator publishing a Place named in one language only. This is that stop.
+    const { container } = render(CorrectionReviewPanel, {
+      data: hatchedNameCorrection(),
+      form: null,
+      standalone: true
+    });
+
+    expect(screen.getByRole('button', { name: 'Apply correction' })).toBeDisabled();
+    expect(screen.getByText('A translation is still missing')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'This Correction cannot be applied until the missing translation is written.'
+      )
+    ).toBeTruthy();
+    // Every other outcome stays open: a claim that cannot be applied can still be rejected.
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Needs information' })).toBeEnabled();
+
+    await beginEdit('Change under review');
+    const application = sectionForm(container, 'application');
+    expect(application.querySelector<HTMLInputElement>('[name="fieldValueIs"]')?.value).toBe(
+      'Nýtt heiti'
+    );
+    expect(application.querySelector<HTMLInputElement>('[name="fieldValueEn"]')?.value).toBe('');
+    expect(application.querySelector('[name="fieldValueEn"]')).toBeRequired();
+  });
+
+  it('opens the section holding the missing locale rather than leaving it to be found', () => {
+    render(CorrectionReviewPanel, { data: hatchedNameCorrection(), form: null, standalone: true });
+
+    const section = document.querySelector<HTMLDetailsElement>('#correction-change');
+    expect(section?.getAttribute('data-section-state')).toBe('blocking');
+    expect(section?.open).toBe(true);
+  });
+
+  it('lifts the block once the application draft carries both locales', () => {
+    const blocked = hatchedNameCorrection();
+    render(CorrectionReviewPanel, {
+      data: {
+        ...blocked,
+        flag: {
+          ...blocked.flag,
+          draftVersion: 1,
+          draftPayload: {
+            application_payload: {
+              expected_version: 4,
+              field_value: { is: 'Nýtt heiti', en: 'New name' }
+            }
+          } as never
+        }
+      },
+      form: null,
+      standalone: true
+    });
+
+    expect(screen.getByRole('button', { name: 'Apply correction' })).toBeEnabled();
+    expect(screen.queryByText('A translation is still missing')).toBeNull();
+  });
+
+  it('leaves a fully translated name Correction applicable', () => {
+    const complete = hatchedNameCorrection();
+    render(CorrectionReviewPanel, {
+      data: {
+        ...complete,
+        flag: {
+          ...complete.flag,
+          proposedValue: { is: 'Nýtt heiti', en: 'New name' } as never
+        }
+      },
+      form: null,
+      standalone: true
+    });
+
+    expect(screen.getByRole('button', { name: 'Apply correction' })).toBeEnabled();
+  });
+
+  it('asks whether a locale is written, not whether the flag is still attached', () => {
+    // The draft is deep merged onto the claim in the database, so a stale needs_review can outlive
+    // the gap it named. Blocking on the flag would block the Correction forever.
+    const stale = hatchedNameCorrection();
+    render(CorrectionReviewPanel, {
+      data: {
+        ...stale,
+        flag: {
+          ...stale.flag,
+          proposedValue: { is: 'Nýtt heiti', en: 'New name', needs_review: 'en' } as never
+        }
+      },
+      form: null,
+      standalone: true
+    });
+
+    expect(screen.getByRole('button', { name: 'Apply correction' })).toBeEnabled();
+  });
+
+  it('blocks a whitespace-only locale, which is missing text wearing a key', () => {
+    const blank = hatchedNameCorrection();
+    render(CorrectionReviewPanel, {
+      data: {
+        ...blank,
+        flag: { ...blank.flag, proposedValue: { is: 'Nýtt heiti', en: '   ' } as never }
+      },
+      form: null,
+      standalone: true
+    });
+
+    expect(screen.getByRole('button', { name: 'Apply correction' })).toBeDisabled();
+  });
+
+  it('never blocks a field that has no locales to be missing', () => {
+    const phone = hatchedNameCorrection();
+    render(CorrectionReviewPanel, {
+      data: {
+        ...phone,
+        flag: {
+          ...phone.flag,
+          targetField: 'phone' as const,
+          proposedValue: { value: '+354 555 0100' } as never
+        }
+      },
+      form: null,
+      standalone: true
+    });
+
+    expect(screen.getByRole('button', { name: 'Apply correction' })).toBeEnabled();
+  });
+
   it('keeps a terminal conflict visible but prevents stale resubmission', () => {
     render(CorrectionReviewPanel, {
       data: { ...data, flag: { ...flag, outcome: 'rejected' } },
@@ -324,7 +453,108 @@ describe('CorrectionReviewPanel', () => {
 
     expect(screen.queryByRole('button', { name: 'Confirm useful' })).toBeNull();
   });
+
+  it('names the whole Place as the subject instead of an Access Condition nobody mentioned', () => {
+    render(CorrectionReviewPanel, {
+      data: placeLevelReport(),
+      form: null,
+      standalone: true
+    });
+
+    expect(screen.getByText('The whole place')).toBeTruthy();
+    expect(screen.queryByText('An Access Condition')).toBeNull();
+  });
+
+  it('renders the place snapshot, which is neither of the other two snapshot shapes', () => {
+    const { container } = render(CorrectionReviewPanel, {
+      data: placeLevelReport(),
+      form: null,
+      standalone: true
+    });
+
+    const snapshot = container.querySelector('[data-place-snapshot]');
+    expect(snapshot).toBeTruthy();
+    expect(snapshot).toHaveTextContent('Prófstaður / Test Place');
+    // Localized, not the stored enum: 'cafe' is a database word and a Moderator reads a catalogue.
+    expect(snapshot).toHaveTextContent('Café');
+    expect(snapshot).toHaveTextContent('Reykjavík');
+    // Nothing was proposed and there is no live value, so no before-and-after grid is laid out.
+    expect(screen.queryByText("Member's proposal")).toBeNull();
+  });
+
+  it('never reads a missing live value on a whole-Place Report as drift', () => {
+    render(CorrectionReviewPanel, {
+      data: placeLevelReport(),
+      form: null,
+      standalone: true
+    });
+
+    // The safety bit is the only thing that should ask for attention here.
+    expect(screen.queryByText('Current value now')).toBeNull();
+  });
+
+  it('offers no Access Dispute on a target that has no Access Condition', () => {
+    render(CorrectionReviewPanel, {
+      data: placeLevelReport(),
+      form: null,
+      standalone: true
+    });
+
+    expect(screen.queryByRole('button', { name: 'Open dispute' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Inactivate Place' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Confirm useful' })).toBeTruthy();
+  });
 });
+
+/**
+ * A Report about the whole Place: no field, no Condition, no proposal, and a snapshot recording what
+ * identified the Place at the moment the claim was raised.
+ */
+function placeLevelReport(): typeof data {
+  return {
+    ...data,
+    flag: {
+      ...flag,
+      reportReason: 'closed' as const,
+      targetKind: 'place' as const,
+      targetField: null,
+      accessConditionId: null,
+      currentValueSnapshot: {
+        name: { is: 'Prófstaður', en: 'Test Place' },
+        category: 'cafe',
+        locality: 'Reykjavík'
+      } as never,
+      currentLiveValue: null,
+      currentVerificationId: null,
+      currentVerificationStatus: null,
+      currentVerificationVerifiedAt: null,
+      currentVerificationFreshnessUntil: null,
+      currentVerificationEvidence: null,
+      proposedValue: null
+    },
+    related: []
+  };
+}
+
+function hatchedNameCorrection(): typeof data {
+  return {
+    ...data,
+    flag: {
+      ...flag,
+      kind: 'correction' as const,
+      isSafetyConcern: false,
+      reportReason: null,
+      targetKind: 'place_field' as const,
+      targetField: 'name' as const,
+      accessConditionId: null,
+      currentValueSnapshot: { is: 'Gamalt heiti', en: 'Old name' } as never,
+      currentLiveValue: { is: 'Gamalt heiti', en: 'Old name' } as never,
+      // The English key is absent, not empty: the Member never wrote it and the shape says so.
+      proposedValue: { is: 'Nýtt heiti', needs_review: 'en' } as never
+    },
+    related: []
+  };
+}
 
 async function beginEdit(sectionTitle: string): Promise<void> {
   const section = screen.getByText(sectionTitle).closest('details');

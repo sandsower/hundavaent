@@ -69,11 +69,46 @@ describe('Correction input', () => {
     expect(result.payload.proposed_value).toEqual({ is: 'Nýtt heiti', en: 'New name' });
   });
 
-  it('rejects a name Correction missing one locale', () => {
+  it.each([
+    ['fieldValueIs', 'fieldValueEn', { is: 'Nýtt heiti', needs_review: 'en' }],
+    ['fieldValueEn', 'fieldValueIs', { en: 'New name', needs_review: 'is' }]
+  ] as const)(
+    'names the locale it could not write when only %s is filled in',
+    (filled, blank, expected) => {
+      // The hatch on the form, not just on the card. Requiring both locales asked a Member for a
+      // language they may not speak, and the only honest answer was to abandon the Correction.
+      const form = placeFieldForm({ targetField: 'name' });
+      form.set(filled, filled === 'fieldValueIs' ? 'Nýtt heiti' : 'New name');
+      form.set(blank, '   ');
+
+      const result = parseCorrectionFormData(form);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.payload.proposed_value).toEqual(expected);
+    }
+  );
+
+  it('rejects a name Correction with neither locale written', () => {
     const form = placeFieldForm({ targetField: 'name' });
-    form.set('fieldValueIs', 'Nýtt heiti');
+    form.set('fieldValueIs', '');
+    form.set('fieldValueEn', '  ');
 
     expect(parseCorrectionFormData(form)).toEqual({ ok: false, error: 'invalid' });
+  });
+
+  it('applies the same hatch to a description, which is what un-orphans it', () => {
+    const form = placeFieldForm({ targetField: 'description' });
+    form.set('fieldValueEn', 'A quiet garden the dogs can use.');
+
+    const result = parseCorrectionFormData(form);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.payload.proposed_value).toEqual({
+      en: 'A quiet garden the dogs can use.',
+      needs_review: 'is'
+    });
   });
 
   it('parses an Access Condition Correction', () => {
@@ -179,8 +214,30 @@ describe('Report input', () => {
     });
   });
 
-  it('defaults is_safety_concern to false when the checkbox is absent', () => {
-    const result = parseReportFormData(reportForm());
+  it('escalates an unsafe Report whether or not the member found the checkbox', () => {
+    // A member-initiated "unsafe" is definitionally a Safety Concern, so the unticked checkbox
+    // cannot quietly downgrade it. The card endpoint hard-codes the same pairing, and the two
+    // routes into Moderation must not disagree about what the claim is.
+    const result = parseReportFormData(reportForm({ reportReason: 'unsafe' }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.payload.is_safety_concern).toBe(true);
+  });
+
+  it('still honours the checkbox for a reason that can honestly be either', () => {
+    const form = reportForm({ reportReason: 'obsolete' });
+    form.set('isSafetyConcern', 'on');
+
+    const result = parseReportFormData(form);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.payload.is_safety_concern).toBe(true);
+  });
+
+  it('defaults is_safety_concern to false when the checkbox is absent and the reason is not unsafe', () => {
+    const result = parseReportFormData(reportForm({ reportReason: 'obsolete' }));
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -209,5 +266,65 @@ describe('Report input', () => {
     const form = reportForm({ reportReason: 'not_a_reason' });
 
     expect(parseReportFormData(form)).toEqual({ ok: false, error: 'invalid' });
+  });
+
+  it('parses a Report against the whole Place, which carries no field and no Condition', () => {
+    const form = reportForm({ reportReason: 'closed' });
+    form.set('targetKind', 'place');
+    form.delete('accessConditionId');
+
+    const result = parseReportFormData(form);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.payload).toMatchObject({
+      target_kind: 'place',
+      target_field: null,
+      access_condition_id: null,
+      report_reason: 'closed'
+    });
+  });
+
+  it('takes server-synthesized evidence in place of the moderator worksheet', () => {
+    const form = new FormData();
+    form.set('placeId', '76300000-0000-4000-8000-000000000001');
+    form.set('explanation', 'Reported closed from the place card.');
+    form.set('targetKind', 'place');
+    form.set('reportReason', 'closed');
+
+    const supplied = {
+      kind: 'member_report',
+      source_url: null,
+      source_citation: 'Reported closed from the place card.',
+      source_label: 'Member report from the place page',
+      observed_at: '2026-07-25T09:00:00.000Z',
+      source_metadata: {}
+    } as const;
+
+    const result = parseReportFormData(form, supplied);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.payload.evidence).toEqual(supplied);
+  });
+
+  it('still solicits evidence from the form when none is supplied', () => {
+    const form = new FormData();
+    form.set('placeId', '76300000-0000-4000-8000-000000000001');
+    form.set('explanation', 'The gate is chained shut.');
+    form.set('targetKind', 'place');
+    form.set('reportReason', 'closed');
+
+    expect(parseReportFormData(form)).toEqual({ ok: false, error: 'incomplete' });
+  });
+});
+
+describe('the whole Place is a Report target only', () => {
+  it('refuses a Correction against the whole Place, which has no value to replace', () => {
+    const form = placeFieldForm();
+    form.set('targetKind', 'place');
+    form.delete('targetField');
+
+    expect(parseCorrectionFormData(form)).toEqual({ ok: false, error: 'invalid' });
   });
 });

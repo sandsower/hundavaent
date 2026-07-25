@@ -1,0 +1,473 @@
+<script lang="ts">
+  import type { Catalogue, Locale, MessageKey } from '$i18n';
+  import {
+    hasPendingAccessCondition,
+    hasPendingPlaceField,
+    hasPendingPlaceReport,
+    memberPlaceFields,
+    placeReportReasons,
+    type MemberPlaceField,
+    type PendingPlaceFlag,
+    type PlaceReportReason
+  } from '$lib/contributions/correction';
+  import { correctConditionHref, reportPlaceHref } from '$lib/discovery/correct-link';
+  import { createLiveAnnouncer } from '$lib/discovery/live-announcement';
+  import PlaceFieldCorrection from '$lib/discovery/PlaceFieldCorrection.svelte';
+  import PlaceReportAction from '$lib/discovery/PlaceReportAction.svelte';
+  import type { PublishedPlaceProfile } from '$server/discovery/public-places';
+
+  /**
+   * The one quiet line at the foot of the practical details, and everything behind it.
+   *
+   * Readers outnumber contributors, and the practical details are what a reader came for. So the
+   * details render exactly as they always have and a single disclosure holds every per-fact
+   * affordance, including the Place name, which the card had no row for until contribution needed
+   * one.
+   */
+  interface Props {
+    placeName: string;
+    lang: Locale;
+    copy: Catalogue;
+    signedIn: boolean;
+    profile: PublishedPlaceProfile;
+    pending?: readonly PendingPlaceFlag[];
+    /** Forwarded from each editor so the card can suppress the fact without a refetch. */
+    onSubmitted?: (flag: PendingPlaceFlag) => void;
+  }
+
+  let {
+    placeName,
+    lang,
+    copy,
+    signedIn,
+    profile,
+    pending = [],
+    onSubmitted = () => undefined
+  }: Props = $props();
+
+  const componentId = $props.id();
+  let open = $state(false);
+  let panel = $state<HTMLElement>();
+  let trigger = $state<HTMLButtonElement>();
+  let focusTarget = $state<'panel' | 'trigger' | null>(null);
+  /**
+   * The affordance a Member just sent from is gone the instant it succeeds, replaced by the
+   * pending line standing in for it. The shell cannot return focus to a trigger it no longer
+   * renders, so the parent that made the swap moves focus onto the line that replaced it: the
+   * Member hears what happened, and the next Tab carries on from where they were rather than from
+   * the top of the document.
+   */
+  let submittedFlag = $state<PendingPlaceFlag | null>(null);
+  // Four editors share this one region, so two of them reporting the same outcome in a row is the
+  // ordinary case rather than the edge case. The shared announcer is what makes the repeat audible.
+  let announcement = $state('');
+  const announce = createLiveAnnouncer((message) => (announcement = message));
+
+  const fieldLabels: Record<MemberPlaceField, MessageKey> = {
+    name: 'placeField.name',
+    website_url: 'placeField.websiteUrl',
+    phone: 'placeField.phone',
+    dog_amenities: 'placeField.dogAmenities'
+  };
+
+  // Only for the pending line, which has to name the claim it is standing in for now that the
+  // action that carried those words is gone. The actions themselves read the same copy through
+  // `PlaceReportAction`, which owns the trigger's label pair.
+  const reportLabels: Record<PlaceReportReason, MessageKey> = {
+    closed: 'placeReport.closed',
+    moved: 'placeReport.moved',
+    unsafe: 'placeReport.unsafe'
+  };
+
+  // The raw stored values, joined, and deliberately not the localized rendering the details show
+  // above. The editor round-trips exactly what is stored, so showing anything else here would
+  // invite a Correction against a value the Member cannot see.
+  const amenityText = $derived(profile.dogAmenities.join(', '));
+
+  const values = $derived<Record<MemberPlaceField, string>>({
+    name: profile.name,
+    website_url: profile.websiteUrl ?? '',
+    phone: profile.phone ?? '',
+    dog_amenities: amenityText
+  });
+
+  const multipleConditions = $derived(profile.accessConditions.length > 1);
+
+  function expand(): void {
+    open = true;
+    focusTarget = 'panel';
+  }
+
+  function collapse(): void {
+    open = false;
+    focusTarget = 'trigger';
+  }
+
+  function pendingField(field: MemberPlaceField): boolean {
+    return hasPendingPlaceField(pending, field);
+  }
+
+  function recordSubmitted(flag: PendingPlaceFlag): void {
+    submittedFlag = flag;
+    onSubmitted(flag);
+  }
+
+  function justSubmittedField(field: MemberPlaceField): boolean {
+    return submittedFlag?.targetKind === 'place_field' && submittedFlag.targetField === field;
+  }
+
+  function justSubmittedReport(reason: PlaceReportReason): boolean {
+    return submittedFlag?.targetKind === 'place' && submittedFlag.reportReason === reason;
+  }
+
+  $effect(() => {
+    if (focusTarget === 'panel' && panel) {
+      panel.querySelector<HTMLElement>('button, a[href]')?.focus();
+      focusTarget = null;
+    }
+    if (focusTarget === 'trigger' && trigger) {
+      trigger.focus();
+      focusTarget = null;
+    }
+  });
+
+  $effect(() => {
+    // `pending` is read so this re-runs when the card hands the suppression back down, which is
+    // what renders the line being focused.
+    void pending;
+    if (!submittedFlag || !panel) return;
+    const line = panel.querySelector<HTMLElement>('[data-pending-focus]');
+    if (!line) return;
+    line.focus();
+    submittedFlag = null;
+  });
+</script>
+
+<div class="contribution-reveal" data-contribution-reveal>
+  {#if open}
+    <section
+      bind:this={panel}
+      class="panel"
+      aria-labelledby={`${componentId}-heading`}
+      data-contribution-panel
+    >
+      <h4 id={`${componentId}-heading`}>{copy['inlineCorrection.revealHeading']}</h4>
+
+      <ul class="facts">
+        {#each memberPlaceFields as field (field)}
+          <li>
+            <span class="fact-label">{copy[fieldLabels[field]]}</span>
+            <span class="fact-value">{values[field] || copy['common.notAvailable']}</span>
+            {#if pendingField(field)}
+              {@render pendingLine(justSubmittedField(field))}
+            {:else}
+              <PlaceFieldCorrection
+                placeId={profile.placeId}
+                {placeName}
+                {lang}
+                {copy}
+                {signedIn}
+                {field}
+                currentValue={values[field]}
+                {announce}
+                onSubmitted={recordSubmitted}
+              />
+            {/if}
+          </li>
+        {/each}
+      </ul>
+
+      {#if multipleConditions}
+        <div class="conditions">
+          <h5>{copy['inlineCorrection.conditionsHeading']}</h5>
+          <ul class="facts">
+            {#each profile.accessConditions as condition, index (condition.id)}
+              <li>
+                <span class="fact-label"
+                  >{copy['place.conditionLabel'].replace('{number}', String(index + 1))}</span
+                >
+                {#if hasPendingAccessCondition(pending, condition.id)}
+                  <!-- Never focused from here: these are links out to the form, so nothing in this
+                       panel can turn one into a pending line while the Member is standing on it. -->
+                  {@render pendingLine(false)}
+                {:else}
+                  <!-- eslint-disable svelte/no-navigation-without-resolve -- correctConditionHref builds the path with $app/paths resolve() -->
+                  <a
+                    href={correctConditionHref(lang, profile.placeId, condition.id)}
+                    class="condition-link"
+                    aria-label={copy['inlineCorrection.conditionLinkLabel']
+                      .replace('{number}', String(index + 1))
+                      .replace('{name}', placeName)}
+                  >
+                    {copy['inlineCorrection.start']}
+                  </a>
+                  <!-- eslint-enable svelte/no-navigation-without-resolve -->
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+
+      <!-- Beneath the per-fact affordances, because these three are not about any fact: they are
+           claims about the whole Place, and a Member who has one is not looking for a field. -->
+      <div class="reports">
+        <h5>{copy['placeReport.heading']}</h5>
+        <ul class="facts">
+          {#each placeReportReasons as reason (reason)}
+            <li>
+              {#if hasPendingPlaceReport(pending, reason)}
+                <!-- Per reason, not per Place: an open "closed" says nothing about "unsafe", so
+                     the other two claims stay available. -->
+                <span class="fact-label report-claim">{copy[reportLabels[reason]]}</span>
+                <p
+                  class="pending"
+                  data-report-pending
+                  data-pending-focus={justSubmittedReport(reason) ? '' : undefined}
+                  tabindex="-1"
+                >
+                  {copy['placeReport.pending']}
+                </p>
+              {:else}
+                <PlaceReportAction
+                  placeId={profile.placeId}
+                  {placeName}
+                  {copy}
+                  {signedIn}
+                  {reason}
+                  {announce}
+                  onSubmitted={recordSubmitted}
+                />
+              {/if}
+            </li>
+          {/each}
+          <li>
+            <!-- eslint-disable svelte/no-navigation-without-resolve -- reportPlaceHref builds the path with $app/paths resolve() -->
+            <a
+              href={reportPlaceHref(lang, profile.placeId)}
+              class="report-link"
+              aria-label={copy['placeReport.somethingElseLabel'].replace('{name}', placeName)}
+            >
+              {copy['placeReport.somethingElse']}
+            </a>
+            <!-- eslint-enable svelte/no-navigation-without-resolve -->
+          </li>
+        </ul>
+      </div>
+
+      <button class="hide" type="button" onclick={collapse}>
+        {copy['inlineCorrection.revealHide']}
+      </button>
+    </section>
+  {:else}
+    <button
+      bind:this={trigger}
+      class="reveal"
+      type="button"
+      aria-label={copy['inlineCorrection.revealLabel'].replace('{name}', placeName)}
+      onclick={expand}
+    >
+      {copy['inlineCorrection.reveal']}
+    </button>
+  {/if}
+</div>
+
+<p class="visually-hidden" role="status" aria-live="polite" data-contribution-announcement>
+  {announcement}
+</p>
+
+{#snippet pendingLine(focused: boolean)}
+  <p
+    class="pending"
+    data-correction-pending
+    data-pending-focus={focused ? '' : undefined}
+    tabindex="-1"
+  >
+    {copy['inlineCorrection.pending']}
+  </p>
+{/snippet}
+
+<style>
+  .contribution-reveal {
+    display: grid;
+    justify-items: start;
+    margin-top: 0.35rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--hv-border-subtle);
+  }
+
+  /* The entry point to the whole contribution surface, so it needs a target a thumb can hit.
+     1.75rem clears the WCAG 2.5.8 24px minimum with room to spare. */
+  .reveal {
+    display: inline-flex;
+    min-height: 1.75rem;
+    align-items: center;
+    padding: 0.2rem 0.4rem;
+    border: 0;
+    border-radius: var(--hv-radius-control);
+    background: transparent;
+    color: var(--hv-color-fjord);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .reveal:focus-visible,
+  .hide:focus-visible,
+  .condition-link:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 2px;
+  }
+
+  .panel {
+    display: grid;
+    width: 100%;
+    gap: 0.7rem;
+    min-width: 0;
+    animation: contribution-reveal var(--hv-motion-quick) var(--hv-ease-settle) both;
+  }
+
+  h4,
+  h5 {
+    margin: 0;
+    color: var(--hv-color-basalt);
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .facts {
+    display: grid;
+    gap: 0.7rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .facts > li {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .fact-label {
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.72rem;
+    font-weight: 850;
+  }
+
+  .fact-value {
+    overflow-wrap: anywhere;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .conditions,
+  .reports {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .condition-link {
+    justify-self: start;
+    color: var(--hv-color-fjord);
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  /* Every claim in this group is a whole list item rather than an affordance hanging off a fact
+     label, so they all have to start on the same left edge. The three actions are buttons carrying
+     0.4rem of their own padding, so the pending line that replaces one and the link that follows
+     them are inset to match; the 0.45rem lead-in is the same one the buttons bring with them, so
+     the rhythm does not change when a claim turns into a pending line. */
+  .reports .facts {
+    gap: 0.25rem;
+  }
+
+  .report-claim,
+  .report-link {
+    margin-top: 0.45rem;
+    padding-left: 0.4rem;
+  }
+
+  .reports .pending {
+    margin-top: 0.1rem;
+    padding-left: 0.4rem;
+  }
+
+  .report-link {
+    display: inline-flex;
+    min-height: 1.5rem;
+    align-items: center;
+    justify-self: start;
+    padding-right: 0.4rem;
+    border-radius: var(--hv-radius-control);
+    color: var(--hv-color-fjord);
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+
+  .report-link:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 2px;
+  }
+
+  .pending {
+    margin: 0.2rem 0 0;
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.75rem;
+    font-weight: 750;
+    line-height: 1.35;
+  }
+
+  /* Focusable only so this component can land the Member on the line that replaced the affordance
+     they just sent from; it is never in the tab order. */
+  .pending:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 2px;
+  }
+
+  .hide {
+    display: inline-flex;
+    min-height: 1.75rem;
+    align-items: center;
+    justify-self: start;
+    padding: 0.2rem 0.4rem;
+    border: 0;
+    border-radius: var(--hv-radius-control);
+    background: transparent;
+    color: var(--hv-color-fjord);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* Transform only, and deliberately no opacity: this panel is entirely text, so fading it in
+     would start every label at a 1:1 contrast ratio and climb through the whole duration. Reduced
+     motion is handled by --hv-motion-quick collapsing to zero rather than by an override here. */
+  @keyframes contribution-reveal {
+    from {
+      transform: translateY(-0.2rem);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+</style>

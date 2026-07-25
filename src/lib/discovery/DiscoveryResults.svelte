@@ -2,6 +2,7 @@
   import type { Catalogue, Locale } from '$i18n';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
 
+  import PawMark from '$lib/member-activity/PawMark.svelte';
   import PlaceList from './PlaceList.svelte';
 
   interface Props {
@@ -75,6 +76,7 @@
     />
   {:else}
     <div class="empty">
+      <span class="empty-paw" aria-hidden="true"><PawMark /></span>
       <strong>{copy['directory.noResultsTitle']}</strong>
       <span>{copy['directory.noResultsBody']}</span>
     </div>
@@ -150,5 +152,24 @@
     display: grid;
     gap: 0.25rem;
     padding: 0.75rem 0;
+  }
+
+  /* An unfilled paw settling in: no place matched, but the trail is still open. The words
+     stay still; only the decoration arrives. */
+  .empty-paw {
+    width: 1.5rem;
+    margin-bottom: 0.2rem;
+    color: var(--hv-color-basalt-muted);
+    animation: empty-paw-settles var(--hv-motion-considered) var(--hv-ease-settle) both;
+  }
+
+  @keyframes empty-paw-settles {
+    from {
+      transform: scale(0.78) rotate(-8deg);
+    }
+
+    to {
+      transform: scale(1) rotate(0);
+    }
   }
 </style>

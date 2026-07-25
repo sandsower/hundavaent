@@ -1,12 +1,22 @@
-import type { RestraintCondition } from '$domain/access';
-import type { FlagEvidence, PlaceField } from '$server/place-flags/place-flag-input';
+import type {
+  AccessArea,
+  DogEligibility,
+  PermissionRequirement,
+  RestraintCondition
+} from '$domain/access';
+import {
+  memberEligibilityChoiceFor,
+  type MemberEligibilityChoice,
+  type MemberEligibilityValue
+} from '$lib/contributions/correction';
+import type { FlagEvidence, PlaceField, ReportReason } from '$server/place-flags/place-flag-input';
 
 /**
  * Member-facing contribution surfaces never ask a Member to fill in the Moderator's worksheet.
  * The server writes the Evidence record the database requires, and records here which surface
  * the claim came from and whether the citation is the Member's words or the server's.
  */
-export type MemberContributionSurface = 'place-card' | 'correction-form';
+export type MemberContributionSurface = 'place-card' | 'correction-form' | 'report-form';
 
 export interface MemberReportEvidenceInput {
   note: string | null;
@@ -17,12 +27,32 @@ export interface MemberReportEvidenceInput {
 
 const sourceLabels: Record<MemberContributionSurface, string> = {
   'place-card': 'Member report from the place page',
-  'correction-form': 'Member report from the correction form'
+  'correction-form': 'Member report from the correction form',
+  'report-form': 'Member report from the report form'
 };
 
 const surfaceNames: Record<MemberContributionSurface, string> = {
   'place-card': 'the place card',
-  'correction-form': 'the correction form'
+  'correction-form': 'the correction form',
+  'report-form': 'the report form'
+};
+
+/**
+ * One label per Report reason. Fixed strings, never the Member's own words: the summary this builds
+ * becomes the Evidence citation, and a citation reaches anonymous callers through the published
+ * profile.
+ *
+ * The card raises only the three place-level claims; the report form raises the whole vocabulary,
+ * and both surfaces write their citation from this one table.
+ */
+const reportReasonNames: Record<ReportReason, string> = {
+  closed: 'Reported closed',
+  moved: 'Reported moved',
+  unsafe: 'Reported unsafe for dogs',
+  inaccurate: 'Reported as inaccurate',
+  misleading: 'Reported as misleading',
+  obsolete: 'Reported as out of date',
+  successor_place: 'Reported as taken over by another business'
 };
 
 const restraintNames: Record<RestraintCondition, string> = {
@@ -30,6 +60,32 @@ const restraintNames: Record<RestraintCondition, string> = {
   off_leash_permitted: 'off-leash allowed',
   carrier_required: 'carrier required',
   other_sourced: 'other stated conditions'
+};
+
+const areaNames: Record<AccessArea, string> = {
+  indoors: 'indoors',
+  outdoors: 'outdoors',
+  designated_area: 'a designated area',
+  other_bounded: 'another stated area'
+};
+
+const permissionNames: Record<PermissionRequirement, string> = {
+  standing_permission: 'standing permission',
+  ask_on_arrival: 'ask on arrival',
+  advance_approval: 'advance approval'
+};
+
+/**
+ * Eligibility is named by the shape of the limit, never by the number that bounds it. A Member
+ * types that number, and the summary becomes a citation an anonymous caller can read, so the same
+ * rule that keeps the note out keeps the figure out. A Moderator reads the figure in
+ * `proposed_value`, which is where it belongs.
+ */
+const eligibilityNames: Record<MemberEligibilityChoice | 'other', string> = {
+  all_dogs: 'all dogs',
+  maximum_weight_kg: 'a weight limit',
+  maximum_dogs: 'a limit on the number of dogs',
+  other: 'other stated restrictions'
 };
 
 const placeFieldNames: Record<PlaceField, string> = {
@@ -73,6 +129,10 @@ export function buildMemberExplanation(input: {
 /**
  * English on purpose. The explanation and citation are read in the Moderation workspace, which
  * already uses English constants for server-written source labels.
+ *
+ * Every change summary is built from these enum label tables and nothing else. The summary becomes
+ * the Evidence citation, which reaches anonymous callers through the published profile, so neither
+ * the Member's note nor any stored free text may enter one.
  */
 export function describeRestraintChange(
   from: RestraintCondition,
@@ -85,12 +145,66 @@ export function describeRestraintChange(
   );
 }
 
+export function describeAreaChange(
+  from: AccessArea,
+  to: AccessArea,
+  surface: MemberContributionSurface
+): string {
+  return (
+    `Access area changed from ${areaNames[from]} to ${areaNames[to]}, ` +
+    `reported from ${surfaceNames[surface]}.`
+  );
+}
+
+export function describePermissionChange(
+  from: PermissionRequirement,
+  to: PermissionRequirement,
+  surface: MemberContributionSurface
+): string {
+  return (
+    `Permission requirement changed from ${permissionNames[from]} to ${permissionNames[to]}, ` +
+    `reported from ${surfaceNames[surface]}.`
+  );
+}
+
+export function describeEligibilityChange(
+  from: DogEligibility,
+  to: MemberEligibilityValue,
+  surface: MemberContributionSurface
+): string {
+  return (
+    `Dog eligibility changed from ${eligibilityName(from)} to ${eligibilityName(to)}, ` +
+    `reported from ${surfaceNames[surface]}.`
+  );
+}
+
 export function describePlaceFieldCorrection(
   field: PlaceField | null,
   surface: MemberContributionSurface
 ): string {
   const target = field === null ? 'an access condition' : placeFieldNames[field];
   return `Correction to ${target}, reported from ${surfaceNames[surface]}.`;
+}
+
+/**
+ * A Report names the reason and the surface and nothing else. It has no from-and-to pair, because a
+ * Report alleges rather than proposes, and the Member's note is not part of the claim's identity: it
+ * reaches the Moderator through `explanation` and stops there. The target is not named either,
+ * because the flag row already carries it.
+ *
+ * A null reason is a Report the form is about to reject; the summary is built before the parser
+ * runs, so it has to say something honest about a claim nobody can read yet.
+ */
+export function describePlaceReport(
+  reason: ReportReason | null,
+  surface: MemberContributionSurface
+): string {
+  const claim = reason === null ? 'Reported a problem' : reportReasonNames[reason];
+  return `${claim} from ${surfaceNames[surface]}.`;
+}
+
+function eligibilityName(eligibility: DogEligibility): string {
+  return eligibilityNames[memberEligibilityChoiceFor(eligibility) ?? 'other'];
 }
 
 function meaningfulNote(value: string | null): string | null {

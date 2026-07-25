@@ -493,16 +493,16 @@
     }
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .auth-dialog[open] {
-      animation: dialog-in 180ms ease-out;
-    }
+  /* The dialog is full of text, so its arrival is transform-only: words land at full contrast
+     and move into place (see the fade-family limit in tokens.css). The motion token collapses
+     to zero under reduced motion, so no media wrapper is needed. */
+  .auth-dialog[open] {
+    animation: dialog-in var(--hv-motion-quick) var(--hv-ease-settle);
+  }
 
-    @keyframes dialog-in {
-      from {
-        opacity: 0;
-        transform: translateY(0.4rem) scale(0.985);
-      }
+  @keyframes dialog-in {
+    from {
+      transform: translateY(0.4rem) scale(0.985);
     }
   }
 </style>

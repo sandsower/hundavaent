@@ -170,7 +170,7 @@ test('a Member corrects the restraint rule inline on the place card and the Mode
   // The affordance targets access_condition_id, which only the loaded profile carries, so it
   // appears once the profile arrives rather than with the summary chips.
   const start = selectedPlace.getByRole('button', {
-    name: `Correct the restraint rule for ${correctable.nameEn}`
+    name: `Not right? Correct the restraint rule for ${correctable.nameEn}`
   });
   await expect(start).toBeVisible();
   await start.click();
@@ -192,8 +192,11 @@ test('a Member corrects the restraint rule inline on the place card and the Mode
   const inlineFlagId = (JSON.parse(submissionBody) as { flagId: string }).flagId;
   expect(inlineFlagId).toBeTruthy();
 
-  // The editor collapses back to its quiet trigger and the outcome is announced out of band.
-  await expect(start).toBeVisible();
+  // The editor closes into the pending line straight away, without waiting for a read of the
+  // server: the Condition now has something open, and a second edit raised beside it would build
+  // from the stored Condition and propose reverting this one. The outcome is announced out of band.
+  await expect(start).toHaveCount(0);
+  await expect(selectedPlace.locator('[data-correction-pending]').first()).toBeVisible();
   await expect(selectedPlace.locator('[data-access-announcement]')).toHaveText(
     'Thank you. A Moderator will check this.'
   );
@@ -220,6 +223,116 @@ test('a Member corrects the restraint rule inline on the place card and the Mode
   await expandReviewSection(changeSection);
   await expect(changeSection).toContainText('Off-leash permitted');
   await moderatorContext.close();
+});
+
+test('a Member corrects the Place name in one language and a Moderator cannot apply it until the other is written', async ({
+  browser,
+  page
+}) => {
+  const { correctable } = localPlaceFlagFixtures;
+  // Fixed, not stamped with the clock. The fixture translations are re-seeded on every run, so the
+  // corrected name is the same every time and a second run against the same database sees the
+  // original name again rather than the previous run's. A unique name would have hidden a fixture
+  // that could not be re-provisioned.
+  const correctedName = 'Flag E2E Cafe and Bakery';
+  const memberEmail = `name-hatch-member-${Date.now()}@example.invalid`;
+  await signInMember(page, memberEmail);
+
+  await page.goto(`/en?place=${correctable.placeId}`);
+  await waitForHydration(page);
+  const selectedPlace = page.getByRole('complementary', { name: 'Selected place' });
+
+  // The name has no row on the card until a Member asks for one: readers see the practical details
+  // exactly as they always have, and one quiet line at the foot of them.
+  await selectedPlace.getByText('Place details').click();
+  const revealLine = selectedPlace.getByRole('button', {
+    name: `Spot something wrong? Correct the details for ${correctable.nameEn}`
+  });
+  await expect(revealLine).toBeVisible();
+  await expect(
+    selectedPlace.getByRole('button', {
+      name: `Not right? Correct the name of ${correctable.nameEn}`
+    })
+  ).toHaveCount(0);
+  await revealLine.click();
+
+  await selectedPlace
+    .getByRole('button', { name: `Not right? Correct the name of ${correctable.nameEn}` })
+    .click();
+  const nameInput = selectedPlace.getByLabel('Name of this place');
+  await expect(nameInput).toHaveValue(correctable.nameEn);
+  await nameInput.fill(correctedName);
+
+  const submissionPromise = page.waitForResponse((response) => {
+    return (
+      response.request().method() === 'POST' && response.url().includes('/corrections?lang=en')
+    );
+  });
+  await selectedPlace.getByRole('button', { name: 'Send', exact: true }).click();
+  const submission = await submissionPromise;
+  const submissionBody = await submission.text();
+  expect(submission.status(), submissionBody).toBe(200);
+  const nameFlagId = (JSON.parse(submissionBody) as { flagId: string }).flagId;
+
+  const moderatorContext = await browser.newContext();
+  const moderatorPage = await moderatorContext.newPage();
+  await signInModerator(moderatorPage);
+  await moderatorPage.goto(
+    `/en/moderation?queue=corrections-and-reports&item=${nameFlagId}&filter=actionable`
+  );
+  await waitForHydration(moderatorPage);
+
+  // The database accepts the one-language draft, so this panel is the only thing standing between
+  // a half-translated claim and a published Place.
+  const apply = moderatorPage
+    .getByRole('button', { name: 'Apply correction', exact: true })
+    .first();
+  await expect(apply).toBeDisabled();
+  await expect(moderatorPage.getByText('A translation is still missing').first()).toBeVisible();
+  await expect(
+    moderatorPage.getByRole('button', { name: 'Reject', exact: true }).first()
+  ).toBeEnabled();
+
+  const changeSection = moderatorPage.locator('#correction-change');
+  await expandReviewSection(changeSection);
+  await changeSection.getByRole('button', { name: 'Edit Change under review' }).click();
+  const applicationForm = changeSection.locator('[data-section-form="application"]');
+  // The Member was reading in English, so English is the locale their Correction wrote and
+  // Icelandic is the one it named for review. The flagged box prefills empty, so nothing invites
+  // accepting text nobody wrote.
+  await expect(applicationForm.getByLabel('Name in English')).toHaveValue(correctedName);
+  await expect(applicationForm.getByLabel('Name in Icelandic')).toHaveValue('');
+  await applicationForm.getByLabel('Name in Icelandic').fill(correctedName);
+  await applicationForm.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(moderatorPage.getByText('Draft changes saved.')).toBeVisible();
+
+  await expect(apply).toBeEnabled();
+  await apply.click();
+  const dialog = moderatorPage.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  const decisionPromise = moderatorPage.waitForResponse((response) => {
+    return response.request().method() === 'POST' && response.url().includes('?/decideCorrection');
+  });
+  await dialog.getByRole('button', { name: 'Apply correction', exact: true }).click();
+  const decision = await decisionPromise;
+  const decisionBody = await decision.text();
+  expect(decision.status(), decisionBody).toBe(200);
+  await expect(moderatorPage.locator('.live-status')).toContainText('The outcome has been saved.', {
+    timeout: 10_000
+  });
+  await moderatorContext.close();
+
+  const status = getLocalSupabaseStatus();
+  const publicClient = createClient<Database>(status.apiUrl, status.publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  for (const locale of ['en', 'is'] as const) {
+    const { data: rows } = await publicClient.rpc('get_published_place_profile', {
+      requested_place_id: correctable.placeId,
+      requested_locale: locale
+    });
+    expect(rows?.[0]?.name, `locale ${locale}`).toBe(correctedName);
+  }
 });
 
 test('a signed-in Member cannot open the Moderator Correction/Report queue', async ({ page }) => {
@@ -299,7 +412,7 @@ async function submitAccessConditionReport(
   if (options.safetyConcern) {
     await page.getByLabel('This is a Safety Concern').check();
   }
-  await fillEvidence(page, 'Report source');
+  // No Evidence fieldset: the server synthesizes the Member report record from the reason.
   await page.getByLabel('Private explanation to the Moderator').fill('Witnessed in person.');
   await page.getByRole('button', { name: 'Send private Report' }).click();
   await expect(
@@ -308,13 +421,6 @@ async function submitAccessConditionReport(
     )
   ).toBeVisible();
   return submittedFlagId(page);
-}
-
-async function fillEvidence(container: Page | Locator, label: string): Promise<void> {
-  await container.getByLabel('How did you find out?').selectOption('direct_observation');
-  await container.getByLabel('Short title').fill(label);
-  await container.getByLabel('Link, if you have one').fill('https://example.invalid/e2e-source');
-  await container.getByLabel('When did you find out?').fill('2026-07-11T09:00');
 }
 
 async function resolveLatestFlag(

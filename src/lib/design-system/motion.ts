@@ -12,6 +12,7 @@
  */
 
 export const motionDurationsMs = {
+  stagger: 50,
   instant: 120,
   quick: 200,
   considered: 320,
@@ -25,6 +26,7 @@ export const fadeDurationsMs = {
 } as const;
 
 export const operationsMotionDurationsMs = {
+  stagger: 30,
   instant: 80,
   quick: 120,
   considered: 180,

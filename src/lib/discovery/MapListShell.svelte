@@ -21,6 +21,7 @@
   import type { Catalogue, Locale } from '$i18n';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import type { PublishedPlaceProfile } from '$server/discovery/public-places';
+  import PawMark from '$lib/member-activity/PawMark.svelte';
   import MapSurface from '$lib/map/MapSurface.svelte';
   import type { MapAdapter, MapCamera, MapPadding } from '$lib/map/types';
 
@@ -955,7 +956,6 @@
   <div
     class="map-list-shell"
     data-responsive-shell
-    data-motion="tokenized"
     data-map-failed={mapFailed}
     data-map-moving={mapMoving}
     data-focus-fold={manualFold}
@@ -1078,6 +1078,7 @@
             </div>
           {:else if !manualFold}
             <div class="empty-state rail-content" role="status">
+              <span class="empty-paw" aria-hidden="true"><PawMark /></span>
               <strong>{copy['directory.noResultsTitle']}</strong>
               <span>{copy['directory.noResultsBody']}</span>
               <button type="button" onclick={clearFilters}>{copy['directory.clearFilters']}</button>
@@ -1287,11 +1288,13 @@
   }
 
   /* A selection folds an open list to the left edge tab; the count badge
-     keeps the slice alive while the card owns the screen. */
+     keeps the slice alive while the card owns the screen. The tab slides in
+     from the edge it lives on, mirroring the tray it stands in for. */
   .list-edge-tab {
     position: absolute;
     top: min(38dvh, 24rem);
     left: calc(-1 * var(--floating-card-inset));
+    animation: edge-tab-enter var(--hv-motion-considered) var(--hv-ease-settle) both;
     display: grid;
     gap: 0.2rem;
     padding: 0.55rem 0.5rem 0.5rem 0.6rem;
@@ -1304,6 +1307,16 @@
     cursor: pointer;
     place-items: center;
     pointer-events: auto;
+  }
+
+  @keyframes edge-tab-enter {
+    from {
+      transform: translateX(-0.4rem);
+    }
+
+    to {
+      transform: translateX(0);
+    }
   }
 
   .tab-count {
@@ -1363,16 +1376,30 @@
     height: 100%;
   }
 
+  /* Unfolding the tray is an arrival: display flipping from none restarts the animation, so
+     every unfold replays the same slide (and the cascade inside it). Folding snaps - the
+     departure pattern everywhere in this shell. */
   .results-overlay {
     width: 100%;
     border: 1px solid var(--hv-border-subtle);
     border-radius: var(--hv-radius-shell);
     background: var(--hv-color-snow-raised);
     box-shadow: var(--hv-shadow-floating);
+    animation: tray-enter var(--hv-motion-considered) var(--hv-ease-settle) both;
   }
 
   .results-overlay[data-results-visible='false'] {
     display: none;
+  }
+
+  @keyframes tray-enter {
+    from {
+      transform: translateX(-0.5rem);
+    }
+
+    to {
+      transform: translateX(0);
+    }
   }
 
   @keyframes detail-card-enter {
@@ -1394,6 +1421,24 @@
     border-radius: var(--hv-radius-shell);
     background: var(--hv-color-snow-raised);
     box-shadow: var(--hv-shadow-floating);
+  }
+
+  /* An unfilled paw settling in: no place matched, but the trail is still open. The words
+     stay still; only the decoration arrives. */
+  .empty-state .empty-paw {
+    width: 1.5rem;
+    color: var(--hv-color-basalt-muted);
+    animation: empty-paw-settles var(--hv-motion-considered) var(--hv-ease-settle) both;
+  }
+
+  @keyframes empty-paw-settles {
+    from {
+      transform: scale(0.78) rotate(-8deg);
+    }
+
+    to {
+      transform: scale(1) rotate(0);
+    }
   }
 
   .empty-state button {

@@ -205,6 +205,10 @@ test('public discovery and floating access details are keyboard-operable and Axe
   // Retain an independent floating-card pass after exercising portal geometry at 1024px.
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`/en?place=${evaluationFixtureIds.places.published}`);
+  // Every assertion below the hover is satisfiable by server-rendered DOM, so without this
+  // barrier the hover can dispatch pointerenter before Svelte attaches the tooltip handler -
+  // a race that only ever lost on slower CI runners.
+  await waitForHydration(page);
   const selectedCard = page.getByRole('complementary', { name: 'Selected place' });
   await expect(selectedCard).toBeVisible();
   await expect(selectedCard).toHaveAttribute('data-overlay', 'place');
@@ -560,6 +564,24 @@ test('reduced motion stills movement while keeping the Favourite flourish legibl
   );
   await expect(favouriteAction).toBeVisible();
 
+  // The arrival cascade is motion-family: both the entry and its stagger interval collapse,
+  // so the list lands settled rather than trickling in. The stagger token is asserted rather
+  // than a later item's delay because the fixture set makes no promise about list cardinality.
+  const staggeredItemMotion = await page
+    .locator('.results-overlay li')
+    .first()
+    .evaluate((element) => {
+      const styles = getComputedStyle(element);
+      const milliseconds = (value: string): number =>
+        value.trim().endsWith('ms') ? Number.parseFloat(value) : Number.parseFloat(value) * 1_000;
+      return {
+        duration: milliseconds(styles.animationDuration),
+        staggerInterval: milliseconds(styles.getPropertyValue('--hv-motion-stagger'))
+      };
+    });
+  expect(staggeredItemMotion.duration).toBeLessThanOrEqual(0.01);
+  expect(staggeredItemMotion.staggerInterval).toBe(0);
+
   // The control carries data-ui-mode, so this also proves the reduced-motion override reaches
   // past [data-ui-mode] specificity. A ":root"-only override would leave these at full duration.
   const durations = await favouriteAction.evaluate((element) => {
@@ -778,10 +800,19 @@ test('Correction, Report, and Moderator review forms are keyboard-operable and A
   await expect(page.getByLabel('Choose the detail')).toBeFocused();
   await expectNoSeriousAxeViolations(page, evidence);
 
-  await page.goto(
-    `/en/places/${correctable.placeId}/report?conditionId=${correctable.accessConditionId}`
-  );
+  // Deliberately the bare URL, which is what "Something else is wrong" on the card links to and
+  // what every other run of this form has never exercised: the deep-linked `?conditionId=` state
+  // is still captured by visual.spec.ts, so this pass covers the default one instead.
+  await page.goto(`/en/places/${correctable.placeId}/report`);
   await expect(page.getByRole('heading', { name: 'Report a problem' })).toBeVisible();
+  // The whole Place is the default, and it carries neither a field nor a Condition, so neither
+  // selector is in the DOM to be tabbed into or read out.
+  await expect(page.getByLabel('What are you correcting?')).toHaveValue('place');
+  await expect(page.getByLabel('What are you correcting?').locator('option:checked')).toHaveText(
+    'The whole place'
+  );
+  await expect(page.getByLabel('Choose the detail')).toHaveCount(0);
+  await expect(page.getByLabel('Choose the Access Condition')).toHaveCount(0);
   await page.getByLabel('What kind of problem is this?').focus();
   await page.keyboard.press('Tab');
   await expect(page.getByLabel('This is a Safety Concern')).toBeFocused();
@@ -1205,10 +1236,14 @@ test('the private achievements route is keyboard-operable and Axe-clean in both 
       // Contributions collection has no progress here, so its bronze tier reports none.
       await expect(page.locator('[data-achievement-tier]')).toHaveCount(12);
       await expect(page.getByRole('progressbar')).toHaveCount(3);
-      await expect(page.getByRole('region', { name: scenario.celebration })).toHaveAttribute(
-        'data-reduced-motion',
-        'true'
-      );
+      const celebration = page.getByRole('region', { name: scenario.celebration });
+      await expect(celebration).toHaveAttribute('data-reduced-motion', 'true');
+      // The token-family reduce contract on the celebration choreography: the card's travelling
+      // entry collapses to zero duration, while split elements keep their fade half appearing at
+      // full duration (0.26s member fade-considered). Names survive; durations tell the story.
+      await expect(celebration).toHaveCSS('animation-duration', '0s');
+      await expect(celebration.locator('.halo')).toHaveCSS('animation-duration', '0s, 0.26s');
+      await expect(celebration.locator('.paw')).toHaveCSS('animation-duration', '0s, 0.26s');
       // The signed-in header carries an equally-named account link; scope to the page body.
       const backLink = page.locator('main').getByRole('link', { name: scenario.backLink });
       await backLink.focus();

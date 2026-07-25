@@ -18,8 +18,8 @@
   import type { MessageKey } from '$i18n';
   import { formatLocalizedDate } from '$i18n/date';
   import {
+    localizeFlagTarget,
     localizePlaceCategory,
-    localizePlaceField,
     localizeReportReason
   } from '$i18n/structured-place';
 
@@ -67,11 +67,11 @@
         ? data.corrections.map((flag): ModerationWorkItem => ({
             id: flag.flagId,
             title: data.lang === 'is' ? flag.placeNameIs : flag.placeNameEn,
-            summary: `${data.copy[`flag.kind.${flag.kind}` as MessageKey]} · ${
-              flag.targetKind === 'place_field' && flag.targetField
-                ? localizePlaceField(flag.targetField, data.copy)
-                : data.copy['correction.targetAccessCondition']
-            }${flag.reportReason ? ` · ${localizeReportReason(flag.reportReason, data.copy)}` : ''}`,
+            summary: `${data.copy[`flag.kind.${flag.kind}` as MessageKey]} · ${localizeFlagTarget(
+              flag.targetKind,
+              flag.targetField,
+              data.copy
+            )}${flag.reportReason ? ` · ${localizeReportReason(flag.reportReason, data.copy)}` : ''}`,
             statusLabel: data.copy[`flag.status.${flag.outcome}` as MessageKey],
             meta: formatLocalizedDate(flag.submittedAt, data.lang),
             priority: flag.isSafetyConcern,
@@ -126,6 +126,25 @@
       (correctionReviewData?.flag.outcome === 'submitted' ||
         correctionReviewData?.flag.outcome === 'needs_information')
   );
+  /**
+   * The dock renders the decision controls the workspace uses, so the omitted-locale block has to
+   * be computed here as well as inside the panel. The test is whether a locale is still unwritten,
+   * not whether the Member's flag is present: reading the draft's application payload first is what
+   * lets a Moderator fill the gap and then apply, without the block outliving the gap it names.
+   */
+  const correctionTranslationBlocked = $derived.by(() => {
+    const flag = correctionReviewData?.flag;
+    if (!flag || flag.targetKind !== 'place_field') return false;
+    if (flag.targetField !== 'name' && flag.targetField !== 'description') return false;
+    const value = flag.draftPayload?.application_payload?.field_value ?? flag.proposedValue ?? null;
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+    const localized = value as { is?: unknown; en?: unknown };
+    return !isWritten(localized.is) || !isWritten(localized.en);
+  });
+
+  function isWritten(value: unknown): boolean {
+    return typeof value === 'string' && value.trim() !== '';
+  }
   const candidateDecisionAvailable = $derived(
     candidateReviewData?.review.candidateStatus === 'pending' ||
       candidateReviewData?.review.candidateStatus === 'needs_information' ||
@@ -325,6 +344,7 @@
           kind={correctionReviewData.flag.kind}
           targetKind={correctionReviewData.flag.targetKind}
           disabled={reviewHasUnsavedEdits}
+          acceptDisabled={correctionTranslationBlocked}
           ondecide={chooseCorrectionDecision}
         />
       {:else if candidateReviewData && (candidateDecisionAvailable || candidateDecisionError)}

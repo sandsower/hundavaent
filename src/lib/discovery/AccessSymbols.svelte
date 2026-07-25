@@ -10,6 +10,7 @@
     type AccessSymbolDimension,
     type AccessSymbolState
   } from '$domain/access-symbols';
+  import { createLiveAnnouncer } from '$lib/discovery/live-announcement';
 
   interface Props {
     placeName: string;
@@ -43,6 +44,7 @@
   // announce every radio change. Announcements go through this dedicated region instead, which
   // still carries the explanation when a chip opens the panel.
   let announcement = $state('');
+  const announce = createLiveAnnouncer((message) => (announcement = message));
   const presentation = $derived(buildAccessSymbolPresentation(conditions));
   const labels: Record<AccessSymbolState, MessageKey> = {
     indoors: 'accessSymbols.indoors',
@@ -249,20 +251,10 @@
 
   function activate(symbol: AccessSymbol): void {
     activeDimension = activeDimension === symbol.dimension ? null : symbol.dimension;
-    void announce(activeDimension ? `${label(symbol)} ${fullExplanation(symbol)}` : '');
+    announce(activeDimension ? `${label(symbol)} ${fullExplanation(symbol)}` : '');
     if (activeDimension && (symbol.state === 'special' || symbol.state === 'limited')) {
       onOpenDetails();
     }
-  }
-
-  async function announce(message: string): Promise<void> {
-    // Assigning the identical string is not a state change, so the live region would stay silent
-    // on a repeat. Clearing first makes a second identical outcome its own announcement.
-    if (announcement === message) {
-      announcement = '';
-      await tick();
-    }
-    announcement = message;
   }
 
   function portal(node: HTMLElement): { destroy: () => void } {
@@ -398,7 +390,7 @@
       onclick={() => {
         closeTooltip();
         activeDimension = activeDimension === 'complex' ? null : 'complex';
-        void announce(activeDimension === 'complex' ? explanation : '');
+        announce(activeDimension === 'complex' ? explanation : '');
         onOpenDetails();
       }}
     >
@@ -579,10 +571,12 @@
     background: var(--hv-access-area, #dce7e1);
     color: var(--hv-color-basalt);
     font: inherit;
+    /* The lift is motion, so it collapses under reduced motion; the border and shadow are
+       appearance changes that stay put, so they ride the fade family at full duration. */
     transition:
-      border-color 160ms ease,
-      transform 160ms ease,
-      box-shadow 160ms ease;
+      border-color var(--hv-fade-quick) var(--hv-ease-settle),
+      transform var(--hv-motion-quick) var(--hv-ease-settle),
+      box-shadow var(--hv-fade-quick) var(--hv-ease-settle);
   }
 
   .chip-label {
@@ -675,7 +669,7 @@
     pointer-events: auto;
     text-align: left;
     transform: translateY(var(--tooltip-reveal-y, 0.25rem));
-    transition: transform 160ms ease;
+    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
   }
 
   .tooltip[data-open='true'] {
@@ -703,7 +697,9 @@
     background: var(--hv-color-snow-raised, #fbfcf9);
     font-size: 0.78rem;
     line-height: 1.4;
-    animation: reveal 180ms ease both;
+    /* The detail carries text, so the reveal is transform-only: words arrive at full contrast
+       and move into place (see the fade-family limit in tokens.css). */
+    animation: reveal var(--hv-motion-quick) var(--hv-ease-settle) both;
   }
 
   .persistent-detail p {
@@ -728,21 +724,10 @@
 
   @keyframes reveal {
     from {
-      opacity: 0;
       transform: translateY(-0.2rem);
     }
     to {
-      opacity: 1;
       transform: translateY(0);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .symbol,
-    .tooltip,
-    .persistent-detail {
-      animation: none;
-      transition: none;
     }
   }
 </style>

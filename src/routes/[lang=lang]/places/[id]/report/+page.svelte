@@ -34,8 +34,14 @@
   let submitting = $state(false);
   // The target selector starts from the query-string preset (set once, from the link the Member
   // followed) and is thereafter freely editable, so the initial read is intentionally untracked.
-  let targetKind = $state<'place_field' | 'access_condition'>(
-    untrack(() => (data.presetConditionId ? 'access_condition' : 'place_field'))
+  //
+  // The whole Place is the default. "This place is closed" is not a claim about a field or a
+  // Condition, and a Member who arrives with nothing preselected is far likelier to have one of
+  // those claims than to have come here to name a specific fact.
+  let targetKind = $state<'place_field' | 'access_condition' | 'place'>(
+    untrack(() =>
+      data.presetConditionId ? 'access_condition' : data.presetField ? 'place_field' : 'place'
+    )
   );
   let targetField = $state<(typeof placeFields)[number]>(
     untrack(() => (data.presetField as (typeof placeFields)[number] | null) ?? 'name')
@@ -43,7 +49,9 @@
   let accessConditionId = $state(
     untrack(() => data.presetConditionId ?? data.place?.accessConditions[0]?.id ?? '')
   );
-  let reportReason = $state<(typeof reportReasons)[number]>('inaccurate');
+  let reportReason = $state<(typeof reportReasons)[number]>(
+    untrack(() => (data.presetReason as (typeof reportReasons)[number] | null) ?? 'inaccurate')
+  );
 
   $effect(() => {
     // Signed out visitors reach this page (rather than a server redirect) so the preselected
@@ -112,6 +120,7 @@
           <label class="hv-stack">
             {data.copy['correction.targetKind']}
             <select class="hv-field" name="targetKind" bind:value={targetKind}>
+              <option value="place">{data.copy['correction.targetWholePlace']}</option>
               <option value="place_field">{data.copy['correction.targetPlaceField']}</option>
               <option value="access_condition"
                 >{data.copy['correction.targetAccessCondition']}</option
@@ -119,6 +128,8 @@
             </select>
           </label>
 
+          <!-- The whole Place carries neither a field nor a Condition, and the validator rejects
+               it paired with either, so neither selector is offered while it is chosen. -->
           {#if targetKind === 'place_field'}
             <label class="hv-stack">
               {data.copy['correction.targetField']}
@@ -128,7 +139,7 @@
                 {/each}
               </select>
             </label>
-          {:else}
+          {:else if targetKind === 'access_condition'}
             <label class="hv-stack">
               {data.copy['correction.targetCondition']}
               <select class="hv-field" name="accessConditionId" bind:value={accessConditionId}>
@@ -169,44 +180,8 @@
           {/if}
         </fieldset>
 
-        <fieldset class="hv-form-section hv-panel">
-          <legend>{data.copy['evidenceField.section']}</legend>
-          <div class="hv-grid" data-columns="2">
-            <label class="hv-stack">
-              {data.copy['evidenceField.kind']}
-              <select class="hv-field" name="evidenceKind" required>
-                <option value="official_website">{data.copy['evidence.officialWebsite']}</option>
-                <option value="venue_representative"
-                  >{data.copy['evidence.venueRepresentative']}</option
-                >
-                <option value="member_report">{data.copy['evidence.memberReport']}</option>
-                <option value="direct_observation">{data.copy['evidence.directObservation']}</option
-                >
-                <option value="public_record">{data.copy['evidence.publicRecord']}</option>
-                <option value="other">{data.copy['evidence.other']}</option>
-              </select>
-            </label>
-            <label class="hv-stack">
-              {data.copy['evidenceField.label']}
-              <input class="hv-field" name="evidenceSourceLabel" required />
-            </label>
-          </div>
-          <div class="hv-grid" data-columns="2">
-            <label class="hv-stack">
-              {data.copy['evidenceField.url']}
-              <input class="hv-field" name="evidenceUrl" type="url" />
-            </label>
-            <label class="hv-stack">
-              {data.copy['evidenceField.citation']}
-              <input class="hv-field" name="evidenceCitation" />
-            </label>
-          </div>
-          <label class="hv-stack">
-            {data.copy['evidenceField.observedAt']}
-            <input class="hv-field" name="evidenceObservedAt" type="datetime-local" required />
-          </label>
-        </fieldset>
-
+        <!-- No Evidence fieldset: the server synthesizes the Member report record the database
+             requires, so a Member is never asked to fill in the Moderator's worksheet. -->
         <fieldset class="hv-form-section hv-panel">
           <legend>{data.copy['report.explanation']}</legend>
           <label class="hv-stack">

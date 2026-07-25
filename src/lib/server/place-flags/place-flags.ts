@@ -10,11 +10,24 @@ import type {
   FlagEvidence,
   PlaceField,
   PlaceFieldValue,
+  PlaceSnapshotValue,
   ReportPayload,
   ReportReason
 } from './place-flag-input';
 
 export type PlaceFlagKind = 'correction' | 'report';
+
+/**
+ * Every shape `current_value_snapshot` can hold, one per target kind. A reader has to discriminate
+ * before it can render, because the three have no key in common.
+ */
+export type PlaceFlagSnapshot = PlaceFieldValue | AccessConditionValue | PlaceSnapshotValue;
+
+/**
+ * Mirrors `private.place_flag_target_kind`. `place` addresses the whole Place and carries neither a
+ * field nor a Condition; it is a Report target only.
+ */
+export type PlaceFlagTargetKind = 'place_field' | 'access_condition' | 'place';
 export type PlaceFlagOutcome =
   | 'submitted'
   | 'needs_information'
@@ -50,13 +63,26 @@ export interface MemberPlaceFlag {
   outcome: PlaceFlagOutcome;
   placeNameIs: string;
   placeNameEn: string;
-  targetKind: 'place_field' | 'access_condition';
+  targetKind: PlaceFlagTargetKind;
   targetField: PlaceField | null;
   reportReason: ReportReason | null;
   memberReasonIs: string | null;
   memberReasonEn: string | null;
   submittedAt: string;
   updatedAt: string;
+}
+
+/**
+ * One open flag of the caller's on one Place. `reportReason` is carried even though Corrections
+ * never set it, so a pending Report can say which kind of Report it is without another migration.
+ */
+export interface MemberOpenPlaceFlag {
+  kind: PlaceFlagKind;
+  targetKind: PlaceFlagTargetKind;
+  targetField: PlaceField | null;
+  accessConditionId: string | null;
+  reportReason: ReportReason | null;
+  status: 'submitted' | 'needs_information';
 }
 
 export interface PlaceFlagPage<T, TCursor> {
@@ -82,7 +108,7 @@ export interface ModerationPlaceFlagSummary {
   placeId: string;
   placeNameIs: string;
   placeNameEn: string;
-  targetKind: 'place_field' | 'access_condition';
+  targetKind: PlaceFlagTargetKind;
   targetField: PlaceField | null;
   accessConditionId: string | null;
   reportReason: ReportReason | null;
@@ -107,11 +133,17 @@ export interface ModerationPlaceFlag {
   placeId: string;
   placeNameIs: string;
   placeNameEn: string;
-  targetKind: 'place_field' | 'access_condition';
+  targetKind: PlaceFlagTargetKind;
   targetField: PlaceField | null;
   accessConditionId: string | null;
-  currentValueSnapshot: PlaceFieldValue | AccessConditionValue;
-  currentLiveValue: (PlaceFieldValue | AccessConditionValue) | null;
+  currentValueSnapshot: PlaceFlagSnapshot;
+  // Null on a place-level Report, which is the right answer reached by accident rather than by
+  // decision: `get_moderation_place_flag` branches on `place_field` and falls through to the
+  // Access Condition read for everything else, so a whole-Place target hands
+  // `snapshot_access_condition` a null Condition id and gets zero rows back. Pinned by
+  // `050_place_level_reports.test.sql`; the next recreation of that function should state the null
+  // in an explicit `place` case arm instead of leaving it to the fall-through.
+  currentLiveValue: PlaceFlagSnapshot | null;
   currentPlaceVersion: number | null;
   currentVerificationId: string | null;
   currentVerificationStatus: VerificationStatus | null;
@@ -270,6 +302,34 @@ export async function listMemberPlaceFlags(
   }
 }
 
+export async function listMyOpenPlaceFlags(
+  client: PlaceFlagRpcClient,
+  placeId: string
+): Promise<PlaceFlagCommandResult<MemberOpenPlaceFlag[]>> {
+  try {
+    const { data, error } = await client.rpc('list_my_open_place_flags', {
+      requested_place_id: placeId
+    });
+    if (error) return { status: mapError(error.code) };
+    if (!Array.isArray(data) || !data.every(isOpenFlagRow)) {
+      return { status: 'infrastructure_error' };
+    }
+    return {
+      status: 'success',
+      value: data.map((row) => ({
+        kind: row.kind,
+        targetKind: row.target_kind,
+        targetField: row.target_field,
+        accessConditionId: row.access_condition_id,
+        reportReason: row.report_reason,
+        status: row.status
+      }))
+    };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
 export async function listModerationPlaceFlags(
   client: PlaceFlagRpcClient,
   cursor: ModerationPlaceFlagCursor | null = null,
@@ -361,10 +421,8 @@ export async function getModerationPlaceFlag(
         targetKind: row.target_kind,
         targetField: row.target_field,
         accessConditionId: row.access_condition_id,
-        currentValueSnapshot: row.current_value_snapshot as unknown as
-          PlaceFieldValue | AccessConditionValue,
-        currentLiveValue: row.current_live_value as unknown as
-          (PlaceFieldValue | AccessConditionValue) | null,
+        currentValueSnapshot: row.current_value_snapshot as unknown as PlaceFlagSnapshot,
+        currentLiveValue: row.current_live_value as unknown as PlaceFlagSnapshot | null,
         currentPlaceVersion: row.current_place_version,
         currentVerificationId: row.current_verification_id,
         currentVerificationStatus: row.current_verification_status,
@@ -532,8 +590,8 @@ function isKind(value: unknown): value is PlaceFlagKind {
   return value === 'correction' || value === 'report';
 }
 
-function isTargetKind(value: unknown): value is 'place_field' | 'access_condition' {
-  return value === 'place_field' || value === 'access_condition';
+function isTargetKind(value: unknown): value is PlaceFlagTargetKind {
+  return value === 'place_field' || value === 'access_condition' || value === 'place';
 }
 
 function isPlaceFieldOrNull(value: unknown): value is PlaceField | null {
@@ -593,7 +651,7 @@ function isMemberRow(value: unknown): value is Record<string, unknown> & {
   status: PlaceFlagOutcome;
   place_name_is: string;
   place_name_en: string;
-  target_kind: 'place_field' | 'access_condition';
+  target_kind: PlaceFlagTargetKind;
   target_field: PlaceField | null;
   report_reason: ReportReason | null;
   member_reason_is: string | null;
@@ -618,6 +676,27 @@ function isMemberRow(value: unknown): value is Record<string, unknown> & {
   );
 }
 
+function isOpenFlagRow(value: unknown): value is Record<string, unknown> & {
+  kind: PlaceFlagKind;
+  target_kind: PlaceFlagTargetKind;
+  target_field: PlaceField | null;
+  access_condition_id: string | null;
+  report_reason: ReportReason | null;
+  status: 'submitted' | 'needs_information';
+} {
+  return (
+    isRecord(value) &&
+    isKind(value.kind) &&
+    isTargetKind(value.target_kind) &&
+    isPlaceFieldOrNull(value.target_field) &&
+    isStringOrNull(value.access_condition_id) &&
+    isReportReasonOrNull(value.report_reason) &&
+    // Narrower than isOutcome on purpose: a resolved status coming back from a read that promises
+    // open flags is a contract break, not a row to render as pending.
+    (value.status === 'submitted' || value.status === 'needs_information')
+  );
+}
+
 function isModerationRow(value: unknown): value is Record<string, unknown> & {
   flag_id: string;
   member_id: string;
@@ -626,7 +705,7 @@ function isModerationRow(value: unknown): value is Record<string, unknown> & {
   place_id: string;
   place_name_is: string;
   place_name_en: string;
-  target_kind: 'place_field' | 'access_condition';
+  target_kind: PlaceFlagTargetKind;
   target_field: PlaceField | null;
   access_condition_id: string | null;
   report_reason: ReportReason | null;
@@ -681,7 +760,7 @@ function isModerationDetailRow(value: unknown): value is Record<string, unknown>
   place_id: string;
   place_name_is: string;
   place_name_en: string;
-  target_kind: 'place_field' | 'access_condition';
+  target_kind: PlaceFlagTargetKind;
   target_field: PlaceField | null;
   access_condition_id: string | null;
   current_value_snapshot: Record<string, unknown>;

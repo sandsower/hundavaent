@@ -6,15 +6,17 @@
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import {
     localizeAccessArea,
+    localizeFlagTarget,
     localizePermission,
-    localizePlaceField,
     localizeReportReason,
-    localizeRestraint
+    localizeRestraint,
+    localizeStoredPlaceCategory
   } from '$i18n/structured-place';
   import type {
     AccessConditionValue,
     FlagEvidence,
-    PlaceFieldValue
+    PlaceFieldValue,
+    PlaceSnapshotValue
   } from '$server/place-flags/place-flag-input';
   import type {
     ModerationPlaceFlag,
@@ -77,8 +79,12 @@
     data.trustedVerification?.outcome === 'superseded'
   );
   const showDecision = $derived(isOpen && !trustedVerificationSuperseded);
+  // A place-level Report addresses neither a field nor a Condition, so the detail read has no live
+  // value to compare and always returns null. Reading that as drift would put a permanent warning
+  // on every whole-place Report and say nothing true about the Place.
   const hasLiveDrift = $derived(
-    JSON.stringify(data.flag.currentLiveValue) !== JSON.stringify(data.flag.currentValueSnapshot)
+    data.flag.targetKind !== 'place' &&
+      JSON.stringify(data.flag.currentLiveValue) !== JSON.stringify(data.flag.currentValueSnapshot)
   );
 
   let submitting = $state(false);
@@ -103,8 +109,49 @@
   let disputeEvidence = $state<SuggestionProposal['evidence']>(emptyEvidence());
   let decisionNotes = $state('');
 
+  const effectiveProposedValue = $derived.by(() => {
+    const application = data.flag.draftPayload?.application_payload;
+    if (!application) return data.flag.proposedValue;
+    return data.flag.targetKind === 'place_field'
+      ? (application.field_value ?? data.flag.proposedValue)
+      : (application.replacement_condition ?? data.flag.proposedValue);
+  });
+
+  /**
+   * The omitted-locale hatch: a Member who speaks one language names the other instead of guessing
+   * it, and the database accepts that claim so it is never lost. Applying it would publish a
+   * half-translated Place, so this panel is what stops it, exactly as the Suggestion panel stops a
+   * half-translated Suggestion.
+   *
+   * The test is "is a locale actually missing", not "is a flag present". The flag says which locale
+   * the Member could not write; only the value says whether anyone has written it since. Reading the
+   * effective value is what lets a Moderator fill the gap in the application draft and then apply,
+   * without a round trip through the Member.
+   */
+  const translationBlocked = $derived(
+    isLocalizedField(data.flag.targetField) && missingLocale(effectiveProposedValue) !== null
+  );
+
+  function isLocalizedField(field: string | null): boolean {
+    return data.flag.targetKind === 'place_field' && (field === 'name' || field === 'description');
+  }
+
+  function missingLocale(value: unknown): 'is' | 'en' | null {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+    const localized = value as PlaceFieldValue;
+    if (!localized.is?.trim()) return 'is';
+    return localized.en?.trim() ? null : 'en';
+  }
+
   const attentionIssues = $derived.by(() => {
     const issues: ModerationReviewIssue[] = [];
+    if (translationBlocked) {
+      issues.push({
+        sectionId: 'correction-change',
+        label: data.copy['flag.translationNeeded'],
+        severity: 'blocking'
+      });
+    }
     if (data.flag.isSafetyConcern) {
       issues.push({
         sectionId: 'correction-evidence',
@@ -128,24 +175,23 @@
     }
     return issues;
   });
-  const readinessState = $derived(attentionIssues.length ? 'attention' : 'ready');
+  const readinessState = $derived(
+    translationBlocked ? 'blocked' : attentionIssues.length ? 'attention' : 'ready'
+  );
   const readinessLabel = $derived(
-    attentionIssues.length
-      ? data.copy['moderation.workbench.readiness.attention']
-      : data.copy['moderation.workbench.readiness.ready']
+    translationBlocked
+      ? data.copy['moderation.workbench.readiness.blocked']
+      : attentionIssues.length
+        ? data.copy['moderation.workbench.readiness.attention']
+        : data.copy['moderation.workbench.readiness.ready']
   );
   const readinessSummary = $derived(
-    attentionIssues.length
-      ? data.copy['flag.reviewAttentionSummary']
-      : data.copy['flag.reviewReadySummary']
+    translationBlocked
+      ? data.copy['flag.reviewBlockedSummary']
+      : attentionIssues.length
+        ? data.copy['flag.reviewAttentionSummary']
+        : data.copy['flag.reviewReadySummary']
   );
-  const effectiveProposedValue = $derived.by(() => {
-    const application = data.flag.draftPayload?.application_payload;
-    if (!application) return data.flag.proposedValue;
-    return data.flag.targetKind === 'place_field'
-      ? (application.field_value ?? data.flag.proposedValue)
-      : (application.replacement_condition ?? data.flag.proposedValue);
-  });
 
   $effect(() => {
     if (decisionRequest && decisionRequest.token !== handledDecisionToken) {
@@ -227,8 +273,11 @@
   }
 
   function initializeFieldValue(value: PlaceFieldValue): void {
-    fieldValueIs = value.is ?? '';
-    fieldValueEn = value.en ?? '';
+    // The flagged locale prefills empty rather than with a neighbouring language's text. A prefilled
+    // box invites a Moderator to accept a value nobody wrote; an empty required box asks for the
+    // one thing that is actually missing.
+    fieldValueIs = value.needs_review === 'is' ? '' : (value.is ?? '');
+    fieldValueEn = value.needs_review === 'en' ? '' : (value.en ?? '');
     const inner = value.value;
     fieldValueText = typeof inner === 'string' ? inner : '';
     fieldValueJson =
@@ -274,9 +323,27 @@
   }
 
   function target(): string {
-    return data.flag.targetKind === 'place_field' && data.flag.targetField
-      ? localizePlaceField(data.flag.targetField, data.copy)
-      : data.copy['correction.targetAccessCondition'];
+    return localizeFlagTarget(data.flag.targetKind, data.flag.targetField, data.copy);
+  }
+
+  /**
+   * The place snapshot has no key in common with either of the other two snapshot shapes, so it is
+   * read structurally rather than by trusting `targetKind` alone: a row that says `place` but
+   * carries something else renders nothing rather than half a Place.
+   */
+  function placeSnapshot(value: unknown): PlaceSnapshotValue | null {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+    const record = value as Record<string, unknown>;
+    const name = record.name;
+    if (typeof name !== 'object' || name === null) return null;
+    const localized = name as Record<string, unknown>;
+    if (typeof localized.is !== 'string' || typeof localized.en !== 'string') return null;
+    if (typeof record.category !== 'string' || typeof record.locality !== 'string') return null;
+    return {
+      name: { is: localized.is, en: localized.en },
+      category: record.category,
+      locality: record.locality
+    };
   }
 
   function describeValue(value: unknown): string {
@@ -416,6 +483,7 @@
           kind={data.flag.kind}
           targetKind={data.flag.targetKind}
           disabled={submitting || editingSection !== null}
+          acceptDisabled={translationBlocked}
           ondecide={beginDecision}
         />
       </ModerationActionBar>
@@ -423,10 +491,14 @@
   {/if}
 
   <div class="review-sections">
+    <!-- The section state is blocking only. Live drift stays a readiness warning that leaves this
+         section collapsed, because drift is something to notice; a missing locale is something the
+         Moderator has to type in here, so the section opens itself. -->
     <ModerationReviewSection
       id="correction-change"
       title={data.copy['flag.section.change']}
       summary={target()}
+      state={translationBlocked ? 'blocking' : 'complete'}
     >
       {#if editingSection === 'application'}
         <form
@@ -512,6 +584,29 @@
           {/if}
           {@render sectionActions('application')}
         </form>
+      {:else if data.flag.targetKind === 'place'}
+        <!-- The whole Place has no before-and-after pair to lay out: nothing is proposed, and there
+             is no live value to drift from. What a Moderator needs is what identified the Place at
+             the moment the claim was raised, in case it has been renamed or recategorized since. -->
+        {@const snapshot = placeSnapshot(data.flag.currentValueSnapshot)}
+        {#if snapshot}
+          <dl class="place-snapshot" data-place-snapshot>
+            <div>
+              <dt>{data.copy['flag.placeSnapshot']}</dt>
+              <dd>{snapshot.name.is} / {snapshot.name.en}</dd>
+            </div>
+            <div>
+              <dt>{data.copy['suggestion.category']}</dt>
+              <dd>{localizeStoredPlaceCategory(snapshot.category, data.copy)}</dd>
+            </div>
+            <div>
+              <dt>{data.copy['moderation.localityLabel']}</dt>
+              <dd>{snapshot.locality}</dd>
+            </div>
+          </dl>
+        {:else}
+          <p>{describeValue(data.flag.currentValueSnapshot)}</p>
+        {/if}
       {:else}
         <div class="diff-grid">
           <article>
@@ -860,6 +955,26 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.55rem;
   }
+  .place-snapshot {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+  }
+  .place-snapshot > div {
+    display: grid;
+    grid-template-columns: minmax(8rem, 0.35fr) 1fr;
+    gap: 1rem;
+    min-width: 0;
+  }
+  .place-snapshot dt {
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.72rem;
+    font-weight: 850;
+  }
+  .place-snapshot dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
   .evidence-grid,
   .date-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -988,7 +1103,8 @@
     .diff-grid,
     .evidence-grid,
     .date-grid,
-    .section-form {
+    .section-form,
+    .place-snapshot > div {
       grid-template-columns: 1fr;
     }
     .section-form > :global(.field-grid),

@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { page as browserPage } from 'vitest/browser';
 import { describe, expect, it, vi } from 'vitest';
 
+import '../../src/app.css';
+
 import { catalogues } from '$i18n';
 import AccessSymbols from '$lib/discovery/AccessSymbols.svelte';
 
@@ -53,8 +55,8 @@ describe('AccessSymbols', () => {
     const persistentDetail = document.querySelector<HTMLElement>('[data-access-detail]')!;
     expect(persistentDetail.textContent).toContain('does not imply permission');
     const detailStyle = getComputedStyle(persistentDetail);
-    expect(detailStyle.backgroundColor).toBe('rgb(251, 252, 249)');
-    expect(detailStyle.borderLeftColor).toBe('rgb(242, 201, 76)');
+    expect(detailStyle.backgroundColor).toBe('rgb(251, 254, 255)');
+    expect(detailStyle.borderLeftColor).toBe('rgb(255, 214, 66)');
     expect(Number.parseFloat(detailStyle.borderLeftWidth)).toBeGreaterThanOrEqual(4);
   });
 
@@ -220,8 +222,8 @@ describe('AccessSymbols', () => {
     // The tooltip slides but never fades, so an accessibility scan can never
     // sample a half-transparent state.
     expect(getComputedStyle(tooltip).transitionProperty).toBe('transform');
-    expect(getComputedStyle(tooltip).backgroundColor).toBe('rgb(30, 45, 49)');
-    expect(getComputedStyle(tooltip).color).toBe('rgb(251, 252, 249)');
+    expect(getComputedStyle(tooltip).backgroundColor).toBe('rgb(22, 56, 69)');
+    expect(getComputedStyle(tooltip).color).toBe('rgb(251, 254, 255)');
     expect(Number.parseFloat(getComputedStyle(tooltip).borderRadius)).toBeGreaterThan(0);
     expectContained(tooltip, document.documentElement);
     expectVerticallyContained(tooltip, document.documentElement);

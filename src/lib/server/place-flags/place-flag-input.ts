@@ -27,7 +27,25 @@ export interface FlagEvidence {
 export interface PlaceFieldValue {
   is?: string;
   en?: string;
+  /**
+   * The omitted-locale hatch: a one-language name or description names the locale it could not
+   * write instead of writing it, and that locale's key is absent. Moderation fills it before the
+   * draft can be applied, so no published value is ever half-translated.
+   */
+  needs_review?: 'is' | 'en';
   value?: string | null | Record<string, Json> | string[];
+}
+
+/**
+ * What `private.snapshot_place` records: what identified the Place at the moment a place-level
+ * Report was raised. A third snapshot shape, and deliberately not either of the other two: the whole
+ * Place has no single value, so what a Moderator needs is enough to recognize the Place months later
+ * even if it has since been renamed or recategorized.
+ */
+export interface PlaceSnapshotValue {
+  name: { is: string; en: string };
+  category: string;
+  locality: string;
 }
 
 export interface AccessConditionValue {
@@ -56,7 +74,21 @@ interface AccessConditionTarget {
   access_condition_id: string;
 }
 
-export type FlagTarget = PlaceFieldTarget | AccessConditionTarget;
+/**
+ * The whole Place, addressed by nothing but the Place itself. "This place is closed" is not a claim
+ * about a field or a Condition, and making a Member pick one before saying it was the reason
+ * Reports asked for a target they did not have.
+ *
+ * Reports only: a Correction proposes a replacement value for one fact, and the whole Place has no
+ * single value to replace. `place_flag_kind_shape` holds the same rule at the database.
+ */
+interface PlaceTarget {
+  target_kind: 'place';
+  target_field: null;
+  access_condition_id: null;
+}
+
+export type FlagTarget = PlaceFieldTarget | AccessConditionTarget | PlaceTarget;
 
 export interface CorrectionCommand {
   place_id: string;
@@ -133,6 +165,15 @@ export function isPlaceField(value: unknown): value is PlaceField {
   return typeof value === 'string' && placeFields.has(value as PlaceField);
 }
 
+/**
+ * The counterpart for Report reasons, so a surface that has to name the reason before the parser
+ * runs -- the report form builds its Evidence citation from it -- reads the same vocabulary the
+ * parser will enforce a moment later.
+ */
+export function isReportReason(value: unknown): value is ReportReason {
+  return typeof value === 'string' && reportReasons.has(value as ReportReason);
+}
+
 function readTarget(form: FormData): FlagTarget | null {
   const value = (key: string): string => String(form.get(key) ?? '').trim();
   const targetKind = value('targetKind');
@@ -153,6 +194,9 @@ function readTarget(form: FormData): FlagTarget | null {
       target_field: null,
       access_condition_id: accessConditionId
     };
+  }
+  if (targetKind === 'place') {
+    return { target_kind: 'place', target_field: null, access_condition_id: null };
   }
   return null;
 }
@@ -237,7 +281,39 @@ export function readAccessConditionValue(form: FormData): AccessConditionValue |
   };
 }
 
+/**
+ * The Member-facing reader. Name and description accept the omitted-locale hatch: one language is
+ * enough, and the other is named for review rather than guessed, copied or blanked.
+ *
+ * Requiring both locales asked a Member for a language they may not speak, which is how
+ * description Corrections came to be orphaned: the only honest answer was to leave the form.
+ */
 export function readPlaceFieldValue(form: FormData, field: PlaceField): PlaceFieldValue | null {
+  return readFieldValue(form, field, 'hatch');
+}
+
+/**
+ * The reader for a value that is about to be published rather than claimed. Name and description
+ * require both locales, and a blank one is a rejection.
+ *
+ * The hatch is a statement about a Member's own submission, "I read this card in one language and
+ * cannot write the other", and it has no meaning where writing the missing locale is the whole
+ * job. A Moderator draft parsed through the Member reader would silently turn a cleared
+ * locale box into a flag, which the apply path then refuses; the two readers are separate so that
+ * widening one can never widen the other.
+ */
+export function readCompletePlaceFieldValue(
+  form: FormData,
+  field: PlaceField
+): PlaceFieldValue | null {
+  return readFieldValue(form, field, 'both');
+}
+
+function readFieldValue(
+  form: FormData,
+  field: PlaceField,
+  locales: 'hatch' | 'both'
+): PlaceFieldValue | null {
   const value = (key: string): string => String(form.get(key) ?? '').trim();
 
   switch (field) {
@@ -245,7 +321,10 @@ export function readPlaceFieldValue(form: FormData, field: PlaceField): PlaceFie
     case 'description': {
       const is = value('fieldValueIs');
       const en = value('fieldValueEn');
-      if (!is || !en) return null;
+      if (locales === 'both') return is && en ? { is, en } : null;
+      if (!is && !en) return null;
+      if (!en) return { is, needs_review: 'en' };
+      if (!is) return { en, needs_review: 'is' };
       return { is, en };
     }
     case 'website_url': {
@@ -274,8 +353,8 @@ export function readPlaceFieldValue(form: FormData, field: PlaceField): PlaceFie
 
 /**
  * `suppliedEvidence` lets a Member-facing surface hand in a server-synthesized Evidence record
- * instead of asking the Member to fill in the Moderator's worksheet. The Moderation and Report
- * surfaces still solicit their own Evidence and read it from the form.
+ * instead of asking the Member to fill in the Moderator's worksheet. Both parsers accept one; the
+ * Moderation surfaces still solicit their own Evidence and read it from the form.
  */
 export function parseCorrectionFormData(
   form: FormData,
@@ -289,6 +368,12 @@ export function parseCorrectionFormData(
 
   if (!placeId || !explanation || !target || !evidence) {
     return { ok: false, error: 'incomplete' };
+  }
+
+  // The whole Place is a Report target only. A Correction proposes a replacement value for one
+  // fact, and there is no value here to read, let alone replace.
+  if (target.target_kind === 'place') {
+    return { ok: false, error: 'invalid' };
   }
 
   const proposedValue =
@@ -306,16 +391,25 @@ export function parseCorrectionFormData(
   };
 }
 
-export function parseReportFormData(form: FormData): ReportInputResult {
+export function parseReportFormData(
+  form: FormData,
+  suppliedEvidence?: FlagEvidence
+): ReportInputResult {
   const value = (key: string): string => String(form.get(key) ?? '').trim();
   const placeId = value('placeId');
   const explanation = value('explanation');
   const target = readTarget(form);
-  const evidence = readEvidence(form);
+  const evidence = suppliedEvidence ?? readEvidence(form);
   const reportReason = value('reportReason');
   const successorPlaceId = value('successorPlaceId');
+  // A Member-initiated "unsafe" is definitionally a Safety Concern, so the checkbox cannot
+  // un-escalate one: the card endpoint already hard-codes the pairing, and a claim raised through
+  // the form must not reach Moderation quieter than the same claim raised from the card. The
+  // free-standing checkbox stays, because every other reason can honestly be either.
   const isSafetyConcern =
-    form.get('isSafetyConcern') === 'on' || form.get('isSafetyConcern') === 'true';
+    reportReason === 'unsafe' ||
+    form.get('isSafetyConcern') === 'on' ||
+    form.get('isSafetyConcern') === 'true';
 
   if (!placeId || !explanation || !target || !evidence) {
     return { ok: false, error: 'incomplete' };

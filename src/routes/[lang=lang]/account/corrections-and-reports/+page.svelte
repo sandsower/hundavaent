@@ -2,7 +2,7 @@
   import { afterNavigate, replaceState } from '$app/navigation';
   import { resolve } from '$app/paths';
   import type { MessageKey } from '$i18n';
-  import { localizePlaceField } from '$i18n/structured-place';
+  import { localizeFlagTarget } from '$i18n/structured-place';
   import { applyWeeklyRhythmRecognition } from '$lib/member-activity/client';
   import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
 
@@ -36,9 +36,7 @@
   }
 
   function target(item: (typeof data.flags)[number]): string {
-    return item.targetKind === 'place_field' && item.targetField
-      ? localizePlaceField(item.targetField, data.copy)
-      : data.copy['correction.targetAccessCondition'];
+    return localizeFlagTarget(item.targetKind, item.targetField, data.copy);
   }
 
   afterNavigate(() => {

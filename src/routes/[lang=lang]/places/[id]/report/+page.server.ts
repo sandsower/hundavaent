@@ -8,8 +8,12 @@ import {
   RoleRequiredError,
   requireRole
 } from '$server/auth/require-role';
+import {
+  buildMemberReportEvidence,
+  describePlaceReport
+} from '$server/contributions/member-evidence';
 import { getPublishedProfile } from '$server/discovery/public-places';
-import { parseReportFormData } from '$server/place-flags/place-flag-input';
+import { isReportReason, parseReportFormData } from '$server/place-flags/place-flag-input';
 import { submitReport, type PlaceFlagRpcClient } from '$server/place-flags/place-flags';
 import { serializeRedirectRecognition } from '$server/member-activity/redirect-recognition';
 
@@ -34,6 +38,14 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 
   const presetField = url.searchParams.get('field');
   const presetConditionId = url.searchParams.get('conditionId');
+  // The form opens on the whole Place unless the link named a narrower target, and on the reason
+  // the link named if it named one. Nothing in the product produces `?reason=` today: the card's
+  // three claims submit straight to the API and never route through this form. It is kept, and
+  // validated, because this page is an addressable URL - a Moderator or a support reply can hand a
+  // Member a link that opens on the claim they were just asked about - and because dropping it
+  // would silently ignore a parameter a Member can already see in the query string.
+  const requestedReason = url.searchParams.get('reason');
+  const presetReason = isReportReason(requestedReason) ? requestedReason : null;
 
   try {
     await requireRole(locals.supabase, 'member');
@@ -42,11 +54,18 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
       place: profileResult.value,
       presetField,
       presetConditionId,
+      presetReason,
       commandId: randomUUID()
     };
   } catch (cause) {
     if (cause instanceof AuthenticationRequiredError || cause instanceof RoleRequiredError) {
-      return { signInUrl, place: profileResult.value, presetField, presetConditionId };
+      return {
+        signInUrl,
+        place: profileResult.value,
+        presetField,
+        presetConditionId,
+        presetReason
+      };
     }
     if (cause instanceof AuthenticationUnavailableError) {
       return {
@@ -54,7 +73,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
         signInUrl: null,
         place: profileResult.value,
         presetField,
-        presetConditionId
+        presetConditionId,
+        presetReason
       };
     }
     throw cause;
@@ -81,7 +101,22 @@ export const actions: Actions = {
       return fail(400, { error: 'invalid' as const });
     }
     formData.set('placeId', params.id);
-    const parsed = parseReportFormData(formData);
+    // The Member is never asked to construct an Evidence record. The server writes it, truthfully
+    // labelled as a Member report, and cites its own summary of the reason rather than the Member's
+    // explanation, which no public projection may ever reach.
+    const requestedReason = formData.get('reportReason');
+    const parsed = parseReportFormData(
+      formData,
+      buildMemberReportEvidence({
+        note: String(formData.get('explanation') ?? ''),
+        changeSummary: describePlaceReport(
+          isReportReason(requestedReason) ? requestedReason : null,
+          'report-form'
+        ),
+        observedAt: new Date().toISOString(),
+        surface: 'report-form'
+      })
+    );
     if (!parsed.ok) return fail(400, { error: parsed.error });
 
     const result = await submitReport(

@@ -75,6 +75,24 @@ export function localizeReportReason(value: string, copy: Catalogue): string {
   return messageKey ? copy[messageKey] : value;
 }
 
+/**
+ * What a flag is about, in the Member's words, wherever a flag is listed or reviewed.
+ *
+ * Every target kind names itself. The whole Place used to fall through to "An Access Condition",
+ * which told the reader the claim was about a fact the Member never mentioned. It lives here, and
+ * not in any one surface, because the queue summary, the review panel and the Member's own list
+ * all answer the same question and must never answer it differently.
+ */
+export function localizeFlagTarget(
+  targetKind: string,
+  targetField: string | null,
+  copy: Catalogue
+): string {
+  if (targetKind === 'place') return copy['correction.targetWholePlace'];
+  if (targetKind === 'place_field' && targetField) return localizePlaceField(targetField, copy);
+  return copy['correction.targetAccessCondition'];
+}
+
 const openingHoursMessageKeys: Readonly<Record<string, MessageKey>> = {
   monday: 'hours.monday',
   tuesday: 'hours.tuesday',
@@ -107,6 +125,17 @@ export function localizeEvidenceKind(value: EvidenceKind, copy: Catalogue): stri
 
 export function localizePlaceCategory(value: PlaceCategory, copy: Catalogue): string {
   return copy[placeCategoryMessageKeys[value]];
+}
+
+/**
+ * The tolerant counterpart, for a category read back out of stored jsonb rather than off a typed
+ * record. A snapshot taken months ago can name a category the domain has since dropped, and showing
+ * the stored word is more honest than showing nothing.
+ */
+export function localizeStoredPlaceCategory(value: string, copy: Catalogue): string {
+  const lookup: Readonly<Record<string, MessageKey | undefined>> = placeCategoryMessageKeys;
+  const messageKey = lookup[value];
+  return messageKey ? copy[messageKey] : value;
 }
 
 const weekdayOrder = Object.keys(openingHoursMessageKeys);
