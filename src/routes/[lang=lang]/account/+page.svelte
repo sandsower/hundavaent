@@ -128,12 +128,7 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main
-  class="account-shell hv-page-shell"
-  data-ui-mode="place"
-  data-width="narrow"
-  data-motion="tokenized"
->
+<main class="account-shell hv-page-shell" data-ui-mode="place" data-width="narrow">
   {#if data.member}
     <section class="account-card hv-panel hv-stack" aria-labelledby="account-title">
       <header class="hv-page-header">
