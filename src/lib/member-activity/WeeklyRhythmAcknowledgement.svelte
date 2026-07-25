@@ -170,13 +170,21 @@
 
   @keyframes pin-settles {
     from {
-      opacity: 0;
       transform: translateY(-0.32rem);
     }
 
     to {
-      opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @keyframes pin-appears {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
     }
   }
 
@@ -192,36 +200,54 @@
 
   @keyframes paw-stamps {
     0% {
-      opacity: 0;
       transform: rotate(11deg) scale(1.55);
     }
 
     72% {
-      opacity: 1;
       transform: rotate(11deg) scale(0.9);
     }
 
     100% {
-      opacity: 1;
       transform: rotate(11deg) scale(1);
     }
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .acknowledgement {
-      animation: acknowledgement-arrives 260ms ease-out both;
+  @keyframes paw-appears {
+    0% {
+      opacity: 0;
     }
 
-    .action-icon {
-      animation: pin-settles 280ms ease-out both;
+    72% {
+      opacity: 1;
     }
 
-    .trail {
-      animation: trail-draws 310ms 150ms ease-out both;
+    100% {
+      opacity: 1;
     }
+  }
 
-    .trail-motif :global(.paw-mark) {
-      animation: paw-stamps 360ms 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-    }
+  /* Anything that both moves and fades runs as two entries, one per family, so reduced motion
+     stills the travel while the pin and paw keep appearing (see tokens.css). */
+  .acknowledgement {
+    animation: acknowledgement-arrives var(--hv-motion-considered) var(--hv-ease-settle) both;
+  }
+
+  .action-icon {
+    animation:
+      pin-settles var(--hv-motion-considered) var(--hv-ease-settle) both,
+      pin-appears var(--hv-fade-considered) var(--hv-ease-settle) both;
+  }
+
+  .trail {
+    animation: trail-draws var(--hv-motion-considered) calc(var(--hv-motion-stagger) * 3)
+      var(--hv-ease-settle) both;
+  }
+
+  .trail-motif :global(.paw-mark) {
+    animation:
+      paw-stamps var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 6) var(--hv-ease-settle)
+        both,
+      paw-appears var(--hv-fade-considered) calc(var(--hv-motion-stagger) * 6) var(--hv-ease-settle)
+        both;
   }
 </style>

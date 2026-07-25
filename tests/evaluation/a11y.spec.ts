@@ -1236,10 +1236,14 @@ test('the private achievements route is keyboard-operable and Axe-clean in both 
       // Contributions collection has no progress here, so its bronze tier reports none.
       await expect(page.locator('[data-achievement-tier]')).toHaveCount(12);
       await expect(page.getByRole('progressbar')).toHaveCount(3);
-      await expect(page.getByRole('region', { name: scenario.celebration })).toHaveAttribute(
-        'data-reduced-motion',
-        'true'
-      );
+      const celebration = page.getByRole('region', { name: scenario.celebration });
+      await expect(celebration).toHaveAttribute('data-reduced-motion', 'true');
+      // The token-family reduce contract on the celebration choreography: the card's travelling
+      // entry collapses to zero duration, while split elements keep their fade half appearing at
+      // full duration (0.26s member fade-considered). Names survive; durations tell the story.
+      await expect(celebration).toHaveCSS('animation-duration', '0s');
+      await expect(celebration.locator('.halo')).toHaveCSS('animation-duration', '0s, 0.26s');
+      await expect(celebration.locator('.paw')).toHaveCSS('animation-duration', '0s, 0.26s');
       // The signed-in header carries an equally-named account link; scope to the page body.
       const backLink = page.locator('main').getByRole('link', { name: scenario.backLink });
       await backLink.focus();

@@ -59,18 +59,16 @@
     white-space: nowrap;
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .unread {
-      animation: achievement-unread-arrives 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-    }
+  .unread {
+    animation: achievement-unread-arrives var(--hv-motion-considered) var(--hv-ease-settle) both;
+  }
 
-    @keyframes achievement-unread-arrives {
-      from {
-        transform: scale(0.7) rotate(-12deg);
-      }
-      to {
-        transform: scale(1) rotate(0);
-      }
+  @keyframes achievement-unread-arrives {
+    from {
+      transform: scale(0.7) rotate(-12deg);
+    }
+    to {
+      transform: scale(1) rotate(0);
     }
   }
 </style>

@@ -101,19 +101,14 @@
     opacity: 0;
     pointer-events: none;
     transform: translateY(-0.2rem);
-    transition:
-      opacity 160ms ease,
-      transform 160ms ease;
+    /* The status is text: opacity snaps between the hidden and shown states while only the
+       transform takes time, so the words never pass through low contrast (see the fade-family
+       limit in tokens.css). */
+    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
   }
 
   .share-status.visible {
     opacity: 1;
     transform: translateY(0);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .share-status {
-      transition: none;
-    }
   }
 </style>

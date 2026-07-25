@@ -80,6 +80,13 @@
        gesture because the whole scene moves, and the eye needs the journey to stay legible. */
     --hv-motion-traverse: 450ms;
     --hv-motion-celebrate: 520ms;
+    /* Ambient decoration that runs indefinitely: the impact page's orbits. Deliberately outside
+       the reduce contract below - collapsing an infinite animation to zero duration restarts it
+       every frame, so reduced motion suppresses ambient use sites with `animation: none` instead.
+       Also deliberately absent from motion.ts: no JavaScript consumer exists, and keeping it out
+       of the step records keeps it out of the every-step-shrinks operations assertions, which
+       have nothing to say about scenery. */
+    --hv-motion-ambient: 18s;
     --hv-fade-quick: 160ms;
     --hv-fade-considered: 260ms;
     --hv-ease-settle: cubic-bezier(0.2, 0.85, 0.2, 1);

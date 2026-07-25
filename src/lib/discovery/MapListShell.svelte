@@ -21,6 +21,7 @@
   import type { Catalogue, Locale } from '$i18n';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import type { PublishedPlaceProfile } from '$server/discovery/public-places';
+  import PawMark from '$lib/member-activity/PawMark.svelte';
   import MapSurface from '$lib/map/MapSurface.svelte';
   import type { MapAdapter, MapCamera, MapPadding } from '$lib/map/types';
 
@@ -955,7 +956,6 @@
   <div
     class="map-list-shell"
     data-responsive-shell
-    data-motion="tokenized"
     data-map-failed={mapFailed}
     data-map-moving={mapMoving}
     data-focus-fold={manualFold}
@@ -1078,6 +1078,7 @@
             </div>
           {:else if !manualFold}
             <div class="empty-state rail-content" role="status">
+              <span class="empty-paw" aria-hidden="true"><PawMark /></span>
               <strong>{copy['directory.noResultsTitle']}</strong>
               <span>{copy['directory.noResultsBody']}</span>
               <button type="button" onclick={clearFilters}>{copy['directory.clearFilters']}</button>
@@ -1420,6 +1421,24 @@
     border-radius: var(--hv-radius-shell);
     background: var(--hv-color-snow-raised);
     box-shadow: var(--hv-shadow-floating);
+  }
+
+  /* An unfilled paw settling in: no place matched, but the trail is still open. The words
+     stay still; only the decoration arrives. */
+  .empty-state .empty-paw {
+    width: 1.5rem;
+    color: var(--hv-color-basalt-muted);
+    animation: empty-paw-settles var(--hv-motion-considered) var(--hv-ease-settle) both;
+  }
+
+  @keyframes empty-paw-settles {
+    from {
+      transform: scale(0.78) rotate(-8deg);
+    }
+
+    to {
+      transform: scale(1) rotate(0);
+    }
   }
 
   .empty-state button {

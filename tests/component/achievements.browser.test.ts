@@ -131,7 +131,7 @@ describe('Member Achievements view', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('keeps the same celebration content while removing staged motion for reduced-motion users', () => {
+  it('keeps the same celebration content for reduced-motion users', () => {
     vi.spyOn(window, 'matchMedia').mockImplementation(
       (query) =>
         ({
@@ -152,7 +152,9 @@ describe('Member Achievements view', () => {
       name: 'New achievement: Categories - Bronze'
     });
     expect(celebration.getAttribute('data-reduced-motion')).toBe('true');
-    expect(getComputedStyle(celebration).animationName).toBe('none');
+    // The CSS reduce contract (travelling halves at zero duration, fade halves at full) is
+    // asserted in tests/evaluation/a11y.spec.ts, where emulateMedia drives the real media
+    // query; this harness never loads app.css, so computed animation values are meaningless.
     expect(within(celebration).getByText('Achievement unlocked')).toBeTruthy();
   });
 
