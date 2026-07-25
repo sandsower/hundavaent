@@ -91,11 +91,16 @@
     ) {
       return;
     }
-    return new Promise((resolve) => {
-      document.startViewTransition(async () => {
-        resolve();
+    return new Promise((navigationReady) => {
+      const transition = document.startViewTransition(async () => {
+        navigationReady();
         await navigation.complete;
       });
+      // A skipped transition (rapid double navigation, hidden tab, duplicate name) and a
+      // failed load both reject these promises as their normal outcome; leaving them
+      // unhandled would feed spurious unhandledrejection events to browser error tracking.
+      transition.ready.catch(() => undefined);
+      transition.finished.catch(() => undefined);
     });
   });
 

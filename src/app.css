@@ -188,17 +188,33 @@ a {
   box-shadow: 0 0 0 2px var(--hv-focus-offset, #fbfcf9);
 }
 
-/* View transitions: the page crossfade rides the fade scale instead of the browser's 250ms
-   default, and the snapshot overlay must never swallow clicks mid-transition - a navigation
-   should feel faster than the page it leaves. The transition is only ever started for Members
-   without reduced motion (see shouldViewTransition), so no reduce override is needed here. */
+/* View transitions. Every group rides the fade scale and the settle curve instead of the UA
+   stylesheet's 250ms ease - the UA default is timing the drift test cannot see, so it must
+   never govern a named group. The transition is only ever started for Members without reduced
+   motion (see shouldViewTransition), so no reduce override is needed here. */
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: var(--hv-fade-quick);
+  animation-timing-function: var(--hv-ease-settle);
+}
+
+/* Clicks pass through the snapshot overlay to the NEW page, which is already live underneath:
+   the destination is interactive before its pixels finish arriving, rather than the whole app
+   going dead for the length of the crossfade. */
 ::view-transition {
   pointer-events: none;
 }
 
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: var(--hv-fade-quick);
+/* The header and the page title are text. Text never rides an opacity fade (see the fade
+   family's hard limit in tokens.css): their snapshot crossfades are suppressed, so the group
+   animation moves them into place at full contrast - and on navigations where only one side
+   carries the name, the title lands in one frame instead of fading in from nothing. */
+::view-transition-old(site-header),
+::view-transition-new(site-header),
+::view-transition-old(page-title),
+::view-transition-new(page-title) {
+  animation-name: none;
 }
 
 /* Surfaces that have adopted the motion token families declare data-motion="tokenized" and

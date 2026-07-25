@@ -38,6 +38,13 @@ describe('view transition policy', () => {
     ).toBe(false);
   });
 
+  it('skips the translations workspace in either direction', () => {
+    expect(
+      shouldViewTransition({ ...placeNavigation, toRouteId: '/translations/(workspace)/review' })
+    ).toBe(false);
+    expect(shouldViewTransition({ ...placeNavigation, fromRouteId: '/translations' })).toBe(false);
+  });
+
   it('stays out of navigations it cannot classify', () => {
     expect(shouldViewTransition({ ...placeNavigation, fromRouteId: null })).toBe(false);
     expect(shouldViewTransition({ ...placeNavigation, toRouteId: null })).toBe(false);
