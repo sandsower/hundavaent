@@ -7,7 +7,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../src/lib/server/db/generated.types.ts';
 import { getLocalSupabaseStatus } from '../tests/e2e/support/local-supabase.ts';
 
-const schemaVersion = 'member-retention-report/v1';
+const schemaVersion = 'member-retention-report/v2';
 const timeZone = 'Atlantic/Reykjavik';
 const suppressionThreshold = 5;
 const guardrailKinds = [
@@ -25,6 +25,9 @@ interface CliOptions {
   allowNonLocal: boolean;
 }
 
+// Shallow counts self-asserted activity (Favourite, Check-in); deep counts activity that enters
+// Moderator review. Both series share the headline cohort denominator and suppression rule, and
+// they overlap by design: a Member active in both depths is counted in both.
 interface CohortRetention {
   week1StartsOn: string;
   week4StartsOn: string;
@@ -32,6 +35,10 @@ interface CohortRetention {
   cohortMemberCount: number | null;
   retainedMemberCount: number | null;
   retentionRate: number | null;
+  shallowRetainedMemberCount: number | null;
+  shallowRetentionRate: number | null;
+  deepRetainedMemberCount: number | null;
+  deepRetentionRate: number | null;
 }
 
 interface IntegritySignal {
@@ -52,6 +59,8 @@ export interface MemberRetentionReport {
     windowEndsOn: string;
     suppressed: boolean;
     engagedMemberCount: number | null;
+    shallowEngagedMemberCount: number | null;
+    deepEngagedMemberCount: number | null;
   };
   guardrails: {
     windowStartsOn: string;
@@ -124,7 +133,9 @@ export function validateMemberRetentionReport(value: unknown): MemberRetentionRe
     'windowStartsOn',
     'windowEndsOn',
     'suppressed',
-    'engagedMemberCount'
+    'engagedMemberCount',
+    'shallowEngagedMemberCount',
+    'deepEngagedMemberCount'
   ]);
   if (
     !isDateOnly(rolling.windowStartsOn) ||
@@ -134,7 +145,23 @@ export function validateMemberRetentionReport(value: unknown): MemberRetentionRe
     invalidShape();
   }
   const engagedMemberCount = nullableCount(rolling.engagedMemberCount);
-  enforceSuppression(rolling.suppressed, [engagedMemberCount]);
+  const shallowEngagedMemberCount = nullableCount(rolling.shallowEngagedMemberCount);
+  const deepEngagedMemberCount = nullableCount(rolling.deepEngagedMemberCount);
+  enforceSuppression(rolling.suppressed, [
+    engagedMemberCount,
+    shallowEngagedMemberCount,
+    deepEngagedMemberCount
+  ]);
+  // Two active weeks at one depth are also two active weeks overall, so neither depth can exceed
+  // the undifferentiated series it decomposes.
+  if (
+    engagedMemberCount !== null &&
+    shallowEngagedMemberCount !== null &&
+    deepEngagedMemberCount !== null &&
+    (shallowEngagedMemberCount > engagedMemberCount || deepEngagedMemberCount > engagedMemberCount)
+  ) {
+    invalidShape();
+  }
 
   const guardrails = exactObject(report.guardrails, ['windowStartsOn', 'windowEndsOn', 'signals']);
   if (
@@ -162,7 +189,9 @@ export function validateMemberRetentionReport(value: unknown): MemberRetentionRe
       windowStartsOn: rolling.windowStartsOn,
       windowEndsOn: rolling.windowEndsOn,
       suppressed: rolling.suppressed,
-      engagedMemberCount
+      engagedMemberCount,
+      shallowEngagedMemberCount,
+      deepEngagedMemberCount
     },
     guardrails: {
       windowStartsOn: guardrails.windowStartsOn,
@@ -179,7 +208,11 @@ function parseCohort(value: unknown): CohortRetention {
     'suppressed',
     'cohortMemberCount',
     'retainedMemberCount',
-    'retentionRate'
+    'retentionRate',
+    'shallowRetainedMemberCount',
+    'shallowRetentionRate',
+    'deepRetainedMemberCount',
+    'deepRetentionRate'
   ]);
   if (
     !isDateOnly(cohort.week1StartsOn) ||
@@ -191,7 +224,19 @@ function parseCohort(value: unknown): CohortRetention {
   const cohortMemberCount = nullableCount(cohort.cohortMemberCount);
   const retainedMemberCount = nullableCount(cohort.retainedMemberCount);
   const retentionRate = nullableRate(cohort.retentionRate);
-  enforceSuppression(cohort.suppressed, [cohortMemberCount, retainedMemberCount, retentionRate]);
+  const shallowRetainedMemberCount = nullableCount(cohort.shallowRetainedMemberCount);
+  const shallowRetentionRate = nullableRate(cohort.shallowRetentionRate);
+  const deepRetainedMemberCount = nullableCount(cohort.deepRetainedMemberCount);
+  const deepRetentionRate = nullableRate(cohort.deepRetentionRate);
+  enforceSuppression(cohort.suppressed, [
+    cohortMemberCount,
+    retainedMemberCount,
+    retentionRate,
+    shallowRetainedMemberCount,
+    shallowRetentionRate,
+    deepRetainedMemberCount,
+    deepRetentionRate
+  ]);
   if (!cohort.suppressed) {
     if (
       cohortMemberCount === null ||
@@ -203,6 +248,20 @@ function parseCohort(value: unknown): CohortRetention {
     ) {
       invalidShape();
     }
+    // Each depth decomposes the headline series over the same denominator, so neither may exceed it.
+    for (const [count, rate] of [
+      [shallowRetainedMemberCount, shallowRetentionRate],
+      [deepRetainedMemberCount, deepRetentionRate]
+    ] as const) {
+      if (
+        count === null ||
+        count > retainedMemberCount ||
+        rate === null ||
+        Math.abs(rate - count / cohortMemberCount) > 0.00005
+      ) {
+        invalidShape();
+      }
+    }
   }
   return {
     week1StartsOn: cohort.week1StartsOn,
@@ -210,7 +269,11 @@ function parseCohort(value: unknown): CohortRetention {
     suppressed: cohort.suppressed,
     cohortMemberCount,
     retainedMemberCount,
-    retentionRate
+    retentionRate,
+    shallowRetainedMemberCount,
+    shallowRetentionRate,
+    deepRetainedMemberCount,
+    deepRetentionRate
   };
 }
 
