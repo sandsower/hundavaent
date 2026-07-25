@@ -31,13 +31,15 @@ run_admin() {
   "${psql_bin}" -X -v ON_ERROR_STOP=1 "${admin_url}" "$@"
 }
 
-# The restore target's own schemas are scratch state, not recovery material.
-# They are dropped so the captured definitions land exactly as they were taken.
+# Only the managed schemas the restore image ships are replaced, because the
+# captured auth-schema.sql and storage-schema.sql recreate them outright.
+#
+# public is deliberately left in place. `supabase db dump` emits
+# CREATE SCHEMA IF NOT EXISTS for private and security but never for public, so
+# dropping public would leave nothing to recreate it and the very first
+# statement referencing it fails under ON_ERROR_STOP.
 run_admin -c 'drop schema if exists auth cascade;
-  drop schema if exists storage cascade;
-  drop schema if exists private cascade;
-  drop schema if exists security cascade;
-  drop schema if exists public cascade;'
+  drop schema if exists storage cascade;'
 
 run_admin -f "${dir}/auth-schema.sql"
 run_admin -f "${dir}/schema.sql"

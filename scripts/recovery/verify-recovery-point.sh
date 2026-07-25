@@ -27,6 +27,20 @@ query() {
   "${psql_bin}" -X -qAt -v ON_ERROR_STOP=1 "${restore_db_url}" -c "$1"
 }
 
+# Every identifier reaching a query is validated, whether it came from the
+# catalogue or from a counts file written earlier in the run.
+assert_safe_table() {
+  if [[ ! "$1" =~ ^(public|private|security|auth|storage)\.[a-z_][a-z0-9_]*$ ]]; then
+    fail "unsafe table identifier reached the verification boundary: $1"
+  fi
+}
+
+assert_safe_column() {
+  if [[ ! "$1" =~ ^[a-z_][a-z0-9_]*$ ]]; then
+    fail "unsafe column identifier reached the verification boundary: $1"
+  fi
+}
+
 compare_counts() {
   local expected_file="$1"
   local label="$2"
@@ -36,6 +50,7 @@ compare_counts() {
   : > "${restored_file}"
   while read -r table _; do
     [[ -n "${table}" ]] || continue
+    assert_safe_table "${table}"
     echo "${table} $(query "select count(*) from ${table}")" >> "${restored_file}"
   done < "${expected_file}"
 
@@ -82,6 +97,8 @@ while read -r reference; do
   [[ -n "${reference}" ]] || continue
   column="${reference##*.}"
   table="${reference%.*}"
+  assert_safe_table "${table}"
+  assert_safe_column "${column}"
   orphans="$(query "
     select count(*) from ${table} child
     where child.${column} is not null

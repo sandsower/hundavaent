@@ -15,6 +15,7 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/../.." && pwd)"
 source_db_url="${1:-postgresql://postgres:postgres@127.0.0.1:55322/postgres}"
 postgres_image="${RECOVERY_POSTGRES_IMAGE:-public.ecr.aws/supabase/postgres:17.6.1.141}"
 
@@ -114,6 +115,16 @@ SQL
 "${psql_bin}" -X -qAt "${source_db_url}" -c "
   select 'seeded identities: ' || count(*) from auth.users
   where id::text like '${fixture_prefix}%'"
+
+# The release workflow pre-places schema.sql from `supabase db dump`, and the
+# capture script reuses it. Generating it here with pg_dump instead would
+# rehearse a file the workflow never produces - notably pg_dump emits
+# CREATE SCHEMA "public" while supabase db dump does not, which is exactly the
+# kind of divergence that makes a green rehearsal meaningless.
+echo "==> Producing schema.sql the way the workflow does"
+mkdir -p "${work_dir}"
+"${repo_root}/node_modules/.bin/supabase" db dump \
+  --db-url "${source_db_url}" -f "${work_dir}/schema.sql" >/dev/null
 
 echo "==> Capturing the recovery point"
 RECOVERY_PSQL="${psql_bin}" "${script_dir}/capture-recovery-point.sh" \

@@ -60,6 +60,16 @@ dump_data() {
   } > "$2"
 }
 
+# Catalogue-sourced names are still validated before interpolation. The old
+# inline workflow guarded every such boundary; keeping that here costs nothing
+# and prevents an unexpected identifier reaching a query unquoted.
+assert_safe_identifier() {
+  if [[ ! "$1" =~ ^(public|private|security|auth|storage)\.[a-z_][a-z0-9_]*$ ]]; then
+    echo "Unsafe identifier reached the recovery capture boundary: $1" >&2
+    exit 1
+  fi
+}
+
 count_schema_tables() {
   run_query "
     select n.nspname || '.' || c.relname
@@ -68,6 +78,7 @@ count_schema_tables() {
     where c.relkind = 'r' and n.nspname in ($1)" |
     while read -r table; do
       [[ -n "${table}" ]] || continue
+      assert_safe_identifier "${table}"
       echo "${table} $(run_query "select count(*) from ${table}")"
     done | sort
 }

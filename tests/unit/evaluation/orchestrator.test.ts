@@ -273,6 +273,26 @@ describe('release evaluation orchestration', () => {
     expect(captureScript).toContain("array_to_string(roles, ',')");
     expect(captureScript).toContain('quote_nullable(with_check)');
 
+    const verifyScript = readFileSync(
+      new URL('../../../scripts/recovery/verify-recovery-point.sh', import.meta.url),
+      'utf8'
+    );
+    const authDumpScript = readFileSync(
+      new URL('../../../scripts/recovery/dump-auth-data.sh', import.meta.url),
+      'utf8'
+    );
+
+    // Identifiers reaching a query are validated wherever they are interpolated.
+    expect(captureScript).toContain('assert_safe_identifier');
+    expect(verifyScript).toContain('assert_safe_table');
+    expect(verifyScript).toContain('assert_safe_column');
+
+    // Redaction is proven on emitted rows. A COPY-header check would pass even
+    // when every credential token was dumped in the clear.
+    expect(authDumpScript).toContain('assert_redacted');
+    expect(authDumpScript).toContain('$col != "\\\\N"');
+    expect(authDumpScript).not.toContain('is missing from the auth.users COPY header');
+
     // Identities must land before the application rows that reference them,
     // and every schema before its own data.
     const authSchema = restoreScript.indexOf('run_admin -f "${dir}/auth-schema.sql"');
@@ -288,6 +308,11 @@ describe('release evaluation orchestration', () => {
     // Managed schemas are owned by supabase_admin, so the restore has to use it.
     expect(restoreScript).toContain('RECOVERY_ADMIN_URL');
     expect(restoreScript).toContain('drop schema if exists auth cascade;');
+
+    // public must survive the restore. `supabase db dump` emits
+    // CREATE SCHEMA IF NOT EXISTS for private and security but never for
+    // public, so dropping it strands every public object under ON_ERROR_STOP.
+    expect(restoreScript).not.toContain('drop schema if exists public');
     expect(workflow).toContain('RECOVERY_ADMIN_URL="${RESTORE_DB_URL}?user=supabase_admin"');
     expect(workflow).toContain('psql "${RESTORE_DB_URL}" -f recovery/roles.sql || true');
 
