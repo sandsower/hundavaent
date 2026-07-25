@@ -28,6 +28,7 @@
   import DiscoveryResults from './DiscoveryResults.svelte';
   import PlaceList from './PlaceList.svelte';
   import SelectedPlaceCard from './SelectedPlaceCard.svelte';
+  import SuggestPlacePill from './SuggestPlacePill.svelte';
   import {
     availableAreas,
     filterPublishedPlaces,
@@ -1107,6 +1108,18 @@
         </button>
       {/if}
     </aside>
+
+    <!-- Browse chrome, and only browse chrome: the compact answer card owns the screen during a
+         selection, and the sticky fold is an explicit request for a quiet map. In both states the
+         pill steps aside with the rest of the cluster, and the left-edge tab keeps the way back to
+         the list to itself. -->
+    {#if !selectedPlace && !manualFold}
+      <SuggestPlacePill
+        href={suggestHref}
+        label={copy['directory.suggestPlace']}
+        quiet={mapMoving}
+      />
+    {/if}
 
     <section class="map-panel" data-active="true" aria-labelledby="map-heading">
       <h2 id="map-heading" class="visually-hidden">{copy['directory.mapLabel']}</h2>

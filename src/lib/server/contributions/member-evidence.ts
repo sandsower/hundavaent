@@ -10,13 +10,15 @@ import {
   type MemberEligibilityValue
 } from '$lib/contributions/correction';
 import type { FlagEvidence, PlaceField, ReportReason } from '$server/place-flags/place-flag-input';
+import type { SuggestionProposal } from '$server/suggestions/suggestion-input';
 
 /**
  * Member-facing contribution surfaces never ask a Member to fill in the Moderator's worksheet.
  * The server writes the Evidence record the database requires, and records here which surface
  * the claim came from and whether the citation is the Member's words or the server's.
  */
-export type MemberContributionSurface = 'place-card' | 'correction-form' | 'report-form';
+export type MemberContributionSurface =
+  'place-card' | 'correction-form' | 'report-form' | 'suggestion-form';
 
 export interface MemberReportEvidenceInput {
   note: string | null;
@@ -28,13 +30,15 @@ export interface MemberReportEvidenceInput {
 const sourceLabels: Record<MemberContributionSurface, string> = {
   'place-card': 'Member report from the place page',
   'correction-form': 'Member report from the correction form',
-  'report-form': 'Member report from the report form'
+  'report-form': 'Member report from the report form',
+  'suggestion-form': 'Member report from the suggestion form'
 };
 
 const surfaceNames: Record<MemberContributionSurface, string> = {
   'place-card': 'the place card',
   'correction-form': 'the correction form',
-  'report-form': 'the report form'
+  'report-form': 'the report form',
+  'suggestion-form': 'the suggestion form'
 };
 
 /**
@@ -116,6 +120,35 @@ export function buildMemberReportEvidence(input: MemberReportEvidenceInput): Fla
       // words into a record that can reach the public profile.
       memberNoteProvided: meaningfulNote(input.note) !== null
     }
+  };
+}
+
+/**
+ * A minimal Suggestion carries no Evidence worksheet at all: the Member names a Place, drops a pin
+ * and says where dogs are welcome, and nothing in those three answers is a claim about a source.
+ * The server writes the whole Evidence record, and every string in it comes from this module's
+ * fixed tables.
+ *
+ * The Place name is the only Member text in a minimal Suggestion, and it never enters this record.
+ * The citation reaches anonymous callers through the published profile once a Moderator accepts and
+ * publishes, so it stays structural; the name travels in `operator_name` and the translations, where
+ * a Moderator reviews it before anything is published.
+ */
+export function buildMemberSuggestionEvidence(input: {
+  changeSummary: string;
+  observedAt: string;
+  surface: MemberContributionSurface;
+}): SuggestionProposal['evidence'] {
+  return {
+    kind: 'member_report',
+    source_url: null,
+    source_citation: input.changeSummary,
+    source_label: sourceLabels[input.surface],
+    observed_at: input.observedAt,
+    // The Member wrote no explanation, so the summary stands in for one. Both fields are the
+    // server's own words, which is what makes it safe for either to be published.
+    explanation: input.changeSummary,
+    source_metadata: { submissionProfile: 'minimal-v1', surface: input.surface }
   };
 }
 
@@ -201,6 +234,15 @@ export function describePlaceReport(
 ): string {
   const claim = reason === null ? 'Reported a problem' : reportReasonNames[reason];
   return `${claim} from ${surfaceNames[surface]}.`;
+}
+
+/**
+ * A minimal Suggestion has no from-and-to pair and no reason vocabulary: it says that a Member
+ * proposed a Place that is not recorded yet, and names the surface they proposed it from. The
+ * Place name is deliberately absent - see `buildMemberSuggestionEvidence`.
+ */
+export function describePlaceSuggestion(surface: MemberContributionSurface): string {
+  return `New place suggestion, reported from ${surfaceNames[surface]}.`;
 }
 
 function eligibilityName(eligibility: DogEligibility): string {

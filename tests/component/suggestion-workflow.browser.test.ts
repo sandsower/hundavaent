@@ -148,66 +148,60 @@ describe('Member Suggestion workflow', () => {
   it.each([
     ['is', 'Leggðu til stað', 'Senda tillögu'],
     ['en', 'Suggest a place', 'Send suggestion']
-  ] as const)('renders the friendly short %s form', (lang, heading, submitLabel) => {
+  ] as const)('asks three questions and no more in %s', (lang, heading, submitLabel) => {
     render(SuggestionPage, {
       params: { lang },
-      data: { lang, copy: catalogues[lang], unavailable: false },
+      data: { lang, copy: catalogues[lang], unavailable: false, signInUrl: `/${lang}/account` },
       form: null
     } as never);
 
     expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
+    // One: the name. Two: the pin. Three: where dogs are welcome.
     expect(screen.getByLabelText(catalogues[lang]['suggestion.placeName'])).toBeTruthy();
-    expect(screen.getByLabelText(catalogues[lang]['suggestion.locationNote'])).toBeTruthy();
-    expect(screen.getByLabelText(catalogues[lang]['suggestion.welcomeArea'])).toBeTruthy();
-    expect(screen.getByLabelText(catalogues[lang]['suggestion.allDogsWelcome'])).toBeTruthy();
-    expect(screen.getByLabelText(catalogues[lang]['suggestion.welcomePermission'])).toBeTruthy();
     expect(
-      screen.getByRole('group', { name: catalogues[lang]['suggestion.howKnow'] })
+      screen.getByRole('region', { name: catalogues[lang]['suggestion.locationRegion'] })
     ).toBeTruthy();
-    expect(screen.getByLabelText(catalogues[lang]['suggestion.howKnowExplanation'])).toBeTruthy();
-    expect(screen.getByLabelText(catalogues[lang]['suggestion.howKnowDate'])).toBeTruthy();
-    expect(screen.queryByLabelText(catalogues[lang]['suggestion.postalCode'])).toBeNull();
-    expect(screen.queryByText(catalogues[lang]['suggestion.translationEn'])).toBeNull();
-    expect(screen.queryByText(catalogues[lang]['suggestion.translationIs'])).toBeNull();
-    expect(screen.getByRole('button', { name: submitLabel })).toBeTruthy();
+    const areas = screen.getByRole('group', { name: catalogues[lang]['suggestion.welcomeArea'] });
+    expect(areas.querySelectorAll('input[type="radio"]').length).toBe(3);
+    expect(
+      [...areas.querySelectorAll<HTMLInputElement>('input[type="radio"]')].map(
+        (radio) => radio.value
+      )
+    ).toEqual(['indoors', 'outdoors', 'designated_area']);
+    // Nothing is preselected: an unanswered question stays unanswered.
+    expect(areas.querySelector('input[type="radio"]:checked')).toBeNull();
+
+    const form = screen.getByRole('button', { name: submitLabel }).closest('form')!;
+    expect(form.querySelectorAll('input:not([type="hidden"]), select, textarea').length).toBe(4);
+    expect(new FormData(form).get('submissionProfile')).toBe('minimal-v1');
+    expect(form.querySelector('select')).toBeNull();
+    expect(form.querySelector('textarea')).toBeNull();
+    expect(form.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(screen.queryByLabelText(catalogues[lang]['suggestion.category'])).toBeNull();
   });
 
-  it('preserves every Member timing state when the optional schedule disclosure closes', async () => {
+  it('turns a signed-out submission into the sign-in flow without sending anything', () => {
     render(SuggestionPage, {
       params: { lang: 'en' },
-      data: { lang: 'en', copy: catalogues.en, unavailable: false },
-      form: null
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        unavailable: false,
+        signInUrl: '/en/account?returnTo=%2Fen%2Fsuggest'
+      },
+      form: { error: 'authentication_required' }
     } as never);
 
-    const toggle = screen.getByRole('button', { name: 'Only welcome at certain times?' });
-    const form = screen.getByRole('button', { name: 'Send suggestion' }).closest('form')!;
-    await fireEvent.click(toggle);
-    const timing = screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement;
-    expect(timing.value).toBe('limited');
-    expect(Array.from(timing.options, (option) => option.value)).toEqual([
-      'not_stated',
-      'whenever_open',
-      'limited'
-    ]);
-    const days = screen.getByLabelText(
-      'Which weekdays? (1-7, separated by commas)'
-    ) as HTMLInputElement;
-    await fireEvent.input(days, { target: { value: '1,2' } });
-    await fireEvent.click(toggle);
-    expect(new FormData(form).get('availabilityState')).toBe('limited');
-    expect(new FormData(form).get('availabilityDays')).toBe('1,2');
-
-    await fireEvent.click(toggle);
-    await fireEvent.change(timing, { target: { value: 'whenever_open' } });
-    expect(screen.queryByLabelText('Which weekdays? (1-7, separated by commas)')).toBeNull();
-    await fireEvent.click(toggle);
-    expect(new FormData(form).get('availabilityState')).toBe('whenever_open');
-    expect(new FormData(form).get('availabilityDays')).toBeNull();
-
-    await fireEvent.click(toggle);
-    await fireEvent.change(timing, { target: { value: 'not_stated' } });
-    await fireEvent.click(toggle);
-    expect(new FormData(form).get('availabilityState')).toBe('not_stated');
+    const gate = screen.getByRole('alert');
+    expect(gate.textContent).toContain('Sign in to send this suggestion.');
+    const signIn = screen.getByRole('link', { name: 'Sign in' });
+    expect(signIn.getAttribute('href')).toBe('/en/account?returnTo=%2Fen%2Fsuggest');
+    // The questions stay readable behind the gate: signing in is the next step, not a dead end.
+    expect(screen.getByLabelText('Place name')).toBeTruthy();
+    expect(
+      (screen.getByRole('button', { name: 'Send suggestion' }) as HTMLButtonElement).disabled
+    ).toBe(false);
+    expect(gate.textContent).not.toContain('Check the highlighted answers');
   });
 
   it('announces the fail-closed suggestion-abuse boundary without rendering a usable form', () => {

@@ -1,4 +1,8 @@
 import type { DogEligibility } from '$domain/access';
+import {
+  buildMemberSuggestionEvidence,
+  describePlaceSuggestion
+} from '$server/contributions/member-evidence';
 import type { Json } from '$server/db/generated.types';
 
 export type SuggestionInputError = 'excluded_purpose' | 'incomplete' | 'invalid';
@@ -91,6 +95,13 @@ const accessAreas = new Set<SuggestionProposal['access_condition']['access_area'
   'designated_area',
   'other_bounded'
 ]);
+// The Member vocabulary drops `other_bounded`: naming "another stated area" is only meaningful
+// alongside the note that states it, and the minimal Suggestion asks for no notes.
+const minimalAccessAreas = new Set<SuggestionProposal['access_condition']['access_area']>([
+  'indoors',
+  'outdoors',
+  'designated_area'
+]);
 const restraints = new Set<SuggestionProposal['access_condition']['restraint_condition']>([
   'leash_required',
   'off_leash_permitted',
@@ -107,6 +118,12 @@ const availabilityStates = new Set<SuggestionProposal['access_condition']['avail
   'limited',
   'not_stated'
 ]);
+/**
+ * Written wherever the Suggestion contract refuses an empty string and the Member stated nothing.
+ * It is the server's own sentence, and it says so: a Moderator reading it knows no one claimed
+ * this, which is the opposite of what a plausible default would tell them.
+ */
+const notStatedByMember = 'Not stated by the member';
 const evidenceKinds = new Set<SuggestionProposal['evidence']['kind']>([
   'official_website',
   'venue_representative',
@@ -123,6 +140,9 @@ export function parseSuggestionFormData(
   const value = (key: string): string => String(form.get(key) ?? '').trim();
   const purpose = value('purpose');
   if (purpose !== 'dog_access_destination') return { ok: false, error: 'excluded_purpose' };
+  if (value('submissionProfile') === 'minimal-v1') {
+    return parseMinimalSuggestionFormData(form, options);
+  }
   if (value('submissionProfile') === 'simple-v1') {
     return parseSimpleSuggestionFormData(form, options);
   }
@@ -263,6 +283,103 @@ export function parseSuggestionFormData(
   }
 
   return { ok: true, proposal };
+}
+
+/**
+ * The minimal Suggestion asks three questions and no more: the Place name, a map pin, and where
+ * dogs are welcome. Everything else the Suggestion contract requires is a server position, taken
+ * once, here, and every position is the weakest honest claim rather than a plausible guess.
+ *
+ * A default is only ever written where the contract refuses to store nothing. `leash_required` and
+ * `standing_permission` would each read as a fact the Member never stated, so the restraint lands on
+ * `other_sourced` with a note that says so and the permission lands on `ask_on_arrival`, the
+ * weakest claim in its vocabulary. `dog_eligibility` has no weak value to pick: the RPC accepts
+ * `{"scope":"all_dogs"}` and nothing else from a Suggestion, so the shape is the contract's, not a
+ * claim of ours.
+ *
+ * Both translations are flagged `needs_review`, because neither description is Member text - a
+ * minimal Suggestion has no description at all. A flagged translation blocks Moderator accept and
+ * prefills the editor empty, which is exactly the handover this profile needs: a Moderator writes
+ * the descriptions, and repairs the synthesized address in the Location editor, before the Place
+ * can become a Candidate.
+ */
+function parseMinimalSuggestionFormData(
+  form: FormData,
+  options: SuggestionParseOptions
+): SuggestionInputResult {
+  const value = (key: string): string => String(form.get(key) ?? '').trim();
+  const name = value('name');
+  const accessArea = value('accessArea');
+  const latitudeValue = value('latitude');
+  const longitudeValue = value('longitude');
+
+  if (!name || !accessArea || !latitudeValue || !longitudeValue) {
+    return { ok: false, error: 'incomplete' };
+  }
+
+  const latitude = Number(latitudeValue);
+  const longitude = Number(longitudeValue);
+  if (
+    !minimalAccessAreas.has(accessArea as SuggestionProposal['access_condition']['access_area']) ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    return { ok: false, error: 'invalid' };
+  }
+
+  const locale = options.locale ?? 'en';
+  const now = (options.now ?? (() => new Date()))();
+  // Locality inference reads the Member's own words about where a Place is, and a minimal
+  // Suggestion has none: the pin is the whole answer. Skipping inference lands on the same
+  // capital-region fallback an unrecognized note already lands on, and the Moderation Location
+  // editor exists for exactly this repair.
+  const region = capitalRegionFallback(locale);
+  const unreviewedTranslation = {
+    name,
+    description: notStatedByMember,
+    needs_review: true
+  };
+
+  return {
+    ok: true,
+    proposal: {
+      purpose: 'dog_access_destination',
+      operator_name: name,
+      category: 'other',
+      location: {
+        address_line: `Map pin at ${formatCoordinate(latitude)}, ${formatCoordinate(longitude)}`,
+        locality: region.locality,
+        postal_code: '000',
+        municipality: region.municipality,
+        latitude,
+        longitude
+      },
+      translations: { is: { ...unreviewedTranslation }, en: { ...unreviewedTranslation } },
+      website_url: null,
+      phone: null,
+      opening_hours: {},
+      dog_amenities: [],
+      access_condition: {
+        access_area: accessArea as SuggestionProposal['access_condition']['access_area'],
+        access_area_note: null,
+        restraint_condition: 'other_sourced',
+        restraint_note: notStatedByMember,
+        dog_eligibility: { scope: 'all_dogs' },
+        availability_state: 'not_stated',
+        availability_window: {},
+        permission_requirement: 'ask_on_arrival'
+      },
+      evidence: buildMemberSuggestionEvidence({
+        changeSummary: describePlaceSuggestion('suggestion-form'),
+        observedAt: now.toISOString(),
+        surface: 'suggestion-form'
+      })
+    }
+  };
 }
 
 function parseSimpleSuggestionFormData(
@@ -433,11 +550,26 @@ function inferLocation(
     { pattern: /kj[oó]s/i, locality: 'Kjósarhreppur', municipality: 'kjosarhreppur' }
   ];
   return (
-    municipalities.find((candidate) => candidate.pattern.test(note)) ?? {
-      locality: locale === 'is' ? 'Höfuðborgarsvæðið' : 'Capital region',
-      municipality: 'reykjavik'
-    }
+    municipalities.find((candidate) => candidate.pattern.test(note)) ??
+    capitalRegionFallback(locale)
   );
+}
+
+/**
+ * Where the Place is, said no more precisely than it is known. Every Suggestion the product accepts
+ * is inside the capital region, and the RPC refuses any other municipality, so this is the honest
+ * floor rather than a guess at a neighbourhood.
+ */
+function capitalRegionFallback(locale: 'is' | 'en'): { locality: string; municipality: string } {
+  return {
+    locality: locale === 'is' ? 'Höfuðborgarsvæðið' : 'Capital region',
+    municipality: 'reykjavik'
+  };
+}
+
+// Five decimals is roughly a metre, which is finer than a pin dropped by thumb.
+function formatCoordinate(value: number): string {
+  return String(Number(value.toFixed(5)));
 }
 
 function sourceLabel(kind: SuggestionProposal['evidence']['kind']): string {

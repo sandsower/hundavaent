@@ -15,26 +15,42 @@ import { serializeRedirectRecognition } from '$server/member-activity/redirect-r
 
 import type { Actions, PageServerLoad } from './$types';
 
+/**
+ * Anyone can read the three questions. A visitor who is not signed in reaches this page, sees what
+ * is being asked, and meets the sign-in gate only when they submit: the entry point on the map is
+ * permanently reachable, and a sign-in wall in front of it would make it permanently reachable only
+ * for Members. The gate lives in the action below, which is where a submission is actually refused.
+ */
 export const load: PageServerLoad = async ({ locals, params, url }) => {
   const lang = parseLocale(params.lang);
   const returnTo = `${url.pathname}${url.search}`;
   const presetCoordinates = parsePresetCoordinates(url.searchParams);
   const mapStyleUrl = env.PUBLIC_MAP_STYLE_URL?.trim() || null;
+  // The pin the Member chose lives in the query string, so returning from sign-in lands on the
+  // same three questions with the same pin. Nothing else is deferred and nothing is replayed.
+  const signInUrl = accountUrl(lang, returnTo);
 
   if (!locals.supabase) {
-    redirectToAccount(lang, returnTo);
+    return {
+      unavailable: true as const,
+      signInUrl,
+      ...presetCoordinates,
+      mapStyleUrl,
+      commandId: randomUUID()
+    };
   }
 
   try {
     await requireRole(locals.supabase, 'member');
-    return { ...presetCoordinates, mapStyleUrl, commandId: randomUUID() };
+    return { signInUrl, ...presetCoordinates, mapStyleUrl, commandId: randomUUID() };
   } catch (cause) {
     if (cause instanceof AuthenticationRequiredError || cause instanceof RoleRequiredError) {
-      redirectToAccount(lang, returnTo);
+      return { signInUrl, ...presetCoordinates, mapStyleUrl, commandId: randomUUID() };
     }
     if (cause instanceof AuthenticationUnavailableError) {
       return {
         unavailable: true as const,
+        signInUrl,
         ...presetCoordinates,
         mapStyleUrl,
         commandId: randomUUID()
@@ -97,8 +113,8 @@ export const actions: Actions = {
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function redirectToAccount(lang: 'is' | 'en', returnTo: string): never {
-  redirect(303, `/${lang}/account?returnTo=${encodeURIComponent(returnTo)}`);
+function accountUrl(lang: 'is' | 'en', returnTo: string): string {
+  return `/${lang}/account?returnTo=${encodeURIComponent(returnTo)}`;
 }
 
 // Preserves a discovery-selected map Location across the sign-in redirect so the

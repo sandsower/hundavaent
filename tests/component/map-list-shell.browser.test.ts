@@ -1773,7 +1773,7 @@ describe('MapListShell synchronization', () => {
     expect(window.location.search).not.toContain('category=');
   });
 
-  it('offers a missing-place suggestion only when no place matches', async () => {
+  it('offers the louder missing-place row only when no place matches', async () => {
     history.replaceState(null, '', '/en');
     const { rerender } = render(MapListShell, {
       places,
@@ -1786,7 +1786,9 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     });
 
-    expect(screen.queryByRole('link', { name: 'Suggest a place' })).toBeNull();
+    expect(
+      screen.queryByRole('link', { name: 'Suggest the place you are looking for' })
+    ).toBeNull();
 
     await rerender({
       places: [],
@@ -1799,7 +1801,79 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     } as never);
 
+    // Two distinct entry points, so a Member reading either one is never told the same thing
+    // twice, and neither accessible name contains the other.
+    expect(
+      screen.getByRole('link', { name: 'Suggest the place you are looking for' })
+    ).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Suggest a place' })).toBeTruthy();
+  });
+
+  it('keeps the suggest pill on the map while browsing and takes it away during a selection', async () => {
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    const pill = screen.getByRole('link', { name: 'Suggest a place' });
+    expect(pill.getAttribute('href')).toContain('/en/suggest?');
+    expect(pill.getAttribute('href')).toContain('latitude=');
+    expect(pill.getAttribute('href')).toContain('longitude=');
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Published Place' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: 'Suggest a place' })).toBeNull();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Close selected place' }));
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Suggest a place' })).toBeTruthy();
+    });
+  });
+
+  it('quiets the suggest pill during a map gesture and folds it away with the rest of the chrome', async () => {
+    history.replaceState(null, '', '/en');
+    let mountedCallbacks: MapCallbacks | null = null;
+    const adapter: MapAdapter = {
+      mount: vi.fn((_container, callbacks) => {
+        mountedCallbacks = callbacks;
+      }),
+      setPlaces: vi.fn(),
+      setSelectedPlace: vi.fn(),
+      focusPlace: vi.fn(),
+      setCamera: vi.fn(),
+      destroy: vi.fn()
+    };
+    const { container } = render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter,
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+    await waitFor(() => expect(adapter.setPlaces).toHaveBeenCalled());
+    const callbacks = mountedCallbacks as unknown as MapCallbacks;
+    const dock = () => container.querySelector<HTMLElement>('[data-suggest-dock]');
+
+    expect(getComputedStyle(dock()!).opacity).toBe('1');
+    callbacks.onMoveStateChange?.(true);
+    await waitFor(() => expect(Number(getComputedStyle(dock()!).opacity)).toBeLessThan(1));
+    callbacks.onMoveStateChange?.(false);
+    await waitFor(() => expect(getComputedStyle(dock()!).opacity).toBe('1'));
+
+    // The sticky fold is an explicit request for a quiet map, and the pill is chrome.
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide controls' }));
+    await waitFor(() => expect(dock()).toBeNull());
   });
 
   it('keeps filters, results, and the selected Place mutually exclusive', async () => {

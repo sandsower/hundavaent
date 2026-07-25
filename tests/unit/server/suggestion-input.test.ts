@@ -54,6 +54,186 @@ function simpleForm(): FormData {
   return form;
 }
 
+const minimalName = 'Minimal test cafe';
+
+function minimalForm(): FormData {
+  const form = new FormData();
+  const values: Record<string, string> = {
+    purpose: 'dog_access_destination',
+    submissionProfile: 'minimal-v1',
+    name: minimalName,
+    latitude: '64.1466',
+    longitude: '-21.9426',
+    accessArea: 'outdoors'
+  };
+  for (const [key, value] of Object.entries(values)) form.set(key, value);
+  return form;
+}
+
+function minimalProposal(overrides: Record<string, string> = {}) {
+  const form = minimalForm();
+  for (const [key, value] of Object.entries(overrides)) form.set(key, value);
+  const result = parseSuggestionFormData(form, {
+    locale: 'en',
+    now: () => new Date('2026-07-25T10:30:00Z')
+  });
+  if (!result.ok) throw new Error(`The minimal Suggestion did not parse: ${result.error}`);
+  return result.proposal;
+}
+
+describe('minimal Suggestion input', () => {
+  it('accepts the three answers a Member gives and nothing else', () => {
+    const proposal = minimalProposal();
+
+    expect(proposal.operator_name).toBe(minimalName);
+    expect(proposal.translations.is.name).toBe(minimalName);
+    expect(proposal.translations.en.name).toBe(minimalName);
+    expect(proposal.location.latitude).toBe(64.1466);
+    expect(proposal.location.longitude).toBe(-21.9426);
+    expect(proposal.access_condition.access_area).toBe('outdoors');
+  });
+
+  it.each(['indoors', 'outdoors', 'designated_area'] as const)(
+    'carries the Member area vocabulary value %s through unchanged',
+    (accessArea) => {
+      expect(minimalProposal({ accessArea }).access_condition.access_area).toBe(accessArea);
+    }
+  );
+
+  it('refuses other_bounded, which only means anything with the note this form never asks for', () => {
+    const form = minimalForm();
+    form.set('accessArea', 'other_bounded');
+
+    expect(parseSuggestionFormData(form)).toEqual({ ok: false, error: 'invalid' });
+  });
+
+  it.each(['name', 'accessArea', 'latitude', 'longitude'])(
+    'treats a missing %s as an unanswered question rather than a bad one',
+    (field) => {
+      const form = minimalForm();
+      form.delete(field);
+
+      expect(parseSuggestionFormData(form)).toEqual({ ok: false, error: 'incomplete' });
+    }
+  );
+
+  it.each([
+    ['latitude', '91'],
+    ['longitude', '-181'],
+    ['latitude', 'outside']
+  ])('rejects an impossible %s of %s', (field, value) => {
+    const form = minimalForm();
+    form.set(field, value);
+
+    expect(parseSuggestionFormData(form)).toEqual({ ok: false, error: 'invalid' });
+  });
+
+  it('records the category as other rather than guessing what kind of Place it is', () => {
+    expect(minimalProposal().category).toBe('other');
+  });
+
+  it('states the restraint condition as sourced elsewhere, and says so in the note', () => {
+    expect(minimalProposal().access_condition.restraint_condition).toBe('other_sourced');
+    expect(minimalProposal().access_condition.restraint_note).toBe('Not stated by the member');
+  });
+
+  it('takes the weakest permission claim in the vocabulary', () => {
+    expect(minimalProposal().access_condition.permission_requirement).toBe('ask_on_arrival');
+  });
+
+  it('claims no timing at all', () => {
+    expect(minimalProposal().access_condition.availability_state).toBe('not_stated');
+    expect(minimalProposal().access_condition.availability_window).toEqual({});
+  });
+
+  it('writes the eligibility shape the Suggestion contract accepts, and no area note', () => {
+    expect(minimalProposal().access_condition.dog_eligibility).toEqual({ scope: 'all_dogs' });
+    expect(minimalProposal().access_condition.access_area_note).toBeNull();
+  });
+
+  it('synthesizes the address line from the pin instead of inferring a place name', () => {
+    expect(minimalProposal().location.address_line).toBe('Map pin at 64.1466, -21.9426');
+  });
+
+  it('falls back to the capital region rather than inferring a locality from nothing', () => {
+    expect(minimalProposal().location).toMatchObject({
+      locality: 'Capital region',
+      municipality: 'reykjavik',
+      postal_code: '000'
+    });
+  });
+
+  it('localizes the fallback locality for an Icelandic contributor', () => {
+    const result = parseSuggestionFormData(minimalForm(), { locale: 'is' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.proposal.location.locality).toBe('Höfuðborgarsvæðið');
+    expect(result.proposal.location.municipality).toBe('reykjavik');
+  });
+
+  it('flags both translations for review, because neither description is Member text', () => {
+    const proposal = minimalProposal();
+
+    expect(proposal.translations.is.needs_review).toBe(true);
+    expect(proposal.translations.en.needs_review).toBe(true);
+    expect(proposal.translations.is.description).toBe('Not stated by the member');
+    expect(proposal.translations.en.description).toBe('Not stated by the member');
+  });
+
+  it('leaves every optional contact fact unknown', () => {
+    const proposal = minimalProposal();
+
+    expect(proposal.website_url).toBeNull();
+    expect(proposal.phone).toBeNull();
+    expect(proposal.opening_hours).toEqual({});
+    expect(proposal.dog_amenities).toEqual([]);
+  });
+
+  it('writes the whole Evidence record itself, truthfully labelled and timed', () => {
+    expect(minimalProposal().evidence).toEqual({
+      kind: 'member_report',
+      source_url: null,
+      source_citation: 'New place suggestion, reported from the suggestion form.',
+      source_label: 'Member report from the suggestion form',
+      observed_at: '2026-07-25T10:30:00.000Z',
+      explanation: 'New place suggestion, reported from the suggestion form.',
+      source_metadata: { submissionProfile: 'minimal-v1', surface: 'suggestion-form' }
+    });
+  });
+
+  /**
+   * The citation reaches anonymous callers through the published profile. The Place name is the
+   * only Member text a minimal Suggestion carries, so it must never travel in one - not for an
+   * ordinary name, and not for a name a Member wrote to be read by someone else.
+   */
+  it.each([minimalName, 'Call me on 555-0100', '<script>alert(1)</script>'])(
+    'keeps the Member-typed name %s out of every server-written Evidence string',
+    (name) => {
+      const proposal = minimalProposal({ name });
+      const { evidence } = proposal;
+      const serverWritten = [
+        evidence.source_citation ?? '',
+        evidence.source_label,
+        evidence.explanation,
+        JSON.stringify(evidence.source_metadata),
+        proposal.access_condition.restraint_note ?? '',
+        proposal.location.address_line
+      ];
+
+      expect(proposal.operator_name).toBe(name);
+      for (const value of serverWritten) expect(value).not.toContain(name);
+    }
+  );
+
+  it('refuses an excluded purpose before it reads any answer', () => {
+    const form = minimalForm();
+    form.set('purpose', 'veterinary_clinic');
+
+    expect(parseSuggestionFormData(form)).toEqual({ ok: false, error: 'excluded_purpose' });
+  });
+});
+
 describe('Suggestion input', () => {
   it('adapts the friendly short form into the existing structured proposal', () => {
     const result = parseSuggestionFormData(simpleForm(), {
