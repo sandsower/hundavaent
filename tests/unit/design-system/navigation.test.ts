@@ -27,9 +27,9 @@ describe('view transition policy', () => {
   it('skips moderation in either direction', () => {
     // Every queue tab and work item in moderation is a real navigation; a crossfade per click
     // is choreography in a work-a-queue surface, the same reasoning that zeroes celebrate.
-    expect(
-      shouldViewTransition({ ...placeNavigation, toRouteId: '/[lang=lang]/moderation' })
-    ).toBe(false);
+    expect(shouldViewTransition({ ...placeNavigation, toRouteId: '/[lang=lang]/moderation' })).toBe(
+      false
+    );
     expect(
       shouldViewTransition({
         ...placeNavigation,
