@@ -188,6 +188,19 @@ a {
   box-shadow: 0 0 0 2px var(--hv-focus-offset, #fbfcf9);
 }
 
+/* View transitions: the page crossfade rides the fade scale instead of the browser's 250ms
+   default, and the snapshot overlay must never swallow clicks mid-transition - a navigation
+   should feel faster than the page it leaves. The transition is only ever started for Members
+   without reduced motion (see shouldViewTransition), so no reduce override is needed here. */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--hv-fade-quick);
+}
+
 /* Surfaces that have adopted the motion token families declare data-motion="tokenized" and
    govern their own reduced-motion behaviour through --hv-motion-* and --hv-fade-*, which lets
    opacity and colour keep their full duration. Everything else still needs the blanket
