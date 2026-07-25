@@ -160,11 +160,20 @@ a {
   box-shadow: 0 0 0 2px var(--hv-focus-offset, #fbfcf9);
 }
 
+/* Surfaces that have adopted the motion token families declare data-motion="tokenized" and
+   govern their own reduced-motion behaviour through --hv-motion-* and --hv-fade-*, which lets
+   opacity and colour keep their full duration. Everything else still needs the blanket
+   suppression below: without it the decorative orbits on the impact page would keep running
+   indefinitely for Members who asked for less motion. Each phase of the revamp converts more
+   surfaces; the last one deletes this block. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  html {
     scroll-behavior: auto !important;
+  }
+
+  *:not([data-motion='tokenized'], [data-motion='tokenized'] *),
+  *:not([data-motion='tokenized'], [data-motion='tokenized'] *)::before,
+  *:not([data-motion='tokenized'], [data-motion='tokenized'] *)::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;

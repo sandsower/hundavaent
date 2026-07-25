@@ -24,6 +24,7 @@
     --hv-access-special: #f1d7bd;
     --hv-access-unknown: #e4e7e5;
     --hv-access-unknown-foreground: #5b6563;
+    --hv-color-signal-strong: #9b6500;
     --hv-access-symbol-border: var(--hv-color-basalt);
     --hv-access-detail-accent: var(--hv-color-signal);
     --hv-border-subtle: #92bac5;
@@ -47,6 +48,21 @@
     --hv-radius-control: 999px;
     --hv-radius-panel: 0.9rem;
     --hv-radius-shell: 1rem;
+    /* Two motion families, split by what reduced motion must suppress rather than by CSS
+       property. --hv-motion-* drives things that move (transform, position) and collapses to
+       zero for Members who prefer reduced motion. --hv-fade-* drives appearance changes that
+       stay put (opacity, colour, fill) and keeps its full duration, so the interface reads as
+       calm rather than broken. A single @keyframes cannot carry two durations, so anything
+       that both moves and fades is written as two animation entries, one per family. */
+    --hv-motion-instant: 120ms;
+    --hv-motion-quick: 200ms;
+    --hv-motion-considered: 320ms;
+    --hv-motion-celebrate: 520ms;
+    --hv-fade-quick: 160ms;
+    --hv-fade-considered: 260ms;
+    --hv-ease-settle: cubic-bezier(0.2, 0.85, 0.2, 1);
+    --hv-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+    --hv-ease-overshoot: cubic-bezier(0.2, 0.9, 0.3, 1.25);
     color: var(--hv-color-basalt);
     font-family: var(--hv-font-ui);
   }
@@ -58,5 +74,26 @@
     --hv-radius-control: 0.3rem;
     --hv-radius-panel: 0.4rem;
     --hv-radius-shell: 0.55rem;
+    /* Moderators work a queue, so operations keeps the same motion language at a faster
+       tempo. Celebration collapses to zero: recognition choreography belongs to Members. */
+    --hv-motion-instant: 80ms;
+    --hv-motion-quick: 120ms;
+    --hv-motion-considered: 180ms;
+    --hv-motion-celebrate: 0ms;
+    --hv-fade-quick: 120ms;
+    --hv-fade-considered: 160ms;
+  }
+
+  /* Must stay last in this layer. [data-ui-mode='operations'] and [data-ui-mode] carry equal
+     specificity, so source order alone decides the winner; hoisting this block above the
+     operations overrides would silently stop suppressing motion for Moderators. */
+  @media (prefers-reduced-motion: reduce) {
+    :root,
+    [data-ui-mode] {
+      --hv-motion-instant: 0ms;
+      --hv-motion-quick: 0ms;
+      --hv-motion-considered: 0ms;
+      --hv-motion-celebrate: 0ms;
+    }
   }
 }
