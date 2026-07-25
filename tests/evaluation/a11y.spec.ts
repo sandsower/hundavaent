@@ -205,6 +205,10 @@ test('public discovery and floating access details are keyboard-operable and Axe
   // Retain an independent floating-card pass after exercising portal geometry at 1024px.
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`/en?place=${evaluationFixtureIds.places.published}`);
+  // Every assertion below the hover is satisfiable by server-rendered DOM, so without this
+  // barrier the hover can dispatch pointerenter before Svelte attaches the tooltip handler -
+  // a race that only ever lost on slower CI runners.
+  await waitForHydration(page);
   const selectedCard = page.getByRole('complementary', { name: 'Selected place' });
   await expect(selectedCard).toBeVisible();
   await expect(selectedCard).toHaveAttribute('data-overlay', 'place');
@@ -510,18 +514,31 @@ test('reduced motion suppresses marker transforms and selection has non-color st
   await expect(marker).toBeVisible();
   await marker.click();
   await expect(marker).toHaveAttribute('aria-pressed', 'true');
-  const motionDurations = await marker.evaluate((element) => {
-    const styles = getComputedStyle(element);
+  const markerMotion = await marker.evaluate((element) => {
     const toMilliseconds = (duration: string): number =>
       duration.endsWith('ms') ? Number.parseFloat(duration) : Number.parseFloat(duration) * 1_000;
+    const pin = element.querySelector('.pin');
+    const body = element.querySelector('.pin-body');
+    const label = element.querySelector('.marker-label');
     return {
-      animation: toMilliseconds(styles.animationDuration),
-      transition: toMilliseconds(styles.transitionDuration)
+      pinSettle: pin ? toMilliseconds(getComputedStyle(pin).animationDuration) : Number.NaN,
+      labelSlide: label ? toMilliseconds(getComputedStyle(label).transitionDuration) : Number.NaN,
+      strokeWidth: body ? getComputedStyle(body).strokeWidth : ''
     };
   });
-  expect(motionDurations.animation).toBeLessThanOrEqual(0.01);
-  expect(motionDurations.transition).toBeLessThanOrEqual(0.01);
+  // The settle punch and the label slide carry the motion family, so both collapse to zero
+  // for Members who prefer reduced motion; the thicker stroke stays as the non-color state.
+  expect(markerMotion.pinSettle).toBeLessThanOrEqual(0.01);
+  expect(markerMotion.labelSlide).toBeLessThanOrEqual(0.01);
+  expect(markerMotion.strokeWidth).toBe('5px');
   await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
+  // The card's entry animation is token-driven, so it must also collapse here. This is the
+  // real-browser home of that assertion: the component harness cannot resolve tokens, and a
+  // matchMedia mock cannot drive CSS media queries.
+  const cardEnter = await page
+    .locator('[data-selected-place-overlay]')
+    .evaluate((element) => Number.parseFloat(getComputedStyle(element).animationDuration) * 1_000);
+  expect(cardEnter).toBeLessThanOrEqual(0.01);
   await expectNoSeriousAxeViolations(page, evidence);
 });
 
@@ -546,6 +563,24 @@ test('reduced motion stills movement while keeping the Favourite flourish legibl
     `[data-favourite-place="${evaluationFixtureIds.places.published}"]`
   );
   await expect(favouriteAction).toBeVisible();
+
+  // The arrival cascade is motion-family: both the entry and its stagger interval collapse,
+  // so the list lands settled rather than trickling in. The stagger token is asserted rather
+  // than a later item's delay because the fixture set makes no promise about list cardinality.
+  const staggeredItemMotion = await page
+    .locator('.results-overlay li')
+    .first()
+    .evaluate((element) => {
+      const styles = getComputedStyle(element);
+      const milliseconds = (value: string): number =>
+        value.trim().endsWith('ms') ? Number.parseFloat(value) : Number.parseFloat(value) * 1_000;
+      return {
+        duration: milliseconds(styles.animationDuration),
+        staggerInterval: milliseconds(styles.getPropertyValue('--hv-motion-stagger'))
+      };
+    });
+  expect(staggeredItemMotion.duration).toBeLessThanOrEqual(0.01);
+  expect(staggeredItemMotion.staggerInterval).toBe(0);
 
   // The control carries data-ui-mode, so this also proves the reduced-motion override reaches
   // past [data-ui-mode] specificity. A ":root"-only override would leave these at full duration.
@@ -1187,7 +1222,11 @@ test('the private achievements route is keyboard-operable and Axe-clean in both 
       await waitForHydration(page);
 
       await expect(page.getByRole('heading', { name: scenario.title })).toBeVisible();
-      await expect(page.getByRole('progressbar')).toHaveCount(2);
+      // Twelve tiers are visible, but only each collection's nearest unearned tier is an active
+      // target, so a screen reader hears one progress figure per started collection. The
+      // Contributions collection has no progress here, so its bronze tier reports none.
+      await expect(page.locator('[data-achievement-tier]')).toHaveCount(12);
+      await expect(page.getByRole('progressbar')).toHaveCount(3);
       await expect(page.getByRole('region', { name: scenario.celebration })).toHaveAttribute(
         'data-reduced-motion',
         'true'

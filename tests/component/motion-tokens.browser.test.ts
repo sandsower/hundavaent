@@ -4,6 +4,7 @@ import '../../src/app.css';
 import {
   fadeDurationsMs,
   motionDurationsMs,
+  motionEasings,
   operationsFadeDurationsMs,
   operationsMotionDurationsMs
 } from '../../src/lib/design-system/motion';
@@ -39,7 +40,7 @@ test('both motion families resolve in place and operations modes', () => {
       expect(place.getPropertyValue(`--hv-fade-${step}`).trim()).not.toBe('');
       expect(operations.getPropertyValue(`--hv-fade-${step}`).trim()).not.toBe('');
     }
-    for (const easing of ['settle', 'exit', 'overshoot']) {
+    for (const easing of Object.keys(motionEasings)) {
       expect(place.getPropertyValue(`--hv-ease-${easing}`).trim()).toContain('cubic-bezier');
     }
   });
@@ -48,7 +49,9 @@ test('both motion families resolve in place and operations modes', () => {
 test('operations mode keeps the same motion language at a faster tempo', () => {
   withModes((place, operations) => {
     // Moderators work a queue. Every step is shorter, and celebration is removed outright.
-    for (const step of ['instant', 'quick', 'considered'] as const) {
+    // Every step except celebrate, which is asserted separately below: operations removes it
+    // outright rather than shortening it.
+    for (const step of Object.keys(motionDurationsMs).filter((step) => step !== 'celebrate')) {
       expect(milliseconds(operations.getPropertyValue(`--hv-motion-${step}`))).toBeLessThan(
         milliseconds(place.getPropertyValue(`--hv-motion-${step}`))
       );
@@ -78,6 +81,19 @@ test('motion.ts stays in step with the resolved token values', () => {
     }
     for (const [step, duration] of Object.entries(operationsFadeDurationsMs)) {
       expect(milliseconds(operations.getPropertyValue(`--hv-fade-${step}`))).toBe(duration);
+    }
+  });
+});
+
+test('easing control points stay in step with the CSS easing tokens', () => {
+  // The camera easing runs as a JavaScript function built from these control points; a CSS-side
+  // curve change that skipped motion.ts would leave the camera settling on a different curve
+  // than the pin and card it is meant to move with.
+  withModes((place) => {
+    for (const [easing, points] of Object.entries(motionEasings)) {
+      expect(place.getPropertyValue(`--hv-ease-${easing}`).trim()).toBe(
+        `cubic-bezier(${points.join(', ')})`
+      );
     }
   });
 });

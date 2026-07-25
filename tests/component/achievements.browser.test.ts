@@ -3,13 +3,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { catalogues } from '$i18n';
 import type {
-  EarnedAchievement,
+  ClaimedAchievement,
+  EarnedBespokeAchievement,
   MyAchievement,
   MyAchievements
 } from '$server/achievements/achievements';
 import AchievementsPage from '../../src/routes/[lang=lang]/account/achievements/+page.svelte';
 
-const earned: EarnedAchievement = {
+const earned: EarnedBespokeAchievement = {
+  kind: 'earned',
+  entry: 'bespoke',
   key: 'first_favourite',
   group: 'participation',
   displayOrder: 1,
@@ -17,40 +20,70 @@ const earned: EarnedAchievement = {
   nameEn: 'First Favourite',
   descriptionIs: 'Þú vistaðir þinn fyrsta stað sem uppáhald.',
   descriptionEn: 'You saved your first Place as a Favourite.',
-  earnedAt: '2026-07-01T12:00:00Z',
-  kind: 'earned'
+  earnedAt: '2026-07-01T12:00:00Z'
 };
 
-const milestones: MyAchievement[] = [
+const categoryCollection = {
+  collection: 'place_categories',
+  collectionNameIs: 'Flokkar',
+  collectionNameEn: 'Categories',
+  collectionDescriptionIs: 'Flokkar staða sem þú hefur innritað þig á.',
+  collectionDescriptionEn: 'Categories of Place you have checked in at.',
+  group: 'exploration'
+} as const;
+
+// One full collection: bronze earned, silver started, gold untouched. The untouched cell is the
+// visible gap the phase exists to show.
+const tiers: MyAchievement[] = [
   {
-    key: 'category_curious',
-    group: 'exploration',
-    displayOrder: 5,
-    nameIs: 'Forvitinn um flokka',
-    nameEn: 'Category Curious',
-    descriptionIs: 'Þú kannar ólíka staðaflokka.',
-    descriptionEn: 'You are exploring different kinds of Places.',
-    earnedAt: null,
-    kind: 'milestone',
-    progress: { kind: 'credited_categories', current: 2, target: 4 }
+    ...categoryCollection,
+    kind: 'earned',
+    entry: 'tier',
+    key: 'place_categories_bronze',
+    displayOrder: 14,
+    tier: 'bronze',
+    earnedAt: '2026-07-02T12:00:00Z'
   },
   {
-    key: 'capital_region_wanderer',
-    group: 'exploration',
-    displayOrder: 6,
-    nameIs: 'Flakkari höfuðborgarsvæðisins',
-    nameEn: 'Capital Region Wanderer',
-    descriptionIs: 'Þú kannar sveitarfélög á höfuðborgarsvæðinu.',
-    descriptionEn: 'You are exploring municipalities across the capital region.',
+    ...categoryCollection,
+    kind: 'locked',
+    entry: 'tier',
+    key: 'place_categories_silver',
+    displayOrder: 15,
+    tier: 'silver',
     earnedAt: null,
-    kind: 'milestone',
-    progress: { kind: 'credited_municipalities', current: 2, target: 3 }
+    progress: { kind: 'credited_categories', current: 2, target: 3 }
+  },
+  {
+    ...categoryCollection,
+    kind: 'locked',
+    entry: 'tier',
+    key: 'place_categories_gold',
+    displayOrder: 16,
+    tier: 'gold',
+    earnedAt: null,
+    progress: { kind: 'credited_categories', current: 0, target: 4 }
   }
 ];
 
+const claimedTier: ClaimedAchievement = {
+  kind: 'earned',
+  entry: 'tier',
+  key: 'place_categories_bronze',
+  group: 'exploration',
+  displayOrder: 14,
+  collection: 'place_categories',
+  tier: 'bronze',
+  collectionNameIs: 'Flokkar',
+  collectionNameEn: 'Categories',
+  progressKind: 'credited_categories',
+  progressTarget: 2,
+  earnedAt: '2026-07-02T12:00:00Z'
+};
+
 const enabledData: MyAchievements = {
   enabled: true,
-  achievements: [earned, ...milestones]
+  achievements: [earned, ...tiers]
 };
 
 afterEach(() => {
@@ -59,37 +92,43 @@ afterEach(() => {
 
 describe('Member Achievements view', () => {
   it.each([
-    ['is', 'Afrekin þín', 'Næst á leiðinni', '2 af 4 flokkum', '2 af 3 sveitarfélögum'],
-    ['en', 'Your Achievements', 'Next on your trail', '2 of 4 categories', '2 of 3 municipalities']
+    ['is', 'Afrekin þín', 'Söfn', '2 af 3 flokkum', 'Brons', 'Þarf 4'],
+    ['en', 'Your Achievements', 'Collections', '2 of 3 categories', 'Bronze', 'Needs 4']
   ] as const)(
-    'shows the earned archive and no more than two selected milestones in %s',
-    (lang, title, nextHeading, categoryProgress, municipalityProgress) => {
+    'shows every tier of a collection, including the untouched gap, in %s',
+    (lang, title, collectionsHeading, startedProgress, bronzeLabel, goldTarget) => {
       renderPage(lang);
 
       expect(screen.getByRole('heading', { name: title })).toBeTruthy();
-      expect(screen.getByRole('heading', { name: nextHeading })).toBeTruthy();
-      expect(screen.getByText(categoryProgress)).toBeTruthy();
-      expect(screen.getByText(municipalityProgress)).toBeTruthy();
-      expect(screen.getAllByRole('progressbar')).toHaveLength(2);
-      expect(
-        screen.getByText(lang === 'is' ? 'Fyrsta uppáhaldið' : 'First Favourite')
-      ).toBeTruthy();
-      expect(screen.queryByText('Place Explorer')).toBeNull();
-      expect(screen.queryByText('Recognized for Quality')).toBeNull();
-      expect(document.querySelectorAll('[data-achievement-milestone]')).toHaveLength(2);
+      expect(screen.getByRole('heading', { name: collectionsHeading })).toBeTruthy();
+      expect(screen.getByText(startedProgress)).toBeTruthy();
+      expect(screen.getByText(bronzeLabel)).toBeTruthy();
+      // The gold tier has no progress at all and is still shown, advertising its threshold.
+      expect(screen.getByText(goldTarget)).toBeTruthy();
+      expect(document.querySelectorAll('[data-achievement-tier]')).toHaveLength(3);
     }
   );
 
-  it('renders a claimed Achievement as a rich non-blocking celebration and persistent earned item', () => {
-    renderPage('en', [earned]);
+  it('marks only started tiers as progressbars, so an untouched gap adds no screen-reader noise', () => {
+    renderPage('en');
 
-    const celebration = screen.getByRole('region', { name: 'New achievement: First Favourite' });
+    expect(screen.getAllByRole('progressbar')).toHaveLength(1);
+    expect(document.querySelector('[data-tier-state="locked"]')).toBeTruthy();
+    expect(document.querySelector('[data-tier-state="started"]')).toBeTruthy();
+    expect(document.querySelector('[data-tier-state="earned"]')).toBeTruthy();
+  });
+
+  it('renders a claimed tier celebration with copy derived from its collection and threshold', () => {
+    renderPage('en', [claimedTier]);
+
+    const celebration = screen.getByRole('region', {
+      name: 'New achievement: Categories - Bronze'
+    });
     expect(within(celebration).getByText('Achievement unlocked')).toBeTruthy();
-    expect(within(celebration).getByText('First Favourite')).toBeTruthy();
+    expect(within(celebration).getByText('Categories - Bronze')).toBeTruthy();
+    expect(within(celebration).getByText('Check in at places across 2 categories.')).toBeTruthy();
     expect(celebration.querySelector('[data-achievement-icon]')).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getAllByText('First Favourite')).toHaveLength(2);
-    expect(screen.getByText('New')).toBeTruthy();
   });
 
   it('keeps the same celebration content while removing staged motion for reduced-motion users', () => {
@@ -107,24 +146,35 @@ describe('Member Achievements view', () => {
         }) satisfies MediaQueryList
     );
 
-    renderPage('en', [earned]);
+    renderPage('en', [claimedTier]);
 
-    const celebration = screen.getByRole('region', { name: 'New achievement: First Favourite' });
+    const celebration = screen.getByRole('region', {
+      name: 'New achievement: Categories - Bronze'
+    });
     expect(celebration.getAttribute('data-reduced-motion')).toBe('true');
     expect(getComputedStyle(celebration).animationName).toBe('none');
     expect(within(celebration).getByText('Achievement unlocked')).toBeTruthy();
-    expect(within(celebration).getByText('First Favourite')).toBeTruthy();
   });
 
-  it('keeps icons decorative while adjacent text names every achievement and progress concept', () => {
+  it('keeps the bespoke archive separate from the collections grid', () => {
+    renderPage('en');
+
+    const archive = screen.getByRole('heading', { name: 'Your trail so far' });
+    expect(archive).toBeTruthy();
+    expect(screen.getByText('First Favourite')).toBeTruthy();
+    // A tier never appears in the archive; it belongs to the grid where its gaps are visible.
+    expect(screen.queryByText('Recognized for Quality')).toBeNull();
+  });
+
+  it('keeps icons decorative while adjacent text names every collection and progress concept', () => {
     renderPage('en');
 
     for (const icon of document.querySelectorAll('[data-achievement-icon]')) {
       expect(icon.getAttribute('aria-hidden')).toBe('true');
     }
     expect(screen.getByText('First Favourite')).toBeTruthy();
-    expect(screen.getByText('Category Curious')).toBeTruthy();
-    expect(screen.getByText('2 of 4 categories')).toBeTruthy();
+    expect(screen.getByText('Categories')).toBeTruthy();
+    expect(screen.getByText('2 of 3 categories')).toBeTruthy();
   });
 
   it.each([
@@ -147,11 +197,12 @@ describe('Member Achievements view', () => {
       expect(screen.queryByRole('list')).toBeNull();
       expect(screen.queryByRole('progressbar')).toBeNull();
       expect(document.querySelector('[data-achievement-celebration]')).toBeNull();
+      expect(document.querySelector('[data-achievement-tier]')).toBeNull();
     }
   );
 });
 
-function renderPage(lang: 'is' | 'en', claimed: EarnedAchievement[] = []) {
+function renderPage(lang: 'is' | 'en', claimed: ClaimedAchievement[] = []) {
   return render(AchievementsPage, {
     params: { lang },
     data: { lang, copy: catalogues[lang], achievements: enabledData },

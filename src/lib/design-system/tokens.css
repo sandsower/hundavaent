@@ -70,9 +70,15 @@
        So: words arrive at full contrast and move into place, and state colour lands in one
        frame. The fade family is for decoration that carries no reading - glows, scrims, the
        Favourite heart's fill - where contrast is not being asserted. */
+    /* The interval between siblings in a staggered arrival, never a duration on its own:
+       delays drift exactly as durations do, so cascade timing rides the scale too. */
+    --hv-motion-stagger: 50ms;
     --hv-motion-instant: 120ms;
     --hv-motion-quick: 200ms;
     --hv-motion-considered: 320ms;
+    /* Spatial traversal: the map camera crossing real distance. Slower than any control
+       gesture because the whole scene moves, and the eye needs the journey to stay legible. */
+    --hv-motion-traverse: 450ms;
     --hv-motion-celebrate: 520ms;
     --hv-fade-quick: 160ms;
     --hv-fade-considered: 260ms;
@@ -92,9 +98,11 @@
     --hv-radius-shell: 0.55rem;
     /* Moderators work a queue, so operations keeps the same motion language at a faster
        tempo. Celebration collapses to zero: recognition choreography belongs to Members. */
+    --hv-motion-stagger: 30ms;
     --hv-motion-instant: 80ms;
     --hv-motion-quick: 120ms;
     --hv-motion-considered: 180ms;
+    --hv-motion-traverse: 240ms;
     --hv-motion-celebrate: 0ms;
     --hv-fade-quick: 120ms;
     --hv-fade-considered: 160ms;
@@ -106,9 +114,11 @@
   @media (prefers-reduced-motion: reduce) {
     :root,
     [data-ui-mode] {
+      --hv-motion-stagger: 0ms;
       --hv-motion-instant: 0ms;
       --hv-motion-quick: 0ms;
       --hv-motion-considered: 0ms;
+      --hv-motion-traverse: 0ms;
       --hv-motion-celebrate: 0ms;
     }
   }

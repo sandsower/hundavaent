@@ -117,7 +117,6 @@ select is(
           description_is,
           description_en,
           criteria,
-          locked_visibility,
           progress_kind
         )
         select
@@ -130,7 +129,6 @@ select is(
           definition.description_is,
           definition.description_en,
           definition.criteria,
-          definition.locked_visibility,
           definition.progress_kind
         from private.achievement_definitions as definition
         where definition.key = 'first_favourite'

@@ -6,7 +6,12 @@
   import WeeklyRhythmTrail from '$lib/member-activity/WeeklyRhythmTrail.svelte';
   import { formatLocalizedDate } from '$i18n/date';
   import type { MessageKey } from '$i18n';
-  import type { EarnedAchievement, MyAchievement } from '$server/achievements/achievements';
+  import { collectionName, tierDisplayName } from '$lib/achievements/tier-copy';
+  import type {
+    EarnedAchievement,
+    LockedTierAchievement,
+    MyAchievement
+  } from '$server/achievements/achievements';
   import type {
     ImpactContributionKind,
     ImpactOutcome,
@@ -42,25 +47,46 @@
     `impact.outcome.availability.${availability}` as MessageKey;
   const contributorKey = (status: string): MessageKey =>
     `contributor.status.${status}` as MessageKey;
+  // A tier carries no copy of its own, so its label is composed from its collection and tier.
   const achievementName = (achievement: MyAchievement): string =>
-    data.lang === 'is' ? achievement.nameIs : achievement.nameEn;
+    achievement.entry === 'tier'
+      ? tierDisplayName(collectionName(achievement, data.lang), achievement.tier, data.copy)
+      : data.lang === 'is'
+        ? achievement.nameIs
+        : achievement.nameEn;
   const outcomeName = (outcome: ImpactOutcome): string =>
     outcome.placeName ?? data.copy['impact.outcome.placeUnavailable'];
   const placeHref = (placeId: string): string =>
     `/${data.lang}?place=${encodeURIComponent(placeId)}`;
 
+  // This strip shows four items. The catalogue read is deliberately uncapped, so the selection rule
+  // lives here rather than depending on a database cap: at most two started tiers, closest to
+  // closing first, then the most recently earned Achievements to fill the remaining slots. Without
+  // an explicit cap, twelve locked tiers would fill the strip and hide every earned Achievement.
+  const STRIP_SIZE = 4;
+  const STRIP_MAX_UPCOMING = 2;
+
   const visibleAchievements = $derived.by(() => {
     if (data.achievements.status !== 'available' || !data.achievements.value.enabled) return [];
 
-    const milestones = data.achievements.value.achievements.filter(
-      (achievement) => achievement.kind === 'milestone'
-    );
+    const upcoming = data.achievements.value.achievements
+      .filter(
+        (achievement): achievement is LockedTierAchievement =>
+          achievement.kind === 'locked' && achievement.progress.current > 0
+      )
+      .toSorted(
+        (left, right) =>
+          right.progress.current / right.progress.target -
+          left.progress.current / left.progress.target
+      )
+      .slice(0, STRIP_MAX_UPCOMING);
+
     const recentEarned = data.achievements.value.achievements
       .filter((achievement): achievement is EarnedAchievement => achievement.kind === 'earned')
       .toSorted((left, right) => Date.parse(right.earnedAt) - Date.parse(left.earnedAt))
-      .slice(0, Math.max(0, 4 - milestones.length));
+      .slice(0, Math.max(0, STRIP_SIZE - upcoming.length));
 
-    return [...recentEarned, ...milestones];
+    return [...recentEarned, ...upcoming];
   });
 </script>
 
@@ -276,7 +302,11 @@
         {#each visibleAchievements as achievement (achievement.key)}
           <li>
             <span class="achievement-icon" aria-hidden="true">
-              <AchievementIcon achievementKey={achievement.key} group={achievement.group} />
+              <AchievementIcon
+                achievementKey={achievement.key}
+                collection={achievement.entry === 'tier' ? achievement.collection : null}
+                group={achievement.group}
+              />
             </span>
             <span>
               <strong>{achievementName(achievement)}</strong>

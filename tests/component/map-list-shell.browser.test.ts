@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { page as browserPage } from 'vitest/browser';
 
 import { catalogues } from '$i18n';
+import { cubicBezierEasing, motionDurationsMs, motionEasings } from '$lib/design-system/motion';
 import { defaultDiscoveryState } from '$lib/discovery/state';
 import MapListShell from '$lib/discovery/MapListShell.svelte';
 import { createDomTestMapAdapter } from '$lib/map/dom-test-adapter';
@@ -1027,12 +1028,37 @@ describe('MapListShell synchronization', () => {
     await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
     await waitFor(() => expect(setCamera.mock.calls.at(-1)?.[1]?.duration).toBe(0));
     const shell = document.querySelector<HTMLElement>('[data-responsive-shell]');
-    const overlay = document.querySelector<HTMLElement>('[data-selected-place-overlay]');
     expect(shell?.dataset.reducedMotion).toBe('true');
-    expect(overlay).toBeTruthy();
-    if (!overlay) throw new Error('Expected a selected Place overlay');
-    expect(getComputedStyle(overlay).animationName).toBe('none');
-    expect(getComputedStyle(overlay).animationDuration).toBe('0s');
+    // This harness never loads app.css, so token-driven CSS cannot be asserted here: an
+    // unresolvable var() collapses the whole animation shorthand and any duration reads 0s
+    // whether reduced motion is on or not. The card and marker CSS under reduce are covered
+    // by tests/evaluation/a11y.spec.ts, where emulateMedia drives the real media query.
+  });
+
+  it('rides the selection camera on the settle curve', async () => {
+    history.replaceState(null, '', '/en');
+    const adapter = createDomTestMapAdapter();
+    const setCamera = vi.spyOn(adapter, 'setCamera');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter,
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    await fireEvent.click(await screen.findByRole('button', { name: /^Published Place$/ }));
+    await waitFor(() =>
+      expect(setCamera.mock.calls.at(-1)?.[1]?.duration).toBe(motionDurationsMs.traverse)
+    );
+    // The easing must be the same settle curve the pin and card run on; a dropped
+    // motionEasing prop would silently fall back to maplibre's default ease.
+    const easing = setCamera.mock.calls.at(-1)?.[1]?.easing;
+    expect(typeof easing).toBe('function');
+    expect(easing?.(0.5)).toBeCloseTo(cubicBezierEasing(motionEasings.settle)(0.5), 10);
   });
 
   it('uses its container for one non-overlapping 58rem responsive boundary', async () => {

@@ -3,13 +3,11 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-const motionTokenNames = [
-  '--hv-motion-instant',
-  '--hv-motion-quick',
-  '--hv-motion-considered',
-  '--hv-motion-celebrate'
-];
-const fadeTokenNames = ['--hv-fade-quick', '--hv-fade-considered'];
+import { fadeDurationsMs, motionDurationsMs } from '../../../src/lib/design-system/motion';
+
+// Derived from the canonical steps so a new step cannot silently skip the reduce contract.
+const motionTokenNames = Object.keys(motionDurationsMs).map((step) => `--hv-motion-${step}`);
+const fadeTokenNames = Object.keys(fadeDurationsMs).map((step) => `--hv-fade-${step}`);
 
 const reducedMotionBlockPattern =
   /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{(?<body>[\s\S]*?\n\s*\})\s*\}/;
