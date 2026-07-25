@@ -372,7 +372,7 @@
   }
 
   .card-body > * {
-    animation: detail-content-enter 180ms ease-out both;
+    animation: detail-content-enter var(--hv-motion-quick) var(--hv-ease-settle) both;
   }
 
   @keyframes detail-content-enter {
@@ -613,11 +613,5 @@
 
   .details-status p {
     margin-block: 0 0.65rem;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .card-body > * {
-      animation: none;
-    }
   }
 </style>
