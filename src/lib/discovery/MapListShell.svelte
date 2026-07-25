@@ -1334,7 +1334,8 @@
     width: 100%;
     flex: 0 1 auto;
     overflow: hidden;
-    border: 1px solid var(--hv-border-strong);
+    box-sizing: border-box;
+    border: 1px solid var(--hv-color-moss);
     border-radius: var(--hv-radius-shell);
     background: var(--hv-color-snow-raised);
     box-shadow: var(--hv-shadow-floating);

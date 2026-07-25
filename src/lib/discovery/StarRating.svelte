@@ -59,7 +59,7 @@
     border: 0;
     border-radius: 50%;
     background: transparent;
-    color: var(--hv-color-signal-strong, #9b6500);
+    color: var(--hv-color-signal-strong);
     font-size: 1.45rem;
     line-height: 1;
     cursor: pointer;

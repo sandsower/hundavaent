@@ -48,6 +48,32 @@ A Member is retained when they are active in at least two of Weeks 1 through 4 a
 The rolling measure counts Members active in at least two of the four completed Reykjavík weeks.
 Guardrails cover duplicate Check-ins, replayed requests, rejected submissions, revoked Contributions, excluded Ratings, and active conduct flags.
 
+## Activity depth
+
+Every qualifying action is classified as shallow or deep.
+
+Shallow activity is private, self-asserted, and never reviewed: a saved Favourite or a Check-in.
+Deep activity enters Moderator review and can become a Contribution: a Dog-Friendliness Rating, a Suggestion, a Correction, or a Report.
+
+`retainedMemberCount` and `engagedMemberCount` continue to count activity of any depth, so the headline series stays comparable across this change.
+The shallow and deep series apply the same retention rule, the same cohort denominator, and the same suppression rule to a narrower slice of activity.
+
+The two depth series overlap on purpose.
+A Member who both saved a Favourite and filed a Correction in the qualifying weeks is counted in both, so the depth counts do not sum to the headline count.
+Each depth count is always less than or equal to the headline count, because returning at one depth is also returning overall.
+
+## Reading the depth series
+
+The reason this split exists is that an undifferentiated retention rate cannot show whether engagement work is producing the Contributions the corpus depends on.
+Shallow activity is far cheaper to perform than deep activity, so a rising headline rate is consistent with both a healthy product and one where Members return only to save Favourites.
+
+Watch `deepRetentionRate` against `retentionRate` over successive reports.
+If the deep series tracks the headline series, engagement work is reaching contribution supply.
+If the headline series rises while the deep series stays flat, the additional retention is not producing reviewable work, and the mechanics driving it should be reconsidered before more are added.
+
+Do not read a single report's deep counts as a quality signal on their own.
+At current population the deep numerator is small enough that one or two Members move the rate several points.
+
 ## Failure handling
 
 Do not paste provider responses, credentials, or raw report data into tickets or public logs.

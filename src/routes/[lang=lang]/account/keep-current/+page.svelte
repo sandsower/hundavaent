@@ -359,11 +359,11 @@
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     overflow: hidden;
-    border-color: color-mix(in srgb, var(--hv-color-moss) 42%, var(--hv-color-border));
+    border-color: color-mix(in srgb, var(--hv-color-moss) 42%, var(--hv-border-subtle));
     background: linear-gradient(
       135deg,
-      color-mix(in srgb, var(--hv-color-moss) 14%, var(--hv-color-surface)) 0%,
-      var(--hv-color-surface) 32%
+      color-mix(in srgb, var(--hv-color-moss) 14%, var(--hv-color-snow-raised)) 0%,
+      var(--hv-color-snow-raised) 32%
     );
   }
 
@@ -401,7 +401,7 @@
   .task-kind,
   .task-context {
     margin: 0;
-    color: var(--hv-color-muted);
+    color: var(--hv-color-basalt-muted);
     font-size: 0.9rem;
     font-weight: 700;
   }
@@ -419,7 +419,7 @@
   }
 
   .fact-list dt {
-    color: var(--hv-color-muted);
+    color: var(--hv-color-basalt-muted);
   }
 
   .fact-list dd {
@@ -443,7 +443,7 @@
 
   .verification-form {
     margin-top: 1rem;
-    border-top: 1px solid var(--hv-color-border);
+    border-top: 1px solid var(--hv-border-subtle);
     padding-top: 1rem;
   }
 
@@ -507,8 +507,8 @@
   .history-item[data-outcome='rejected'] .outcome-icon,
   .history-item[data-outcome='revoked'] .outcome-icon,
   .history-item[data-outcome='unavailable'] .outcome-icon {
-    background: color-mix(in srgb, var(--hv-color-muted) 12%, white);
-    color: var(--hv-color-muted);
+    background: color-mix(in srgb, var(--hv-color-basalt-muted) 12%, white);
+    color: var(--hv-color-basalt-muted);
   }
 
   .history-title {
@@ -534,7 +534,7 @@
   }
 
   .empty-history {
-    color: var(--hv-color-muted);
+    color: var(--hv-color-basalt-muted);
   }
 
   @keyframes trusted-arrival {

@@ -60,12 +60,12 @@
     display: grid;
     grid-template-columns: minmax(7.5rem, 0.72fr) minmax(0, 1.28fr);
     min-height: 12rem;
-    border: 1px solid color-mix(in srgb, var(--hv-color-coral) 34%, transparent);
+    border: 1px solid color-mix(in srgb, var(--hv-color-brand-paw) 34%, transparent);
     border-radius: 1.5rem;
     overflow: hidden;
     background: linear-gradient(
       135deg,
-      color-mix(in srgb, var(--hv-color-coral) 10%, white),
+      color-mix(in srgb, var(--hv-color-brand-paw) 10%, white),
       var(--hv-color-snow-raised) 64%
     );
     box-shadow: 0 1.15rem 2.8rem rgb(30 45 49 / 12%);
@@ -82,12 +82,12 @@
     left: 50%;
     width: 7rem;
     height: 7rem;
-    border: 1px solid color-mix(in srgb, var(--hv-color-coral) 24%, transparent);
+    border: 1px solid color-mix(in srgb, var(--hv-color-brand-paw) 24%, transparent);
     border-radius: 50%;
     background: color-mix(in srgb, var(--hv-color-signal) 22%, white);
     box-shadow:
       0 0 0 0.8rem color-mix(in srgb, var(--hv-color-signal) 10%, transparent),
-      0 0 0 1.6rem color-mix(in srgb, var(--hv-color-coral) 5%, transparent);
+      0 0 0 1.6rem color-mix(in srgb, var(--hv-color-brand-paw) 5%, transparent);
     transform: translateX(-50%);
   }
 
@@ -97,7 +97,7 @@
     left: 50%;
     width: 4.8rem;
     height: 4.8rem;
-    color: var(--hv-color-coral);
+    color: var(--hv-color-brand-paw);
     transform: translateX(-50%);
   }
 
@@ -146,7 +146,7 @@
   }
 
   .eyebrow {
-    color: var(--hv-color-coral);
+    color: var(--hv-color-brand-paw-ink);
     font-size: 0.74rem;
     font-weight: 900;
     letter-spacing: 0.11em;

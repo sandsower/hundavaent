@@ -147,7 +147,7 @@ a {
   padding: 0.35rem 0.65rem;
   border: 1px solid var(--hv-color-basalt, #1e2d31);
   border-radius: var(--hv-radius-control, 0.35rem);
-  background: var(--hv-color-fjord, #2f6f86);
+  background: var(--hv-color-moss, #58705b);
   color: white;
   font-weight: 900;
   box-shadow: var(--hv-shadow-raised, 0 0.7rem 1.8rem rgb(30 45 49 / 12%));
