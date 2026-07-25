@@ -164,10 +164,16 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain(
       'AUTH_FACEBOOK_ENABLED: ${{ vars.HUNDAVAENT_PRODUCTION_AUTH_FACEBOOK_ENABLED }}'
     );
-    // Both provider guards stay closed until a real release has produced an
-    // Auth-capable recovery point and the hosted email prerequisites are live.
-    expect(workflow.match(/AUTH_EMAIL_ENABLED}" != "false"/g)).toHaveLength(2);
-    expect(workflow.match(/AUTH_FACEBOOK_ENABLED}" != "false"/g)).toHaveLength(2);
+    // The provider switches are no longer pinned to false - recovery captures
+    // managed Auth and a real release restore-tested it. They must still be
+    // explicit at both sites, because an unset GitHub environment binding
+    // arrives as an empty string and would read as "not enabled" by accident.
+    expect(workflow).not.toContain('AUTH_EMAIL_ENABLED}" != "false" ||');
+    expect(workflow).not.toContain('Production Auth providers stay disabled');
+    expect(
+      workflow.match(/Production Auth provider switches must be exactly 'true' or 'false'/g)
+    ).toHaveLength(2);
+    expect(workflow.match(/for provider_switch in "\$\{AUTH_EMAIL_ENABLED\}"/g)).toHaveLength(2);
   });
 
   it('retains only an encrypted, checksummed recovery archive and fail-closes plaintext upload', () => {
