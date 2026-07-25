@@ -142,9 +142,15 @@ No new colour tokens are introduced.
 
 `tokens.css` defines only basalt, moss, signal, snow and snow-raised, gold must not borrow Signal Yellow because the north star reserves it for verified access, selection and committed actions and lists decorative Signal Yellow as an anti-pattern, and a vault note records that undefined CSS custom properties fail silently and invisibly rather than erroring.
 
-Accessibility: each collection is a labelled group whose state reads as text, with `role="progressbar"` only on in-progress tiers, so at most four rather than twelve.
+Accessibility: each collection reads as text, and `role="progressbar"` appears only on a collection's *nearest unearned* tier.
 
-Motion follows the local `prefers-reduced-motion` pattern used by 110 components on `main`, because the motion token families are still on the `animation-revamp` branch.
+The original rule here was "only on in-progress tiers", which was wrong: any tier of a started collection has `current > 0`, so all three would have reported the same number and a screen reader would have heard it three times per collection.
+
+Bounding it to the nearest unearned tier gives one active target per collection, at most four, and matches how a member actually reads the row.
+
+Motion uses the `--hv-motion-*` family, which the motion token system brought to `main` in `0d53cc2` while this phase was in flight.
+
+The progress fill animates `width`, a size change the eye reads as movement, so it belongs to the motion family rather than the fade family. That family already collapses to zero under reduced motion, so the component carries no local `prefers-reduced-motion` query at all. An earlier draft of this design predated those tokens and specified the local-media-query pattern; the drift test that shipped with them correctly rejected it.
 
 ### Copy
 
