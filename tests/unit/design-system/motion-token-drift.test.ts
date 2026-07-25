@@ -3,10 +3,13 @@ import { extname, relative, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-const sourceExtensions = new Set(['.css', '.svelte']);
+const sourceExtensions = new Set(['.css', '.svelte', '.ts']);
 
 // The single source of motion timing. Everything else references it.
 const tokenSourcePath = 'src/lib/design-system/tokens.css';
+// Its TypeScript mirror, for consumers that cannot read custom properties. The browser parity
+// test holds the two together, so its literals are the one sanctioned script-side copy.
+const motionSourcePath = 'src/lib/design-system/motion.ts';
 
 /**
  * Surfaces that still hard-code their own durations and easings, each one waiting for the phase
@@ -42,6 +45,12 @@ const durationDeclarationPattern = /\b(?:transition|animation)(?:-duration|-dela
 const durationLiteralPattern = /\b\d+(?:\.\d+)?m?s\b/;
 const easingPattern = /cubic-bezier\s*\(/g;
 
+// Durations picked in script drift exactly as CSS ones do, but they hide in plain assignments:
+// `mapMotionDuration = $derived(reducedMotion ? 0 : 450)` carries no unit for a unit pattern to
+// find. Any duration-named binding whose right-hand side contains a multi-digit numeric literal
+// is treated as a hand-picked duration; zero stays legal because it means "jump, don't animate".
+const scriptDurationPattern = /\b\w*[dD]uration\w*\s*[:=][^;\n]*?\b\d{2,}(?:\.\d+)?\b[^;\n]*/g;
+
 /** Blanks comments while preserving offsets, so reported line numbers stay accurate. */
 function withoutComments(content: string): string {
   return content.replaceAll(/\/\*[\s\S]*?\*\/|(?<=^|[\s;{])\/\/[^\n]*/g, (comment) =>
@@ -73,7 +82,7 @@ async function findMotionLiterals(): Promise<DriftFinding[]> {
 
   for (const path of await sourceFiles(resolve(repositoryRoot, 'src'))) {
     const repositoryPath = relative(repositoryRoot, path);
-    if (repositoryPath === tokenSourcePath) continue;
+    if (repositoryPath === tokenSourcePath || repositoryPath === motionSourcePath) continue;
 
     const content = withoutComments(await readFile(path, 'utf8'));
     const lineFor = (offset: number): number => content.slice(0, offset).split('\n').length;
@@ -89,6 +98,14 @@ async function findMotionLiterals(): Promise<DriftFinding[]> {
 
     for (const easing of content.matchAll(easingPattern)) {
       findings.push({ path: repositoryPath, line: lineFor(easing.index), match: easing[0] });
+    }
+
+    for (const assignment of content.matchAll(scriptDurationPattern)) {
+      findings.push({
+        path: repositoryPath,
+        line: lineFor(assignment.index),
+        match: assignment[0].replaceAll(/\s+/g, ' ').trim()
+      });
     }
   }
 
