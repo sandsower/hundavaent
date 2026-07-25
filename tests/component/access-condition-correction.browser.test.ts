@@ -13,6 +13,7 @@ const accessConditionId = '40000000-0000-4000-8000-000000000003';
 const legend = 'What applies here?';
 const restraintTrigger = /correct the restraint rule/i;
 const areaTrigger = /correct where dogs are welcome/i;
+const permissionTrigger = /correct the permission needed/i;
 
 function condition(overrides: Partial<PublishedAccessFacts> = {}): PublishedAccessFacts {
   return {
@@ -32,7 +33,7 @@ function condition(overrides: Partial<PublishedAccessFacts> = {}): PublishedAcce
 function mount(options: {
   signedIn: boolean;
   announce?: (message: string) => void;
-  dimension?: 'restraint' | 'area';
+  dimension?: 'restraint' | 'area' | 'permission';
   condition?: Partial<PublishedAccessFacts>;
 }) {
   return render(AccessConditionCorrection, {
@@ -467,5 +468,85 @@ describe('AccessConditionCorrection on the area dimension', () => {
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByRole('button', { name: areaTrigger }))
     );
+  });
+});
+
+describe('AccessConditionCorrection on the permission dimension', () => {
+  it('offers every permission a place can hold, because none of them needs a sourced note', async () => {
+    mount({ signedIn: true, dimension: 'permission' });
+    await openEditor(permissionTrigger);
+
+    expect(screen.getAllByRole('radio').map((radio) => radio.getAttribute('value'))).toEqual([
+      'standing_permission',
+      'ask_on_arrival',
+      'advance_approval'
+    ]);
+  });
+
+  it('reuses the chip copy the member just tapped, and names what the chips flatten', async () => {
+    mount({ signedIn: true, dimension: 'permission' });
+    await openEditor(permissionTrigger);
+
+    // The first two are the chip labels themselves. Advance approval has no chip of its own -- the
+    // chips show it as "special conditions" -- so it is named directly rather than borrowed from a
+    // label that means something broader.
+    expect(screen.getByRole('radio', { name: 'Generally welcome' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Ask on arrival' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Approval needed in advance' })).toBeTruthy();
+  });
+
+  it.each(['standing_permission', 'ask_on_arrival', 'advance_approval'] as const)(
+    'seeds and focuses the current permission when it is %s',
+    async (current) => {
+      mount({
+        signedIn: true,
+        dimension: 'permission',
+        condition: { permissionRequirement: current }
+      });
+      await openEditor(permissionTrigger);
+
+      const checked = screen.getByRole('radio', {
+        name: {
+          standing_permission: 'Generally welcome',
+          ask_on_arrival: 'Ask on arrival',
+          advance_approval: 'Approval needed in advance'
+        }[current]
+      });
+      expect(checked).toBeChecked();
+      await waitFor(() => expect(document.activeElement).toBe(checked));
+    }
+  );
+
+  it('sends the permission dimension and its value', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        calls.push({ url: String(input), init: init ?? {} });
+        return submittedResponse();
+      })
+    );
+    mount({ signedIn: true, dimension: 'permission' });
+    await openEditor(permissionTrigger);
+    await fireEvent.click(screen.getByRole('radio', { name: 'Ask on arrival' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({
+      target: 'access_condition',
+      accessConditionId,
+      dimension: 'permission',
+      value: 'ask_on_arrival',
+      note: null
+    });
+  });
+
+  it('keeps confirm disabled while the permission is unchanged', async () => {
+    mount({ signedIn: true, dimension: 'permission' });
+    await openEditor(permissionTrigger);
+
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    await fireEvent.click(screen.getByRole('radio', { name: 'Approval needed in advance' }));
+    expect(screen.getByRole('button', { name: 'Send' })).not.toBeDisabled();
   });
 });

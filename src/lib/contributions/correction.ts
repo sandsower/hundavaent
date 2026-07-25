@@ -175,6 +175,32 @@ export interface PendingPlaceFlag {
 }
 
 /**
+ * Suppression is per Access Condition, not per dimension, because a flag targeting a Condition
+ * records no dimension: its proposed value is the whole Condition object. A second dimension edit
+ * raised while one is open would build from the stored Condition and propose reverting the first,
+ * so every affordance on a Condition with anything open says "pending" instead.
+ */
+export function hasPendingAccessCondition(
+  pending: readonly PendingPlaceFlag[],
+  accessConditionId: string
+): boolean {
+  return pending.some(
+    (flag) => flag.targetKind === 'access_condition' && flag.accessConditionId === accessConditionId
+  );
+}
+
+/**
+ * Place fields carry their own target, so their markers are per field: a pending name Correction
+ * says nothing about the phone number and must not silence it.
+ */
+export function hasPendingPlaceField(
+  pending: readonly PendingPlaceFlag[],
+  field: PendingPlaceField
+): boolean {
+  return pending.some((flag) => flag.targetKind === 'place_field' && flag.targetField === field);
+}
+
+/**
  * The single place a dimension name is paired with a value it is allowed to carry. Both the
  * endpoint's parser and the inline editor read it, so a value the group cannot represent is
  * rejected identically at both ends.

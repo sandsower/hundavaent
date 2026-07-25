@@ -251,7 +251,13 @@ export function readPlaceFieldValue(form: FormData, field: PlaceField): PlaceFie
     case 'description': {
       const is = value('fieldValueIs');
       const en = value('fieldValueEn');
-      if (!is || !en) return null;
+      // The omitted-locale hatch, on the form as well as the card. Requiring both locales asked a
+      // Member for a language they may not speak, which is how description Corrections came to be
+      // orphaned: the only honest answer was to leave the form. One language is now enough, and the
+      // other is named for review rather than guessed, copied or blanked.
+      if (!is && !en) return null;
+      if (!en) return { is, needs_review: 'en' };
+      if (!is) return { en, needs_review: 'is' };
       return { is, en };
     }
     case 'website_url': {

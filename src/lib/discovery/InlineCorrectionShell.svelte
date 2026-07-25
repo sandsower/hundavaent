@@ -44,6 +44,7 @@
   let outcome = $state<'unchanged' | 'rate_limited' | 'failed' | null>(null);
   let attempt = $state(0);
   let editor = $state<HTMLFieldSetElement>();
+  let valueControls = $state<HTMLDivElement>();
   let trigger = $state<HTMLButtonElement>();
   let focusTarget = $state<'editor' | 'trigger' | null>(null);
 
@@ -120,11 +121,17 @@
   // Focus follows the disclosure in both directions, so keyboard focus is never left on a node
   // that has just been removed. The checked option is the entry point, as in any radio group;
   // the first control is only a fallback for a value the editor's group cannot represent.
+  //
+  // The search is scoped to the value controls rather than to the whole fieldset. The note is the
+  // last control in the fieldset and the optional one, so a query over the fieldset would land on
+  // it the moment an editor rendered no matching control, and the Member would be typing a note
+  // before ever seeing the fact they came to correct.
   $effect(() => {
     if (focusTarget === 'editor' && editor) {
+      const region = valueControls ?? editor;
       (
-        editor.querySelector<HTMLInputElement>('input[type="radio"]:checked') ??
-        editor.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea')
+        region.querySelector<HTMLInputElement>('input[type="radio"]:checked') ??
+        region.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea, select')
       )?.focus();
       focusTarget = null;
     }
@@ -145,7 +152,11 @@
   {#if open}
     <fieldset bind:this={editor} class="editor" aria-labelledby={`${componentId}-legend`}>
       <legend id={`${componentId}-legend`}>{copy['inlineCorrection.legend']}</legend>
-      {@render controls({ dismiss, groupName: `${componentId}-choice` })}
+      <!-- The value the Member came to change always precedes the note, in DOM order and in the
+           tab order, because the note is the optional afterthought and the value is the point. -->
+      <div bind:this={valueControls} class="value-controls">
+        {@render controls({ dismiss, groupName: `${componentId}-choice` })}
+      </div>
 
       <label class="note">
         <span>{copy['inlineCorrection.note']}</span>
@@ -242,6 +253,12 @@
     font-weight: 850;
     letter-spacing: 0.05em;
     text-transform: uppercase;
+  }
+
+  .value-controls {
+    display: grid;
+    min-width: 0;
+    gap: 0.4rem;
   }
 
   .note {

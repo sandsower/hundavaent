@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(29);
+select plan(31);
 
 -- Fixtures --------------------------------------------------------------------------------------
 
@@ -300,6 +300,42 @@ select is(
   ),
   '{"is":"Lykilkaffihús","needs_review":"en"}'::jsonb,
   'The stored Correction keeps the flagged locale absent rather than blank or guessed'
+);
+
+-- The Moderator draft the hatch has to survive ---------------------------------------------------
+--
+-- A saved draft section is deep merged onto this baseline, and a deep merge keeps every key the
+-- patch does not name. Seeding the draft with needs_review therefore made it permanent: the
+-- Moderator could write the missing locale and still produce a value the apply path rejects as a
+-- flag naming a locale the value also writes. The flag describes the Member's submission, not the
+-- draft, so it stops at the draft boundary.
+
+select is(
+  private.place_flag_resolution_baseline(
+    (
+      select flag.id from private.place_flags flag
+      where flag.request_id = '98700000-0000-4000-8000-000000000001'
+    )
+  ) -> 'application_payload' -> 'field_value',
+  '{"is":"Lykilkaffihús"}'::jsonb,
+  'The draft carries the Member text through and drops the flag naming the locale they could not write'
+);
+
+select lives_ok(
+  $$
+    select private.validate_place_field_value(
+      'name',
+      (
+        private.place_flag_resolution_baseline(
+          (
+            select flag.id from private.place_flags flag
+            where flag.request_id = '98700000-0000-4000-8000-000000000001'
+          )
+        ) -> 'application_payload' -> 'field_value'
+      ) || '{"en":"Key Coffee House"}'::jsonb
+    )
+  $$,
+  'A Moderator writing the missing locale on that draft produces a value the apply path accepts'
 );
 
 -- A resolved flag is no longer pending ----------------------------------------------------------

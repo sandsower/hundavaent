@@ -222,6 +222,110 @@ test('a Member corrects the restraint rule inline on the place card and the Mode
   await moderatorContext.close();
 });
 
+test('a Member corrects the Place name in one language and a Moderator cannot apply it until the other is written', async ({
+  browser,
+  page
+}) => {
+  const { correctable } = localPlaceFlagFixtures;
+  const correctedName = `Flag E2E Cafe & Bakery ${Date.now()}`;
+  const memberEmail = `name-hatch-member-${Date.now()}@example.invalid`;
+  await signInMember(page, memberEmail);
+
+  await page.goto(`/en?place=${correctable.placeId}`);
+  await waitForHydration(page);
+  const selectedPlace = page.getByRole('complementary', { name: 'Selected place' });
+
+  // The name has no row on the card until a Member asks for one: readers see the practical details
+  // exactly as they always have, and one quiet line at the foot of them.
+  await selectedPlace.getByText('Place details').click();
+  const revealLine = selectedPlace.getByRole('button', {
+    name: `Correct the details for ${correctable.nameEn}`
+  });
+  await expect(revealLine).toBeVisible();
+  await expect(
+    selectedPlace.getByRole('button', { name: `Correct the name of ${correctable.nameEn}` })
+  ).toHaveCount(0);
+  await revealLine.click();
+
+  await selectedPlace
+    .getByRole('button', { name: `Correct the name of ${correctable.nameEn}` })
+    .click();
+  const nameInput = selectedPlace.getByLabel('Name of this place');
+  await expect(nameInput).toHaveValue(correctable.nameEn);
+  await nameInput.fill(correctedName);
+
+  const submissionPromise = page.waitForResponse((response) => {
+    return (
+      response.request().method() === 'POST' && response.url().includes('/corrections?lang=en')
+    );
+  });
+  await selectedPlace.getByRole('button', { name: 'Send', exact: true }).click();
+  const submission = await submissionPromise;
+  const submissionBody = await submission.text();
+  expect(submission.status(), submissionBody).toBe(200);
+  const nameFlagId = (JSON.parse(submissionBody) as { flagId: string }).flagId;
+
+  const moderatorContext = await browser.newContext();
+  const moderatorPage = await moderatorContext.newPage();
+  await signInModerator(moderatorPage);
+  await moderatorPage.goto(
+    `/en/moderation?queue=corrections-and-reports&item=${nameFlagId}&filter=actionable`
+  );
+  await waitForHydration(moderatorPage);
+
+  // The database accepts the one-language draft, so this panel is the only thing standing between
+  // a half-translated claim and a published Place.
+  const apply = moderatorPage
+    .getByRole('button', { name: 'Apply correction', exact: true })
+    .first();
+  await expect(apply).toBeDisabled();
+  await expect(moderatorPage.getByText('A translation is still missing').first()).toBeVisible();
+  await expect(
+    moderatorPage.getByRole('button', { name: 'Reject', exact: true }).first()
+  ).toBeEnabled();
+
+  const changeSection = moderatorPage.locator('#correction-change');
+  await expandReviewSection(changeSection);
+  await changeSection.getByRole('button', { name: 'Edit Change under review' }).click();
+  const applicationForm = changeSection.locator('[data-section-form="application"]');
+  // The Member was reading in English, so English is the locale their Correction wrote and
+  // Icelandic is the one it named for review. The flagged box prefills empty, so nothing invites
+  // accepting text nobody wrote.
+  await expect(applicationForm.getByLabel('Name in English')).toHaveValue(correctedName);
+  await expect(applicationForm.getByLabel('Name in Icelandic')).toHaveValue('');
+  await applicationForm.getByLabel('Name in Icelandic').fill(correctedName);
+  await applicationForm.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(moderatorPage.getByText('Draft changes saved.')).toBeVisible();
+
+  await expect(apply).toBeEnabled();
+  await apply.click();
+  const dialog = moderatorPage.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  const decisionPromise = moderatorPage.waitForResponse((response) => {
+    return response.request().method() === 'POST' && response.url().includes('?/decideCorrection');
+  });
+  await dialog.getByRole('button', { name: 'Apply correction', exact: true }).click();
+  const decision = await decisionPromise;
+  const decisionBody = await decision.text();
+  expect(decision.status(), decisionBody).toBe(200);
+  await expect(moderatorPage.locator('.live-status')).toContainText('The outcome has been saved.', {
+    timeout: 10_000
+  });
+  await moderatorContext.close();
+
+  const status = getLocalSupabaseStatus();
+  const publicClient = createClient<Database>(status.apiUrl, status.publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  for (const locale of ['en', 'is'] as const) {
+    const { data: rows } = await publicClient.rpc('get_published_place_profile', {
+      requested_place_id: correctable.placeId,
+      requested_locale: locale
+    });
+    expect(rows?.[0]?.name, `locale ${locale}`).toBe(correctedName);
+  }
+});
+
 test('a signed-in Member cannot open the Moderator Correction/Report queue', async ({ page }) => {
   const memberEmail = `place-flag-unauthorized-${Date.now()}@example.invalid`;
   await signInMember(page, memberEmail);

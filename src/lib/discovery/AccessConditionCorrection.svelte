@@ -6,22 +6,24 @@
   } from '$lib/contributions/correction-client';
   import {
     isMemberAreaChoice,
+    isMemberPermissionChoice,
     isMemberRestraintChoice,
     memberDimensionChoices,
     parseDimensionChange,
     type MemberAreaChoice,
+    type MemberPermissionChoice,
     type MemberRestraintChoice
   } from '$lib/contributions/correction';
   import InlineCorrectionShell from '$lib/discovery/InlineCorrectionShell.svelte';
   import type { PublishedAccessFacts } from '$server/discovery/public-places';
 
   /**
-   * The dimensions this editor renders as a plain radio group. Permission joins them and
-   * eligibility needs a numeric control beside the group, so both stay out until that editor work
-   * lands rather than being half-rendered here.
+   * The dimensions whose whole vocabulary is a plain radio group. Eligibility is the one that is
+   * not: a limit is a choice plus the number bounding it, so it has its own editor rather than a
+   * fourth case here.
    */
-  type RadioDimension = 'restraint' | 'area';
-  type RadioChoice = MemberRestraintChoice | MemberAreaChoice;
+  type RadioDimension = 'restraint' | 'area' | 'permission';
+  type RadioChoice = MemberRestraintChoice | MemberAreaChoice | MemberPermissionChoice;
 
   interface Props {
     placeId: string;
@@ -45,20 +47,26 @@
     announce = () => undefined
   }: Props = $props();
 
-  // Restraint labels reuse the chip copy the Member just tapped, so the choice reads as the same
-  // fact. Area has no chip label of its own below indoors, so it names the three areas directly.
+  // Labels reuse the chip copy the Member just tapped wherever a chip states that value, so the
+  // choice reads as the same fact. Where no chip label exists -- the areas below indoors, and
+  // advance approval, which the chips flatten into "special conditions" -- the value is named
+  // directly rather than borrowed from a label that means something broader.
   const choiceLabels: Record<RadioChoice, MessageKey> = {
     leash_required: 'accessSymbols.leash',
     off_leash_permitted: 'accessSymbols.offLeash',
     carrier_required: 'accessSymbols.carrier',
     indoors: 'inlineCorrection.areaIndoors',
     outdoors: 'inlineCorrection.areaOutdoors',
-    designated_area: 'inlineCorrection.areaDesignated'
+    designated_area: 'inlineCorrection.areaDesignated',
+    standing_permission: 'accessSymbols.permissionOpen',
+    ask_on_arrival: 'accessSymbols.askOnArrival',
+    advance_approval: 'inlineCorrection.permissionAdvance'
   };
 
   const startLabels: Record<RadioDimension, MessageKey> = {
     restraint: 'inlineCorrection.startLabelRestraint',
-    area: 'inlineCorrection.startLabelArea'
+    area: 'inlineCorrection.startLabelArea',
+    permission: 'inlineCorrection.startLabelPermission'
   };
 
   let choice = $state<RadioChoice | null>(seededChoice());
@@ -68,18 +76,21 @@
   const changed = $derived(choice !== null && choice !== published);
 
   function currentValue(): string {
-    return dimension === 'area' ? condition.accessArea : condition.restraintCondition;
+    if (dimension === 'area') return condition.accessArea;
+    if (dimension === 'permission') return condition.permissionRequirement;
+    return condition.restraintCondition;
   }
 
   /**
    * Null when the Place's current value is one this group cannot represent. Pre-checking a
    * substitute would state a rule the Place does not have and would arm the confirm button before
-   * the Member chose anything.
+   * the Member chose anything. Permission has no such value, so its seed is always the stored one.
    */
   function seededChoice(): RadioChoice | null {
     const current = currentValue();
-    if (isMemberRestraintChoice(current)) return current;
-    return isMemberAreaChoice(current) ? current : null;
+    if (dimension === 'restraint') return isMemberRestraintChoice(current) ? current : null;
+    if (dimension === 'area') return isMemberAreaChoice(current) ? current : null;
+    return isMemberPermissionChoice(current) ? current : null;
   }
 
   function reseed(): void {
