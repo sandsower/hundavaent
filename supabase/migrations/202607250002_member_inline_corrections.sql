@@ -70,6 +70,7 @@ declare
   requested_safety_concern boolean :=
     coalesce((command_payload ->> 'is_safety_concern')::boolean, false) and requested_kind = 'report';
   requested_successor_place_id uuid := nullif(command_payload ->> 'successor_place_id', '')::uuid;
+  requested_explanation text := btrim(command_payload ->> 'explanation');
   snapshot jsonb;
 begin
   if command_request_id is null or actor_id is null then
