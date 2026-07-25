@@ -4,17 +4,14 @@ import { extname, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Every view-transition-name in the source, by design. A duplicate name on one page aborts the
- * whole transition silently - no red test, no console error, the morph just stops happening -
- * so the set of declarations is pinned here. A new name is a deliberate decision: it needs a
- * timing override in app.css (the UA's 250ms default is invisible to the motion drift test)
- * and a fade-suppression rule when the named element carries text.
+ * Every view-transition-name in the source, by design - currently none: the title/header
+ * morphs were removed as over-animation, leaving only the root crossfade. The set stays
+ * pinned because a duplicate name on one page aborts the whole transition silently - no red
+ * test, no console error, the morph just stops happening. A new name is a deliberate
+ * decision: it needs a timing override in app.css (the UA's 250ms default is invisible to
+ * the motion drift test) and a fade-suppression rule when the named element carries text.
  */
-const expectedDeclarations = new Map([
-  ['src/lib/design-system/primitives.css', ['page-title']],
-  ['src/routes/[lang=lang]/+layout.svelte', ['site-header']],
-  ['src/routes/[lang=lang]/about/+page.svelte', ['page-title']]
-]);
+const expectedDeclarations = new Map<string, string[]>();
 
 const sourceExtensions = new Set(['.css', '.svelte']);
 const namePattern = /view-transition-name\s*:\s*([a-z-]+)/g;

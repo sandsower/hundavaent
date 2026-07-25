@@ -398,9 +398,6 @@
   .site-header {
     position: relative;
     z-index: 10;
-    /* The header morphs between its floating discovery pills and the solid bar during view
-       transitions instead of crossfading with the rest of the page. */
-    view-transition-name: site-header;
     display: flex;
     width: 100%;
     height: var(--hv-app-header-height);

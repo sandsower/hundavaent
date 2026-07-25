@@ -210,12 +210,6 @@
     font-weight: 650;
   }
 
-  /* The hero title is this page's one page-title: it morphs during view transitions like
-     every hv-page-title elsewhere. */
-  h1 {
-    view-transition-name: page-title;
-  }
-
   .hero {
     display: grid;
     min-height: 42rem;
