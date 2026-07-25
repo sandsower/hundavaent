@@ -1125,8 +1125,8 @@ test('captures the bilingual weekly roundup states and preferences', async ({ pa
       emptyTitle: 'No new tracks this week',
       language: 'English',
       emailInterest: 'I would be interested in receiving this recap by email later',
-      save: 'Save roundup settings',
-      edit: 'Edit roundup settings'
+      save: 'Save recap settings',
+      edit: 'Edit recap settings'
     },
     {
       locale: 'is',

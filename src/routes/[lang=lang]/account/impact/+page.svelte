@@ -281,15 +281,17 @@
             {data.copy[contributorKey(data.contributor.value.status)]}
           </strong>
         </div>
-        <a
-          class="hv-control status-detail-link"
-          href={resolve('/[lang=lang]/account/contributor-status', { lang: data.lang })}
-        >
-          {data.copy['contributor.nav']}
-        </a>
       {:else}
         <p class="integrity-note">{data.copy['impact.statusUnavailable']}</p>
       {/if}
+      <!-- Outside the availability branch: this is the only navigation entry to the status page,
+           and its own load handles a degraded status fact. -->
+      <a
+        class="hv-control status-detail-link"
+        href={resolve('/[lang=lang]/account/contributor-status', { lang: data.lang })}
+      >
+        {data.copy['contributor.nav']}
+      </a>
     </article>
   </section>
 

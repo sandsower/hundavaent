@@ -13,7 +13,13 @@
 
   let { data, form }: PageProps = $props();
   let submitting = $state(false);
-  let settingsOpen = $state(false);
+  // A no-JS deletion confirm re-renders the page from scratch; settings must open themselves
+  // then, or the only confirmation notice on the page stays hidden. The user's own toggle
+  // always wins over that default.
+  let settingsToggled = $state<boolean | null>(null);
+  const settingsOpen = $derived(
+    settingsToggled ?? Boolean(form && 'success' in form && form.success === 'deletion_requested')
+  );
   let deletionArmed = $state(false);
 
   const enhanceAction: SubmitFunction = () => {
@@ -275,7 +281,7 @@
           type="button"
           class="settings-toggle"
           aria-expanded={settingsOpen}
-          onclick={() => (settingsOpen = !settingsOpen)}
+          onclick={() => (settingsToggled = !settingsOpen)}
         >
           {data.copy['account.settingsHeading']}
         </button>

@@ -170,6 +170,28 @@ describe('Member account', () => {
     expect(screen.queryByRole('button', { name: 'Start deletion request' })).toBeNull();
   });
 
+  it('keeps the deletion confirmation visible on a full-page re-render after the action', () => {
+    // A no-JS confirm submits natively and re-renders from scratch; the settings section must
+    // open itself so the only confirmation notice on the page is actually visible.
+    render(AccountPage, {
+      params: { lang: 'en' },
+      data: signedInData({
+        member: {
+          email: 'friend@example.is',
+          provider: 'email',
+          createdAt: '2026-07-01T12:00:00Z',
+          deletionStatus: 'requested',
+          deletionRequestedAt: '2026-07-25T09:00:00Z'
+        }
+      }),
+      form: { action: 'requestDeletion', success: 'deletion_requested' }
+    } as never);
+
+    expect(
+      screen.getByText('Your request is recorded. We will contact you before anything is deleted.')
+    ).toBeTruthy();
+  });
+
   it('offers the localized moderation workspace only to capable Members', () => {
     render(AccountPage, {
       params: { lang: 'en' },
