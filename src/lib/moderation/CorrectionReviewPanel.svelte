@@ -800,7 +800,7 @@
     padding: 0.75rem 0.85rem;
   }
   .trusted-context[data-outcome='superseded'] {
-    border-left-color: var(--hv-color-muted);
+    border-left-color: var(--hv-color-basalt-muted);
   }
   header,
   .review-sections,

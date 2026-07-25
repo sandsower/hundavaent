@@ -71,13 +71,13 @@
     min-height: 100%;
     padding: 1rem;
     gap: 0.85rem;
-    border-color: color-mix(in srgb, var(--hv-color-fjord) 18%, var(--hv-color-line));
+    border-color: color-mix(in srgb, var(--hv-color-fjord) 18%, var(--hv-border-subtle));
   }
 
   .recommendation.lead {
     padding: clamp(1.15rem, 3vw, 1.6rem);
-    background: color-mix(in srgb, var(--hv-color-sky) 6%, var(--hv-color-snow-raised));
-    border-color: color-mix(in srgb, var(--hv-color-fjord) 38%, var(--hv-color-line));
+    background: color-mix(in srgb, var(--hv-color-fjord) 6%, var(--hv-color-snow-raised));
+    border-color: color-mix(in srgb, var(--hv-color-fjord) 38%, var(--hv-border-subtle));
   }
 
   .icon-wrap {

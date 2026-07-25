@@ -134,7 +134,7 @@
 <style>
   .preferences {
     padding: clamp(1rem, 4vw, 1.5rem);
-    border-color: color-mix(in srgb, var(--hv-color-fjord) 25%, var(--hv-color-line));
+    border-color: color-mix(in srgb, var(--hv-color-fjord) 25%, var(--hv-border-subtle));
   }
 
   .preferences-header {
@@ -217,7 +217,7 @@
   .choice {
     min-height: 2.65rem;
     padding: 0.55rem 0.7rem;
-    border: 1px solid var(--hv-color-line);
+    border: 1px solid var(--hv-border-subtle);
     border-radius: 0.75rem;
     background: var(--hv-color-snow-raised);
     font-weight: 750;
@@ -225,7 +225,7 @@
 
   .choice:has(input:checked) {
     border-color: var(--hv-color-fjord);
-    background: color-mix(in srgb, var(--hv-color-sky) 16%, white);
+    background: color-mix(in srgb, var(--hv-color-fjord) 16%, white);
   }
 
   input {

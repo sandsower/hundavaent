@@ -27,7 +27,7 @@
     border: 2px solid var(--hv-color-snow-raised);
     border-radius: 999px;
     margin-inline-start: 0.1rem;
-    background: var(--hv-color-coral);
+    background: var(--hv-color-brand-paw);
     color: white;
     filter: drop-shadow(0 1px 1px rgb(30 45 49 / 22%));
     place-items: center;
