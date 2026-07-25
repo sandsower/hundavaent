@@ -29,8 +29,9 @@
   .suggest-dock {
     position: absolute;
     z-index: 3;
-    /* Above the map attribution strip, which owns the bottom edge on every layout. */
-    bottom: calc(var(--floating-card-inset, 0.75rem) + 1.75rem);
+    /* Above the map attribution strip, which owns the bottom edge on every layout. The lift is
+       the shell's, because the shell reserves this same band in the panels beside the map. */
+    bottom: calc(var(--floating-card-inset, 0.75rem) + var(--suggest-dock-lift, 1.75rem));
     right: var(--floating-card-inset, 0.75rem);
     left: var(--floating-card-inset, 0.75rem);
     display: flex;

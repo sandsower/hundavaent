@@ -497,6 +497,9 @@ test.describe('public discovery without JavaScript', () => {
 
     const fallbackDirectory = page.locator('.noscript-results');
     await expect(fallbackDirectory.getByRole('heading', { name: 'List' })).toBeVisible();
+    // The suggest pill is chrome over the map, and there is no map here: it would float over a
+    // static list with nothing to anchor it. The zero-results row inside the cluster stays.
+    await expect(page.locator('[data-suggest-dock]')).toBeHidden();
     await expect(fallbackDirectory.getByText('Published Place', { exact: true })).toBeVisible();
 
     const documentGeometry = await page.locator('html').evaluate((element) => ({

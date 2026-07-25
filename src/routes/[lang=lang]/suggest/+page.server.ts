@@ -20,14 +20,21 @@ import type { Actions, PageServerLoad } from './$types';
  * is being asked, and meets the sign-in gate only when they submit: the entry point on the map is
  * permanently reachable, and a sign-in wall in front of it would make it permanently reachable only
  * for Members. The gate lives in the action below, which is where a submission is actually refused.
+ *
+ * This deliberately diverges from the correct and report pages, which bounce a signed-out visitor
+ * with a goto() in an effect. Those two are opened from a Place that already exists, so the
+ * visitor loses nothing by signing in first. This page is the only way to name a Place that is not
+ * on the map yet, and approved decision 6 makes it readable by everyone. Do not harmonize the
+ * three by adding a redirect here.
  */
 export const load: PageServerLoad = async ({ locals, params, url }) => {
   const lang = parseLocale(params.lang);
   const returnTo = `${url.pathname}${url.search}`;
   const presetCoordinates = parsePresetCoordinates(url.searchParams);
   const mapStyleUrl = env.PUBLIC_MAP_STYLE_URL?.trim() || null;
-  // The pin the Member chose lives in the query string, so returning from sign-in lands on the
-  // same three questions with the same pin. Nothing else is deferred and nothing is replayed.
+  // Only the pin the map handed over survives sign-in, because it is in the query string and the
+  // return path carries the query string with it. Nothing on the page is deferred or replayed:
+  // a pin dragged here and a name typed here are both gone on return (approved decision 6).
   const signInUrl = accountUrl(lang, returnTo);
 
   if (!locals.supabase) {
@@ -77,6 +84,13 @@ export const actions: Actions = {
     const formData = await request.formData();
     const commandId = formData.get('commandId');
     if (typeof commandId !== 'string' || !uuidPattern.test(commandId)) {
+      return fail(400, { error: 'invalid' as const });
+    }
+    // This page asks three questions and sends one profile. The parser still understands the
+    // older, wider profiles, and those paths turn Member free text into a citation - which this
+    // page deliberately never does. Refusing anything else here, before a single field is read,
+    // keeps a hand-built POST from reaching them.
+    if (formData.get('submissionProfile') !== 'minimal-v1') {
       return fail(400, { error: 'invalid' as const });
     }
     const parsed = parseSuggestionFormData(formData, { locale: lang });

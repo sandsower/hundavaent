@@ -44,6 +44,47 @@ describe('Suggestion page boundary', () => {
     expect(client.rpc).not.toHaveBeenCalledWith('submit_place_suggestion', expect.anything());
   });
 
+  /**
+   * The parser still understands the wider profiles this page replaced, and one of those paths
+   * turns a Member's free-text explanation into an Evidence citation a published profile shows.
+   * This page never asks for that text, so a hand-built POST must not be able to reach the path
+   * that would publish it.
+   */
+  it('refuses a profile this page no longer asks for without sending anything', async () => {
+    const client = memberClient();
+
+    await expect(
+      actions.default?.({
+        ...eventWith(client),
+        request: new Request('https://hundavaent.test/en/suggest', {
+          method: 'POST',
+          body: new URLSearchParams({
+            commandId,
+            purpose: 'dog_access_destination',
+            submissionProfile: 'simple-v1',
+            name: 'Legacy profile cafe',
+            locationNote: 'By the harbour in Reykjavík',
+            evidenceExplanation: 'The staff told me dogs are welcome inside.',
+            category: 'cafe',
+            accessArea: 'indoors',
+            restraintCondition: 'leash_required',
+            permissionRequirement: 'standing_permission',
+            evidenceKind: 'venue_representative',
+            evidenceObservedDate: '2026-07-20',
+            allDogsWelcome: 'confirmed',
+            latitude: '64.15',
+            longitude: '-21.93'
+          })
+        })
+      } as never)
+    ).resolves.toMatchObject({ status: 400, data: { error: 'invalid' } });
+
+    expect(client.rpc).not.toHaveBeenCalledWith(
+      'submit_place_suggestion',
+      expect.anything() as never
+    );
+  });
+
   it('sends the whole minimal profile once the Member is signed in', async () => {
     const client = memberClient();
 

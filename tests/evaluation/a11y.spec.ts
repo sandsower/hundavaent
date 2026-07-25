@@ -171,6 +171,9 @@ test('public discovery and floating access details are keyboard-operable and Axe
   await expect(suggestPill).toBeVisible();
   await suggestPill.focus();
   await expect(suggestPill).toBeFocused();
+  // Scanned here, on arrival, because this is the only state the pill is mounted in: the pass
+  // below runs after a selection has taken it away.
+  await expectNoSeriousAxeViolations(page, evidence);
   // Arrival is a quiet map: the "All" chip is the browse-everything toggle
   // that opens the floating list.
   await page.getByRole('button', { name: 'All', exact: true }).click();

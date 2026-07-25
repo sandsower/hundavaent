@@ -1,4 +1,4 @@
-import type { DogEligibility } from '$domain/access';
+import { notStatedByMember, type DogEligibility } from '$domain/access';
 import {
   buildMemberSuggestionEvidence,
   describePlaceSuggestion
@@ -118,12 +118,6 @@ const availabilityStates = new Set<SuggestionProposal['access_condition']['avail
   'limited',
   'not_stated'
 ]);
-/**
- * Written wherever the Suggestion contract refuses an empty string and the Member stated nothing.
- * It is the server's own sentence, and it says so: a Moderator reading it knows no one claimed
- * this, which is the opposite of what a plausible default would tell them.
- */
-const notStatedByMember = 'Not stated by the member';
 const evidenceKinds = new Set<SuggestionProposal['evidence']['kind']>([
   'official_website',
   'venue_representative',

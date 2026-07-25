@@ -487,6 +487,18 @@ describe('Moderator Suggestion workflow', () => {
     expect(screen.getByText('Names and descriptions').closest('details')?.open).toBe(true);
     expect(screen.getByRole('region', { name: 'Review summary' }).textContent).toContain('Blocked');
     expect(screen.getByRole('button', { name: 'Accept as Candidate' })).toBeDisabled();
+
+    // The Member typed one name and it is the same string in both locales, so the editor hands it
+    // back rather than asking for it twice. The description is the only thing nobody wrote.
+    await beginSuggestionEdit('Names and descriptions');
+    const names = screen.getAllByLabelText('Name');
+    const descriptions = screen.getAllByLabelText('Description');
+    expect((names[0] as HTMLInputElement).value).toBe(proposal.translations.en.name);
+    expect((names[1] as HTMLInputElement).value).toBe(proposal.translations.en.name);
+    expect((descriptions[0] as HTMLTextAreaElement).value).toBe('');
+    expect((descriptions[1] as HTMLTextAreaElement).value).toBe(
+      proposal.translations.en.description
+    );
   });
 
   it('offers Contribution confirmation only after acceptance', () => {

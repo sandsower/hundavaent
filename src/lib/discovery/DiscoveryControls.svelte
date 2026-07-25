@@ -536,6 +536,8 @@
     text-decoration: none;
   }
 
+  /* The shell tightens this ceiling further on compact viewports, where the suggest pill owns a
+     band along the bottom edge; see the `--suggest-dock-reserve` rules in MapListShell. */
   .filter-sheet {
     display: grid;
     width: 100%;

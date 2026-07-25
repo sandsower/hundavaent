@@ -1,12 +1,13 @@
 import type { Json } from '$server/db/generated.types';
 import type { RequestSupabaseClient } from '$server/db/clients';
-import type {
-  AccessArea,
-  AvailabilityState,
-  AvailabilityWindow,
-  DogEligibility,
-  PermissionRequirement,
-  RestraintCondition
+import {
+  notStatedByMember,
+  type AccessArea,
+  type AvailabilityState,
+  type AvailabilityWindow,
+  type DogEligibility,
+  type PermissionRequirement,
+  type RestraintCondition
 } from '$domain/access';
 import type { EvidenceKind } from '$domain/evidence';
 import { parseAvailabilityWindow, parseDogEligibility } from '$domain/access-schema';
@@ -133,6 +134,7 @@ export interface PublicationChecks {
   icelandicTranslation: boolean;
   englishTranslation: boolean;
   accessCondition: boolean;
+  publishableRestraintNote: boolean;
 }
 
 export interface CandidatePublicationReview {
@@ -394,7 +396,15 @@ export async function getCandidatePublicationReview(
         hasText(row.geometry_source),
       icelandicTranslation: hasText(row.name_is) && hasText(row.description_is),
       englishTranslation: hasText(row.name_en) && hasText(row.description_en),
-      accessCondition: accessConditions.length > 0
+      accessCondition: accessConditions.length > 0,
+      // A minimal Suggestion carries the server's own sentence where the Member stated no
+      // restraint rule, and accept copies that note onto the Candidate. The note is publishable
+      // text: it renders on a public Place profile in English, untranslated, as a rule nobody
+      // stated. Publication waits until a Moderator writes the real rule or clears the note,
+      // exactly as it waits for a translation.
+      publishableRestraintNote: accessConditions.every(
+        (condition) => condition.restraintNote?.trim() !== notStatedByMember
+      )
     };
     const ready = Object.entries(checks).every(
       ([check, passed]) => passed || (check === 'candidate' && row.lifecycle === 'published')

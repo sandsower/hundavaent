@@ -1173,6 +1173,16 @@
     --directory-rail-width: clamp(20rem, 29cqw, 26rem);
     --floating-card-inset: var(--hv-space-edge, 0.75rem);
     --chrome-top: calc(var(--hv-app-header-height, 4.4rem) + 0.35rem);
+    /* How far the suggest pill sits above the shell's own edge inset, so it clears the map
+       attribution strip. The pill reads it from here rather than carrying its own copy. */
+    --suggest-dock-lift: 1.75rem;
+    /* The band along the bottom edge the pill owns: its lift, its height, and the rail's own
+       gap. The floating panels subtract it on short viewports, where a height measured in dvh
+       would otherwise run a scrolling list under a pill that takes its own pointer events. */
+    --suggest-dock-reserve: calc(
+      var(--floating-card-inset) + var(--suggest-dock-lift) + var(--hv-control-height, 2.75rem) +
+        0.6rem
+    );
     position: relative;
     width: 100%;
     height: 100%;
@@ -1511,6 +1521,13 @@
     display: none;
   }
 
+  /* The pill is an affordance for adding a Place the map does not show, and there is no map
+     here: it would float over a static list with nothing to anchor it. The zero-results row
+     inside the cluster stays, and it is the whole way in on this page. */
+  :global(body:has(.noscript-results)) .map-list-shell :global([data-suggest-dock]) {
+    display: none;
+  }
+
   @container directory-shell (min-width: 76rem) {
     /* The boundary's size containment makes it the containing block for
        fixed descendants, so the card pins to the shell's top-right corner. */
@@ -1560,6 +1577,21 @@
 
     .rail-content {
       max-height: min(34rem, 46dvh);
+    }
+
+    /* Compact is the only layout that stacks the rail and the pill in one column, and the pill
+       is the only permanent way to add a missing Place: it keeps its band, and a panel that can
+       be scrolled gives ground. The rail gives back exactly the band and no more, so a taller
+       viewport loses nothing; the sheet cannot be shrunk by its container, so it is capped. */
+    .map-list-shell[data-detail-layout='none'][data-focus-fold='false'] .directory-sidebar {
+      bottom: var(--suggest-dock-reserve);
+    }
+
+    /* Reached from here rather than from DiscoveryControls so the reservation is stated once,
+       beside the variable that measures it. */
+    .map-list-shell[data-detail-layout='none'][data-focus-fold='false']
+      :global(#discovery-filter-sheet) {
+      max-height: min(28rem, calc(52dvh - var(--suggest-dock-reserve)));
     }
 
     .map-list-shell[data-detail-layout='rail'] .map-stage :global(.maplibregl-ctrl-top-right) {

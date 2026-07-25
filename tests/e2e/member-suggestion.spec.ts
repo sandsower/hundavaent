@@ -210,7 +210,7 @@ test('private Suggestions reach accepted, rejected, and duplicate outcomes witho
   await moderatorContext.close();
 });
 
-test('a minimal Suggestion reaches the queue as minimal-v1 and blocks accept until it is translated', async ({
+test('a minimal Suggestion blocks accept until it is translated and publication until its restraint note is written', async ({
   browser,
   page
 }) => {
@@ -279,18 +279,40 @@ test('a minimal Suggestion reaches the queue as minimal-v1 and blocks accept unt
   const translationForm = translations.locator('form[data-section-form="translations"]');
   const names = translationForm.getByLabel('Name');
   const descriptions = translationForm.getByLabel('Description');
-  await expect(names.nth(0)).toHaveValue('');
+  // The Member's one answer comes back in both locales rather than being retyped twice; the
+  // description is the only thing nobody wrote.
+  await expect(names.nth(0)).toHaveValue(minimalName);
+  await expect(names.nth(1)).toHaveValue(minimalName);
   await expect(descriptions.nth(0)).toHaveValue('');
+  await expect(descriptions.nth(1)).toHaveValue('');
   await names.nth(0).fill('Lágmarkskaffi');
-  await names.nth(1).fill(minimalName);
   await descriptions.nth(0).fill('Stjórnandi skrifaði þessa lýsingu.');
   await descriptions.nth(1).fill('A Moderator wrote this description.');
   await translationForm.getByRole('button', { name: 'Save' }).click();
   await expect(moderatorPage.getByRole('status')).toContainText('Draft changes saved.');
 
+  const accept = moderatorPage.getByRole('button', { name: 'Accept as Candidate', exact: true });
+  await expect(accept).toBeEnabled();
+  await accept.click();
+  const acceptDialog = moderatorPage.getByRole('dialog');
+  await acceptDialog.getByRole('button', { name: 'Accept as Candidate', exact: true }).click();
+  await expect(moderatorPage.getByText('The outcome has been saved.')).toBeVisible();
+
+  // Accept copies the server's restraint note onto the Candidate, where it is publishable text.
+  // The publication checklist is where that stops: the Place cannot be published while it still
+  // carries a rule nobody stated, exactly as it cannot be published without a translation.
+  const candidateId = getLocalSuggestionStates().find(
+    (item) => item.nameEn === minimalName
+  )?.candidatePlaceId;
+  expect(candidateId).toMatch(/^[0-9a-f-]{36}$/i);
+  await moderatorPage.goto(
+    `/en/moderation?queue=candidate-places&item=${candidateId}&filter=actionable`
+  );
+  const readiness = moderatorPage.getByRole('region', { name: 'Publication checklist' });
+  await expect(readiness).toContainText('Blocked');
   await expect(
-    moderatorPage.getByRole('button', { name: 'Accept as Candidate', exact: true })
-  ).toBeEnabled();
+    readiness.getByRole('link', { name: 'Write the restraint rule or clear the note' })
+  ).toBeVisible();
   await moderatorContext.close();
 });
 
@@ -386,6 +408,18 @@ async function resolveSuggestion(
     await locationForm.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Draft changes saved.', { exact: true })).toBeVisible();
     await expect(locationForm).toHaveCount(0);
+
+    // Every Suggestion now arrives with the server's own sentence where the Member stated no
+    // restraint rule. It is publishable text in one language, so a Moderator replaces it with a
+    // real rule before this Place can reach a visitor.
+    const access = page.locator('#suggestion-access');
+    await expandReviewSection(access);
+    await access.getByRole('button', { name: 'Edit Access condition' }).click();
+    const accessForm = access.locator('form[data-section-form="access-condition"]');
+    await accessForm.getByLabel('Restraint note').fill('Leashed indoors, off leash on the patio.');
+    await accessForm.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByText('Draft changes saved.', { exact: true })).toBeVisible();
+    await expect(accessForm).toHaveCount(0);
 
     const matches = page.locator('#suggestion-matches');
     await expandReviewSection(matches);

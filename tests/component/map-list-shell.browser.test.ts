@@ -1876,6 +1876,49 @@ describe('MapListShell synchronization', () => {
     await waitFor(() => expect(dock()).toBeNull());
   });
 
+  it('keeps the suggest pill clear of the results list and the filter sheet on a short compact viewport', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    // A phone held sideways: the shortest compact viewport the shell has to lay out, and the one
+    // where a bottom-anchored pill and a panel measured in dvh first collide.
+    await browserPage.viewport(667, 375);
+    history.replaceState(null, '', '/en');
+
+    try {
+      const { container } = render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: defaultDiscoveryState,
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+
+      // The shell is `height: 100%` of whatever page gives it a viewport; the harness has to hand
+      // it the same one the route does, or every dvh below is measured against nothing.
+      container.style.height = '100dvh';
+      const dockRect = () =>
+        container.querySelector<HTMLElement>('[data-suggest-dock] a')!.getBoundingClientRect();
+
+      // The scrolling panel is what the pill can cover; the list inside it is taller than its own
+      // box by design, so the box is what has to stop above the pill.
+      await fireEvent.click(screen.getByRole('button', { name: 'All' }));
+      const results = container.querySelector<HTMLElement>('[data-results-visible="true"]');
+      expect(results).toBeTruthy();
+      await waitFor(() => expect(results!.getBoundingClientRect().height).toBeGreaterThan(0));
+      expect(results!.getBoundingClientRect().bottom).toBeLessThanOrEqual(dockRect().top);
+
+      await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
+      const sheet = container.querySelector<HTMLElement>('#discovery-filter-sheet');
+      expect(sheet).toBeTruthy();
+      await waitFor(() => expect(sheet!.getBoundingClientRect().height).toBeGreaterThan(0));
+      expect(sheet!.getBoundingClientRect().bottom).toBeLessThanOrEqual(dockRect().top);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+
   it('keeps filters, results, and the selected Place mutually exclusive', async () => {
     history.replaceState(null, '', '/en');
     render(MapListShell, {
