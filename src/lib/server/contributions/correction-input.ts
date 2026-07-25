@@ -1,8 +1,10 @@
 import {
+  isPlaceReportReason,
   memberNoteMaximumLength,
   parseDimensionChange,
   parseFieldChange,
-  type CorrectionInput
+  type CorrectionInput,
+  type PlaceReportReason
 } from '$lib/contributions/correction';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -52,6 +54,29 @@ function parsePlaceFieldCorrection(candidate: Record<string, unknown>): Correcti
   if (!note) return null;
 
   return { target: 'place_field', ...change, note: note.value };
+}
+
+export interface PlaceReportInput {
+  reason: PlaceReportReason;
+  note: string | null;
+}
+
+/**
+ * The place-level Report body. The reason is the whole claim, so the parser accepts nothing else:
+ * the `report_reason` it maps onto and the safety bit that rides with `unsafe` are the endpoint's
+ * to decide, and a client that could name either could raise a safety escalation by asking.
+ */
+export function parsePlaceReportInput(value: unknown): PlaceReportInput | null {
+  const candidate = asRecord(value);
+  if (!candidate) return null;
+
+  const reason = candidate.reason;
+  if (typeof reason !== 'string' || !isPlaceReportReason(reason)) return null;
+
+  const note = parseNote(candidate.note);
+  if (!note) return null;
+
+  return { reason, note: note.value };
 }
 
 /**

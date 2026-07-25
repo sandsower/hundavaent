@@ -1,11 +1,15 @@
 <script lang="ts">
   import type { Catalogue } from '$i18n';
-  import type { PlaceFlagKind, PlaceFlagOutcome } from '$server/place-flags/place-flags';
+  import type {
+    PlaceFlagKind,
+    PlaceFlagOutcome,
+    PlaceFlagTargetKind
+  } from '$server/place-flags/place-flags';
 
   interface Props {
     copy: Catalogue;
     kind: PlaceFlagKind;
-    targetKind: 'place_field' | 'access_condition';
+    targetKind: PlaceFlagTargetKind;
     disabled?: boolean;
     /**
      * The primary outcome alone, disabled while the claim cannot honestly be applied. Every other

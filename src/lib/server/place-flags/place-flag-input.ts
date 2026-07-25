@@ -62,7 +62,21 @@ interface AccessConditionTarget {
   access_condition_id: string;
 }
 
-export type FlagTarget = PlaceFieldTarget | AccessConditionTarget;
+/**
+ * The whole Place, addressed by nothing but the Place itself. "This place is closed" is not a claim
+ * about a field or a Condition, and making a Member pick one before saying it was the reason
+ * Reports asked for a target they did not have.
+ *
+ * Reports only: a Correction proposes a replacement value for one fact, and the whole Place has no
+ * single value to replace. `place_flag_kind_shape` holds the same rule at the database.
+ */
+interface PlaceTarget {
+  target_kind: 'place';
+  target_field: null;
+  access_condition_id: null;
+}
+
+export type FlagTarget = PlaceFieldTarget | AccessConditionTarget | PlaceTarget;
 
 export interface CorrectionCommand {
   place_id: string;
@@ -159,6 +173,9 @@ function readTarget(form: FormData): FlagTarget | null {
       target_field: null,
       access_condition_id: accessConditionId
     };
+  }
+  if (targetKind === 'place') {
+    return { target_kind: 'place', target_field: null, access_condition_id: null };
   }
   return null;
 }
@@ -315,8 +332,8 @@ function readFieldValue(
 
 /**
  * `suppliedEvidence` lets a Member-facing surface hand in a server-synthesized Evidence record
- * instead of asking the Member to fill in the Moderator's worksheet. The Moderation and Report
- * surfaces still solicit their own Evidence and read it from the form.
+ * instead of asking the Member to fill in the Moderator's worksheet. Both parsers accept one; the
+ * Moderation surfaces still solicit their own Evidence and read it from the form.
  */
 export function parseCorrectionFormData(
   form: FormData,
@@ -330,6 +347,12 @@ export function parseCorrectionFormData(
 
   if (!placeId || !explanation || !target || !evidence) {
     return { ok: false, error: 'incomplete' };
+  }
+
+  // The whole Place is a Report target only. A Correction proposes a replacement value for one
+  // fact, and there is no value here to read, let alone replace.
+  if (target.target_kind === 'place') {
+    return { ok: false, error: 'invalid' };
   }
 
   const proposedValue =
@@ -347,12 +370,15 @@ export function parseCorrectionFormData(
   };
 }
 
-export function parseReportFormData(form: FormData): ReportInputResult {
+export function parseReportFormData(
+  form: FormData,
+  suppliedEvidence?: FlagEvidence
+): ReportInputResult {
   const value = (key: string): string => String(form.get(key) ?? '').trim();
   const placeId = value('placeId');
   const explanation = value('explanation');
   const target = readTarget(form);
-  const evidence = readEvidence(form);
+  const evidence = suppliedEvidence ?? readEvidence(form);
   const reportReason = value('reportReason');
   const successorPlaceId = value('successorPlaceId');
   const isSafetyConcern =

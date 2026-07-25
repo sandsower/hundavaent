@@ -21,12 +21,11 @@ import {
 } from '$server/contributions/place-field-change';
 import { getPublishedProfile, getStoredAccessCondition } from '$server/discovery/public-places';
 import { privateJson } from '$server/http/private-json';
+import { submittedPlaceFlagResponse } from '$server/place-flags/place-flag-response';
 import {
   listMyOpenPlaceFlags,
   submitCorrection,
-  type PlaceFlagCommandResult,
-  type PlaceFlagRpcClient,
-  type SubmittedPlaceFlag
+  type PlaceFlagRpcClient
 } from '$server/place-flags/place-flags';
 
 import type { RequestHandler } from './$types';
@@ -134,7 +133,7 @@ async function correctAccessCondition(
     commandId
   );
 
-  return correctionResponse(result);
+  return submittedPlaceFlagResponse(result);
 }
 
 async function correctPlaceField(
@@ -174,27 +173,5 @@ async function correctPlaceField(
     commandId
   );
 
-  return correctionResponse(result);
-}
-
-function correctionResponse(result: PlaceFlagCommandResult<SubmittedPlaceFlag>): Response {
-  if (result.status !== 'success') {
-    const status =
-      result.status === 'rate_limited'
-        ? 429
-        : result.status === 'forbidden'
-          ? 401
-          : result.status === 'conflict'
-            ? 409
-            : result.status === 'invalid'
-              ? 400
-              : 503;
-    return privateJson({ error: result.status }, status);
-  }
-
-  return privateJson({
-    status: 'submitted',
-    flagId: result.value.flagId,
-    recognition: result.value.recognition
-  });
+  return submittedPlaceFlagResponse(result);
 }

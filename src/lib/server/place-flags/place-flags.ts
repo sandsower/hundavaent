@@ -15,6 +15,12 @@ import type {
 } from './place-flag-input';
 
 export type PlaceFlagKind = 'correction' | 'report';
+
+/**
+ * Mirrors `private.place_flag_target_kind`. `place` addresses the whole Place and carries neither a
+ * field nor a Condition; it is a Report target only.
+ */
+export type PlaceFlagTargetKind = 'place_field' | 'access_condition' | 'place';
 export type PlaceFlagOutcome =
   | 'submitted'
   | 'needs_information'
@@ -50,7 +56,7 @@ export interface MemberPlaceFlag {
   outcome: PlaceFlagOutcome;
   placeNameIs: string;
   placeNameEn: string;
-  targetKind: 'place_field' | 'access_condition';
+  targetKind: PlaceFlagTargetKind;
   targetField: PlaceField | null;
   reportReason: ReportReason | null;
   memberReasonIs: string | null;
@@ -65,7 +71,7 @@ export interface MemberPlaceFlag {
  */
 export interface MemberOpenPlaceFlag {
   kind: PlaceFlagKind;
-  targetKind: 'place_field' | 'access_condition';
+  targetKind: PlaceFlagTargetKind;
   targetField: PlaceField | null;
   accessConditionId: string | null;
   reportReason: ReportReason | null;
@@ -95,7 +101,7 @@ export interface ModerationPlaceFlagSummary {
   placeId: string;
   placeNameIs: string;
   placeNameEn: string;
-  targetKind: 'place_field' | 'access_condition';
+  targetKind: PlaceFlagTargetKind;
   targetField: PlaceField | null;
   accessConditionId: string | null;
   reportReason: ReportReason | null;
@@ -120,7 +126,7 @@ export interface ModerationPlaceFlag {
   placeId: string;
   placeNameIs: string;
   placeNameEn: string;
-  targetKind: 'place_field' | 'access_condition';
+  targetKind: PlaceFlagTargetKind;
   targetField: PlaceField | null;
   accessConditionId: string | null;
   currentValueSnapshot: PlaceFieldValue | AccessConditionValue;
@@ -573,8 +579,8 @@ function isKind(value: unknown): value is PlaceFlagKind {
   return value === 'correction' || value === 'report';
 }
 
-function isTargetKind(value: unknown): value is 'place_field' | 'access_condition' {
-  return value === 'place_field' || value === 'access_condition';
+function isTargetKind(value: unknown): value is PlaceFlagTargetKind {
+  return value === 'place_field' || value === 'access_condition' || value === 'place';
 }
 
 function isPlaceFieldOrNull(value: unknown): value is PlaceField | null {
@@ -634,7 +640,7 @@ function isMemberRow(value: unknown): value is Record<string, unknown> & {
   status: PlaceFlagOutcome;
   place_name_is: string;
   place_name_en: string;
-  target_kind: 'place_field' | 'access_condition';
+  target_kind: PlaceFlagTargetKind;
   target_field: PlaceField | null;
   report_reason: ReportReason | null;
   member_reason_is: string | null;
@@ -661,7 +667,7 @@ function isMemberRow(value: unknown): value is Record<string, unknown> & {
 
 function isOpenFlagRow(value: unknown): value is Record<string, unknown> & {
   kind: PlaceFlagKind;
-  target_kind: 'place_field' | 'access_condition';
+  target_kind: PlaceFlagTargetKind;
   target_field: PlaceField | null;
   access_condition_id: string | null;
   report_reason: ReportReason | null;
@@ -688,7 +694,7 @@ function isModerationRow(value: unknown): value is Record<string, unknown> & {
   place_id: string;
   place_name_is: string;
   place_name_en: string;
-  target_kind: 'place_field' | 'access_condition';
+  target_kind: PlaceFlagTargetKind;
   target_field: PlaceField | null;
   access_condition_id: string | null;
   report_reason: ReportReason | null;
@@ -743,7 +749,7 @@ function isModerationDetailRow(value: unknown): value is Record<string, unknown>
   place_id: string;
   place_name_is: string;
   place_name_en: string;
-  target_kind: 'place_field' | 'access_condition';
+  target_kind: PlaceFlagTargetKind;
   target_field: PlaceField | null;
   access_condition_id: string | null;
   current_value_snapshot: Record<string, unknown>;

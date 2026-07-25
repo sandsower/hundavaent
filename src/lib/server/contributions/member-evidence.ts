@@ -7,7 +7,8 @@ import type {
 import {
   memberEligibilityChoiceFor,
   type MemberEligibilityChoice,
-  type MemberEligibilityValue
+  type MemberEligibilityValue,
+  type PlaceReportReason
 } from '$lib/contributions/correction';
 import type { FlagEvidence, PlaceField } from '$server/place-flags/place-flag-input';
 
@@ -16,7 +17,7 @@ import type { FlagEvidence, PlaceField } from '$server/place-flags/place-flag-in
  * The server writes the Evidence record the database requires, and records here which surface
  * the claim came from and whether the citation is the Member's words or the server's.
  */
-export type MemberContributionSurface = 'place-card' | 'correction-form';
+export type MemberContributionSurface = 'place-card' | 'correction-form' | 'report-form';
 
 export interface MemberReportEvidenceInput {
   note: string | null;
@@ -27,12 +28,25 @@ export interface MemberReportEvidenceInput {
 
 const sourceLabels: Record<MemberContributionSurface, string> = {
   'place-card': 'Member report from the place page',
-  'correction-form': 'Member report from the correction form'
+  'correction-form': 'Member report from the correction form',
+  'report-form': 'Member report from the report form'
 };
 
 const surfaceNames: Record<MemberContributionSurface, string> = {
   'place-card': 'the place card',
-  'correction-form': 'the correction form'
+  'correction-form': 'the correction form',
+  'report-form': 'the report form'
+};
+
+/**
+ * One label per place-level Report reason. Fixed strings, never the Member's own words: the summary
+ * this builds becomes the Evidence citation, and a citation reaches anonymous callers through the
+ * published profile.
+ */
+const placeReportNames: Record<PlaceReportReason, string> = {
+  closed: 'Reported closed',
+  moved: 'Reported moved',
+  unsafe: 'Reported unsafe for dogs'
 };
 
 const restraintNames: Record<RestraintCondition, string> = {
@@ -164,6 +178,18 @@ export function describePlaceFieldCorrection(
 ): string {
   const target = field === null ? 'an access condition' : placeFieldNames[field];
   return `Correction to ${target}, reported from ${surfaceNames[surface]}.`;
+}
+
+/**
+ * A place-level Report names the reason and the surface and nothing else. It has no from-and-to
+ * pair, because a Report alleges rather than proposes, and the Member's note is not part of the
+ * claim's identity: it reaches the Moderator through `explanation` and stops there.
+ */
+export function describePlaceReport(
+  reason: PlaceReportReason,
+  surface: MemberContributionSurface
+): string {
+  return `${placeReportNames[reason]} from ${surfaceNames[surface]}.`;
 }
 
 function eligibilityName(eligibility: DogEligibility): string {
