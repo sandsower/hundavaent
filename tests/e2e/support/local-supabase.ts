@@ -1303,7 +1303,9 @@ export function provisionLocalPlaceFlagFixtures(): void {
       ('${localPlaceFlagFixtures.disputable.placeId}'::uuid, 'en', '${localPlaceFlagFixtures.disputable.nameEn}', 'Original description.'),
       ('${localPlaceFlagFixtures.retirable.placeId}'::uuid, 'is', '${localPlaceFlagFixtures.retirable.nameIs}', 'Upprunaleg lýsing.'),
       ('${localPlaceFlagFixtures.retirable.placeId}'::uuid, 'en', '${localPlaceFlagFixtures.retirable.nameEn}', 'Original description.')
-    on conflict (place_id, locale) do nothing;
+    on conflict (place_id, locale) do update set
+      name = excluded.name,
+      description = excluded.description;
 
     insert into private.access_conditions (
       id, place_id, access_area, restraint_condition, permission_requirement
@@ -1311,7 +1313,10 @@ export function provisionLocalPlaceFlagFixtures(): void {
       ('${localPlaceFlagFixtures.correctable.accessConditionId}'::uuid, '${localPlaceFlagFixtures.correctable.placeId}'::uuid, 'indoors', 'leash_required', 'standing_permission'),
       ('${localPlaceFlagFixtures.disputable.accessConditionId}'::uuid, '${localPlaceFlagFixtures.disputable.placeId}'::uuid, 'outdoors', 'off_leash_permitted', 'standing_permission'),
       ('${localPlaceFlagFixtures.retirable.accessConditionId}'::uuid, '${localPlaceFlagFixtures.retirable.placeId}'::uuid, 'indoors', 'carrier_required', 'ask_on_arrival')
-    on conflict (id) do nothing;
+    on conflict (id) do update set
+      access_area = excluded.access_area,
+      restraint_condition = excluded.restraint_condition,
+      permission_requirement = excluded.permission_requirement;
 
     insert into private.evidence (id, place_id, kind, source_url, source_label, observed_at, recorded_by) values
       ${evidenceValues}

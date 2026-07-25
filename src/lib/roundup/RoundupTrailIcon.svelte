@@ -98,17 +98,17 @@
   .roundup-icon .paw {
     transform-origin: 32px 28px;
     animation:
-      paw-settle var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 2)
-        var(--hv-ease-settle) both,
-      paw-appear var(--hv-fade-considered) calc(var(--hv-motion-stagger) * 2)
-        var(--hv-ease-settle) both;
+      paw-settle var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 2) var(--hv-ease-settle)
+        both,
+      paw-appear var(--hv-fade-considered) calc(var(--hv-motion-stagger) * 2) var(--hv-ease-settle)
+        both;
   }
 
   .roundup-icon .spark {
     transform-origin: 50px 13px;
     animation:
-      spark-turn var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 4)
-        var(--hv-ease-settle) both,
+      spark-turn var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 4) var(--hv-ease-settle)
+        both,
       spark-appear var(--hv-fade-considered) calc(var(--hv-motion-stagger) * 4)
         var(--hv-ease-settle) both;
   }

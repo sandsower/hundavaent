@@ -245,9 +245,9 @@
 
   .trail-motif :global(.paw-mark) {
     animation:
-      paw-stamps var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 6)
-        var(--hv-ease-settle) both,
-      paw-appears var(--hv-fade-considered) calc(var(--hv-motion-stagger) * 6)
-        var(--hv-ease-settle) both;
+      paw-stamps var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 6) var(--hv-ease-settle)
+        both,
+      paw-appears var(--hv-fade-considered) calc(var(--hv-motion-stagger) * 6) var(--hv-ease-settle)
+        both;
   }
 </style>

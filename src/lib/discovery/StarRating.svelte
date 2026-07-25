@@ -49,12 +49,7 @@
   }
 </script>
 
-<div
-  class="star-rating"
-  role="radiogroup"
-  aria-label={label}
-  data-inherited={inherited}
->
+<div class="star-rating" role="radiogroup" aria-label={label} data-inherited={inherited}>
   {#each [1, 2, 3, 4, 5] as score (score)}
     <button
       type="button"

@@ -216,8 +216,8 @@
   }
 
   .trail path {
-    animation: achievement-trail-draws var(--hv-motion-celebrate)
-      calc(var(--hv-motion-stagger) * 4) var(--hv-ease-settle) both;
+    animation: achievement-trail-draws var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 4)
+      var(--hv-ease-settle) both;
   }
 
   .paw {

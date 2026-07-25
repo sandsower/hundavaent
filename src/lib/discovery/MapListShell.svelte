@@ -22,7 +22,7 @@
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import type { PublishedPlaceProfile } from '$server/discovery/public-places';
   import PawMark from '$lib/member-activity/PawMark.svelte';
-import MapSurface from '$lib/map/MapSurface.svelte';
+  import MapSurface from '$lib/map/MapSurface.svelte';
   import type { MapAdapter, MapCamera, MapPadding } from '$lib/map/types';
 
   import DiscoveryControls from './DiscoveryControls.svelte';

@@ -240,5 +240,4 @@
       display: none;
     }
   }
-
 </style>

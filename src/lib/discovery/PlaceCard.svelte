@@ -100,12 +100,7 @@
   );
 </script>
 
-<article
-  data-place-card
-  data-interactive={interactive}
-  class:selected
-  aria-label={place.name}
->
+<article data-place-card data-interactive={interactive} class:selected aria-label={place.name}>
   <div
     class:photo={displayPhoto !== null}
     class:category-band={displayPhoto === null}
