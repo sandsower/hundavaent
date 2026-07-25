@@ -1,31 +1,33 @@
 @layer hundavaent.primitives {
-  :where([data-ui-mode].hv-page-shell),
-  :where([data-ui-mode]) .hv-page-shell {
+  /* Every primitive is guarded by "ancestor-or-self carries a ui mode" rather than by a plain
+     descendant combinator. Page shells put data-ui-mode and their primitive classes on the same
+     element, and a descendant-only guard silently skips exactly those elements: the class is
+     present, the rule never matches, and the layout falls back to block flow with no error
+     anywhere. The guard sits inside :where() so it stays specificity-free. */
+  :where([data-ui-mode], [data-ui-mode] *).hv-page-shell {
     width: min(100% - 2rem, var(--hv-content-wide));
     margin-inline: auto;
     padding-block: var(--hv-space-section) 4rem;
   }
 
-  :where([data-ui-mode].hv-page-shell)[data-width='narrow'],
-  :where([data-ui-mode]) .hv-page-shell[data-width='narrow'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-page-shell[data-width='narrow'] {
     width: min(100% - 2rem, var(--hv-content-narrow));
   }
 
-  :where([data-ui-mode].hv-page-shell)[data-width='wide'],
-  :where([data-ui-mode]) .hv-page-shell[data-width='wide'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-page-shell[data-width='wide'] {
     width: min(100% - 2rem, var(--hv-content-wide));
   }
 
-  :where([data-ui-mode]) .hv-page-header {
+  :where([data-ui-mode], [data-ui-mode] *).hv-page-header {
     display: grid;
     gap: 0.5rem;
   }
 
-  :where([data-ui-mode]) .hv-page-header > :where(h1, h2, p) {
+  :where([data-ui-mode], [data-ui-mode] *).hv-page-header > :where(h1, h2, p) {
     margin-block: 0;
   }
 
-  :where([data-ui-mode]) .hv-page-title {
+  :where([data-ui-mode], [data-ui-mode] *).hv-page-title {
     max-width: 18ch;
     color: var(--hv-color-basalt);
     font-family: var(--hv-font-display);
@@ -35,48 +37,48 @@
     letter-spacing: -0.035em;
   }
 
-  :where([data-ui-mode]) .hv-page-actions {
+  :where([data-ui-mode], [data-ui-mode] *).hv-page-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 0.65rem;
     align-items: center;
   }
 
-  :where([data-ui-mode]) .hv-stack {
+  :where([data-ui-mode], [data-ui-mode] *).hv-stack {
     display: grid;
     gap: var(--hv-space-context);
   }
 
-  :where([data-ui-mode]) .hv-grid {
+  :where([data-ui-mode], [data-ui-mode] *).hv-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
     gap: var(--hv-space-context);
   }
 
-  :where([data-ui-mode]) .hv-grid > * {
+  :where([data-ui-mode], [data-ui-mode] *).hv-grid > * {
     min-width: 0;
   }
 
-  :where([data-ui-mode]) .hv-grid[data-columns='2'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-grid[data-columns='2'] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  :where([data-ui-mode]) .hv-grid[data-columns='3'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-grid[data-columns='3'] {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  :where([data-ui-mode]) .hv-form-section {
+  :where([data-ui-mode], [data-ui-mode] *).hv-form-section {
     display: grid;
     min-inline-size: 0;
     gap: var(--hv-space-panel);
   }
 
-  :where([data-ui-mode]) .hv-form-section.hv-panel,
-  :where([data-ui-mode]) .hv-list-card {
+  :where([data-ui-mode], [data-ui-mode] *).hv-form-section.hv-panel,
+  :where([data-ui-mode], [data-ui-mode] *).hv-list-card {
     padding: var(--hv-space-panel);
   }
 
-  :where([data-ui-mode]) .hv-list {
+  :where([data-ui-mode], [data-ui-mode] *).hv-list {
     display: grid;
     margin: 0;
     padding: 0;
@@ -84,21 +86,21 @@
     list-style: none;
   }
 
-  :where([data-ui-mode]) .hv-meta {
+  :where([data-ui-mode], [data-ui-mode] *).hv-meta {
     color: var(--hv-color-basalt-muted);
     font-size: 0.9rem;
     line-height: 1.5;
   }
 
-  :where([data-ui-mode]) .hv-panel {
+  :where([data-ui-mode], [data-ui-mode] *).hv-panel {
     border: 1px solid var(--hv-border-subtle);
     border-radius: var(--hv-radius-panel);
     background: var(--hv-color-snow-raised);
     box-shadow: var(--hv-shadow-raised);
   }
 
-  :where([data-ui-mode]) .hv-control,
-  :where([data-ui-mode]) .hv-field {
+  :where([data-ui-mode], [data-ui-mode] *).hv-control,
+  :where([data-ui-mode], [data-ui-mode] *).hv-field {
     min-height: var(--hv-control-height);
     border: 1px solid var(--hv-border-strong);
     border-radius: var(--hv-radius-control);
@@ -107,7 +109,7 @@
     font: inherit;
   }
 
-  :where([data-ui-mode]) .hv-control {
+  :where([data-ui-mode], [data-ui-mode] *).hv-control {
     display: inline-flex;
     padding: 0.55rem 0.8rem;
     align-items: center;
@@ -116,35 +118,35 @@
     text-decoration: none;
   }
 
-  :where([data-ui-mode]) .hv-field {
+  :where([data-ui-mode], [data-ui-mode] *).hv-field {
     width: 100%;
     min-width: 0;
     padding: 0.55rem 0.8rem;
   }
 
-  :where([data-ui-mode]) .hv-control[data-intent='primary'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-control[data-intent='primary'] {
     background: var(--hv-color-basalt);
     color: var(--hv-color-snow-raised);
   }
 
-  :where([data-ui-mode]) .hv-control[data-intent='committed'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-control[data-intent='committed'] {
     background: var(--hv-color-signal);
     color: var(--hv-color-basalt);
   }
 
-  :where([data-ui-mode]) .hv-control[data-intent='selected'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-control[data-intent='selected'] {
     background: var(--hv-color-signal);
     color: var(--hv-color-basalt);
   }
 
-  :where([data-ui-mode]) .hv-control:focus-visible,
-  :where([data-ui-mode]) .hv-field:focus-visible {
+  :where([data-ui-mode], [data-ui-mode] *).hv-control:focus-visible,
+  :where([data-ui-mode], [data-ui-mode] *).hv-field:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
     box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
-  :where([data-ui-mode]) .hv-eyebrow {
+  :where([data-ui-mode], [data-ui-mode] *).hv-eyebrow {
     color: var(--hv-color-fjord);
     font-size: 0.72rem;
     font-weight: 850;
@@ -152,7 +154,7 @@
     text-transform: uppercase;
   }
 
-  :where([data-ui-mode]) .hv-status {
+  :where([data-ui-mode], [data-ui-mode] *).hv-status {
     border: 1px solid var(--hv-border-strong);
     border-radius: var(--hv-radius-control);
     background: var(--hv-color-fjord-soft);
@@ -161,67 +163,67 @@
     font-weight: 800;
   }
 
-  :where([data-ui-mode]) .hv-status[data-status='verified'],
-  :where([data-ui-mode]) .hv-status[data-status='selected'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-status[data-status='verified'],
+  :where([data-ui-mode], [data-ui-mode] *).hv-status[data-status='selected'] {
     background: var(--hv-color-signal);
     color: var(--hv-color-basalt);
   }
 
-  :where([data-ui-mode]) .hv-status[data-status='success'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-status[data-status='success'] {
     background: var(--hv-color-success-soft);
     color: var(--hv-color-success);
   }
 
-  :where([data-ui-mode]) .hv-status[data-status='error'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-status[data-status='error'] {
     background: var(--hv-color-danger-soft);
     color: var(--hv-color-danger);
   }
 
-  :where([data-ui-mode]) .hv-status[data-status='attention'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-status[data-status='attention'] {
     background: var(--hv-color-danger-soft);
     color: var(--hv-color-danger);
   }
 
-  :where([data-ui-mode]) .hv-notice {
+  :where([data-ui-mode], [data-ui-mode] *).hv-notice {
     border: 1px solid var(--hv-border-subtle);
     border-radius: var(--hv-radius-panel);
     background: var(--hv-color-fjord-soft);
     padding: var(--hv-space-panel);
   }
 
-  :where([data-ui-mode]) .hv-notice[data-tone='info'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-notice[data-tone='info'] {
     border-color: var(--hv-color-fjord);
   }
 
-  :where([data-ui-mode]) .hv-notice[data-tone='verified'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-notice[data-tone='verified'] {
     border-color: var(--hv-color-basalt);
     background: var(--hv-color-signal-soft);
   }
 
-  :where([data-ui-mode]) .hv-notice[data-tone='attention'],
-  :where([data-ui-mode]) .hv-notice[data-tone='error'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-notice[data-tone='attention'],
+  :where([data-ui-mode], [data-ui-mode] *).hv-notice[data-tone='error'] {
     border-color: var(--hv-color-danger);
     background: var(--hv-color-danger-soft);
     color: var(--hv-color-danger);
   }
 
-  :where([data-ui-mode]) .hv-notice[data-tone='success'] {
+  :where([data-ui-mode], [data-ui-mode] *).hv-notice[data-tone='success'] {
     border-color: var(--hv-color-success);
     background: var(--hv-color-success-soft);
     color: var(--hv-color-success);
   }
 
-  :where([data-ui-mode]) .hv-disclosure {
+  :where([data-ui-mode], [data-ui-mode] *).hv-disclosure {
     border-block-start: 1px solid var(--hv-border-subtle);
   }
 
-  :where([data-ui-mode]) .hv-disclosure > summary {
+  :where([data-ui-mode], [data-ui-mode] *).hv-disclosure > summary {
     color: var(--hv-color-fjord);
     font-weight: 850;
     cursor: pointer;
   }
 
-  :where([data-ui-mode]) .hv-disclosure > summary:focus-visible {
+  :where([data-ui-mode], [data-ui-mode] *).hv-disclosure > summary:focus-visible {
     border-radius: var(--hv-radius-control);
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
@@ -229,8 +231,8 @@
   }
 
   @media (max-width: 42rem) {
-    :where([data-ui-mode]) .hv-grid[data-columns='2'],
-    :where([data-ui-mode]) .hv-grid[data-columns='3'] {
+    :where([data-ui-mode], [data-ui-mode] *).hv-grid[data-columns='2'],
+    :where([data-ui-mode], [data-ui-mode] *).hv-grid[data-columns='3'] {
       grid-template-columns: 1fr;
     }
   }

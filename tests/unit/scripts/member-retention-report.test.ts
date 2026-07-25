@@ -44,6 +44,62 @@ describe('Member retention report command', () => {
     ).toThrow('Member retention report returned an invalid aggregate shape.');
   });
 
+  it('rejects depth series that cannot decompose the headline series', () => {
+    const report = validReport();
+
+    // Returning at one depth is also returning overall, so a depth count above the headline
+    // retained count means the reporting seams have drifted apart.
+    expect(() =>
+      validateMemberRetentionReport({
+        ...report,
+        cohorts: report.cohorts.map((cohort, index) =>
+          index === 0 ? { ...cohort, deepRetainedMemberCount: 6, deepRetentionRate: 0.6 } : cohort
+        )
+      })
+    ).toThrow('Member retention report returned an invalid aggregate shape.');
+
+    expect(() =>
+      validateMemberRetentionReport({
+        ...report,
+        cohorts: report.cohorts.map((cohort, index) =>
+          index === 0 ? { ...cohort, shallowRetentionRate: 0.9 } : cohort
+        )
+      })
+    ).toThrow('Member retention report returned an invalid aggregate shape.');
+
+    expect(() =>
+      validateMemberRetentionReport({
+        ...report,
+        rollingFourWeek: { ...report.rollingFourWeek, shallowEngagedMemberCount: 9 }
+      })
+    ).toThrow('Member retention report returned an invalid aggregate shape.');
+  });
+
+  it('requires every depth value to follow the cohort suppression decision', () => {
+    const report = validReport();
+    expect(() =>
+      validateMemberRetentionReport({
+        ...report,
+        cohorts: report.cohorts.map((cohort, index) =>
+          index === 0 ? { ...cohort, deepRetainedMemberCount: null } : cohort
+        )
+      })
+    ).toThrow('Member retention report returned an invalid aggregate shape.');
+
+    expect(() =>
+      validateMemberRetentionReport({
+        ...report,
+        rollingFourWeek: {
+          ...report.rollingFourWeek,
+          suppressed: true,
+          engagedMemberCount: null,
+          shallowEngagedMemberCount: null,
+          deepEngagedMemberCount: 3
+        }
+      })
+    ).toThrow('Member retention report returned an invalid aggregate shape.');
+  });
+
   it('creates a private report exactly once', () => {
     const path = join(directory, 'private-report.json');
     const report = validateMemberRetentionReport(validReport());
@@ -69,11 +125,15 @@ function validReport() {
       suppressed: false,
       cohortMemberCount: 10,
       retainedMemberCount: 5,
-      retentionRate: 0.5
+      retentionRate: 0.5,
+      shallowRetainedMemberCount: 4,
+      shallowRetentionRate: 0.4,
+      deepRetainedMemberCount: 2,
+      deepRetentionRate: 0.2
     };
   });
   return {
-    schemaVersion: 'member-retention-report/v1' as const,
+    schemaVersion: 'member-retention-report/v2' as const,
     generatedAt: '2026-07-23T12:00:00.000Z',
     reportingWeekStartsOn: '2026-07-20',
     timeZone: 'Atlantic/Reykjavik' as const,
@@ -83,7 +143,9 @@ function validReport() {
       windowStartsOn: '2026-06-22',
       windowEndsOn: '2026-07-19',
       suppressed: false,
-      engagedMemberCount: 8
+      engagedMemberCount: 8,
+      shallowEngagedMemberCount: 6,
+      deepEngagedMemberCount: 3
     },
     guardrails: {
       windowStartsOn: '2026-06-22',

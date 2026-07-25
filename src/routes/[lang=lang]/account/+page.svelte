@@ -379,8 +379,8 @@
     display: grid;
     grid-column: 1 / -1;
     grid-template-columns: auto minmax(0, 1fr);
-    border-color: color-mix(in srgb, var(--hv-color-fjord) 28%, var(--hv-color-line));
-    background: color-mix(in srgb, var(--hv-color-sky) 5%, var(--hv-color-snow-raised));
+    border-color: color-mix(in srgb, var(--hv-color-fjord) 28%, var(--hv-border-subtle));
+    background: color-mix(in srgb, var(--hv-color-fjord) 5%, var(--hv-color-snow-raised));
   }
 
   .account-destination.impact {
@@ -388,7 +388,7 @@
     display: grid;
     grid-column: 1 / -1;
     grid-template-columns: auto minmax(0, 1fr);
-    border-color: color-mix(in srgb, var(--hv-color-moss) 30%, var(--hv-color-line));
+    border-color: color-mix(in srgb, var(--hv-color-moss) 30%, var(--hv-border-subtle));
     background: linear-gradient(105deg, rgb(79 143 104 / 12%) 0%, var(--hv-color-snow-raised) 38%);
   }
 
@@ -397,8 +397,8 @@
     display: grid;
     grid-column: 1 / -1;
     grid-template-columns: auto minmax(0, 1fr);
-    border-color: color-mix(in srgb, var(--hv-color-fjord) 24%, var(--hv-color-line));
-    background: color-mix(in srgb, var(--hv-color-sky) 4%, var(--hv-color-snow-raised));
+    border-color: color-mix(in srgb, var(--hv-color-fjord) 24%, var(--hv-border-subtle));
+    background: color-mix(in srgb, var(--hv-color-fjord) 4%, var(--hv-color-snow-raised));
   }
 
   .impact-icon,
@@ -420,8 +420,8 @@
     height: 0.65rem;
     border: 2px solid var(--hv-color-snow-raised);
     border-radius: 50%;
-    background: var(--hv-color-coral);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--hv-color-coral) 18%, transparent);
+    background: var(--hv-color-brand-paw);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--hv-color-brand-paw) 18%, transparent);
   }
 
   .roundup-icon {
