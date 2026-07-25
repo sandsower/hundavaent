@@ -17,9 +17,7 @@ const motionSourcePath = 'src/lib/design-system/motion.ts';
  * revamp regresses, so it should never happen without a deliberate decision in review.
  */
 const unconvertedSurfaces = new Set([
-  'src/app.css',
-  'src/routes/[lang=lang]/account/impact/+page.svelte',
-  'src/routes/[lang=lang]/account/keep-current/+page.svelte'
+  'src/app.css'
 ]);
 
 // Declarations are matched across newlines: a multi-line `transition:` is exactly the shape a

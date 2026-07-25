@@ -368,7 +368,10 @@
   }
 
   .celebration-icon {
-    animation: trusted-arrival 640ms cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
+    /* Moves and fades, so it runs as two entries, one per family (see tokens.css). */
+    animation:
+      trusted-arrival var(--hv-motion-celebrate) var(--hv-ease-overshoot) both,
+      trusted-appears var(--hv-fade-considered) var(--hv-ease-settle) both;
   }
 
   .weekly-note {
@@ -539,12 +542,19 @@
 
   @keyframes trusted-arrival {
     from {
-      opacity: 0;
       transform: translateY(0.65rem) rotate(-5deg) scale(0.88);
     }
     to {
-      opacity: 1;
       transform: translateY(0) rotate(0) scale(1);
+    }
+  }
+
+  @keyframes trusted-appears {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
     }
   }
 
@@ -559,9 +569,4 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .celebration-icon {
-      animation: none;
-    }
-  }
 </style>

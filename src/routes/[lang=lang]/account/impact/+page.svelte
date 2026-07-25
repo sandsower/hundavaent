@@ -467,7 +467,11 @@
     width: 4.5rem;
     height: 4.5rem;
     place-items: center;
-    animation: trusted-confirmed 680ms cubic-bezier(0.2, 0.95, 0.25, 1.2) both;
+    /* Moves and fades, so it runs as two entries, one per family (see tokens.css): reduced
+       motion stills the tumble while the mark keeps appearing. */
+    animation:
+      trusted-confirmed var(--hv-motion-celebrate) var(--hv-ease-overshoot) both,
+      trusted-appears var(--hv-fade-considered) var(--hv-ease-settle) both;
   }
 
   .spark {
@@ -476,7 +480,11 @@
     height: 0.45rem;
     border-radius: 50%;
     background: var(--hv-color-brand-paw);
-    animation: trusted-spark 820ms 140ms ease-out both;
+    animation:
+      trusted-spark var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 3)
+        var(--hv-ease-settle) both,
+      trusted-spark-glints var(--hv-fade-considered) calc(var(--hv-motion-stagger) * 3)
+        var(--hv-ease-settle) both;
   }
 
   .spark-one {
@@ -487,13 +495,13 @@
   .spark-two {
     right: 0;
     bottom: 0.75rem;
-    animation-delay: 220ms;
+    animation-delay: calc(var(--hv-motion-stagger) * 4);
   }
 
   .spark-three {
     bottom: 0.2rem;
     left: 0.45rem;
-    animation-delay: 300ms;
+    animation-delay: calc(var(--hv-motion-stagger) * 6);
   }
 
   .trusted-celebration-actions {
@@ -505,27 +513,43 @@
 
   @keyframes trusted-confirmed {
     from {
-      opacity: 0;
       transform: translateY(0.75rem) rotate(-8deg) scale(0.72);
     }
     to {
-      opacity: 1;
       transform: translateY(0) rotate(0) scale(1);
+    }
+  }
+
+  @keyframes trusted-appears {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
     }
   }
 
   @keyframes trusted-spark {
     from {
-      opacity: 0;
       transform: scale(0.2);
     }
     55% {
-      opacity: 1;
       transform: scale(1.35);
     }
     to {
-      opacity: 0.75;
       transform: scale(1);
+    }
+  }
+
+  @keyframes trusted-spark-glints {
+    from {
+      opacity: 0;
+    }
+    55% {
+      opacity: 1;
+    }
+    to {
+      opacity: 0.75;
     }
   }
 
@@ -536,13 +560,6 @@
     place-items: center;
     width: 5.5rem;
     height: 5.5rem;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .trusted-celebration-mark,
-    .spark {
-      animation: none;
-    }
   }
 
   .hero-mark :global(.impact-icon) {
@@ -867,40 +884,57 @@
     color: var(--hv-color-basalt-muted);
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .hero-mark {
-      animation: arrive 650ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-    }
+  .hero-mark {
+    animation:
+      arrive var(--hv-motion-celebrate) var(--hv-ease-settle) both,
+      hero-appears var(--hv-fade-considered) var(--hv-ease-settle) both;
+  }
 
-    .orbit-one {
-      animation: orbit 18s linear infinite;
-    }
+  /* The orbits are scenery that runs indefinitely, so they ride the ambient token. Ambient sits
+     outside the reduce contract on purpose - an infinite animation at zero duration restarts
+     every frame - so reduced motion stops them here instead. */
+  .orbit-one {
+    animation: orbit var(--hv-motion-ambient) linear infinite;
+  }
 
+  .orbit-two {
+    animation: orbit calc(var(--hv-motion-ambient) * 4 / 3) linear infinite reverse;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .orbit-one,
     .orbit-two {
-      animation: orbit 24s linear infinite reverse;
+      animation: none;
     }
+  }
 
-    .pillar {
-      animation: rise 500ms ease-out both;
-    }
+  /* The pillars carry text, so their rise is transform-only: words arrive at full contrast
+     and move into place (see the fade-family limit in tokens.css). */
+  .pillar {
+    animation: rise var(--hv-motion-celebrate) var(--hv-ease-settle) both;
+  }
 
-    .pillar:nth-child(2) {
-      animation-delay: 60ms;
-    }
+  .pillar:nth-child(2) {
+    animation-delay: var(--hv-motion-stagger);
+  }
 
-    .pillar:nth-child(3) {
-      animation-delay: 120ms;
-    }
+  .pillar:nth-child(3) {
+    animation-delay: calc(var(--hv-motion-stagger) * 2);
+  }
 
-    .pillar:nth-child(4) {
-      animation-delay: 180ms;
-    }
+  .pillar:nth-child(4) {
+    animation-delay: calc(var(--hv-motion-stagger) * 3);
   }
 
   @keyframes arrive {
     from {
-      opacity: 0;
       transform: scale(0.82) rotate(-8deg);
+    }
+  }
+
+  @keyframes hero-appears {
+    from {
+      opacity: 0;
     }
   }
 
@@ -912,7 +946,6 @@
 
   @keyframes rise {
     from {
-      opacity: 0;
       transform: translateY(0.6rem);
     }
   }
