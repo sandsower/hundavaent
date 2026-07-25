@@ -181,7 +181,7 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
 
   function setCamera(
     camera: MapCamera,
-    options: { duration?: number; padding?: MapPadding } = {}
+    options: { duration?: number; easing?: (t: number) => number; padding?: MapPadding } = {}
   ): void {
     if (!map) return;
     const current = map.getCenter();
@@ -205,7 +205,9 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
         center: [camera.longitude, camera.latitude],
         zoom: camera.zoom,
         padding: nextPadding,
-        duration: options.duration
+        duration: options.duration,
+        // Spelling out an undefined easing would override maplibre's default with nothing.
+        ...(options.easing ? { easing: options.easing } : {})
       });
     } else {
       map.jumpTo({

@@ -222,6 +222,41 @@ describe('shared Map interface', () => {
     expect(onCameraChange).not.toHaveBeenCalled();
   });
 
+  it('rides camera moves on the provided duration and easing', async () => {
+    const adapter: MapAdapter = {
+      mount: vi.fn(),
+      setPlaces: vi.fn(),
+      setSelectedPlace: vi.fn(),
+      focusPlace: vi.fn(),
+      setCamera: vi.fn(),
+      destroy: vi.fn()
+    };
+    const easing = (t: number) => t;
+
+    const { rerender } = render(MapSurface, {
+      adapter,
+      places,
+      selectedPlaceId: null,
+      camera,
+      copy: catalogues.en,
+      onMarkerSelect: vi.fn(),
+      onCameraChange: vi.fn(),
+      motionDurationMs: 450,
+      motionEasing: easing
+    });
+
+    await waitFor(() => expect(adapter.setCamera).toHaveBeenCalled());
+    const moved: MapCamera = { latitude: 64.2, longitude: -21.8, zoom: 13 };
+    await rerender({ camera: moved });
+    await waitFor(() =>
+      expect(adapter.setCamera).toHaveBeenCalledWith(moved, {
+        duration: 450,
+        easing,
+        padding: { top: 0, right: 0, bottom: 0, left: 0 }
+      })
+    );
+  });
+
   it('shows recoverable failure and retries mounting', async () => {
     let attempts = 0;
     const adapter: MapAdapter = {

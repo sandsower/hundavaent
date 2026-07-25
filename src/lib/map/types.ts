@@ -40,7 +40,10 @@ export interface MapAdapter {
   setPlaces(places: readonly MapPlace[]): void;
   setSelectedPlace(placeId: string | null): void;
   focusPlace(placeId: string): void;
-  setCamera(camera: MapCamera, options?: { duration?: number; padding?: MapPadding }): void;
+  setCamera(
+    camera: MapCamera,
+    options?: { duration?: number; easing?: (t: number) => number; padding?: MapPadding }
+  ): void;
   setPadding?(padding: MapPadding, options?: { duration?: number }): void;
   fitToPlaces?(places: readonly MapPlace[]): void;
   destroy(): void;
