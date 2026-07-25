@@ -10,11 +10,18 @@ import type {
   FlagEvidence,
   PlaceField,
   PlaceFieldValue,
+  PlaceSnapshotValue,
   ReportPayload,
   ReportReason
 } from './place-flag-input';
 
 export type PlaceFlagKind = 'correction' | 'report';
+
+/**
+ * Every shape `current_value_snapshot` can hold, one per target kind. A reader has to discriminate
+ * before it can render, because the three have no key in common.
+ */
+export type PlaceFlagSnapshot = PlaceFieldValue | AccessConditionValue | PlaceSnapshotValue;
 
 /**
  * Mirrors `private.place_flag_target_kind`. `place` addresses the whole Place and carries neither a
@@ -129,8 +136,10 @@ export interface ModerationPlaceFlag {
   targetKind: PlaceFlagTargetKind;
   targetField: PlaceField | null;
   accessConditionId: string | null;
-  currentValueSnapshot: PlaceFieldValue | AccessConditionValue;
-  currentLiveValue: (PlaceFieldValue | AccessConditionValue) | null;
+  currentValueSnapshot: PlaceFlagSnapshot;
+  // Null on a place-level Report: `get_moderation_place_flag` reads the live value through the
+  // field or the Condition, and the whole Place addresses neither.
+  currentLiveValue: PlaceFlagSnapshot | null;
   currentPlaceVersion: number | null;
   currentVerificationId: string | null;
   currentVerificationStatus: VerificationStatus | null;
@@ -408,10 +417,8 @@ export async function getModerationPlaceFlag(
         targetKind: row.target_kind,
         targetField: row.target_field,
         accessConditionId: row.access_condition_id,
-        currentValueSnapshot: row.current_value_snapshot as unknown as
-          PlaceFieldValue | AccessConditionValue,
-        currentLiveValue: row.current_live_value as unknown as
-          (PlaceFieldValue | AccessConditionValue) | null,
+        currentValueSnapshot: row.current_value_snapshot as unknown as PlaceFlagSnapshot,
+        currentLiveValue: row.current_live_value as unknown as PlaceFlagSnapshot | null,
         currentPlaceVersion: row.current_place_version,
         currentVerificationId: row.current_verification_id,
         currentVerificationStatus: row.current_verification_status,

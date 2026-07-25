@@ -412,7 +412,7 @@ async function submitAccessConditionReport(
   if (options.safetyConcern) {
     await page.getByLabel('This is a Safety Concern').check();
   }
-  await fillEvidence(page, 'Report source');
+  // No Evidence fieldset: the server synthesizes the Member report record from the reason.
   await page.getByLabel('Private explanation to the Moderator').fill('Witnessed in person.');
   await page.getByRole('button', { name: 'Send private Report' }).click();
   await expect(
@@ -421,13 +421,6 @@ async function submitAccessConditionReport(
     )
   ).toBeVisible();
   return submittedFlagId(page);
-}
-
-async function fillEvidence(container: Page | Locator, label: string): Promise<void> {
-  await container.getByLabel('How did you find out?').selectOption('direct_observation');
-  await container.getByLabel('Short title').fill(label);
-  await container.getByLabel('Link, if you have one').fill('https://example.invalid/e2e-source');
-  await container.getByLabel('When did you find out?').fill('2026-07-11T09:00');
 }
 
 async function resolveLatestFlag(

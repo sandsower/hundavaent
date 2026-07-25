@@ -3,13 +3,17 @@
   import {
     hasPendingAccessCondition,
     hasPendingPlaceField,
+    hasPendingPlaceReport,
     memberPlaceFields,
+    placeReportReasons,
     type MemberPlaceField,
-    type PendingPlaceFlag
+    type PendingPlaceFlag,
+    type PlaceReportReason
   } from '$lib/contributions/correction';
-  import { correctConditionHref } from '$lib/discovery/correct-link';
+  import { correctConditionHref, reportPlaceHref } from '$lib/discovery/correct-link';
   import { createLiveAnnouncer } from '$lib/discovery/live-announcement';
   import PlaceFieldCorrection from '$lib/discovery/PlaceFieldCorrection.svelte';
+  import PlaceReportAction from '$lib/discovery/PlaceReportAction.svelte';
   import type { PublishedPlaceProfile } from '$server/discovery/public-places';
 
   /**
@@ -56,6 +60,15 @@
     website_url: 'placeField.websiteUrl',
     phone: 'placeField.phone',
     dog_amenities: 'placeField.dogAmenities'
+  };
+
+  // Only for the pending line, which has to name the claim it is standing in for now that the
+  // action that carried those words is gone. The actions themselves read the same copy through
+  // `PlaceReportAction`, which owns the trigger's label pair.
+  const reportLabels: Record<PlaceReportReason, MessageKey> = {
+    closed: 'placeReport.closed',
+    moved: 'placeReport.moved',
+    unsafe: 'placeReport.unsafe'
   };
 
   // The raw stored values, joined, and deliberately not the localized rendering the details show
@@ -162,6 +175,45 @@
         </div>
       {/if}
 
+      <!-- Beneath the per-fact affordances, because these three are not about any fact: they are
+           claims about the whole Place, and a Member who has one is not looking for a field. -->
+      <div class="reports">
+        <h5>{copy['placeReport.heading']}</h5>
+        <ul class="facts">
+          {#each placeReportReasons as reason (reason)}
+            <li>
+              {#if hasPendingPlaceReport(pending, reason)}
+                <!-- Per reason, not per Place: an open "closed" says nothing about "unsafe", so
+                     the other two claims stay available. -->
+                <span class="fact-label report-claim">{copy[reportLabels[reason]]}</span>
+                <p class="pending" data-report-pending>{copy['placeReport.pending']}</p>
+              {:else}
+                <PlaceReportAction
+                  placeId={profile.placeId}
+                  {placeName}
+                  {copy}
+                  {signedIn}
+                  {reason}
+                  {announce}
+                  {onSubmitted}
+                />
+              {/if}
+            </li>
+          {/each}
+          <li>
+            <!-- eslint-disable svelte/no-navigation-without-resolve -- reportPlaceHref builds the path with $app/paths resolve() -->
+            <a
+              href={reportPlaceHref(lang, profile.placeId)}
+              class="report-link"
+              aria-label={copy['placeReport.somethingElseLabel'].replace('{name}', placeName)}
+            >
+              {copy['placeReport.somethingElse']}
+            </a>
+            <!-- eslint-enable svelte/no-navigation-without-resolve -->
+          </li>
+        </ul>
+      </div>
+
       <button class="hide" type="button" onclick={collapse}>
         {copy['inlineCorrection.revealHide']}
       </button>
@@ -265,7 +317,8 @@
     font-weight: 700;
   }
 
-  .conditions {
+  .conditions,
+  .reports {
     display: grid;
     gap: 0.5rem;
   }
@@ -275,6 +328,43 @@
     color: var(--hv-color-fjord);
     font-size: 0.78rem;
     font-weight: 800;
+  }
+
+  /* Every claim in this group is a whole list item rather than an affordance hanging off a fact
+     label, so they all have to start on the same left edge. The three actions are buttons carrying
+     0.4rem of their own padding, so the pending line that replaces one and the link that follows
+     them are inset to match; the 0.45rem lead-in is the same one the buttons bring with them, so
+     the rhythm does not change when a claim turns into a pending line. */
+  .reports .facts {
+    gap: 0.25rem;
+  }
+
+  .report-claim,
+  .report-link {
+    margin-top: 0.45rem;
+    padding-left: 0.4rem;
+  }
+
+  .reports .pending {
+    margin-top: 0.1rem;
+    padding-left: 0.4rem;
+  }
+
+  .report-link {
+    display: inline-flex;
+    min-height: 1.5rem;
+    align-items: center;
+    justify-self: start;
+    padding-right: 0.4rem;
+    border-radius: var(--hv-radius-control);
+    color: var(--hv-color-fjord);
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+
+  .report-link:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 2px;
   }
 
   .pending {

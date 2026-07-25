@@ -36,6 +36,18 @@ export interface PlaceFieldValue {
   value?: string | null | Record<string, Json> | string[];
 }
 
+/**
+ * What `private.snapshot_place` records: what identified the Place at the moment a place-level
+ * Report was raised. A third snapshot shape, and deliberately not either of the other two: the whole
+ * Place has no single value, so what a Moderator needs is enough to recognize the Place months later
+ * even if it has since been renamed or recategorized.
+ */
+export interface PlaceSnapshotValue {
+  name: { is: string; en: string };
+  category: string;
+  locality: string;
+}
+
 export interface AccessConditionValue {
   access_area: 'indoors' | 'outdoors' | 'designated_area' | 'other_bounded';
   access_area_note: string | null;
@@ -151,6 +163,15 @@ const evidenceKinds = new Set<FlagEvidence['kind']>([
 
 export function isPlaceField(value: unknown): value is PlaceField {
   return typeof value === 'string' && placeFields.has(value as PlaceField);
+}
+
+/**
+ * The counterpart for Report reasons, so a surface that has to name the reason before the parser
+ * runs -- the report form builds its Evidence citation from it -- reads the same vocabulary the
+ * parser will enforce a moment later.
+ */
+export function isReportReason(value: unknown): value is ReportReason {
+  return typeof value === 'string' && reportReasons.has(value as ReportReason);
 }
 
 function readTarget(form: FormData): FlagTarget | null {

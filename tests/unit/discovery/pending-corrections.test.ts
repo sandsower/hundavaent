@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   hasPendingAccessCondition,
   hasPendingPlaceField,
+  hasPendingPlaceReport,
+  placeReportReasons,
+  submittedPlaceReportFlag,
   type PendingPlaceFlag
 } from '../../../src/lib/contributions/correction';
 
@@ -75,5 +78,44 @@ describe('what the Member already has open on a Place', () => {
     expect(hasPendingPlaceField([fieldFlag({ targetField: 'description' })], 'description')).toBe(
       true
     );
+  });
+});
+
+describe('what the Member already has open about the whole Place', () => {
+  it('silences one reason and leaves the others available', () => {
+    const pending = [submittedPlaceReportFlag('closed')];
+
+    expect(hasPendingPlaceReport(pending, 'closed')).toBe(true);
+    expect(hasPendingPlaceReport(pending, 'moved')).toBe(false);
+    expect(hasPendingPlaceReport(pending, 'unsafe')).toBe(false);
+  });
+
+  it('counts a Report sent back for information as still open', () => {
+    const pending = [
+      { ...submittedPlaceReportFlag('unsafe'), status: 'needs_information' as const }
+    ];
+
+    expect(hasPendingPlaceReport(pending, 'unsafe')).toBe(true);
+  });
+
+  // The whole point of a separate target kind: a Correction on a fact and a Report about the Place
+  // are different claims, and neither may silence the other's affordance.
+  it('never lets a Correction on a fact silence a Report reason', () => {
+    for (const reason of placeReportReasons) {
+      expect(hasPendingPlaceReport([flag(), fieldFlag()], reason)).toBe(false);
+    }
+  });
+
+  it('never lets a Report about the Place silence a fact', () => {
+    const pending = [submittedPlaceReportFlag('closed')];
+
+    expect(hasPendingPlaceField(pending, 'name')).toBe(false);
+    expect(hasPendingAccessCondition(pending, conditionId)).toBe(false);
+  });
+
+  it('ignores a Report raised against a Condition, which addresses a fact and not the Place', () => {
+    expect(
+      hasPendingPlaceReport([flag({ kind: 'report', reportReason: 'closed' })], 'closed')
+    ).toBe(false);
   });
 });

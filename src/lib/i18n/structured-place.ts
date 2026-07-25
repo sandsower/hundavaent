@@ -109,6 +109,17 @@ export function localizePlaceCategory(value: PlaceCategory, copy: Catalogue): st
   return copy[placeCategoryMessageKeys[value]];
 }
 
+/**
+ * The tolerant counterpart, for a category read back out of stored jsonb rather than off a typed
+ * record. A snapshot taken months ago can name a category the domain has since dropped, and showing
+ * the stored word is more honest than showing nothing.
+ */
+export function localizeStoredPlaceCategory(value: string, copy: Catalogue): string {
+  const lookup: Readonly<Record<string, MessageKey | undefined>> = placeCategoryMessageKeys;
+  const messageKey = lookup[value];
+  return messageKey ? copy[messageKey] : value;
+}
+
 const weekdayOrder = Object.keys(openingHoursMessageKeys);
 
 export interface OpeningHoursRow {

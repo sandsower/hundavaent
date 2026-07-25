@@ -133,17 +133,6 @@ const reportFlag: ModerationPlaceFlag = {
   privateNote: 'Escalated informally; venue contacted.'
 };
 
-function evidenceKindLabels(lang: 'is' | 'en'): string[] {
-  return [
-    catalogues[lang]['evidence.officialWebsite'],
-    catalogues[lang]['evidence.venueRepresentative'],
-    catalogues[lang]['evidence.memberReport'],
-    catalogues[lang]['evidence.directObservation'],
-    catalogues[lang]['evidence.publicRecord'],
-    catalogues[lang]['evidence.other']
-  ];
-}
-
 describe('Member Correction and Report submission', () => {
   it.each([
     ['is', 'Leggja til leiðréttingu', 'Senda einkaleiðréttingu'],
@@ -293,27 +282,87 @@ describe('Member Correction and Report submission', () => {
     expect(screen.getByLabelText('What kind of problem is this?')).toBeTruthy();
   });
 
-  it.each(['is', 'en'] as const)('localizes the %s Report source choices', (lang) => {
+  it.each(['is', 'en'] as const)(
+    'never asks a %s Member to fill in the Moderator Evidence worksheet',
+    (lang) => {
+      render(ReportPage, {
+        params: { lang, id: place.placeId },
+        data: {
+          lang,
+          copy: catalogues[lang],
+          signInUrl: null,
+          place,
+          presetField: null,
+          presetConditionId: null,
+          presetReason: null
+        },
+        form: null
+      } as never);
+
+      for (const key of [
+        'evidenceField.section',
+        'evidenceField.kind',
+        'evidenceField.label',
+        'evidenceField.url',
+        'evidenceField.citation',
+        'evidenceField.observedAt'
+      ] as const) {
+        expect(screen.queryByLabelText(catalogues[lang][key]), key).toBeNull();
+      }
+      // The one thing the Member is still asked for, and it reaches the private explanation rather
+      // than the Evidence citation.
+      expect(screen.getByLabelText(catalogues[lang]['report.explanation'])).toBeTruthy();
+    }
+  );
+
+  it('opens on the whole place when the link named no target', () => {
     render(ReportPage, {
-      params: { lang, id: place.placeId },
+      params: { lang: 'en', id: place.placeId },
       data: {
-        lang,
-        copy: catalogues[lang],
+        lang: 'en',
+        copy: catalogues.en,
         signInUrl: null,
         place,
         presetField: null,
-        presetConditionId: null
+        presetConditionId: null,
+        presetReason: null
       },
       form: null
     } as never);
 
-    const source = screen.getByLabelText(
-      catalogues[lang]['evidenceField.kind']
-    ) as HTMLSelectElement;
-    expect(Array.from(source.options, (option) => option.textContent)).toEqual(
-      evidenceKindLabels(lang)
+    const target = screen.getByLabelText('What are you correcting?') as HTMLSelectElement;
+    expect(target.value).toBe('place');
+    expect(Array.from(target.options, (option) => option.value)).toEqual([
+      'place',
+      'place_field',
+      'access_condition'
+    ]);
+    // The whole Place carries neither, and the validator rejects it paired with either.
+    expect(screen.queryByLabelText('Choose the detail')).toBeNull();
+    expect(screen.queryByLabelText('Choose the Access Condition')).toBeNull();
+  });
+
+  it('keeps a deep-linked Access Condition target and its reason preselected', () => {
+    render(ReportPage, {
+      params: { lang: 'en', id: place.placeId },
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        signInUrl: null,
+        place,
+        presetField: null,
+        presetConditionId: place.accessConditions[0].id,
+        presetReason: 'misleading'
+      },
+      form: null
+    } as never);
+
+    expect((screen.getByLabelText('What are you correcting?') as HTMLSelectElement).value).toBe(
+      'access_condition'
     );
-    expect(source.textContent).not.toContain('venue_representative');
+    expect(
+      (screen.getByLabelText('What kind of problem is this?') as HTMLSelectElement).value
+    ).toBe('misleading');
   });
 });
 

@@ -7,10 +7,9 @@ import type {
 import {
   memberEligibilityChoiceFor,
   type MemberEligibilityChoice,
-  type MemberEligibilityValue,
-  type PlaceReportReason
+  type MemberEligibilityValue
 } from '$lib/contributions/correction';
-import type { FlagEvidence, PlaceField } from '$server/place-flags/place-flag-input';
+import type { FlagEvidence, PlaceField, ReportReason } from '$server/place-flags/place-flag-input';
 
 /**
  * Member-facing contribution surfaces never ask a Member to fill in the Moderator's worksheet.
@@ -39,14 +38,21 @@ const surfaceNames: Record<MemberContributionSurface, string> = {
 };
 
 /**
- * One label per place-level Report reason. Fixed strings, never the Member's own words: the summary
- * this builds becomes the Evidence citation, and a citation reaches anonymous callers through the
- * published profile.
+ * One label per Report reason. Fixed strings, never the Member's own words: the summary this builds
+ * becomes the Evidence citation, and a citation reaches anonymous callers through the published
+ * profile.
+ *
+ * The card raises only the three place-level claims; the report form raises the whole vocabulary,
+ * and both surfaces write their citation from this one table.
  */
-const placeReportNames: Record<PlaceReportReason, string> = {
+const reportReasonNames: Record<ReportReason, string> = {
   closed: 'Reported closed',
   moved: 'Reported moved',
-  unsafe: 'Reported unsafe for dogs'
+  unsafe: 'Reported unsafe for dogs',
+  inaccurate: 'Reported as inaccurate',
+  misleading: 'Reported as misleading',
+  obsolete: 'Reported as out of date',
+  successor_place: 'Reported as taken over by another business'
 };
 
 const restraintNames: Record<RestraintCondition, string> = {
@@ -181,15 +187,20 @@ export function describePlaceFieldCorrection(
 }
 
 /**
- * A place-level Report names the reason and the surface and nothing else. It has no from-and-to
- * pair, because a Report alleges rather than proposes, and the Member's note is not part of the
- * claim's identity: it reaches the Moderator through `explanation` and stops there.
+ * A Report names the reason and the surface and nothing else. It has no from-and-to pair, because a
+ * Report alleges rather than proposes, and the Member's note is not part of the claim's identity: it
+ * reaches the Moderator through `explanation` and stops there. The target is not named either,
+ * because the flag row already carries it.
+ *
+ * A null reason is a Report the form is about to reject; the summary is built before the parser
+ * runs, so it has to say something honest about a claim nobody can read yet.
  */
 export function describePlaceReport(
-  reason: PlaceReportReason,
+  reason: ReportReason | null,
   surface: MemberContributionSurface
 ): string {
-  return `${placeReportNames[reason]} from ${surfaceNames[surface]}.`;
+  const claim = reason === null ? 'Reported a problem' : reportReasonNames[reason];
+  return `${claim} from ${surfaceNames[surface]}.`;
 }
 
 function eligibilityName(eligibility: DogEligibility): string {
