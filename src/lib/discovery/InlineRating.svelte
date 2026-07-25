@@ -371,7 +371,9 @@
     display: grid;
     gap: 0.5rem;
     padding-top: 0.35rem;
-    animation: reveal 160ms ease-out both;
+    /* The details carry text, so the reveal is transform-only: words arrive at full contrast
+       and move into place (see the fade-family limit in tokens.css). */
+    animation: reveal var(--hv-motion-quick) var(--hv-ease-settle) both;
   }
   .category-row {
     display: grid;
@@ -408,17 +410,10 @@
   }
   @keyframes reveal {
     from {
-      opacity: 0;
       transform: translateY(-0.2rem);
     }
     to {
-      opacity: 1;
       transform: none;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .details {
-      animation: none;
     }
   }
 </style>

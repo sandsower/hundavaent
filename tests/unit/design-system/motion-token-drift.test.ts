@@ -22,7 +22,6 @@ const unconvertedSurfaces = new Set([
   'src/lib/achievements/AchievementUnreadIndicator.svelte',
   'src/lib/auth/AuthDialog.svelte',
   'src/lib/discovery/AccessSymbols.svelte',
-  'src/lib/discovery/InlineRating.svelte',
   'src/lib/discovery/SelectedPlaceCard.svelte',
   'src/lib/discovery/SharePlaceControl.svelte',
   'src/lib/member-activity/WeeklyRhythmAcknowledgement.svelte',
