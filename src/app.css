@@ -190,8 +190,11 @@ a {
 
 /* View transitions. Every group rides the fade scale and the settle curve instead of the UA
    stylesheet's 250ms ease - the UA default is timing the drift test cannot see, so it must
-   never govern a named group. The transition is only ever started for Members without reduced
-   motion (see shouldViewTransition), so no reduce override is needed here. */
+   never govern a group. Only the root crossfade exists today: no element carries a
+   view-transition-name (the title/header morphs were dialed back as over-animation), and any
+   new name is a deliberate decision pinned by view-transition-names.test.ts. The transition is
+   only ever started for Members without reduced motion (see shouldViewTransition), so no
+   reduce override is needed here. */
 ::view-transition-group(*),
 ::view-transition-old(*),
 ::view-transition-new(*) {
@@ -204,17 +207,6 @@ a {
    going dead for the length of the crossfade. */
 ::view-transition {
   pointer-events: none;
-}
-
-/* The header and the page title are text. Text never rides an opacity fade (see the fade
-   family's hard limit in tokens.css): their snapshot crossfades are suppressed, so the group
-   animation moves them into place at full contrast - and on navigations where only one side
-   carries the name, the title lands in one frame instead of fading in from nothing. */
-::view-transition-old(site-header),
-::view-transition-new(site-header),
-::view-transition-old(page-title),
-::view-transition-new(page-title) {
-  animation-name: none;
 }
 
 /* Every surface rides the motion token families now, so reduced motion is governed entirely by
