@@ -214,6 +214,11 @@ insert into private.verification_evidence (verification_id, evidence_id) values
 
 -- Fail-closed abuse boundary -------------------------------------------------------------------
 
+-- The abuse policy now ships seeded and enabled. Disabling the singleton restores the
+-- unconfigured state this boundary is about, so the fail-closed guarantee stays covered rather
+-- than becoming unreachable. The configure call below re-enables it with the test thresholds.
+update private.place_flag_abuse_policy set enabled = false;
+
 select set_config('request.jwt.claim.sub', '76000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 select throws_ok(
@@ -478,7 +483,7 @@ select is(
         'observed_at', '2026-07-11T09:05:00Z', 'source_url', 'https://example.invalid/proof-2',
         'source_citation', null, 'source_metadata', '{}'::jsonb
       ),
-      'proposed_value', jsonb_build_object('value', '+354 555 0200')
+      'proposed_value', jsonb_build_object('value', '+354 555 0199')
     ),
     '86000000-0000-4000-8000-000000000022'
   )),
