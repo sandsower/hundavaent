@@ -136,11 +136,9 @@
     height: 100%;
     border-radius: inherit;
     background: var(--hv-color-fjord);
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .fill {
-      transition: width 220ms ease-out;
-    }
+    /* A growing width is a size change the eye reads as movement, so it belongs to the motion
+       family rather than the fade family. The token already collapses to zero under reduced
+       motion, which is why there is no local prefers-reduced-motion query here. */
+    transition: width var(--hv-motion-quick) var(--hv-ease-settle);
   }
 </style>

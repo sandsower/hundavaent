@@ -40,12 +40,12 @@ The six remaining achievements stay single and hidden until earned, preserving t
 
 ### Catalogue
 
-| Collection | Metric | Bronze | Silver | Gold |
-|---|---|---|---|---|
-| `explorer_places` | `credited_places` | 5 | 10 | 15 |
-| `place_categories` | `credited_categories` | 2 | 3 | 4 |
-| `municipalities` | `credited_municipalities` | 2 | 3 | 4 |
-| `contributions` | `confirmed_contributions` | 1 | 3 | 10 |
+| Collection         | Metric                    | Bronze | Silver | Gold |
+| ------------------ | ------------------------- | ------ | ------ | ---- |
+| `explorer_places`  | `credited_places`         | 5      | 10     | 15   |
+| `place_categories` | `credited_categories`     | 2      | 3      | 4    |
+| `municipalities`   | `credited_municipalities` | 2      | 3      | 4    |
+| `contributions`    | `confirmed_contributions` | 1      | 3      | 10   |
 
 Tier keys are `<collection>_<tier>`, so `explorer_places_bronze` through `contributions_gold`.
 

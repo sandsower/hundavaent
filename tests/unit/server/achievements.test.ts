@@ -249,7 +249,9 @@ describe('Achievements RPC adapter', () => {
   });
 
   it('reads the non-consuming unread status', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: [{ enabled: true, has_unread: true }], error: null });
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: [{ enabled: true, has_unread: true }], error: null });
 
     expect(await getMyAchievementStatus({ rpc } satisfies AchievementRpcClient)).toEqual({
       status: 'success',

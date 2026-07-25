@@ -97,7 +97,9 @@ test('a real Favourite keeps its unread cue through hover preload and celebrates
   ).toBeVisible();
 });
 
-test('started exploration shows every tier of every collection, gaps included', async ({ page }) => {
+test('started exploration shows every tier of every collection, gaps included', async ({
+  page
+}) => {
   const email = `achievement-progress-${Date.now()}@example.invalid`;
   await signInMember(page, email);
   await provisionLocalAchievementProgress(email);

@@ -2,10 +2,7 @@ export type AchievementGroup =
   'participation' | 'exploration' | 'contribution_quality' | 'longevity';
 
 export type AchievementMetric =
-  | 'credited_places'
-  | 'credited_categories'
-  | 'credited_municipalities'
-  | 'confirmed_contributions';
+  'credited_places' | 'credited_categories' | 'credited_municipalities' | 'confirmed_contributions';
 
 export type AchievementTier = 'bronze' | 'silver' | 'gold';
 
@@ -247,7 +244,9 @@ function parseCatalogueRow(value: unknown): MyAchievement | null {
 
     if (!isTier) {
       const copy = parseBespokeCopy(value);
-      return copy ? { ...base, ...copy, kind: 'earned', entry: 'bespoke', earnedAt: value.earned_at } : null;
+      return copy
+        ? { ...base, ...copy, kind: 'earned', entry: 'bespoke', earnedAt: value.earned_at }
+        : null;
     }
 
     const collection = parseCollectionCopy(value);
@@ -292,7 +291,12 @@ function parseClaimedRow(value: unknown): ClaimedAchievement | null {
 
   if (value.collection === null) {
     const copy = parseBespokeCopy(value);
-    if (!copy || value.tier !== null || value.progress_kind !== null || value.progress_target !== null) {
+    if (
+      !copy ||
+      value.tier !== null ||
+      value.progress_kind !== null ||
+      value.progress_target !== null
+    ) {
       return null;
     }
     return { ...base, ...copy, kind: 'earned', entry: 'bespoke', earnedAt: value.earned_at };

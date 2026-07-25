@@ -126,9 +126,7 @@ describe('Member Achievements view', () => {
     });
     expect(within(celebration).getByText('Achievement unlocked')).toBeTruthy();
     expect(within(celebration).getByText('Categories - Bronze')).toBeTruthy();
-    expect(
-      within(celebration).getByText('Check in at places across 2 categories.')
-    ).toBeTruthy();
+    expect(within(celebration).getByText('Check in at places across 2 categories.')).toBeTruthy();
     expect(celebration.querySelector('[data-achievement-icon]')).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
