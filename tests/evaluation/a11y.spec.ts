@@ -528,6 +528,13 @@ test('reduced motion suppresses marker transforms and selection has non-color st
   expect(markerMotion.labelSlide).toBeLessThanOrEqual(0.01);
   expect(markerMotion.strokeWidth).toBe('5px');
   await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
+  // The card's entry animation is token-driven, so it must also collapse here. This is the
+  // real-browser home of that assertion: the component harness cannot resolve tokens, and a
+  // matchMedia mock cannot drive CSS media queries.
+  const cardEnter = await page
+    .locator('[data-selected-place-overlay]')
+    .evaluate((element) => Number.parseFloat(getComputedStyle(element).animationDuration) * 1_000);
+  expect(cardEnter).toBeLessThanOrEqual(0.01);
   await expectNoSeriousAxeViolations(page, evidence);
 });
 

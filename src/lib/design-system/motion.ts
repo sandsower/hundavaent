@@ -30,12 +30,12 @@ export const operationsMotionDurationsMs = {
   considered: 180,
   traverse: 240,
   celebrate: 0
-} as const;
+} as const satisfies Record<MotionStep, number>;
 
 export const operationsFadeDurationsMs = {
   quick: 120,
   considered: 160
-} as const;
+} as const satisfies Record<FadeStep, number>;
 
 export type MotionStep = keyof typeof motionDurationsMs;
 export type FadeStep = keyof typeof fadeDurationsMs;

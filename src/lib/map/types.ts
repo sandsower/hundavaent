@@ -35,15 +35,18 @@ export interface MapPadding {
   left: number;
 }
 
+export interface MapCameraOptions {
+  duration?: number;
+  easing?: (t: number) => number;
+  padding?: MapPadding;
+}
+
 export interface MapAdapter {
   mount(container: HTMLElement, callbacks: MapCallbacks): void | Promise<void>;
   setPlaces(places: readonly MapPlace[]): void;
   setSelectedPlace(placeId: string | null): void;
   focusPlace(placeId: string): void;
-  setCamera(
-    camera: MapCamera,
-    options?: { duration?: number; easing?: (t: number) => number; padding?: MapPadding }
-  ): void;
+  setCamera(camera: MapCamera, options?: MapCameraOptions): void;
   setPadding?(padding: MapPadding, options?: { duration?: number }): void;
   fitToPlaces?(places: readonly MapPlace[]): void;
   destroy(): void;

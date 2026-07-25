@@ -48,7 +48,11 @@ const easingPattern = /cubic-bezier\s*\(/g;
 // `mapMotionDuration = $derived(reducedMotion ? 0 : 450)` carries no unit for a unit pattern to
 // find. Any duration-named binding whose right-hand side contains a multi-digit numeric literal
 // is treated as a hand-picked duration; zero stays legal because it means "jump, don't animate".
-const scriptDurationPattern = /\b\w*[dD]uration\w*\s*[:=][^;\n]*?\b\d{2,}(?:\.\d+)?\b[^;\n]*/g;
+// The scan is case-insensitive (SCREAMING_CASE constants), spans Prettier-wrapped statements
+// (stopping at `;` or a brace), and counts `1_000`-style separators as multi-digit. Bare timer
+// delays like `setTimeout(fn, 320)` are deliberately out of scope: motion.ts names cleanup
+// timers as a sanctioned JavaScript consumer.
+const scriptDurationPattern = /\b\w*duration\w*\s*[:=][^;{}]*?\b\d[\d_]+(?:\.\d+)?\b[^;\n]*/gi;
 
 /** Blanks comments while preserving offsets, so reported line numbers stay accurate. */
 function withoutComments(content: string): string {

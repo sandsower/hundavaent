@@ -1,4 +1,12 @@
-import type { MapAdapter, MapCallbacks, MapCamera, MapPadding, MapPlace, MapPoint } from './types';
+import type {
+  MapAdapter,
+  MapCallbacks,
+  MapCamera,
+  MapCameraOptions,
+  MapPadding,
+  MapPlace,
+  MapPoint
+} from './types';
 
 export interface DomTestMapAdapter extends MapAdapter {
   readonly destroyed: boolean;
@@ -73,7 +81,7 @@ export function createDomTestMapAdapter(): DomTestMapAdapter {
     markers.get(placeId)?.focus();
   }
 
-  function setCamera(camera: MapCamera, options: { padding?: MapPadding } = {}): void {
+  function setCamera(camera: MapCamera, options: MapCameraOptions = {}): void {
     if (!root) return;
     root.dataset.latitude = String(camera.latitude);
     root.dataset.longitude = String(camera.longitude);

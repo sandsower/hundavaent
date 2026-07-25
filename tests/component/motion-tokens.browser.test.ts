@@ -40,7 +40,7 @@ test('both motion families resolve in place and operations modes', () => {
       expect(place.getPropertyValue(`--hv-fade-${step}`).trim()).not.toBe('');
       expect(operations.getPropertyValue(`--hv-fade-${step}`).trim()).not.toBe('');
     }
-    for (const easing of ['settle', 'exit', 'overshoot']) {
+    for (const easing of Object.keys(motionEasings)) {
       expect(place.getPropertyValue(`--hv-ease-${easing}`).trim()).toContain('cubic-bezier');
     }
   });
@@ -49,7 +49,9 @@ test('both motion families resolve in place and operations modes', () => {
 test('operations mode keeps the same motion language at a faster tempo', () => {
   withModes((place, operations) => {
     // Moderators work a queue. Every step is shorter, and celebration is removed outright.
-    for (const step of ['instant', 'quick', 'considered', 'traverse'] as const) {
+    // Every step except celebrate, which is asserted separately below: operations removes it
+    // outright rather than shortening it.
+    for (const step of Object.keys(motionDurationsMs).filter((step) => step !== 'celebrate')) {
       expect(milliseconds(operations.getPropertyValue(`--hv-motion-${step}`))).toBeLessThan(
         milliseconds(place.getPropertyValue(`--hv-motion-${step}`))
       );

@@ -15,6 +15,9 @@ function createMarker(selected = false): HTMLButtonElement {
   element.innerHTML = markerPinSvg('food_drink');
   const chip = document.createElement('span');
   chip.className = 'marker-label';
+  // Mirrors renderMarkerContent in maplibre-adapter.ts: the chip never joins the
+  // accessible name; the button's aria-label carries it.
+  chip.setAttribute('aria-hidden', 'true');
   chip.textContent = 'Published Place';
   element.append(chip);
   document.body.append(element);
