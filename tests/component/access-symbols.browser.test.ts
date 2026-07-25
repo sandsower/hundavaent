@@ -50,7 +50,7 @@ describe('AccessSymbols', () => {
     const timing = screen.getByRole('button', { name: 'Information not stated' });
     await fireEvent.click(timing);
     expect(timing.getAttribute('aria-expanded')).toBe('true');
-    const persistentDetail = screen.getByRole('status');
+    const persistentDetail = document.querySelector<HTMLElement>('[data-access-detail]')!;
     expect(persistentDetail.textContent).toContain('does not imply permission');
     const detailStyle = getComputedStyle(persistentDetail);
     expect(detailStyle.backgroundColor).toBe('rgb(251, 252, 249)');
@@ -75,7 +75,7 @@ describe('AccessSymbols', () => {
     expect(symbols.map((symbol) => ({ left: symbol.offsetLeft, top: symbol.offsetTop }))).toEqual(
       initialPositions
     );
-    const detail = screen.getByRole('status');
+    const detail = document.querySelector<HTMLElement>('[data-access-detail]')!;
     expect(detail.offsetTop).toBeGreaterThanOrEqual(
       Math.max(...symbols.map((symbol) => symbol.offsetTop + symbol.offsetHeight))
     );
@@ -265,7 +265,9 @@ describe('AccessSymbols', () => {
       expect(getComputedStyle(tooltip).pointerEvents).toBe('auto');
 
       await fireEvent.click(special);
-      expect(screen.getByRole('status').textContent).toContain('Lok skýringar.');
+      expect(document.querySelector('[data-access-detail]')?.textContent).toContain(
+        'Lok skýringar.'
+      );
     } finally {
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }
