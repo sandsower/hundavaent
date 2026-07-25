@@ -96,7 +96,10 @@ The logical recovery artifact protects application data, Storage schemas, manage
 Ephemeral Auth session material is deliberately excluded, so Members re-authenticate after a restore; single-use credential tokens are redacted before retention.
 It remains a point-in-time snapshot rather than a substitute for managed point-in-time recovery.
 Managed PITR is not enabled and the Management API reports no physical backup available, so recovery can restore only to the timestamp captured by the most recent successful workflow run.
-Running the standalone `recovery-point` job on a schedule narrows that window without enabling PITR.
+A nightly schedule at 03:00 UTC runs the `recovery-point` job alone against the current default-branch head, which bounds the worst-case loss window to roughly one day rather than to the gap between releases.
+Scheduled runs never migrate or deploy, because both jobs require either a `workflow_run` event or an explicit dispatch input.
+They share the `hundavaent-production` concurrency group, so a nightly run queues behind an in-flight release rather than colliding with it.
+If the `production` environment has required reviewers, scheduled runs will wait for approval like any other run.
 
 `scripts/recovery/rehearse-recovery-point.sh` runs the same capture, restore, and verification scripts against the local Supabase stack, so ordering and referential-integrity faults surface before a release rather than during one.
 

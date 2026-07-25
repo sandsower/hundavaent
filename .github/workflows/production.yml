@@ -5,6 +5,12 @@ on:
     workflows: ['CI']
     types: [completed]
     branches: [main]
+  schedule:
+    # Managed point-in-time recovery is not enabled, so a release-only recovery
+    # point would lose everything written between deployments. This runs the
+    # recovery-point job alone: migrate and deploy gate on workflow_run or on
+    # dispatch inputs, and neither is present on a scheduled event.
+    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       sha:
@@ -33,7 +39,9 @@ on:
         default: false
 
 env:
-  RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.sha }}
+  # A scheduled run has no dispatch input, so it pins itself to the default
+  # branch head that is already live.
+  RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event_name == 'schedule' && github.sha || inputs.sha }}
 
 concurrency:
   group: hundavaent-production
@@ -48,6 +56,7 @@ jobs:
     if: >-
       ${{
         github.event_name == 'workflow_dispatch' ||
+        github.event_name == 'schedule' ||
         (
           github.event_name == 'workflow_run' &&
           github.event.workflow_run.conclusion == 'success' &&

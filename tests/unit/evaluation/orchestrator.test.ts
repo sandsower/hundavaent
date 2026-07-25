@@ -63,7 +63,7 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('branches: [main]');
     expect(workflow).toContain('workflow_dispatch:');
     expect(workflow).toContain(
-      "RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.sha }}"
+      "RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event_name == 'schedule' && github.sha || inputs.sha }}"
     );
     expect(workflow).toContain("github.event.workflow_run.conclusion == 'success'");
     expect(workflow).toContain("github.event.workflow_run.event == 'push'");
@@ -77,6 +77,15 @@ describe('release evaluation orchestration', () => {
     expect(deployJob).toContain('!inputs.activate_achievement_milestones');
     expect(deployJob).toContain('!inputs.activate_trusted_contributor');
     expect(workflow.match(/inputs\.sha/g)).toHaveLength(1);
+    // The nightly recovery point narrows the loss window between releases. It
+    // must never migrate or deploy: both gate on workflow_run or on a dispatch
+    // input, and a scheduled event supplies neither.
+    expect(workflow).toContain("- cron: '0 3 * * *'");
+    expect(workflow).toContain("github.event_name == 'schedule' && github.sha");
+    expect(migrateJob).not.toContain("github.event_name == 'schedule'");
+    expect(deployJob).not.toContain("github.event_name == 'schedule'");
+    expect(achievementActivationJob).not.toContain("github.event_name == 'schedule'");
+    expect(trustedActivationJob).not.toContain("github.event_name == 'schedule'");
     expect(workflow).toContain('ref: ${{ env.RELEASE_SHA }}');
     expect(workflow).toContain('test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"');
     expect(workflow).toContain('activate_achievement_milestones:');
