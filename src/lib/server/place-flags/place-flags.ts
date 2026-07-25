@@ -59,6 +59,19 @@ export interface MemberPlaceFlag {
   updatedAt: string;
 }
 
+/**
+ * One open flag of the caller's on one Place. `reportReason` is carried even though Corrections
+ * never set it, so a pending Report can say which kind of Report it is without another migration.
+ */
+export interface MemberOpenPlaceFlag {
+  kind: PlaceFlagKind;
+  targetKind: 'place_field' | 'access_condition';
+  targetField: PlaceField | null;
+  accessConditionId: string | null;
+  reportReason: ReportReason | null;
+  status: 'submitted' | 'needs_information';
+}
+
 export interface PlaceFlagPage<T, TCursor> {
   items: T[];
   nextCursor: TCursor | null;
@@ -264,6 +277,34 @@ export async function listMemberPlaceFlags(
         }),
         (row) => ({ submittedAt: row.submitted_at, flagId: row.flag_id })
       )
+    };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+export async function listMyOpenPlaceFlags(
+  client: PlaceFlagRpcClient,
+  placeId: string
+): Promise<PlaceFlagCommandResult<MemberOpenPlaceFlag[]>> {
+  try {
+    const { data, error } = await client.rpc('list_my_open_place_flags', {
+      requested_place_id: placeId
+    });
+    if (error) return { status: mapError(error.code) };
+    if (!Array.isArray(data) || !data.every(isOpenFlagRow)) {
+      return { status: 'infrastructure_error' };
+    }
+    return {
+      status: 'success',
+      value: data.map((row) => ({
+        kind: row.kind,
+        targetKind: row.target_kind,
+        targetField: row.target_field,
+        accessConditionId: row.access_condition_id,
+        reportReason: row.report_reason,
+        status: row.status
+      }))
     };
   } catch {
     return { status: 'infrastructure_error' };
@@ -615,6 +656,27 @@ function isMemberRow(value: unknown): value is Record<string, unknown> & {
     isStringOrNull(value.member_reason_en) &&
     typeof value.submitted_at === 'string' &&
     typeof value.updated_at === 'string'
+  );
+}
+
+function isOpenFlagRow(value: unknown): value is Record<string, unknown> & {
+  kind: PlaceFlagKind;
+  target_kind: 'place_field' | 'access_condition';
+  target_field: PlaceField | null;
+  access_condition_id: string | null;
+  report_reason: ReportReason | null;
+  status: 'submitted' | 'needs_information';
+} {
+  return (
+    isRecord(value) &&
+    isKind(value.kind) &&
+    isTargetKind(value.target_kind) &&
+    isPlaceFieldOrNull(value.target_field) &&
+    isStringOrNull(value.access_condition_id) &&
+    isReportReasonOrNull(value.report_reason) &&
+    // Narrower than isOutcome on purpose: a resolved status coming back from a read that promises
+    // open flags is a contract break, not a row to render as pending.
+    (value.status === 'submitted' || value.status === 'needs_information')
   );
 }
 

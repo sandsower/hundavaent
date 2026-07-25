@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   buildMemberExplanation,
   buildMemberReportEvidence,
+  describeAreaChange,
+  describeEligibilityChange,
+  describePermissionChange,
   describePlaceFieldCorrection,
   describeRestraintChange
 } from '../../../src/lib/server/contributions/member-evidence';
@@ -139,6 +142,55 @@ describe('change summaries', () => {
   it('covers every restraint condition the domain defines', () => {
     expect(describeRestraintChange('carrier_required', 'other_sourced', 'place-card')).toBe(
       'Restraint condition changed from carrier required to other stated conditions, reported from the place card.'
+    );
+  });
+
+  it('names the before area, the after area, and the surface', () => {
+    expect(describeAreaChange('indoors', 'designated_area', 'place-card')).toBe(
+      'Access area changed from indoors to a designated area, reported from the place card.'
+    );
+  });
+
+  it('covers every access area the domain defines', () => {
+    expect(describeAreaChange('other_bounded', 'outdoors', 'correction-form')).toBe(
+      'Access area changed from another stated area to outdoors, reported from the correction form.'
+    );
+  });
+
+  it('covers every permission requirement the domain defines', () => {
+    expect(describePermissionChange('standing_permission', 'ask_on_arrival', 'place-card')).toBe(
+      'Permission requirement changed from standing permission to ask on arrival, reported from the place card.'
+    );
+    expect(
+      describePermissionChange('advance_approval', 'standing_permission', 'correction-form')
+    ).toBe(
+      'Permission requirement changed from advance approval to standing permission, reported from the correction form.'
+    );
+  });
+
+  it('names an eligibility by the shape of its limit, never by the figure', () => {
+    expect(
+      describeEligibilityChange(
+        { scope: 'restricted', maximumDogs: 2 },
+        { scope: 'restricted', maximumWeightKg: 12 },
+        'place-card'
+      )
+    ).toBe(
+      'Dog eligibility changed from a limit on the number of dogs to a weight limit, reported from the place card.'
+    );
+  });
+
+  it('folds every eligibility the member cannot choose into one structural label', () => {
+    // A sourced eligibility note is Moderator text and the citation can be published, so the
+    // stored shape is named rather than quoted.
+    expect(
+      describeEligibilityChange(
+        { scope: 'restricted', maximumWeightKg: 10, notes: 'Ask about large breeds.' },
+        { scope: 'all_dogs' },
+        'place-card'
+      )
+    ).toBe(
+      'Dog eligibility changed from other stated restrictions to all dogs, reported from the place card.'
     );
   });
 

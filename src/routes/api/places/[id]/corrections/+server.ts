@@ -1,20 +1,33 @@
-import type { AvailabilityWindow } from '$domain/access';
-import { isLocale } from '$i18n';
+import { isLocale, type Locale } from '$i18n';
+import type {
+  AccessConditionCorrectionInput,
+  PlaceFieldCorrectionInput
+} from '$lib/contributions/correction';
 import { requireMemberResponse } from '$server/auth/require-member-response';
-import { parseAccessConditionCorrectionInput } from '$server/contributions/access-condition-correction-input';
+import {
+  describeAccessConditionChange,
+  isUnchangedAccessCondition,
+  proposedAccessCondition
+} from '$server/contributions/access-condition-change';
+import { parseCorrectionInput } from '$server/contributions/correction-input';
 import {
   buildMemberExplanation,
   buildMemberReportEvidence,
-  describeRestraintChange
+  describePlaceFieldCorrection
 } from '$server/contributions/member-evidence';
 import {
-  getStoredAccessCondition,
-  type PublishedAccessFacts
-} from '$server/discovery/public-places';
-import type { Json } from '$server/db/generated.types';
+  isUnchangedPlaceField,
+  proposedPlaceFieldValue
+} from '$server/contributions/place-field-change';
+import { getPublishedProfile, getStoredAccessCondition } from '$server/discovery/public-places';
 import { privateJson } from '$server/http/private-json';
-import type { AccessConditionValue } from '$server/place-flags/place-flag-input';
-import { submitCorrection, type PlaceFlagRpcClient } from '$server/place-flags/place-flags';
+import {
+  listMyOpenPlaceFlags,
+  submitCorrection,
+  type PlaceFlagCommandResult,
+  type PlaceFlagRpcClient,
+  type SubmittedPlaceFlag
+} from '$server/place-flags/place-flags';
 
 import type { RequestHandler } from './$types';
 
@@ -40,9 +53,49 @@ export const POST: RequestHandler = async (event) => {
   } catch {
     return privateJson({ error: 'invalid_request' }, 400);
   }
-  const input = parseAccessConditionCorrectionInput(body);
+  const input = parseCorrectionInput(body);
   if (!input) return privateJson({ error: 'invalid_request' }, 400);
 
+  const commandId = suppliedCommandId ?? crypto.randomUUID();
+  if (input.target === 'access_condition') {
+    return correctAccessCondition(event, locale, input, commandId);
+  }
+  return correctPlaceField(event, locale, input, commandId);
+};
+
+/**
+ * The Member's own open flags on this Place, so an affordance whose Correction is already waiting
+ * says so instead of inviting a second one. `privateJson` sends `private, no-store` and
+ * `vary: cookie`, which is what makes a per-caller projection safe on a cached route.
+ */
+export const GET: RequestHandler = async (event) => {
+  if (!uuidPattern.test(event.params.id)) {
+    return privateJson({ error: 'invalid_request' }, 400);
+  }
+
+  const authError = await requireMemberResponse(event);
+  if (authError) return authError;
+
+  const result = await listMyOpenPlaceFlags(
+    event.locals.supabase as unknown as PlaceFlagRpcClient,
+    event.params.id
+  );
+  if (result.status !== 'success') {
+    return privateJson(
+      { error: result.status },
+      result.status === 'forbidden' ? 401 : result.status === 'invalid' ? 400 : 503
+    );
+  }
+
+  return privateJson({ pending: result.value });
+};
+
+async function correctAccessCondition(
+  event: Parameters<RequestHandler>[0],
+  locale: Locale,
+  input: AccessConditionCorrectionInput,
+  commandId: string
+): Promise<Response> {
   // The stored condition, not the visitor projection: the proposal has to carry the Place's real
   // notes through, and it is read only by Moderators.
   const conditionResult = await getStoredAccessCondition(
@@ -57,15 +110,11 @@ export const POST: RequestHandler = async (event) => {
 
   // The client-side disabled confirm is a convenience, not the guard: the profile it decided
   // against can be stale, and a no-op flag is work a Moderator should never be handed.
-  if (condition.restraintCondition === input.restraintCondition) {
+  if (isUnchangedAccessCondition(condition, input)) {
     return privateJson({ status: 'unchanged' });
   }
 
-  const changeSummary = describeRestraintChange(
-    condition.restraintCondition,
-    input.restraintCondition,
-    'place-card'
-  );
+  const changeSummary = describeAccessConditionChange(condition, input, 'place-card');
   const result = await submitCorrection(
     event.locals.supabase as unknown as PlaceFlagRpcClient,
     {
@@ -80,11 +129,55 @@ export const POST: RequestHandler = async (event) => {
         observedAt: new Date().toISOString(),
         surface: 'place-card'
       }),
-      proposed_value: proposedCondition(condition, input.restraintCondition)
+      proposed_value: proposedAccessCondition(condition, input)
     },
-    suppliedCommandId ?? crypto.randomUUID()
+    commandId
   );
 
+  return correctionResponse(result);
+}
+
+async function correctPlaceField(
+  event: Parameters<RequestHandler>[0],
+  locale: Locale,
+  input: PlaceFieldCorrectionInput,
+  commandId: string
+): Promise<Response> {
+  const profileResult = await getPublishedProfile(event.locals.supabase!, event.params.id, locale);
+  if (profileResult.status === 'not_found') return privateJson({ error: 'not_found' }, 404);
+  if (profileResult.status !== 'success') return privateJson({ error: 'unavailable' }, 503);
+
+  if (isUnchangedPlaceField(profileResult.value, input)) {
+    return privateJson({ status: 'unchanged' });
+  }
+
+  // Structural, and it never names the value the Member typed. The summary becomes the Evidence
+  // citation, which reaches anonymous callers through the published profile; the Member's own
+  // words reach the explanation and stop there.
+  const changeSummary = describePlaceFieldCorrection(input.field, 'place-card');
+  const result = await submitCorrection(
+    event.locals.supabase as unknown as PlaceFlagRpcClient,
+    {
+      target_kind: 'place_field',
+      target_field: input.field,
+      access_condition_id: null,
+      place_id: event.params.id,
+      explanation: buildMemberExplanation({ note: input.note, changeSummary }),
+      evidence: buildMemberReportEvidence({
+        note: input.note,
+        changeSummary,
+        observedAt: new Date().toISOString(),
+        surface: 'place-card'
+      }),
+      proposed_value: proposedPlaceFieldValue(input, locale)
+    },
+    commandId
+  );
+
+  return correctionResponse(result);
+}
+
+function correctionResponse(result: PlaceFlagCommandResult<SubmittedPlaceFlag>): Response {
   if (result.status !== 'success') {
     const status =
       result.status === 'rate_limited'
@@ -104,38 +197,4 @@ export const POST: RequestHandler = async (event) => {
     flagId: result.value.flagId,
     recognition: result.value.recognition
   });
-};
-
-/**
- * The client sends the condition id and the intended restraint, never a whole condition. The
- * published condition is the source of truth for every other dimension, so a client that gets
- * one wrong, or lies about one, cannot rewrite it through a Correction.
- */
-function proposedCondition(
-  condition: PublishedAccessFacts,
-  restraintCondition: AccessConditionValue['restraint_condition']
-): AccessConditionValue {
-  return {
-    access_area: condition.accessArea,
-    access_area_note: condition.accessAreaNote,
-    restraint_condition: restraintCondition,
-    // The existing note describes the rule being replaced, so carrying it forward would attach a
-    // stale justification to the new one.
-    restraint_note: null,
-    dog_eligibility: condition.dogEligibility,
-    availability_state: condition.availabilityState ?? 'not_stated',
-    availability_window: availabilityWindowJson(condition.availabilityWindow),
-    permission_requirement: condition.permissionRequirement
-  };
-}
-
-function availabilityWindowJson(window: AvailabilityWindow): Record<string, Json> {
-  return {
-    ...(window.days ? { days: [...window.days] } : {}),
-    ...(window.startsAt ? { startsAt: window.startsAt } : {}),
-    ...(window.endsAt ? { endsAt: window.endsAt } : {}),
-    ...(window.startsOn ? { startsOn: window.startsOn } : {}),
-    ...(window.endsOn ? { endsOn: window.endsOn } : {}),
-    ...(window.notes ? { notes: window.notes } : {})
-  };
 }

@@ -103,8 +103,49 @@
   let disputeEvidence = $state<SuggestionProposal['evidence']>(emptyEvidence());
   let decisionNotes = $state('');
 
+  const effectiveProposedValue = $derived.by(() => {
+    const application = data.flag.draftPayload?.application_payload;
+    if (!application) return data.flag.proposedValue;
+    return data.flag.targetKind === 'place_field'
+      ? (application.field_value ?? data.flag.proposedValue)
+      : (application.replacement_condition ?? data.flag.proposedValue);
+  });
+
+  /**
+   * The omitted-locale hatch: a Member who speaks one language names the other instead of guessing
+   * it, and the database accepts that claim so it is never lost. Applying it would publish a
+   * half-translated Place, so this panel is what stops it, exactly as the Suggestion panel stops a
+   * half-translated Suggestion.
+   *
+   * The test is "is a locale actually missing", not "is a flag present". The flag says which locale
+   * the Member could not write; only the value says whether anyone has written it since. Reading the
+   * effective value is what lets a Moderator fill the gap in the application draft and then apply,
+   * without a round trip through the Member.
+   */
+  const translationBlocked = $derived(
+    isLocalizedField(data.flag.targetField) && missingLocale(effectiveProposedValue) !== null
+  );
+
+  function isLocalizedField(field: string | null): boolean {
+    return data.flag.targetKind === 'place_field' && (field === 'name' || field === 'description');
+  }
+
+  function missingLocale(value: unknown): 'is' | 'en' | null {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+    const localized = value as PlaceFieldValue;
+    if (!localized.is?.trim()) return 'is';
+    return localized.en?.trim() ? null : 'en';
+  }
+
   const attentionIssues = $derived.by(() => {
     const issues: ModerationReviewIssue[] = [];
+    if (translationBlocked) {
+      issues.push({
+        sectionId: 'correction-change',
+        label: data.copy['flag.translationNeeded'],
+        severity: 'blocking'
+      });
+    }
     if (data.flag.isSafetyConcern) {
       issues.push({
         sectionId: 'correction-evidence',
@@ -128,24 +169,23 @@
     }
     return issues;
   });
-  const readinessState = $derived(attentionIssues.length ? 'attention' : 'ready');
+  const readinessState = $derived(
+    translationBlocked ? 'blocked' : attentionIssues.length ? 'attention' : 'ready'
+  );
   const readinessLabel = $derived(
-    attentionIssues.length
-      ? data.copy['moderation.workbench.readiness.attention']
-      : data.copy['moderation.workbench.readiness.ready']
+    translationBlocked
+      ? data.copy['moderation.workbench.readiness.blocked']
+      : attentionIssues.length
+        ? data.copy['moderation.workbench.readiness.attention']
+        : data.copy['moderation.workbench.readiness.ready']
   );
   const readinessSummary = $derived(
-    attentionIssues.length
-      ? data.copy['flag.reviewAttentionSummary']
-      : data.copy['flag.reviewReadySummary']
+    translationBlocked
+      ? data.copy['flag.reviewBlockedSummary']
+      : attentionIssues.length
+        ? data.copy['flag.reviewAttentionSummary']
+        : data.copy['flag.reviewReadySummary']
   );
-  const effectiveProposedValue = $derived.by(() => {
-    const application = data.flag.draftPayload?.application_payload;
-    if (!application) return data.flag.proposedValue;
-    return data.flag.targetKind === 'place_field'
-      ? (application.field_value ?? data.flag.proposedValue)
-      : (application.replacement_condition ?? data.flag.proposedValue);
-  });
 
   $effect(() => {
     if (decisionRequest && decisionRequest.token !== handledDecisionToken) {
@@ -227,8 +267,11 @@
   }
 
   function initializeFieldValue(value: PlaceFieldValue): void {
-    fieldValueIs = value.is ?? '';
-    fieldValueEn = value.en ?? '';
+    // The flagged locale prefills empty rather than with a neighbouring language's text. A prefilled
+    // box invites a Moderator to accept a value nobody wrote; an empty required box asks for the
+    // one thing that is actually missing.
+    fieldValueIs = value.needs_review === 'is' ? '' : (value.is ?? '');
+    fieldValueEn = value.needs_review === 'en' ? '' : (value.en ?? '');
     const inner = value.value;
     fieldValueText = typeof inner === 'string' ? inner : '';
     fieldValueJson =
@@ -416,6 +459,7 @@
           kind={data.flag.kind}
           targetKind={data.flag.targetKind}
           disabled={submitting || editingSection !== null}
+          acceptDisabled={translationBlocked}
           ondecide={beginDecision}
         />
       </ModerationActionBar>
@@ -423,10 +467,14 @@
   {/if}
 
   <div class="review-sections">
+    <!-- The section state is blocking only. Live drift stays a readiness warning that leaves this
+         section collapsed, because drift is something to notice; a missing locale is something the
+         Moderator has to type in here, so the section opens itself. -->
     <ModerationReviewSection
       id="correction-change"
       title={data.copy['flag.section.change']}
       summary={target()}
+      state={translationBlocked ? 'blocking' : 'complete'}
     >
       {#if editingSection === 'application'}
         <form

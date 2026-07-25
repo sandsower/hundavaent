@@ -27,6 +27,12 @@ export interface FlagEvidence {
 export interface PlaceFieldValue {
   is?: string;
   en?: string;
+  /**
+   * The omitted-locale hatch: a one-language name or description names the locale it could not
+   * write instead of writing it, and that locale's key is absent. Moderation fills it before the
+   * draft can be applied, so no published value is ever half-translated.
+   */
+  needs_review?: 'is' | 'en';
   value?: string | null | Record<string, Json> | string[];
 }
 
@@ -237,7 +243,39 @@ export function readAccessConditionValue(form: FormData): AccessConditionValue |
   };
 }
 
+/**
+ * The Member-facing reader. Name and description accept the omitted-locale hatch: one language is
+ * enough, and the other is named for review rather than guessed, copied or blanked.
+ *
+ * Requiring both locales asked a Member for a language they may not speak, which is how
+ * description Corrections came to be orphaned: the only honest answer was to leave the form.
+ */
 export function readPlaceFieldValue(form: FormData, field: PlaceField): PlaceFieldValue | null {
+  return readFieldValue(form, field, 'hatch');
+}
+
+/**
+ * The reader for a value that is about to be published rather than claimed. Name and description
+ * require both locales, and a blank one is a rejection.
+ *
+ * The hatch is a statement about a Member's own submission, "I read this card in one language and
+ * cannot write the other", and it has no meaning where writing the missing locale is the whole
+ * job. A Moderator draft parsed through the Member reader would silently turn a cleared
+ * locale box into a flag, which the apply path then refuses; the two readers are separate so that
+ * widening one can never widen the other.
+ */
+export function readCompletePlaceFieldValue(
+  form: FormData,
+  field: PlaceField
+): PlaceFieldValue | null {
+  return readFieldValue(form, field, 'both');
+}
+
+function readFieldValue(
+  form: FormData,
+  field: PlaceField,
+  locales: 'hatch' | 'both'
+): PlaceFieldValue | null {
   const value = (key: string): string => String(form.get(key) ?? '').trim();
 
   switch (field) {
@@ -245,7 +283,10 @@ export function readPlaceFieldValue(form: FormData, field: PlaceField): PlaceFie
     case 'description': {
       const is = value('fieldValueIs');
       const en = value('fieldValueEn');
-      if (!is || !en) return null;
+      if (locales === 'both') return is && en ? { is, en } : null;
+      if (!is && !en) return null;
+      if (!en) return { is, needs_review: 'en' };
+      if (!is) return { en, needs_review: 'is' };
       return { is, en };
     }
     case 'website_url': {

@@ -1296,6 +1296,10 @@ export function provisionLocalPlaceFlagFixtures(): void {
       website_url = excluded.website_url,
       version = excluded.version;
 
+    -- Overwritten rather than left alone, for the same reason the Place row above is: an applied
+    -- name Correction from an earlier run in this same database session is published state, and
+    -- "do nothing" would leave these Places carrying a previous run's corrected name. Every spec
+    -- that addresses them by nameEn would then be looking for a name they no longer have.
     insert into private.place_translations (place_id, locale, name, description) values
       ('${localPlaceFlagFixtures.correctable.placeId}'::uuid, 'is', '${localPlaceFlagFixtures.correctable.nameIs}', 'Upprunaleg lýsing.'),
       ('${localPlaceFlagFixtures.correctable.placeId}'::uuid, 'en', '${localPlaceFlagFixtures.correctable.nameEn}', 'Original description.'),

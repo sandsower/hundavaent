@@ -179,13 +179,17 @@
               <div class="hv-grid" data-columns="2">
                 <label class="hv-stack">
                   {data.copy['correction.nameIs']}
-                  <input class="hv-field" name="fieldValueIs" required />
+                  <input class="hv-field" name="fieldValueIs" />
                 </label>
                 <label class="hv-stack">
                   {data.copy['correction.nameEn']}
-                  <input class="hv-field" name="fieldValueEn" required />
+                  <input class="hv-field" name="fieldValueEn" />
                 </label>
               </div>
+              <!-- Neither box is required on its own, because asking a Member for a language they
+                   may not speak is what left description Corrections with no honest way to send.
+                   The blank one is named for review and a Moderator fills it before it applies. -->
+              <p class="hv-meta">{data.copy['correction.localeOptional']}</p>
             {:else if targetField === 'opening_hours'}
               <label class="hv-stack">
                 {data.copy['correction.openingHoursJson']}
