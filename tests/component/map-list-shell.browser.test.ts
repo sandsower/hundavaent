@@ -905,11 +905,17 @@ describe('MapListShell synchronization', () => {
     expect(within(selectedPlace).getByRole('link', { name: 'A. Photographer' })).toBeTruthy();
     expect(within(selectedPlace).getByRole('link', { name: 'CC BY 4.0' })).toBeTruthy();
     expect(within(selectedPlace).getByText('Loading every access condition…')).toBeTruthy();
+    // The loading state walks a decorative paw trail alongside the status text; it is
+    // aria-hidden so the live region announces only the words.
+    const pawTrail = selectedPlace.querySelector('[data-paw-trail]');
+    expect(pawTrail?.getAttribute('aria-hidden')).toBe('true');
+    expect(pawTrail?.querySelectorAll('.paw-mark')).toHaveLength(3);
 
     profileRequest.resolve(complexProfile);
     await waitFor(() =>
       expect(within(selectedPlace).queryByText('Loading every access condition…')).toBeNull()
     );
+    expect(selectedPlace.querySelector('[data-paw-trail]')).toBeNull();
   });
 
   it('keeps selected-place text fully opaque throughout the approved entry motion', async () => {
