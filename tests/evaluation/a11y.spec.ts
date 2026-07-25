@@ -525,6 +525,55 @@ test('reduced motion suppresses marker transforms and selection has non-color st
   await expectNoSeriousAxeViolations(page, evidence);
 });
 
+test('reduced motion stills movement while keeping the Favourite flourish legible', async ({
+  page,
+  evidence
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const email = `motion-a11y-${Date.now()}@example.invalid`;
+  await page.goto('/en/account?returnTo=%2Fen');
+  await waitForHydration(page);
+  await page.getByRole('dialog').getByLabel('Email address').fill(email);
+  await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
+  await page.goto(await waitForLocalMagicLink(email));
+
+  await page.goto('/en?view=map');
+  await waitForHydration(page);
+  // Arrival is a quiet map under the filter-driven layout: the "All" chip is what opens the
+  // list the Favourite control lives in.
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  const favouriteAction = page.locator(
+    `[data-favourite-place="${evaluationFixtureIds.places.published}"]`
+  );
+  await expect(favouriteAction).toBeVisible();
+
+  // The control carries data-ui-mode, so this also proves the reduced-motion override reaches
+  // past [data-ui-mode] specificity. A ":root"-only override would leave these at full duration.
+  const durations = await favouriteAction.evaluate((element) => {
+    const styles = getComputedStyle(element);
+    const milliseconds = (value: string): number =>
+      value.trim().endsWith('ms') ? Number.parseFloat(value) : Number.parseFloat(value) * 1_000;
+    return {
+      motion: milliseconds(styles.getPropertyValue('--hv-motion-quick')),
+      fade: milliseconds(styles.getPropertyValue('--hv-fade-quick'))
+    };
+  });
+  expect(durations.motion).toBe(0);
+  // Fades do not move. Suppressing them too is what makes a reduced-motion interface read as
+  // broken rather than calm, so the Favourite still crossfades and glows.
+  expect(durations.fade).toBeGreaterThan(0);
+
+  // Located by container rather than by name: saving relabels the control to "Remove ...",
+  // so a name-based locator stops resolving at exactly the moment being asserted.
+  const save = favouriteAction.getByRole('button');
+  await expect(save).toHaveAccessibleName('Add Published Place to favorites');
+  await save.focus();
+  await page.keyboard.press('Enter');
+  await expect(save).toHaveAttribute('aria-pressed', 'true');
+  await expect(favouriteAction).toHaveAttribute('data-state', 'selected');
+  await expectNoSeriousAxeViolations(page, evidence);
+});
+
 test('Member sign-in is keyboard-operable and Axe-clean in both product languages', async ({
   page,
   evidence

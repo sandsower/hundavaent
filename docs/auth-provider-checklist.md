@@ -11,9 +11,18 @@ Never paste provider secrets into Linear, source control, logs, screenshots, or 
 - Keep email OTP single-use and set its expiry to 60 minutes or less.
 - Set provider and email rate limits in Supabase before enabling either feature switch.
 - Keep both provider switches disabled by default until the environment passes this checklist.
-- Keep both production provider variables exactly `false` while the production recovery workflow intentionally excludes managed Auth identities and hard identity-owned application rows, and neutralizes nullable identity attribution on retained core data.
-- The first cumulative deployment may use the recovery bundle's single `private.place_media.uploaded_by` nullability relaxation; migration `202607150036_nullable_place_media_uploader.sql` must converge production to that same contract in the same workflow run.
-- Before activating either provider, upgrade the production workflow to capture and restore managed Auth coherently, or remove the temporary guard only after an equivalent Auth-capable recovery design is implemented and restore-tested.
+- Both production provider variables must be set to exactly `true` or `false`; an empty or unset GitHub environment binding fails the release closed rather than being read as "not enabled".
+  The recovery precondition is satisfied: production release `0e11acb` produced a recovery point reporting `managed_auth_mode: "included-identities-and-owned-rows-restore-tested"`, restoring 3 identities, 6 active role grants, and attribution on 64 Places and 11 media rows.
+  Keep them `false` until the hosted email prerequisites below are live, because email sign-in cannot deliver a link without production SMTP and the hosted token-hash template.
+  The recovery workflow now captures `auth.users`, `auth.identities`, and every identity-owned application row at full fidelity, and preserves identity attribution rather than neutralizing it.
+  Ephemeral session material (`auth.sessions`, `auth.refresh_tokens`, `auth.flow_state`, `auth.one_time_tokens`) is deliberately excluded, because restoring it would resurrect authentication that may have been revoked since capture; Members re-authenticate after a restore.
+  Single-use credential tokens on `auth.users` are redacted before the artifact is retained.
+- The recovery bundle no longer relaxes any schema contract, so the `private.place_media.uploaded_by` nullability relaxation it once required is gone.
+  Migration `202607150036_nullable_place_media_uploader.sql` dropped that column's `NOT NULL` solely to accommodate the previous lossy capture, so its rationale no longer holds and restoring the constraint is a candidate follow-up.
+  The recovery verification compares restored attribution nullability against the captured source rather than asserting a fixed contract, so it stays correct either way.
+- The provider-disabled guards are removed; the recovery precondition they enforced has been met by a real release.
+  What replaces them is a weaker but still fail-closed check that each switch is explicitly `true` or `false`.
+  Re-run `scripts/recovery/rehearse-recovery-point.sh` after any change to `scripts/recovery/`, since it is the only pre-release proof of that logic.
 - Apply `202607150032_auth_funnel.sql` before enabling sign-in.
 - Confirm `get_member_provider_policy()` returns `member-linked-providers-v2`, both providers enabled, and verified-email automatic linking enabled.
 - Enable Facebook and email together only after the Supabase project confirms automatic identity linking for the same verified email in both sign-in orders.
@@ -73,8 +82,8 @@ Never paste provider secrets into Linear, source control, logs, screenshots, or 
 - Provision production SMTP and publish SPF, DKIM, and DMARC.
 - Install the hosted token-hash magic-link template because local repository configuration does not update a hosted Supabase project.
 - Add both localized callback URLs to the hosted Supabase redirect allowlist.
-- Upgrade production recovery to include managed Auth identities and remove its provider-disabled guard before changing either production deployment switch.
-- Set both deployment switches and rotate the environment-specific Member activation secret only after the recovery upgrade and all checks above pass.
+- Done: the Auth-capable recovery point was produced and restore-tested by release `0e11acb`, and the provider-disabled guards are removed.
+- Set both deployment switches and rotate the environment-specific Member activation secret only after all remaining checks above pass.
 
 ## Hosted production audit - 2026-07-15
 
@@ -85,7 +94,9 @@ Never paste provider secrets into Linear, source control, logs, screenshots, or 
 - Facebook sign-in is disabled and `AUTH_FACEBOOK_ENABLED` must remain `false` until the hosted Facebook proof passes.
 - Manual identity linking is disabled.
 - The production release workflow binds the explicit GitHub environment variables `HUNDAVAENT_PRODUCTION_AUTH_EMAIL_ENABLED` and `HUNDAVAENT_PRODUCTION_AUTH_FACEBOOK_ENABLED`, plus the Member activation secret, to the exact deployed SHA.
-- Both production provider variables are currently `false` and must remain fail-closed until their hosted proof passes and full Auth-capable recovery is restore-tested.
+- Both production provider variables are currently `false` and must remain fail-closed until their hosted proof passes and a real release has produced an Auth-capable recovery point.
+- Managed point-in-time recovery is not enabled, and the Management API reports no physical backup available, so the release-time recovery artifact is the only restore point.
+  Recovery granularity is therefore the last successful workflow run; running the standalone `recovery-point` job on a schedule narrows that window without enabling PITR.
 - The production migration step provisions the same Member activation capability into the database and compares secret fingerprints before deployment traffic is allowed.
 - Custom production SMTP is off and the hosted token-hash email template cannot yet be installed, so email sign-in is not production-ready despite the hosted Supabase email provider being enabled.
 - Custom production SMTP, the hosted token-hash email template, delivered-link smoke tests, and automatic Facebook/email identity-linking proof remain explicit launch prerequisites.

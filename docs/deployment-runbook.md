@@ -55,12 +55,11 @@ The workflow always creates and restore-tests one consistent recovery point for 
 Managed Supabase Auth identities and tables that are hard-owned through required Auth foreign keys are intentionally excluded while the site has only disposable pre-launch test users.
 Tables reached only through nullable identity attribution remain in the recovery point, and those attribution columns are deterministically set to `NULL` in the restored data.
 This preserves core Places, Place media, Evidence, and other independent application rows without retaining disposable user identities.
-The recovery archive contains one explicit nullability relaxation for `private.place_media.uploaded_by` before it neutralizes that attribution; migration `202607150036_nullable_place_media_uploader.sql` converges production to the same nullable contract.
-It also derives and records every check constraint that depends on a neutralized Auth column, drops only that audited set in the recovery copy, and proves those constraints are absent before accepting the restored data.
+The recovery archive relaxes no schema contract and neutralizes no identity attribution.
+Managed Auth identities, their linked providers, and every identity-owned application row are captured at full fidelity.
 
-The same production snapshot derives the hard-excluded tables and nullable neutralization set, records table names, column names, row counts, audited constraint names, and recovery relaxation actions in the encrypted bundle manifest, and proves after scratch restoration that hard-owned tables are empty, retained table counts match, every nullable identity reference is neutralized, and no unhandled or composite foreign key crosses the boundary.
-Both production provider variables must be exactly `false`, and the workflow rejects recovery or deployment if either email or Facebook sign-in is enabled.
-Provider activation therefore requires upgrading the workflow to full Auth-capable recovery or replacing this temporary guard before either provider variable can be enabled.
+One production snapshot serves every read in the capture, records captured Auth tables, attribution columns and row counts, the deliberately excluded ephemeral Auth tables, and the redacted credential columns in the encrypted bundle manifest, and proves after scratch restoration that every captured table count matches, every foreign key to `auth.users` resolves with no orphans, attribution nullability matches the captured source, and the check constraints the previous lossy capture had to drop are still installed.
+Both production provider variables must be set to exactly `true` or `false`; the workflow rejects recovery or deployment when either binding is empty or any other value.
 
 After the scratch restore passes, the workflow creates a deterministic `tar.gz` archive, records its SHA-256 checksum, encrypts it with AES-256-CBC and PBKDF2, records the ciphertext checksum, and deletes every plaintext recovery file.
 One artifact containing only the encrypted archive and its manifest is retained for 90 days.
@@ -92,8 +91,16 @@ The approved policy requires five net confirmed Contributions across at least th
 Activation also reconciles existing qualifying Members through the immutable Achievement unlock boundary.
 The operation is replay-safe because status is derived live and Achievement unlocks are unique and immutable.
 
-The logical recovery artifact protects independent application data and Storage schemas but does not currently protect managed Auth identities, hard identity-owned application rows, or the original values of neutralized identity-attribution columns, and it is not a substitute for managed point-in-time recovery.
-Until managed physical backups or PITR are enabled, recovery can restore only to the timestamp captured by the most recent successful workflow run.
+The logical recovery artifact protects application data, Storage schemas, managed Auth identities and their linked providers, and every identity-owned application row with its attribution intact.
+Ephemeral Auth session material is deliberately excluded, so Members re-authenticate after a restore; single-use credential tokens are redacted before retention.
+It remains a point-in-time snapshot rather than a substitute for managed point-in-time recovery.
+Managed PITR is not enabled and the Management API reports no physical backup available, so recovery can restore only to the timestamp captured by the most recent successful workflow run.
+A nightly schedule at 03:00 UTC runs the `recovery-point` job alone against the current default-branch head, which bounds the worst-case loss window to roughly one day rather than to the gap between releases.
+Scheduled runs never migrate or deploy, because both jobs require either a `workflow_run` event or an explicit dispatch input.
+They share the `hundavaent-production` concurrency group, so a nightly run queues behind an in-flight release rather than colliding with it.
+If the `production` environment has required reviewers, scheduled runs will wait for approval like any other run.
+
+`scripts/recovery/rehearse-recovery-point.sh` runs the same capture, restore, and verification scripts against the local Supabase stack, so ordering and referential-integrity faults surface before a release rather than during one.
 
 ## Recovery artifact validation
 
@@ -118,12 +125,9 @@ test "$(shasum -a 256 hundavaent-recovery.tar.gz | awk '{print $1}')" = \
 mkdir restored
 tar -xzf hundavaent-recovery.tar.gz -C restored
 psql "${RESTORE_DB_URL}" -f restored/recovery/roles.sql || true
-psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" \
-  -c 'alter schema storage rename to scratch_storage'
-psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f restored/recovery/schema.sql
-psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f restored/recovery/storage-schema.sql
-psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f restored/recovery/storage-data.sql
-psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f restored/recovery/data.sql
+RECOVERY_ADMIN_URL="${RESTORE_DB_URL}?user=supabase_admin" \
+  scripts/recovery/restore-recovery-point.sh "${RESTORE_DB_URL}" restored/recovery
+scripts/recovery/verify-recovery-point.sh "${RESTORE_DB_URL}" restored/recovery
 unset BACKUP_PASSPHRASE
 rm -rf restored hundavaent-recovery.tar.gz
 ```

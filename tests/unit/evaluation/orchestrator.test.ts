@@ -63,7 +63,7 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('branches: [main]');
     expect(workflow).toContain('workflow_dispatch:');
     expect(workflow).toContain(
-      "RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.sha }}"
+      "RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event_name == 'schedule' && github.sha || inputs.sha }}"
     );
     expect(workflow).toContain("github.event.workflow_run.conclusion == 'success'");
     expect(workflow).toContain("github.event.workflow_run.event == 'push'");
@@ -77,6 +77,15 @@ describe('release evaluation orchestration', () => {
     expect(deployJob).toContain('!inputs.activate_achievement_milestones');
     expect(deployJob).toContain('!inputs.activate_trusted_contributor');
     expect(workflow.match(/inputs\.sha/g)).toHaveLength(1);
+    // The nightly recovery point narrows the loss window between releases. It
+    // must never migrate or deploy: both gate on workflow_run or on a dispatch
+    // input, and a scheduled event supplies neither.
+    expect(workflow).toContain("- cron: '0 3 * * *'");
+    expect(workflow).toContain("github.event_name == 'schedule' && github.sha");
+    expect(migrateJob).not.toContain("github.event_name == 'schedule'");
+    expect(deployJob).not.toContain("github.event_name == 'schedule'");
+    expect(achievementActivationJob).not.toContain("github.event_name == 'schedule'");
+    expect(trustedActivationJob).not.toContain("github.event_name == 'schedule'");
     expect(workflow).toContain('ref: ${{ env.RELEASE_SHA }}');
     expect(workflow).toContain('test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"');
     expect(workflow).toContain('activate_achievement_milestones:');
@@ -98,93 +107,54 @@ describe('release evaluation orchestration', () => {
     expect(trustedActivationJob).toContain('"trusted-contributor-v1|5|1 year|3|3|0|t|0"');
   });
 
-  it('excludes hard identity rows while preserving and neutralizing core application data', () => {
+  it('captures managed Auth identities and identity-owned rows at full fidelity', () => {
     const workflow = readFileSync(
       new URL('../../../.github/workflows/production.yml', import.meta.url),
       'utf8'
     );
-    const applicationDump = workflow.indexOf(
-      'dump_snapshot_data "public|private|security" recovery/data.sql'
-    );
-    const storageSchema = workflow.indexOf(
-      'dump_snapshot_schema "storage" recovery/storage-schema.sql'
-    );
-    const storageData = workflow.indexOf('dump_snapshot_data "storage" recovery/storage-data.sql');
-    const checkRelaxationDerivation = workflow.indexOf(
-      'order by 1" > recovery/auth-recovery-check-relaxations.txt'
-    );
-    const generatedCheckDrop = workflow.indexOf(
-      'printf \'ALTER TABLE "%s"."%s" DROP CONSTRAINT "%s";\\n\''
-    );
-    const generatedNeutralization = workflow.indexOf(
-      'printf \'UPDATE "%s"."%s" SET "%s" = NULL WHERE "%s" IS NOT NULL;\\n\''
-    );
-    const restoredAbsenceProof = workflow.indexOf(
-      'A recovery-relaxed Auth-dependent check constraint remains installed.'
-    );
-    const manifestAssembly = workflow.indexOf(
-      'auth_recovery_check_relaxations: $auth_recovery_check_relaxations'
-    );
+    const capture = workflow.indexOf('scripts/recovery/capture-recovery-point.sh');
+    const restore = workflow.indexOf('scripts/recovery/restore-recovery-point.sh');
+    const verify = workflow.indexOf('scripts/recovery/verify-recovery-point.sh');
+    const manifestAssembly = workflow.indexOf('managed_auth_mode:');
 
-    expect(applicationDump).toBeGreaterThan(0);
-    expect(checkRelaxationDerivation).toBeGreaterThan(0);
-    expect(checkRelaxationDerivation).toBeLessThan(applicationDump);
-    expect(generatedCheckDrop).toBeGreaterThan(0);
-    expect(generatedCheckDrop).toBeLessThan(generatedNeutralization);
-    expect(restoredAbsenceProof).toBeGreaterThan(applicationDump);
-    expect(manifestAssembly).toBeGreaterThan(restoredAbsenceProof);
-    expect(storageSchema).toBeGreaterThan(applicationDump);
-    expect(storageData).toBeGreaterThan(storageSchema);
-    expect(workflow).not.toContain('dump_snapshot_schema "auth"');
-    expect(workflow).not.toContain('dump_snapshot_data "auth"');
-    expect(workflow).not.toContain('select count(*) from auth.users');
-    expect(workflow).toContain(
+    expect(capture).toBeGreaterThan(0);
+    expect(restore).toBeGreaterThan(capture);
+    expect(verify).toBeGreaterThan(restore);
+    expect(manifestAssembly).toBeGreaterThan(verify);
+
+    // The application schema keeps its proven supabase db dump provenance; the
+    // capture script reuses that file rather than regenerating it.
+    expect(workflow).toContain('supabase db dump --db-url "${db_url}" -f recovery/schema.sql');
+    expect(workflow).toContain('supabase db dump --db-url "${db_url}" --role-only');
+
+    // Nothing may be excluded and no identity attribution may be neutralized.
+    expect(workflow).not.toContain('--exclude-table-data=');
+    expect(workflow).not.toContain('with recursive hard_auth_tables(table_oid)');
+    expect(workflow).not.toContain('SET "%s" = NULL WHERE "%s" IS NOT NULL');
+    expect(workflow).not.toContain('ALTER COLUMN "uploaded_by" DROP NOT NULL');
+    expect(workflow).not.toContain('auth-hard-excluded-tables.txt');
+    expect(workflow).not.toContain('auth-neutralized-references.txt');
+    expect(workflow).not.toContain('auth-recovery-check-relaxations.txt');
+    expect(workflow).not.toContain(
       'Managed Auth and hard identity-owned test rows: intentionally skipped'
     );
-    expect(workflow).toContain('with recursive hard_auth_tables(table_oid)');
-    expect(workflow).toContain("select 'auth.users'::regclass::oid");
-    expect(workflow).toContain("grep -Fxq 'private.member_accounts'");
-    expect(workflow).toContain("grep -Fxq 'private.places'");
-    expect(workflow).toContain("grep -Fxq 'private.place_media'");
-    expect(workflow).toContain('recovery/auth-hard-excluded-counts.txt');
-    expect(workflow).toContain('recovery/auth-hard-excluded-restored-counts.txt');
-    expect(workflow).toContain('recovery/auth-neutralized-references.txt');
-    expect(workflow).toContain('recovery/auth-neutralized-restored-counts.txt');
-    expect(workflow).toContain('recovery/auth-recovery-check-relaxations.txt');
-    expect(workflow).toContain('f.attnum = any(check_constraint.conkey)');
-    expect(workflow).toContain('ALTER TABLE "%s"."%s" DROP CONSTRAINT "%s";');
-    expect(workflow).toContain('private.place_media|place_media_approval_requires_metadata_check');
-    expect(workflow).toContain('private.auth_pending_intents|auth_pending_intent_lifecycle_check');
-    expect(workflow).toContain('auth_recovery_check_relaxations');
+
+    // The captured Auth boundary is an explicit allowlist, not a whole schema.
+    expect(workflow).toContain('recovery/auth-production-counts.txt');
+    expect(workflow).toContain('recovery/auth-attribution-counts.txt');
+    expect(workflow).toContain('auth-attribution-contracts.txt');
+    expect(workflow).toContain('"auth.sessions"');
+    expect(workflow).toContain('"auth.refresh_tokens"');
+    expect(workflow).toContain('"auth.users.confirmation_token"');
+    expect(workflow).toContain('"auth.users.recovery_token"');
     expect(workflow).toContain(
-      'A recovery-relaxed Auth-dependent check constraint remains installed.'
+      '- Managed Auth identities and linked providers: captured and restore-tested'
     );
+    expect(workflow).toContain('- Identity attribution: preserved and restore-tested');
     expect(workflow).toContain(
-      'Composite foreign keys cross the disposable Auth recovery boundary.'
+      '- Ephemeral Auth sessions and single-use tokens: intentionally excluded'
     );
-    expect(workflow).toContain('where not attribute_row.attnotnull');
-    expect(workflow).toContain('"${table}.${column}" == "private.place_media.uploaded_by"');
-    expect(workflow).toContain('constraint_row.confrelid in (${hard_parent_oids})');
-    expect(workflow).toContain('exclusion_args+=("--exclude-table-data=${table}")');
-    expect(workflow).toContain('SET "%s" = NULL WHERE "%s" IS NOT NULL');
-    expect(workflow).toContain('hard_excluded_auth_tables');
-    expect(workflow).toContain('neutralized_auth_references');
-    expect(workflow).toContain(
-      'any(.neutralized_auth_references[]; .table == "private.places" and .column == "created_by")'
-    );
-    expect(workflow).toContain(
-      'any(.neutralized_auth_references[]; .table == "private.place_media" and .column == "uploaded_by")'
-    );
-    expect(workflow).toContain(
-      'all(.hard_excluded_auth_tables[]; .table != "private.places" and .table != "private.place_media")'
-    );
-    expect(workflow).toContain('(.auth_recovery_schema_relaxations | length == 1)');
-    expect(workflow).toContain(
-      'ALTER TABLE "private"."place_media" ALTER COLUMN "uploaded_by" DROP NOT NULL;'
-    );
-    expect(workflow).toContain('Restored Place media uploader attribution is not nullable.');
-    expect(workflow).toContain("'^private\\.places [0-9]+$'");
-    expect(workflow).toContain("'^private\\.place_media [0-9]+$'");
+
     expect(workflow).toContain(
       'BACKUP_PASSPHRASE: ${{ secrets.HUNDAVAENT_PRODUCTION_BACKUP_PASSPHRASE }}'
     );
@@ -194,8 +164,16 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain(
       'AUTH_FACEBOOK_ENABLED: ${{ vars.HUNDAVAENT_PRODUCTION_AUTH_FACEBOOK_ENABLED }}'
     );
-    expect(workflow.match(/AUTH_EMAIL_ENABLED}" != "false"/g)).toHaveLength(2);
-    expect(workflow.match(/AUTH_FACEBOOK_ENABLED}" != "false"/g)).toHaveLength(2);
+    // The provider switches are no longer pinned to false - recovery captures
+    // managed Auth and a real release restore-tested it. They must still be
+    // explicit at both sites, because an unset GitHub environment binding
+    // arrives as an empty string and would read as "not enabled" by accident.
+    expect(workflow).not.toContain('AUTH_EMAIL_ENABLED}" != "false" ||');
+    expect(workflow).not.toContain('Production Auth providers stay disabled');
+    expect(
+      workflow.match(/Production Auth provider switches must be exactly 'true' or 'false'/g)
+    ).toHaveLength(2);
+    expect(workflow.match(/for provider_switch in "\$\{AUTH_EMAIL_ENABLED\}"/g)).toHaveLength(2);
   });
 
   it('retains only an encrypted, checksummed recovery archive and fail-closes plaintext upload', () => {
@@ -211,7 +189,7 @@ describe('release evaluation orchestration', () => {
     expect(workflow).toContain('plaintext_archive_sha256');
     expect(workflow).toContain('ciphertext_sha256');
     expect(workflow).toContain('managed_auth_mode');
-    expect(workflow).toContain('excluded-prelaunch-auth-and-hard-identity-rows-providers-disabled');
+    expect(workflow).toContain('included-identities-and-owned-rows-restore-tested');
     expect(workflow).toContain('rm -rf recovery');
     expect(workflow).toContain('test ! -e recovery');
     expect(workflow).toContain('test ! -e "${plaintext_archive}"');
@@ -231,35 +209,33 @@ describe('release evaluation orchestration', () => {
       'utf8'
     );
     const exportedSnapshot = workflow.indexOf('SELECT pg_export_snapshot()');
-    const applicationDump = workflow.indexOf(
-      'dump_snapshot_data "public|private|security" recovery/data.sql'
+    const capture = workflow.indexOf('scripts/recovery/capture-recovery-point.sh');
+    const release = workflow.indexOf('release_recovery_snapshot', capture);
+
+    const captureScript = readFileSync(
+      new URL('../../../scripts/recovery/capture-recovery-point.sh', import.meta.url),
+      'utf8'
     );
-    const storageDump = workflow.indexOf('dump_snapshot_data "storage" recovery/storage-data.sql');
-    const applicationCounts = workflow.indexOf("n.nspname in ('public', 'private', 'security')");
-    const release = workflow.indexOf('release_recovery_snapshot', storageDump);
 
     expect(workflow).not.toMatch(/LOCK TABLE/i);
-    expect(workflow).toContain('SET TRANSACTION SNAPSHOT');
-    expect(workflow).toContain('--snapshot "${recovery_snapshot}"');
+    // The snapshot is exported by the workflow and consumed by the capture
+    // script, so every read in the capture shares one consistent view.
+    expect(captureScript).toContain('SET TRANSACTION SNAPSHOT');
+    expect(captureScript).toContain('--snapshot "${recovery_snapshot}"');
     expect(workflow).toContain(
       'public.ecr.aws/supabase/postgres:17.6.1.143@sha256:80d7b27c3e8d77cfa7226eee9508671796da214781ff15a35b3670d7ad5ee453'
     );
     expect(workflow).not.toContain('docker run --rm supabase/postgres:17.6.1.143');
     expect(workflow).toContain('pg_dump --version');
     expect(workflow).toContain('psql -X -qAt -v ON_ERROR_STOP=1 "$1"');
-    expect(workflow).toContain("psql -X -qAt -F ' ' -v ON_ERROR_STOP=1");
-    expect(workflow).toContain('${query};\n          COMMIT;');
-    expect(workflow).toContain('--quote-all-identifier');
-    expect(workflow).toContain('--role "postgres"');
     expect(workflow).not.toContain('--exclude-table "auth.schema_migrations"');
     expect(workflow).not.toContain('--exclude-table "storage.migrations"');
-    expect(workflow.match(/snapshot_query/g)).toHaveLength(13);
-    expect(workflow.match(/dump_snapshot_data/g)).toHaveLength(3);
+
+    // Every production read shares the one exported snapshot, and it is only
+    // released once the capture script has finished reading through it.
     expect(exportedSnapshot).toBeGreaterThan(0);
-    expect(applicationDump).toBeGreaterThan(exportedSnapshot);
-    expect(storageDump).toBeGreaterThan(applicationDump);
-    expect(applicationCounts).toBeGreaterThan(storageDump);
-    expect(release).toBeGreaterThan(applicationCounts);
+    expect(capture).toBeGreaterThan(exportedSnapshot);
+    expect(release).toBeGreaterThan(capture);
   });
 
   it('rejects invalid or incomplete Auth COPY recovery dumps', () => {
@@ -283,46 +259,72 @@ describe('release evaluation orchestration', () => {
     );
   });
 
-  it('restores and exactly verifies Storage without preserving test Auth identities', () => {
+  it('restores Storage and managed Auth in a dependency-safe order', () => {
     const workflow = readFileSync(
       new URL('../../../.github/workflows/production.yml', import.meta.url),
       'utf8'
     );
+    const captureScript = readFileSync(
+      new URL('../../../scripts/recovery/capture-recovery-point.sh', import.meta.url),
+      'utf8'
+    );
+    const restoreScript = readFileSync(
+      new URL('../../../scripts/recovery/restore-recovery-point.sh', import.meta.url),
+      'utf8'
+    );
 
-    expect(workflow).toContain('dump_snapshot_schema "storage" recovery/storage-schema.sql');
-    expect(workflow).toContain('dump_snapshot_data "storage" recovery/storage-data.sql');
-    expect(workflow).toContain("and n.nspname = 'storage'\" |");
-    expect(workflow).not.toContain("c.relname <> 'migrations'");
-    expect(workflow).toContain("array_to_string(roles, ',')");
-    expect(workflow).toContain('quote_nullable(with_check)');
-    expect(workflow).toContain('[[ ! -s recovery/storage-schema.sql ]]');
-    expect(workflow).not.toContain("-c 'drop schema if exists auth cascade'");
-    expect(workflow).toContain(
-      'psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}?user=supabase_admin" \\\n' +
-        "            -c 'alter schema storage rename to scratch_storage'"
+    expect(captureScript).toContain('dump_schema "auth" "${out_dir}/auth-schema.sql"');
+    expect(captureScript).toContain('dump_schema "storage" "${out_dir}/storage-schema.sql"');
+    expect(captureScript).toContain('dump_data "storage" "${out_dir}/storage-data.sql"');
+    expect(captureScript).toContain("array_to_string(roles, ',')");
+    expect(captureScript).toContain('quote_nullable(with_check)');
+
+    const verifyScript = readFileSync(
+      new URL('../../../scripts/recovery/verify-recovery-point.sh', import.meta.url),
+      'utf8'
     );
+    const authDumpScript = readFileSync(
+      new URL('../../../scripts/recovery/dump-auth-data.sh', import.meta.url),
+      'utf8'
+    );
+
+    // Identifiers reaching a query are validated wherever they are interpolated.
+    expect(captureScript).toContain('assert_safe_identifier');
+    expect(verifyScript).toContain('assert_safe_table');
+    expect(verifyScript).toContain('assert_safe_column');
+
+    // Redaction is proven on emitted rows. A COPY-header check would pass even
+    // when every credential token was dumped in the clear.
+    expect(authDumpScript).toContain('assert_redacted');
+    expect(authDumpScript).toContain('$col != "\\\\N"');
+    expect(authDumpScript).not.toContain('is missing from the auth.users COPY header');
+
+    // Identities must land before the application rows that reference them,
+    // and every schema before its own data.
+    const authSchema = restoreScript.indexOf('run_admin -f "${dir}/auth-schema.sql"');
+    const appSchema = restoreScript.indexOf('run_admin -f "${dir}/schema.sql"');
+    const authData = restoreScript.indexOf('run_admin -f "${dir}/auth-data.sql"');
+    const appData = restoreScript.indexOf('run_admin -f "${dir}/data.sql"');
+
+    expect(authSchema).toBeGreaterThan(0);
+    expect(appSchema).toBeGreaterThan(authSchema);
+    expect(authData).toBeGreaterThan(appSchema);
+    expect(appData).toBeGreaterThan(authData);
+
+    // Managed schemas are owned by supabase_admin, so the restore has to use it.
+    expect(restoreScript).toContain('RECOVERY_ADMIN_URL');
+    expect(restoreScript).toContain('drop schema if exists auth cascade;');
+
+    // public must survive the restore. `supabase db dump` emits
+    // CREATE SCHEMA IF NOT EXISTS for private and security but never for
+    // public, so dropping it strands every public object under ON_ERROR_STOP.
+    expect(restoreScript).not.toContain('drop schema if exists public');
+    expect(workflow).toContain('RECOVERY_ADMIN_URL="${RESTORE_DB_URL}?user=supabase_admin"');
     expect(workflow).toContain('psql "${RESTORE_DB_URL}" -f recovery/roles.sql || true');
-    expect(workflow).toContain(
-      'psql -v ON_ERROR_STOP=1 "${RESTORE_DB_URL}" -f recovery/schema.sql'
-    );
-    for (const recoveryFile of ['storage-schema.sql', 'storage-data.sql', 'data.sql']) {
-      expect(workflow).toContain(
-        `psql -v ON_ERROR_STOP=1 "\${RESTORE_DB_URL}?user=supabase_admin" \\\n` +
-          `            -f recovery/${recoveryFile}`
-      );
-      expect(workflow).not.toContain(
-        `psql -v ON_ERROR_STOP=1 "\${RESTORE_DB_URL}" -f recovery/${recoveryFile}`
-      );
-    }
-    expect(workflow).toContain(
-      'actual="$(psql -At "${recovery_db_url}" -c "select count(*) from ${table}")"'
-    );
-    expect(workflow).toContain('recovery/storage-restored-counts.txt');
+
     expect(workflow).toContain('recovery/storage-production-schema.txt');
     expect(workflow).toContain('recovery/storage-restored-schema.txt');
-    expect(workflow).toContain('diff -u recovery/storage-dump-counts.txt');
-    expect(workflow).not.toContain('recovery/auth-data.sql');
-    expect(workflow).not.toContain('recovery/auth-schema.sql');
+    expect(workflow).toContain('Restored Storage schema does not match production.');
   });
 
   it('assigns every concurrent lane a distinct runtime identity and port set', () => {

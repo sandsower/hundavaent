@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+
   import type { Catalogue } from '$i18n';
   import { postHogAnalytics } from '$lib/analytics/posthog';
   import { requestAuthentication } from '$lib/auth/controller';
+  import { motionDurationsMs } from '$lib/design-system/motion';
   import {
     publishWeeklyRhythmActivation,
     publishWeeklyRhythmInvalidation
@@ -35,6 +38,25 @@
   }: Props = $props();
   let submitting = $state(false);
   let failed = $state(false);
+  // Only a Member's own act of saving earns the flourish. A Place that arrives already
+  // favourited, or one being unsaved, must not animate: recognition belongs to the moment.
+  let justSaved = $state(false);
+  let justSavedTimer: ReturnType<typeof setTimeout> | undefined;
+
+  onDestroy(() => {
+    if (justSavedTimer) clearTimeout(justSavedTimer);
+  });
+
+  function markJustSaved(): void {
+    justSaved = true;
+    if (justSavedTimer) clearTimeout(justSavedTimer);
+    // A timer rather than animationend: under reduced motion the moving half of the flourish
+    // resolves to a zero duration, and its event is not something to hang state on.
+    justSavedTimer = setTimeout(() => {
+      justSaved = false;
+      justSavedTimer = undefined;
+    }, motionDurationsMs.considered);
+  }
 
   const actionLabel = $derived(favourite ? copy['favourite.remove'] : copy['favourite.save']);
   const accessibleLabel = $derived(actionLabel.replace('{name}', placeName));
@@ -58,6 +80,7 @@
         saved: desiredState
       });
       onChange(placeId, desiredState, trigger);
+      if (desiredState) markJustSaved();
       if (desiredState && result.recognition.firstTimeForPlace) {
         onRecognized(result.recognition);
       }
@@ -85,6 +108,7 @@
 <div
   class="favourite-action"
   data-ui-mode="place"
+  data-motion="tokenized"
   data-favourite-place={placeId}
   data-state={failed ? 'error' : submitting ? 'busy' : favourite ? 'selected' : 'idle'}
 >
@@ -98,6 +122,7 @@
       aria-pressed={favourite}
       aria-busy={submitting}
       disabled={submitting}
+      class:just-saved={justSaved}
       onclick={(event) => applyDesiredState(event.currentTarget)}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -139,6 +164,7 @@
   }
 
   .hv-control {
+    position: relative;
     display: inline-grid;
     width: 2.5rem;
     height: 2.5rem;
@@ -147,18 +173,92 @@
     border-radius: 999px;
     cursor: pointer;
     place-items: center;
+    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
+  }
+
+  /* The outline state invites; the saved state is already settled, so it stays put. The
+     signed-out anchor carries no aria-pressed and is treated as unsaved. */
+  .hv-control:not([aria-pressed='true']):hover {
+    transform: translateY(-1px);
+  }
+
+  .hv-control:active {
+    transform: scale(0.92);
   }
 
   .hv-control svg {
+    position: relative;
+    z-index: 1;
     width: 1.2rem;
     fill: transparent;
     stroke: currentColor;
     stroke-linejoin: round;
     stroke-width: 1.8;
+    transition: fill var(--hv-fade-quick) linear;
   }
 
   .hv-control[aria-pressed='true'] svg {
     fill: currentColor;
+  }
+
+  /* The bloom sits behind the heart and reads as warmth spreading out from it. It is capped at
+     1.35x because PlaceCard clips its own overflow, and a wider bloom would be cut at the card
+     edge rather than fading out. */
+  .hv-control::after {
+    position: absolute;
+    z-index: 0;
+    border-radius: 999px;
+    background: var(--hv-color-danger-soft);
+    content: '';
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Two entries, not one: a single @keyframes cannot hold both the motion duration and the
+     fade duration, and reduced motion has to be able to drop the growth while keeping the glow. */
+  .hv-control.just-saved::after {
+    animation:
+      bloom-grow var(--hv-motion-considered) var(--hv-ease-exit),
+      bloom-fade var(--hv-fade-considered) var(--hv-ease-exit);
+  }
+
+  .hv-control.just-saved svg {
+    animation: heart-punch var(--hv-motion-quick) var(--hv-ease-overshoot);
+  }
+
+  @keyframes heart-punch {
+    0% {
+      transform: scale(1);
+    }
+
+    45% {
+      transform: scale(1.22);
+    }
+
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes bloom-grow {
+    from {
+      transform: scale(0.7);
+    }
+
+    to {
+      transform: scale(1.35);
+    }
+  }
+
+  @keyframes bloom-fade {
+    from {
+      opacity: 0.45;
+    }
+
+    to {
+      opacity: 0;
+    }
   }
 
   .hv-control[data-state='selected'] {
