@@ -409,7 +409,8 @@
     border: 0;
     border-radius: var(--hv-radius-control);
     grid-template-columns: 1.2rem 1fr 1.2rem;
-    background: #1877f2;
+    /* Facebook's darker press shade: white on brand #1877f2 is 4.23:1 and fails WCAG 1.4.3. */
+    background: #166fe5;
     color: white;
     font-weight: 800;
     line-height: 1.2;

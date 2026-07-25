@@ -8,9 +8,13 @@
     history: WeeklyRhythmHistory;
     lang: Locale;
     copy: Catalogue;
+    /* The account hub renders the trail as the door to the achievements page; the impact page
+       renders it as a plain display. Both props must be present for the door to appear. */
+    achievementsHref?: string;
+    achievementsLabel?: string;
   }
 
-  let { history, lang, copy }: Props = $props();
+  let { history, lang, copy, achievementsHref, achievementsLabel }: Props = $props();
 </script>
 
 <section
@@ -67,6 +71,14 @@
       <span>{copy['weeklyRhythm.unavailable']}</span>
     </div>
   {/if}
+
+  {#if achievementsHref && achievementsLabel}
+    <!-- The caller resolves the href; this display component owns no routes. -->
+    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+    <a class="achievements-door" data-achievements-door href={achievementsHref}>
+      {achievementsLabel}
+    </a>
+  {/if}
 </section>
 
 <style>
@@ -80,10 +92,10 @@
        lines. A container query keeps one component correct in both places. */
     container-type: inline-size;
     overflow: hidden;
-    padding: 1.15rem;
+    padding: var(--hv-space-panel);
     border-color: color-mix(in srgb, var(--hv-color-fjord) 36%, var(--hv-border-subtle));
     background: var(--hv-color-snow-raised);
-    gap: 1.15rem;
+    gap: var(--hv-space-context);
   }
 
   .rhythm-copy {
@@ -174,25 +186,26 @@
     text-align: center;
   }
 
+  /* Captions sit at the 12px floor: anything smaller reads as decoration, not dates. */
   .week-range {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     font-weight: 850;
     line-height: 1.25;
   }
 
   .week-state {
     margin-top: 0.15rem;
-    font-size: 0.64rem;
+    font-size: 0.72rem;
     line-height: 1.2;
   }
 
   .current-label {
     margin-top: 0.3rem;
-    padding: 0.12rem 0.35rem;
+    padding: 0.12rem 0.4rem;
     border-radius: 999px;
     background: var(--hv-color-signal);
     color: var(--hv-color-basalt);
-    font-size: 0.62rem;
+    font-size: 0.7rem;
     font-weight: 900;
   }
 
@@ -201,6 +214,38 @@
     margin: 0;
     gap: 0.65rem;
     align-items: center;
+  }
+
+  /* The link stretches its hit area across the whole panel: the trail is display-only, so the
+     panel can safely act as one door without swallowing any other interactive element. */
+  .achievements-door {
+    justify-self: start;
+    color: var(--hv-color-fjord);
+    font-weight: 850;
+    text-decoration: none;
+  }
+
+  .achievements-door::after {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--hv-radius-panel);
+    content: '';
+  }
+
+  .achievements-door:focus-visible {
+    border-radius: var(--hv-radius-control);
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+  }
+
+  .weekly-rhythm:has(.achievements-door) {
+    transition: border-color var(--hv-fade-quick) ease;
+  }
+
+  @media (hover: hover) {
+    .weekly-rhythm:has(.achievements-door):hover {
+      border-color: var(--hv-color-fjord);
+    }
   }
 
   .unavailable :global(svg) {
@@ -213,7 +258,7 @@
      per-week state caption is dropped rather than allowed to wrap under it. */
   @container (max-width: 42rem) {
     .weekly-rhythm {
-      padding: 1rem;
+      padding: var(--hv-space-panel);
     }
 
     .trail {

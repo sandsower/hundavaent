@@ -281,6 +281,12 @@
             {data.copy[contributorKey(data.contributor.value.status)]}
           </strong>
         </div>
+        <a
+          class="hv-control status-detail-link"
+          href={resolve('/[lang=lang]/account/contributor-status', { lang: data.lang })}
+        >
+          {data.copy['contributor.nav']}
+        </a>
       {:else}
         <p class="integrity-note">{data.copy['impact.statusUnavailable']}</p>
       {/if}
@@ -781,6 +787,11 @@
   .recognition-link,
   .back-link {
     justify-self: start;
+  }
+
+  .status-detail-link {
+    justify-self: start;
+    margin-top: 0.8rem;
   }
 
   .outcomes {

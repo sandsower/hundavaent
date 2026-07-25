@@ -1237,11 +1237,11 @@ test('the private weekly roundup is keyboard-operable, responsive, and Axe-clean
       sendLabel: 'Send me a sign-in link',
       unconfiguredTitle: 'Choose where your trail begins',
       language: 'English',
-      emailInterest: 'I would be interested in receiving this roundup by email later',
+      emailInterest: 'I would be interested in receiving this recap by email later',
       save: 'Save roundup settings',
       populatedTitle: 'A few fresh tracks',
       edit: 'Edit roundup settings',
-      saved: 'Your private roundup settings were saved. No email was sent.'
+      saved: 'Your private recap settings were saved. No email was sent.'
     },
     {
       locale: 'is',

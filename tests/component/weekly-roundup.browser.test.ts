@@ -44,7 +44,7 @@ const recommendations = [
   }
 ];
 
-describe('Weekly roundup', () => {
+describe('Weekly recap', () => {
   it('renders the populated content in the saved roundup language with a clear discovery route', () => {
     const { container } = renderRoundup({
       lang: 'en',
@@ -56,7 +56,7 @@ describe('Weekly roundup', () => {
       }
     });
 
-    expect(screen.getByRole('heading', { name: 'Weekly roundup' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Weekly recap' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Nokkur ný spor' })).toBeTruthy();
     expect(screen.getByText('Nýtt í vikunni')).toBeTruthy();
     expect(screen.getAllByText('Uppfært í vikunni')).toHaveLength(2);
@@ -135,7 +135,7 @@ describe('Weekly roundup', () => {
     expect(screen.getByRole('radio', { name: 'Icelandic' })).toBeChecked();
     expect(
       screen.getByRole('checkbox', {
-        name: 'I would be interested in receiving this roundup by email later'
+        name: 'I would be interested in receiving this recap by email later'
       })
     ).not.toBeChecked();
     expect(
@@ -146,7 +146,7 @@ describe('Weekly roundup', () => {
     expect(screen.getByRole('link', { name: 'Browse all places' }).getAttribute('href')).toBe(
       '/en'
     );
-    expect(screen.getByRole('button', { name: 'Save roundup settings' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save recap settings' })).toBeTruthy();
   });
 
   it('opens populated settings with current email interest visible and withdrawable', async () => {
@@ -165,13 +165,13 @@ describe('Weekly roundup', () => {
       }
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Edit roundup settings' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit recap settings' }));
 
     expect(screen.getByRole('checkbox', { name: 'Reykjavík' })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'Kópavogur' })).toBeChecked();
     expect(
       screen.getByRole('checkbox', {
-        name: 'I would be interested in receiving this roundup by email later'
+        name: 'I would be interested in receiving this recap by email later'
       })
     ).toBeChecked();
     expect(screen.getByRole('button', { name: 'Close settings' })).toBeTruthy();

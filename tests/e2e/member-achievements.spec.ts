@@ -54,7 +54,9 @@ test('a real Favourite keeps its unread cue through hover preload and celebrates
   await expect(otherTab.locator(unreadIndicator)).toBeVisible();
 
   // Hundavænt globally preloads route data on hover. The pure page read must not consume the cue.
-  const achievementsLink = page.getByRole('link', { name: 'My Achievements' });
+  // The trail panel is the hub's achievements door; its label is the live nearest-tier fact, so
+  // the stable attribute is the only dependable locator.
+  const achievementsLink = page.locator('[data-achievements-door]');
   const preloadResponse = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (

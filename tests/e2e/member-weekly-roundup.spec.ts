@@ -21,13 +21,13 @@ test('a Member can shape a bilingual roundup without activating weekly rhythm or
   await signInMember(page, email);
 
   await page.goto('/en/account');
-  await expect(page.getByRole('heading', { name: 'Weekly roundup' })).toBeVisible();
   await expect(page.locator('[data-weekly-rhythm-history] .current')).toHaveAttribute(
     'data-state',
     'open'
   );
 
-  await page.getByRole('link', { name: 'Open my roundup' }).click();
+  // The recap has no account-hub entry while the member base is small; the route is direct-only.
+  await page.goto('/en/account/roundup');
   await expect(page).toHaveURL('/en/account/roundup');
   await expect(page.getByRole('heading', { name: 'Choose where your trail begins' })).toBeVisible();
   const mailboxBeforePreferences = await mailboxCount(request);
@@ -37,13 +37,13 @@ test('a Member can shape a bilingual roundup without activating weekly rhythm or
   await page.getByRole('radio', { name: 'English' }).check();
   await page
     .getByRole('checkbox', {
-      name: 'I would be interested in receiving this roundup by email later'
+      name: 'I would be interested in receiving this recap by email later'
     })
     .check();
-  await page.getByRole('button', { name: 'Save roundup settings' }).click();
+  await page.getByRole('button', { name: 'Save recap settings' }).click();
 
   await expect(
-    page.getByText('Your private roundup settings were saved. No email was sent.')
+    page.getByText('Your private recap settings were saved. No email was sent.')
   ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'A few fresh tracks' })).toBeVisible();
   await expect(
@@ -58,34 +58,34 @@ test('a Member can shape a bilingual roundup without activating weekly rhythm or
   await expect(page.getByRole('article')).toHaveCount(3);
   expect(await mailboxCount(request)).toBe(mailboxBeforePreferences);
 
-  await page.getByRole('button', { name: 'Edit roundup settings' }).click();
+  await page.getByRole('button', { name: 'Edit recap settings' }).click();
   const emailInterest = page.getByRole('checkbox', {
-    name: 'I would be interested in receiving this roundup by email later'
+    name: 'I would be interested in receiving this recap by email later'
   });
   await expect(emailInterest).toBeChecked();
   await emailInterest.uncheck();
   await page.getByRole('checkbox', { name: 'Reykjavík' }).uncheck();
   await page.getByRole('checkbox', { name: 'Kópavogur' }).uncheck();
   await page.getByRole('checkbox', { name: 'Kjósarhreppur' }).check();
-  await page.getByRole('button', { name: 'Save roundup settings' }).click();
+  await page.getByRole('button', { name: 'Save recap settings' }).click();
   await expect(page.getByRole('heading', { name: 'No new tracks this week' })).toBeVisible();
   expect(await mailboxCount(request)).toBe(mailboxBeforePreferences);
 
-  await page.getByRole('button', { name: 'Edit roundup settings' }).click();
+  await page.getByRole('button', { name: 'Edit recap settings' }).click();
   await page.getByRole('checkbox', { name: 'Kjósarhreppur' }).uncheck();
   await page.getByRole('checkbox', { name: 'Kópavogur' }).check();
-  await page.getByRole('button', { name: 'Save roundup settings' }).click();
+  await page.getByRole('button', { name: 'Save recap settings' }).click();
   await expect(page.getByRole('heading', { name: 'A short trail this week' })).toBeVisible();
   await expect(
     page.getByRole('heading', { name: localWeeklyRoundupFixtures.updatedPark.nameEn })
   ).toBeVisible();
   await expect(page.getByRole('article')).toHaveCount(1);
 
-  await page.getByRole('button', { name: 'Edit roundup settings' }).click();
+  await page.getByRole('button', { name: 'Edit recap settings' }).click();
   await page.getByRole('checkbox', { name: 'Kópavogur' }).uncheck();
   await page.getByRole('checkbox', { name: 'Reykjavík' }).check();
   await page.getByRole('radio', { name: 'Icelandic' }).check();
-  await page.getByRole('button', { name: 'Save roundup settings' }).click();
+  await page.getByRole('button', { name: 'Save recap settings' }).click();
   await expect(page.getByRole('heading', { name: 'Stutt slóð í þessari viku' })).toBeVisible();
   await expect(
     page.getByRole('heading', { name: localWeeklyRoundupFixtures.newCafe.nameIs })
