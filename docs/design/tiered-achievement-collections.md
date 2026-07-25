@@ -35,7 +35,7 @@ The six remaining achievements stay single and hidden until earned, preserving t
 
 1. **Locked visibility is per definition.** Tiered collections are fully visible when locked, showing their threshold. `surprise` survives untouched for the bespoke six.
 2. **A tier is its own definition key**, grouped by a `collection`. The immutable unlock ledger, its `unique (member_id, achievement_key)` index, the evaluator's unlock-once-per-key contract and per-unlock version pinning all keep working, because a tier unlock is an ordinary unlock.
-3. **The existing four count-based keys are replaced, not adopted.** The unlock ledger is empty, so the migration deletes those four definition rows and inserts twelve uniformly named tier rows.
+3. **The existing four count-based keys are replaced, not adopted.** The migration deletes those four definition rows and inserts twelve uniformly named tier rows, which is safe only while no unlock pins one of their versions. That condition is asserted rather than assumed - see the note under Edge Cases and Risks, which records what happened when it was assumed.
 4. **Four collections, not seven.** Only the achievements that already count something and already pass through the anti-burst spacing rule become collections.
 
 ### Catalogue
@@ -236,7 +236,12 @@ get_my_achievements()
 
 ## Edge Cases and Risks
 
-- **The migration rewrites `criteria` shape at version 1, which the original contract reserves for a new version.** Safe only while the unlock ledger is empty, so the migration asserts emptiness and raises `55000` otherwise. The assertion turns "we have no users" into an enforced invariant: if a real unlock ever exists, the deploy fails loudly instead of silently mis-evaluating a pinned version.
+- **The migration rewrites `criteria` shape at version 1, which the original contract reserves for a new version.** Safe only while the unlock ledger is empty, so the migration asserts emptiness and raises `55000` otherwise. The assertion turns "we have no users" into an enforced invariant: if an unlock exists, the deploy fails loudly instead of silently mis-evaluating a pinned version.
+
+  **This assumption was wrong, and the assertion is the only reason that cost nothing.** The design was written believing the ledger was empty; production held three unlocks across one member. The first deploy of `0d264166` aborted at "Apply migrations to production" with `Found 3 unlock(s) across 1 member(s). (SQLSTATE 55000)`, before any DDL, leaving production consistent on the previous release with every downstream job skipped. The rows were test data and were cleared, and the redeploy succeeded.
+
+  Two lessons for later phases. An environment described as holding "only test data" is not the same as one holding _no_ data, and the difference is exactly what a `select 1 from ...` precondition catches. And an exception that carries its own remedy is worth the extra lines: this one reported the counts and named both branches - clear the rows, or seed at a new definition version and leave earned rows pinned - so the decision did not have to be reconstructed mid-deploy.
+
 - **`production.yml` asserts the exact policy string `achievement-milestones-v1|15|t|t`.** Bumping `policy_version` is a coupled edit in two places in that workflow or the deploy fails. `eligibility_started_at` is preserved by `coalesce` either way, so the bump is purely a label.
 - **Raising `explorer_places` gold later widens a visible gap without explanation.** A member at 12 of 15 would see 12 of 25. Inherent to any threshold bump; accepted knowingly. Members who already earned gold keep it, pinned to version 1.
 - **Gold thresholds remain inventory-dependent.** `docs/launch-inventory-runbook.md` sets no coverage target and every ingested lead becomes an unpublished Candidate Place awaiting moderation, so the published count at launch depends on moderation throughput. Gold at 15 is the conservative choice pending that number.
