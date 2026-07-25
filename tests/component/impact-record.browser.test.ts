@@ -130,12 +130,15 @@ describe('private impact record', () => {
     expect(within(revoked as HTMLElement).getByText('Revoked 22 July 2026')).toBeTruthy();
   });
 
-  it('keeps both milestones visible after a long earned history without claiming anything', () => {
+  // The catalogue read is uncapped, so this strip caps itself. Earned Achievements must keep their
+  // place: an unbounded run of locked tiers would otherwise crowd every one of them out.
+  it('shows the closest upcoming tiers without crowding out the earned history', () => {
     renderPage('en');
 
     expect(screen.getByText('First Favourite')).toBeTruthy();
-    expect(screen.getByText('Category Curious')).toBeTruthy();
-    expect(screen.getByText('Capital Region Wanderer')).toBeTruthy();
+    expect(screen.getByText('First Rating')).toBeTruthy();
+    expect(screen.getByText('Categories - Silver')).toBeTruthy();
+    expect(screen.getByText('Municipalities - Silver')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'See all Achievements' })).toBeTruthy();
     expect(document.querySelector('form')).toBeNull();
     for (const icon of document.querySelectorAll('[data-impact-icon], [data-achievement-icon]')) {
@@ -211,6 +214,7 @@ function renderPage(
           enabled: achievementsEnabled,
           achievements: [
             {
+              entry: 'bespoke',
               key: 'first_favourite',
               group: 'participation',
               displayOrder: 1,
@@ -222,6 +226,7 @@ function renderPage(
               earnedAt: '2026-07-04T12:00:00Z'
             },
             {
+              entry: 'bespoke',
               key: 'first_rating',
               group: 'participation',
               displayOrder: 2,
@@ -233,6 +238,7 @@ function renderPage(
               earnedAt: '2026-07-03T12:00:00Z'
             },
             {
+              entry: 'bespoke',
               key: 'first_checkin',
               group: 'participation',
               displayOrder: 3,
@@ -244,41 +250,50 @@ function renderPage(
               earnedAt: '2026-07-02T12:00:00Z'
             },
             {
-              key: 'first_accepted_contribution',
-              group: 'contribution_quality',
-              displayOrder: 4,
-              nameIs: 'Fyrsta framlag',
-              nameEn: 'First Contribution',
-              descriptionIs: 'Framlag var samþykkt.',
-              descriptionEn: 'A contribution was accepted.',
               kind: 'earned',
+              entry: 'tier',
+              key: 'contributions_bronze',
+              group: 'contribution_quality',
+              displayOrder: 20,
+              collection: 'contributions',
+              tier: 'bronze',
+              collectionNameIs: 'Framlög',
+              collectionNameEn: 'Contributions',
+              collectionDescriptionIs: 'Framlög frá þér sem umsjónarmaður hefur staðfest.',
+              collectionDescriptionEn: 'Contributions of yours confirmed by a Moderator.',
               earnedAt: '2026-07-01T12:00:00Z'
             },
             {
-              key: 'category_curious',
+              kind: 'locked',
+              entry: 'tier',
+              key: 'place_categories_silver',
               group: 'exploration',
-              displayOrder: 5,
-              nameIs: 'Forvitinn um flokka',
-              nameEn: 'Category Curious',
-              descriptionIs: 'Þú kannar flokka.',
-              descriptionEn: 'You explore categories.',
-              kind: 'milestone',
+              displayOrder: 15,
+              collection: 'place_categories',
+              tier: 'silver',
+              collectionNameIs: 'Flokkar',
+              collectionNameEn: 'Categories',
+              collectionDescriptionIs: 'Flokkar staða sem þú hefur innritað þig á.',
+              collectionDescriptionEn: 'Categories of Place you have checked in at.',
               earnedAt: null,
               progress: {
                 kind: 'credited_categories',
                 current: 2,
-                target: 4
+                target: 3
               }
             },
             {
-              key: 'capital_region_wanderer',
+              kind: 'locked',
+              entry: 'tier',
+              key: 'municipalities_silver',
               group: 'exploration',
-              displayOrder: 6,
-              nameIs: 'Flakkari á höfuðborgarsvæðinu',
-              nameEn: 'Capital Region Wanderer',
-              descriptionIs: 'Þú kannar sveitarfélög.',
-              descriptionEn: 'You explore municipalities.',
-              kind: 'milestone',
+              displayOrder: 18,
+              collection: 'municipalities',
+              tier: 'silver',
+              collectionNameIs: 'Sveitarfélög',
+              collectionNameEn: 'Municipalities',
+              collectionDescriptionIs: 'Sveitarfélög þar sem þú hefur innritað þig.',
+              collectionDescriptionEn: 'Municipalities where you have checked in.',
               earnedAt: null,
               progress: {
                 kind: 'credited_municipalities',

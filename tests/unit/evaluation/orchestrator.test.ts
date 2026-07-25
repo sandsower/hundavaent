@@ -85,7 +85,7 @@ describe('release evaluation orchestration', () => {
       'test "$(jq -r \'.release\' <<< "${health}")" = "${RELEASE_SHA}"'
     );
     expect(achievementActivationJob).toContain('set local role service_role;');
-    expect(achievementActivationJob).toContain("'achievement-milestones-v1'");
+    expect(achievementActivationJob).toContain("'achievement-collections-v1'");
     expect(achievementActivationJob).toContain('set local role anon;');
     expect(workflow).toContain('activate_trusted_contributor:');
     expect(trustedActivationJob).toContain('needs: recovery-point');

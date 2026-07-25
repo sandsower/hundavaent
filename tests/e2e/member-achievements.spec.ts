@@ -31,9 +31,10 @@ test('a real Favourite keeps its unread cue through hover preload and celebrates
 
   await page.goto('/en/account/achievements');
   await expect(page.getByRole('heading', { name: 'Your Achievements' })).toBeVisible();
-  await expect(
-    page.getByText('Your first achievement will appear here when you earn it.')
-  ).toBeVisible();
+  // A Member with nothing earned is no longer shown an empty page. The twelve open tiers are the
+  // answer to "what is ahead", so there is no empty state left to render.
+  await expect(page.locator('[data-achievement-tier]')).toHaveCount(12);
+  await expect(page.getByRole('progressbar')).toHaveCount(0);
   await expect(page.getByText('First Favourite')).toHaveCount(0);
   await expect(page.locator(unreadIndicator)).toHaveCount(0);
 
@@ -96,20 +97,34 @@ test('a real Favourite keeps its unread cue through hover preload and celebrates
   ).toBeVisible();
 });
 
-test('started exploration reveals only the two most relevant milestones', async ({ page }) => {
+test('started exploration shows every tier of every collection, gaps included', async ({ page }) => {
   const email = `achievement-progress-${Date.now()}@example.invalid`;
   await signInMember(page, email);
   await provisionLocalAchievementProgress(email);
 
   await page.goto('/en/account/achievements');
-  await expect(page.getByRole('heading', { name: 'Next on your trail' })).toBeVisible();
-  await expect(page.getByText('2 of 4 categories')).toBeVisible();
-  await expect(page.getByText('1 of 3 municipalities')).toBeVisible();
-  await expect(page.getByRole('progressbar')).toHaveCount(2);
-  await expect(page.locator('[data-achievement-milestone]')).toHaveCount(2);
+  await expect(page.getByRole('heading', { name: 'Collections' })).toBeVisible();
 
-  // The lower-ranked Place Explorer and every surprise or trust milestone remain undiscoverable.
-  await expect(page.getByText('Place Explorer')).toHaveCount(0);
+  // Four collections of three tiers each: nothing is hidden, so the Member can see what is ahead.
+  await expect(page.locator('[data-achievement-tier]')).toHaveCount(12);
+  await expect(page.getByRole('heading', { name: 'Places', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Municipalities', exact: true })).toBeVisible();
+
+  // Three credited Places across two category groups and one municipality.
+  await expect(page.getByText('3 of 5 places')).toBeVisible();
+  await expect(page.getByText('1 of 2 municipalities')).toBeVisible();
+
+  // Only each collection's nearest unearned tier is an active target, so a screen reader hears one
+  // progress figure per collection rather than three restatements of the same number.
+  await expect(page.getByRole('progressbar')).toHaveCount(3);
+  await expect(page.locator('[data-tier-state="locked"]').first()).toBeVisible();
+
+  // The spacing rule is now explained rather than left to be discovered as an apparent bug.
+  await expect(
+    page.getByText('Places count when your visits are spread through the day.')
+  ).toBeVisible();
+
+  // Every surprise or trust Achievement remains undiscoverable while locked.
   await expect(page.getByText('First Check-in')).toHaveCount(0);
   await expect(page.getByText('Recognized for Quality')).toHaveCount(0);
   await expect(page.getByText('Trusted Contributor')).toHaveCount(0);

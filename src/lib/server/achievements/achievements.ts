@@ -1,8 +1,13 @@
 export type AchievementGroup =
   'participation' | 'exploration' | 'contribution_quality' | 'longevity';
 
-export type AchievementProgressKind =
-  'credited_places' | 'credited_categories' | 'credited_municipalities';
+export type AchievementMetric =
+  | 'credited_places'
+  | 'credited_categories'
+  | 'credited_municipalities'
+  | 'confirmed_contributions';
+
+export type AchievementTier = 'bronze' | 'silver' | 'gold';
 
 interface RpcError {
   code?: string;
@@ -21,28 +26,52 @@ interface AchievementBase {
   key: string;
   group: AchievementGroup;
   displayOrder: number;
+}
+
+// A bespoke Achievement carries its own copy. A tier carries none: it derives its display from its
+// collection's name plus a tier label, which is why the two shapes are kept apart in the type rather
+// than merged into one record with four nullable copy fields.
+interface BespokeCopy {
   nameIs: string;
   nameEn: string;
   descriptionIs: string;
   descriptionEn: string;
 }
 
-export interface EarnedAchievement extends AchievementBase {
+interface CollectionCopy {
+  collection: string;
+  tier: AchievementTier;
+  collectionNameIs: string;
+  collectionNameEn: string;
+  collectionDescriptionIs: string;
+  collectionDescriptionEn: string;
+}
+
+export interface EarnedBespokeAchievement extends AchievementBase, BespokeCopy {
   kind: 'earned';
+  entry: 'bespoke';
   earnedAt: string;
 }
 
-export interface AchievementMilestone extends AchievementBase {
-  kind: 'milestone';
+export interface EarnedTierAchievement extends AchievementBase, CollectionCopy {
+  kind: 'earned';
+  entry: 'tier';
+  earnedAt: string;
+}
+
+export interface LockedTierAchievement extends AchievementBase, CollectionCopy {
+  kind: 'locked';
+  entry: 'tier';
   earnedAt: null;
   progress: {
-    kind: AchievementProgressKind;
+    kind: AchievementMetric;
     current: number;
     target: number;
   };
 }
 
-export type MyAchievement = EarnedAchievement | AchievementMilestone;
+export type EarnedAchievement = EarnedBespokeAchievement | EarnedTierAchievement;
+export type MyAchievement = EarnedAchievement | LockedTierAchievement;
 
 export interface MyAchievements {
   enabled: boolean;
@@ -54,6 +83,22 @@ export interface MyAchievementStatus {
   hasUnread: boolean;
 }
 
+export type ClaimedBespokeAchievement = EarnedBespokeAchievement;
+
+export interface ClaimedTierAchievement extends AchievementBase {
+  kind: 'earned';
+  entry: 'tier';
+  earnedAt: string;
+  collection: string;
+  tier: AchievementTier;
+  collectionNameIs: string;
+  collectionNameEn: string;
+  progressKind: AchievementMetric;
+  progressTarget: number;
+}
+
+export type ClaimedAchievement = ClaimedBespokeAchievement | ClaimedTierAchievement;
+
 export type AchievementCommandResult<T> =
   | { status: 'success'; value: T }
   | { status: 'forbidden' | 'invalid' | 'conflict' }
@@ -64,6 +109,12 @@ const catalogueKeys = [
   'achievement_key',
   'achievement_group',
   'display_order',
+  'collection',
+  'tier',
+  'collection_name_is',
+  'collection_name_en',
+  'collection_description_is',
+  'collection_description_en',
   'name_is',
   'name_en',
   'description_is',
@@ -80,18 +131,18 @@ const claimedKeys = [
   'achievement_key',
   'achievement_group',
   'display_order',
+  'collection',
+  'tier',
+  'collection_name_is',
+  'collection_name_en',
   'name_is',
   'name_en',
   'description_is',
   'description_en',
+  'progress_kind',
+  'progress_target',
   'earned_at'
 ] as const;
-
-const milestoneProgress = {
-  explorer_ten_places: 'credited_places',
-  category_curious: 'credited_categories',
-  capital_region_wanderer: 'credited_municipalities'
-} as const satisfies Record<string, AchievementProgressKind>;
 
 export async function getMyAchievements(
   client: AchievementRpcClient
@@ -114,11 +165,7 @@ export async function getMyAchievements(
     }
 
     const parsed = achievements as MyAchievement[];
-    const milestoneCount = parsed.filter((achievement) => achievement.kind === 'milestone').length;
-    if (
-      milestoneCount > 2 ||
-      new Set(parsed.map((achievement) => achievement.key)).size !== parsed.length
-    ) {
+    if (new Set(parsed.map((achievement) => achievement.key)).size !== parsed.length) {
       return { status: 'infrastructure_error' };
     }
 
@@ -159,7 +206,7 @@ export async function getMyAchievementStatus(
 
 export async function claimMyAchievementCelebrations(
   client: AchievementRpcClient
-): Promise<AchievementCommandResult<EarnedAchievement[]>> {
+): Promise<AchievementCommandResult<ClaimedAchievement[]>> {
   try {
     const { data, error } = await client.rpc('claim_my_achievement_celebrations');
     if (error) return { status: mapError(error.code) };
@@ -173,7 +220,7 @@ export async function claimMyAchievementCelebrations(
       return { status: 'infrastructure_error' };
     }
 
-    return { status: 'success', value: claimed as EarnedAchievement[] };
+    return { status: 'success', value: claimed as ClaimedAchievement[] };
   } catch {
     return { status: 'infrastructure_error' };
   }
@@ -187,55 +234,98 @@ function parseCatalogueRow(value: unknown): MyAchievement | null {
   const base = parseBase(value);
   if (!base) return null;
 
-  if (
-    value.entry_kind === 'earned' &&
-    typeof value.earned_at === 'string' &&
-    Number.isFinite(Date.parse(value.earned_at)) &&
+  const isTier = value.collection !== null;
+  const noProgress =
     value.progress_kind === null &&
     value.progress_current === null &&
-    value.progress_target === null
-  ) {
-    return { ...base, kind: 'earned', earnedAt: value.earned_at };
+    value.progress_target === null;
+
+  if (value.entry_kind === 'earned') {
+    if (!noProgress || typeof value.earned_at !== 'string' || !isTimestamp(value.earned_at)) {
+      return null;
+    }
+
+    if (!isTier) {
+      const copy = parseBespokeCopy(value);
+      return copy ? { ...base, ...copy, kind: 'earned', entry: 'bespoke', earnedAt: value.earned_at } : null;
+    }
+
+    const collection = parseCollectionCopy(value);
+    return collection
+      ? { ...base, ...collection, kind: 'earned', entry: 'tier', earnedAt: value.earned_at }
+      : null;
   }
 
+  if (value.entry_kind !== 'locked' || !isTier || value.earned_at !== null) return null;
+
+  const collection = parseCollectionCopy(value);
   if (
-    value.entry_kind !== 'milestone' ||
-    value.achievement_group !== 'exploration' ||
-    value.earned_at !== null ||
-    typeof value.achievement_key !== 'string' ||
-    !isMilestoneKey(value.achievement_key) ||
-    value.progress_kind !== milestoneProgress[value.achievement_key] ||
+    !collection ||
+    !isMetric(value.progress_kind) ||
     !Number.isInteger(value.progress_current) ||
     !Number.isInteger(value.progress_target) ||
-    (value.progress_current as number) <= 0 ||
-    (value.progress_target as number) <= (value.progress_current as number)
+    (value.progress_current as number) < 0 ||
+    (value.progress_target as number) <= 0 ||
+    (value.progress_current as number) > (value.progress_target as number)
   ) {
     return null;
   }
 
   return {
     ...base,
-    kind: 'milestone',
+    ...collection,
+    kind: 'locked',
+    entry: 'tier',
     earnedAt: null,
     progress: {
-      kind: milestoneProgress[value.achievement_key],
+      kind: value.progress_kind,
       current: value.progress_current as number,
       target: value.progress_target as number
     }
   };
 }
 
-function parseClaimedRow(value: unknown): EarnedAchievement | null {
+function parseClaimedRow(value: unknown): ClaimedAchievement | null {
   if (!isExactRecord(value, claimedKeys)) return null;
   const base = parseBase(value);
+  if (!base || typeof value.earned_at !== 'string' || !isTimestamp(value.earned_at)) return null;
+
+  if (value.collection === null) {
+    const copy = parseBespokeCopy(value);
+    if (!copy || value.tier !== null || value.progress_kind !== null || value.progress_target !== null) {
+      return null;
+    }
+    return { ...base, ...copy, kind: 'earned', entry: 'bespoke', earnedAt: value.earned_at };
+  }
+
   if (
-    !base ||
-    typeof value.earned_at !== 'string' ||
-    !Number.isFinite(Date.parse(value.earned_at))
+    typeof value.collection !== 'string' ||
+    !isTier(value.tier) ||
+    typeof value.collection_name_is !== 'string' ||
+    typeof value.collection_name_en !== 'string' ||
+    value.name_is !== null ||
+    value.name_en !== null ||
+    value.description_is !== null ||
+    value.description_en !== null ||
+    !isMetric(value.progress_kind) ||
+    !Number.isInteger(value.progress_target) ||
+    (value.progress_target as number) <= 0
   ) {
     return null;
   }
-  return { ...base, kind: 'earned', earnedAt: value.earned_at };
+
+  return {
+    ...base,
+    kind: 'earned',
+    entry: 'tier',
+    earnedAt: value.earned_at,
+    collection: value.collection,
+    tier: value.tier,
+    collectionNameIs: value.collection_name_is,
+    collectionNameEn: value.collection_name_en,
+    progressKind: value.progress_kind,
+    progressTarget: value.progress_target as number
+  };
 }
 
 function parseBase(value: Record<string, unknown>): AchievementBase | null {
@@ -243,7 +333,20 @@ function parseBase(value: Record<string, unknown>): AchievementBase | null {
     typeof value.achievement_key !== 'string' ||
     !isGroup(value.achievement_group) ||
     !Number.isInteger(value.display_order) ||
-    (value.display_order as number) <= 0 ||
+    (value.display_order as number) <= 0
+  ) {
+    return null;
+  }
+  return {
+    key: value.achievement_key,
+    group: value.achievement_group,
+    displayOrder: value.display_order as number
+  };
+}
+
+function parseBespokeCopy(value: Record<string, unknown>): BespokeCopy | null {
+  if (
+    value.tier !== null ||
     typeof value.name_is !== 'string' ||
     typeof value.name_en !== 'string' ||
     typeof value.description_is !== 'string' ||
@@ -252,13 +355,35 @@ function parseBase(value: Record<string, unknown>): AchievementBase | null {
     return null;
   }
   return {
-    key: value.achievement_key,
-    group: value.achievement_group,
-    displayOrder: value.display_order as number,
     nameIs: value.name_is,
     nameEn: value.name_en,
     descriptionIs: value.description_is,
     descriptionEn: value.description_en
+  };
+}
+
+function parseCollectionCopy(value: Record<string, unknown>): CollectionCopy | null {
+  if (
+    typeof value.collection !== 'string' ||
+    !isTier(value.tier) ||
+    typeof value.collection_name_is !== 'string' ||
+    typeof value.collection_name_en !== 'string' ||
+    typeof value.collection_description_is !== 'string' ||
+    typeof value.collection_description_en !== 'string' ||
+    value.name_is !== null ||
+    value.name_en !== null ||
+    value.description_is !== null ||
+    value.description_en !== null
+  ) {
+    return null;
+  }
+  return {
+    collection: value.collection,
+    tier: value.tier,
+    collectionNameIs: value.collection_name_is,
+    collectionNameEn: value.collection_name_en,
+    collectionDescriptionIs: value.collection_description_is,
+    collectionDescriptionEn: value.collection_description_en
   };
 }
 
@@ -268,19 +393,10 @@ function isCatalogueSentinel(
   return (
     isExactRecord(value, catalogueKeys) &&
     typeof value.enabled === 'boolean' &&
-    value.achievement_key === null &&
-    value.achievement_group === null &&
-    value.display_order === null &&
-    value.name_is === null &&
-    value.name_en === null &&
-    value.description_is === null &&
-    value.description_en === null &&
-    value.earned_at === null &&
     value.is_new === false &&
-    value.entry_kind === null &&
-    value.progress_kind === null &&
-    value.progress_current === null &&
-    value.progress_target === null
+    catalogueKeys
+      .filter((key) => key !== 'enabled' && key !== 'is_new')
+      .every((key) => value[key] === null)
   );
 }
 
@@ -303,8 +419,21 @@ function isGroup(value: unknown): value is AchievementGroup {
   );
 }
 
-function isMilestoneKey(value: string): value is keyof typeof milestoneProgress {
-  return Object.hasOwn(milestoneProgress, value);
+function isTier(value: unknown): value is AchievementTier {
+  return value === 'bronze' || value === 'silver' || value === 'gold';
+}
+
+function isMetric(value: unknown): value is AchievementMetric {
+  return (
+    value === 'credited_places' ||
+    value === 'credited_categories' ||
+    value === 'credited_municipalities' ||
+    value === 'confirmed_contributions'
+  );
+}
+
+function isTimestamp(value: string): boolean {
+  return Number.isFinite(Date.parse(value));
 }
 
 function mapError(

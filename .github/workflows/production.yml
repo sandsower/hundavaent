@@ -1192,7 +1192,7 @@ jobs:
           begin;
           set local role service_role;
           select public.configure_achievement_policy(
-            'achievement-milestones-v1',
+            'achievement-collections-v1',
             15,
             true
           );
@@ -1211,7 +1211,7 @@ jobs:
           where policy.singleton;
           SQL
           )"
-          test "${policy}" = "achievement-milestones-v1|15|t|t"
+          test "${policy}" = "achievement-collections-v1|15|t|t"
           public_enabled="$(
             psql -X -qAt -v ON_ERROR_STOP=1 "${db_url}" <<'SQL'
           begin;
@@ -1225,7 +1225,7 @@ jobs:
             echo "### Achievement milestone activation"
             echo
             echo "- Commit: ${RELEASE_SHA}"
-            echo "- Policy: achievement-milestones-v1"
+            echo "- Policy: achievement-collections-v1"
             echo "- Credit spacing: 15 minutes"
             echo "- Eligibility: future-only boundary established"
             echo "- Public feature status: enabled"
