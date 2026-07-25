@@ -205,6 +205,10 @@ test('public discovery and floating access details are keyboard-operable and Axe
   // Retain an independent floating-card pass after exercising portal geometry at 1024px.
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`/en?place=${evaluationFixtureIds.places.published}`);
+  // Every assertion below the hover is satisfiable by server-rendered DOM, so without this
+  // barrier the hover can dispatch pointerenter before Svelte attaches the tooltip handler -
+  // a race that only ever lost on slower CI runners.
+  await waitForHydration(page);
   const selectedCard = page.getByRole('complementary', { name: 'Selected place' });
   await expect(selectedCard).toBeVisible();
   await expect(selectedCard).toHaveAttribute('data-overlay', 'place');
