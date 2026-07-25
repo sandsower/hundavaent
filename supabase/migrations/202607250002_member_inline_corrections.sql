@@ -63,6 +63,13 @@ declare
     when requested_kind = 'correction' then command_payload -> 'proposed_value'
     else null
   end;
+  requested_report_reason private.report_reason := case
+    when requested_kind = 'report' then (command_payload ->> 'report_reason')::private.report_reason
+    else null
+  end;
+  requested_safety_concern boolean :=
+    coalesce((command_payload ->> 'is_safety_concern')::boolean, false) and requested_kind = 'report';
+  requested_successor_place_id uuid := nullif(command_payload ->> 'successor_place_id', '')::uuid;
   snapshot jsonb;
 begin
   if command_request_id is null or actor_id is null then
@@ -110,9 +117,16 @@ begin
     raise exception using errcode = '54000', message = 'Correction and Report rate limit reached';
   end if;
 
-  -- A repeated same-Member, same-claim submission inside the merge window joins the existing
-  -- open item instead of creating a duplicate-flood row. A revised claim is a different claim,
-  -- so proposed_value participates in the predicate and a revision creates its own item.
+  -- A repeated same-Member submission inside the merge window joins the existing open item instead
+  -- of creating a duplicate-flood row. Every field that defines *what is being claimed* takes part,
+  -- so a revision creates its own item: what is proposed, and for a Report what it alleges. Keying
+  -- on the target alone silently discarded a revised Correction, and with a fifteen minute window
+  -- it would also have swallowed a Report escalated from inaccurate to unsafe.
+  --
+  -- `explanation` deliberately does not take part. Two submissions proposing the identical value on
+  -- the identical target are the same claim however differently they are worded, and
+  -- submit_trusted_verification_task depends on that: it detects a Trusted task colliding with an
+  -- ordinary Correction by seeing its own submission fold into one.
   select flag.* into merged_record
   from private.place_flags flag
   where flag.member_id = actor_id
@@ -122,6 +136,9 @@ begin
     and flag.target_field is not distinct from target_field_value
     and flag.access_condition_id is not distinct from requested_condition_id
     and flag.proposed_value is not distinct from requested_proposed_value
+    and flag.report_reason is not distinct from requested_report_reason
+    and flag.is_safety_concern = requested_safety_concern
+    and flag.successor_place_id is not distinct from requested_successor_place_id
     and flag.status in ('submitted', 'needs_information')
     and flag.submitted_at > statement_timestamp() - policy_record.merge_window
   order by flag.submitted_at desc
@@ -150,13 +167,10 @@ begin
     actor_id, requested_kind, requested_place_id, target_kind_value, target_field_value,
     requested_condition_id, snapshot,
     requested_proposed_value,
-    case when requested_kind = 'report'
-      then (command_payload ->> 'report_reason')::private.report_reason
-      else null
-    end,
-    coalesce((command_payload ->> 'is_safety_concern')::boolean, false) and requested_kind = 'report',
-    nullif(command_payload ->> 'successor_place_id', '')::uuid,
-    btrim(command_payload ->> 'explanation'),
+    requested_report_reason,
+    requested_safety_concern,
+    requested_successor_place_id,
+    requested_explanation,
     command_payload -> 'evidence',
     command_request_id
   ) returning * into created_record;

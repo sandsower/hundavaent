@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { PublishedPlaceProfile } from '../../../src/lib/server/discovery/public-places';
-
-const { getPublishedProfile } = vi.hoisted(() => ({ getPublishedProfile: vi.fn() }));
-vi.mock('$server/discovery/public-places', () => ({ getPublishedProfile }));
+const { getStoredAccessCondition } = vi.hoisted(() => ({ getStoredAccessCondition: vi.fn() }));
+vi.mock('$server/discovery/public-places', () => ({ getStoredAccessCondition }));
 
 const { POST } = await import('../../../src/routes/api/places/[id]/corrections/+server');
 
@@ -11,48 +9,19 @@ const placeId = '30000000-0000-4000-8000-000000000003';
 const accessConditionId = '40000000-0000-4000-8000-000000000003';
 const commandId = 'a2000000-0000-4000-8000-000000000001';
 
-function profile(overrides: Record<string, unknown> = {}): PublishedPlaceProfile {
+function storedCondition(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    placeId,
-    name: 'Brikk',
-    description: 'A cafe.',
-    category: 'cafe',
-    location: {
-      addressLine: 'Gata 1',
-      locality: 'Reykjavík',
-      postalCode: '101',
-      latitude: 64.15,
-      longitude: -21.95
-    },
-    websiteUrl: null,
-    phone: null,
-    wheelchairAccessibility: 'unknown',
-    openingHours: {},
-    dogAmenities: [],
-    accessConditions: [
-      {
-        id: accessConditionId,
-        accessArea: 'indoors',
-        accessAreaNote: null,
-        restraintCondition: 'leash_required',
-        restraintNote: 'Short leashes only.',
-        dogEligibility: { scope: 'restricted', maximumWeightKg: 10 },
-        availabilityWindow: {},
-        availabilityState: 'not_stated',
-        permissionRequirement: 'standing_permission'
-      }
-    ],
-    dogFriendlinessSummary: {
-      placeId,
-      visible: false,
-      overallVisible: false,
-      overallMean: null,
-      eligibleCount: null,
-      dimensions: null
-    },
-    photos: [],
+    id: accessConditionId,
+    accessArea: 'indoors',
+    accessAreaNote: null,
+    restraintCondition: 'leash_required',
+    restraintNote: 'Short leashes only.',
+    dogEligibility: { scope: 'restricted', maximumWeightKg: 10 },
+    availabilityWindow: {},
+    availabilityState: 'not_stated',
+    permissionRequirement: 'standing_permission',
     ...overrides
-  } as unknown as PublishedPlaceProfile;
+  };
 }
 
 function submissionRow() {
@@ -117,7 +86,7 @@ function event(client: ReturnType<typeof memberClient>, body: unknown, lang = 'i
 }
 
 beforeEach(() => {
-  getPublishedProfile.mockResolvedValue({ status: 'success', value: profile() });
+  getStoredAccessCondition.mockResolvedValue({ status: 'success', value: storedCondition() });
 });
 
 describe('inline Access Condition Correction API', () => {
@@ -153,7 +122,7 @@ describe('inline Access Condition Correction API', () => {
       source_metadata: {
         submissionProfile: 'inline-v1',
         surface: 'place-card',
-        citationSource: 'synthesized'
+        memberNoteProvided: false
       }
     });
     expect(command.explanation).toBe(
@@ -172,11 +141,37 @@ describe('inline Access Condition Correction API', () => {
     );
 
     const command = submittedCommand(client);
+    // The Member's own words reach the Moderator through the explanation, which no public
+    // projection reads. They must not reach Evidence, whose citation can be published.
     expect(command.explanation).toBe('They now ask for a carrier.');
     expect(command.evidence).toMatchObject({
-      source_citation: 'They now ask for a carrier.',
-      source_metadata: { citationSource: 'member' }
+      source_citation:
+        'Restraint condition changed from leash required to carrier required, reported from the place card.',
+      source_metadata: { memberNoteProvided: true }
     });
+    expect(JSON.stringify(command.evidence)).not.toContain('They now ask for a carrier.');
+  });
+
+  it('carries a stored note the visitor projection would have withheld', async () => {
+    // getPublishedProfile scrubs notes containing a URL, and the database requires an
+    // other_bounded condition to keep its note, so rebuilding from that projection would make
+    // this Place permanently uncorrectable.
+    getStoredAccessCondition.mockResolvedValue({
+      status: 'success',
+      value: storedCondition({
+        accessArea: 'other_bounded',
+        accessAreaNote: 'Fenced yard, map at https://example.invalid/yard'
+      })
+    });
+    const client = memberClient();
+    const response = await POST(
+      event(client, { accessConditionId, restraintCondition: 'off_leash_permitted' })
+    );
+
+    expect(response.status).toBe(200);
+    const proposed = submittedCommand(client).proposed_value as Record<string, unknown>;
+    expect(proposed.access_area).toBe('other_bounded');
+    expect(proposed.access_area_note).toBe('Fenced yard, map at https://example.invalid/yard');
   });
 
   it('reports an unchanged restraint without creating a no-op flag', async () => {
@@ -199,6 +194,7 @@ describe('inline Access Condition Correction API', () => {
   });
 
   it('rejects an Access Condition that does not belong to this Place', async () => {
+    getStoredAccessCondition.mockResolvedValue({ status: 'not_found' });
     const client = memberClient();
     const response = await POST(
       event(client, {
@@ -220,7 +216,7 @@ describe('inline Access Condition Correction API', () => {
     );
 
     expect(response.status).toBe(401);
-    expect(getPublishedProfile).not.toHaveBeenCalled();
+    expect(getStoredAccessCondition).not.toHaveBeenCalled();
   });
 
   it('rejects a malformed body without reaching the profile', async () => {
@@ -230,7 +226,7 @@ describe('inline Access Condition Correction API', () => {
     );
 
     expect(response.status).toBe(400);
-    expect(getPublishedProfile).not.toHaveBeenCalled();
+    expect(getStoredAccessCondition).not.toHaveBeenCalled();
   });
 
   it('rejects a malformed idempotency key', async () => {
@@ -305,7 +301,7 @@ describe('inline Access Condition Correction API', () => {
   });
 
   it('reports an unavailable profile as unavailable rather than as a bad request', async () => {
-    getPublishedProfile.mockResolvedValue({ status: 'infrastructure_error' });
+    getStoredAccessCondition.mockResolvedValue({ status: 'infrastructure_error' });
     const client = memberClient();
 
     const response = await POST(

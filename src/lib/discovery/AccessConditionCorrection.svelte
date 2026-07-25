@@ -39,15 +39,16 @@
 
   const componentId = $props.id();
   let open = $state(false);
-  let choice = $state<MemberRestraintChoice>(seededChoice());
+  let choice = $state<MemberRestraintChoice | null>(seededChoice());
   let note = $state('');
   let sending = $state(false);
   let outcome = $state<'unchanged' | 'rate_limited' | 'failed' | null>(null);
+  let attempt = $state(0);
   let editor = $state<HTMLFieldSetElement>();
   let trigger = $state<HTMLButtonElement>();
   let focusTarget = $state<'editor' | 'trigger' | null>(null);
 
-  const changed = $derived(choice !== condition.restraintCondition);
+  const changed = $derived(choice !== null && choice !== condition.restraintCondition);
   const outcomeMessage = $derived(
     outcome === 'unchanged'
       ? copy['inlineCorrection.unchanged']
@@ -58,10 +59,13 @@
           : null
   );
 
-  function seededChoice(): MemberRestraintChoice {
-    return condition.restraintCondition === 'other_sourced'
-      ? 'leash_required'
-      : condition.restraintCondition;
+  /**
+   * Null when the Place's current rule is one this group cannot represent. Pre-checking a
+   * substitute would state a rule the Place does not have and would arm the confirm button before
+   * the Member chose anything.
+   */
+  function seededChoice(): MemberRestraintChoice | null {
+    return condition.restraintCondition === 'other_sourced' ? null : condition.restraintCondition;
   }
 
   function expand(): void {
@@ -92,7 +96,7 @@
   }
 
   async function confirm(): Promise<void> {
-    if (sending) return;
+    if (sending || choice === null) return;
     if (!signedIn) {
       // Required rather than deferred: the sign-in link can land in a different browser, so there
       // is nothing to replay and nothing held on the Member's behalf.
@@ -125,13 +129,21 @@
         : result.status === 'rate_limited'
           ? 'rate_limited'
           : 'failed';
+    // Two identical outcomes in a row are two separate events. Without this the live region text
+    // never changes and a retry is announced to nobody.
+    attempt += 1;
   }
 
   // Focus follows the disclosure in both directions, so keyboard focus is never left on a node
-  // that has just been removed.
+  // that has just been removed. The checked option is the entry point, as in any radio group;
+  // the first is only a fallback for a Place whose current rule this group cannot represent.
   $effect(() => {
     if (focusTarget === 'editor' && editor) {
-      editor.querySelector<HTMLInputElement>('input[type="radio"]')?.focus();
+      const radios = 'input[type="radio"]';
+      (
+        editor.querySelector<HTMLInputElement>(`${radios}:checked`) ??
+        editor.querySelector<HTMLInputElement>(radios)
+      )?.focus();
       focusTarget = null;
     }
     if (focusTarget === 'trigger' && trigger) {
@@ -141,6 +153,8 @@
   });
 
   $effect(() => {
+    // `attempt` is read so a repeated identical message still counts as a change.
+    void attempt;
     if (outcomeMessage) announce(outcomeMessage);
   });
 </script>
@@ -214,8 +228,13 @@
     margin-top: 0.45rem;
   }
 
+  /* The entry point into the whole feature sits directly under the access chips, so it needs a
+     target a thumb can hit without toggling a chip. 1.5rem clears the WCAG 2.5.8 24px minimum. */
   .start {
-    padding: 0.15rem 0.35rem;
+    display: inline-flex;
+    min-height: 1.5rem;
+    align-items: center;
+    padding: 0.15rem 0.4rem;
     border: 0;
     border-radius: var(--hv-radius-control);
     background: transparent;
@@ -317,7 +336,10 @@
   }
 
   .cancel {
-    padding: 0.15rem 0.35rem;
+    display: inline-flex;
+    min-height: 1.5rem;
+    align-items: center;
+    padding: 0.15rem 0.4rem;
     border: 0;
     background: transparent;
     color: var(--hv-color-fjord);

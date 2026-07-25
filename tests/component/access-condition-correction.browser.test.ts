@@ -28,20 +28,34 @@ function condition(
   };
 }
 
-function mount(options: { signedIn: boolean; announce?: (message: string) => void }) {
+function mount(options: {
+  signedIn: boolean;
+  announce?: (message: string) => void;
+  restraintCondition?: PublishedAccessFacts['restraintCondition'];
+}) {
   return render(AccessConditionCorrection, {
     placeId,
     placeName: 'Brikk',
     lang: 'en' as const,
     copy: catalogues.en,
     signedIn: options.signedIn,
-    condition: condition(),
+    condition: condition(options.restraintCondition),
     announce: options.announce ?? (() => undefined)
   });
 }
 
 function submittedResponse(): Response {
   return new Response(JSON.stringify({ status: 'submitted', flagId: 'flag-1' }));
+}
+
+function labelFor(
+  restraint: 'leash_required' | 'off_leash_permitted' | 'carrier_required'
+): string {
+  return {
+    leash_required: 'Leash required',
+    off_leash_permitted: 'Off-leash allowed',
+    carrier_required: 'Carrier required'
+  }[restraint];
 }
 
 async function openEditor(): Promise<void> {
@@ -225,6 +239,62 @@ describe('AccessConditionCorrection', () => {
     expect(reachedOuterListener).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByRole('group', { name: legend })).toBeNull());
     document.removeEventListener('keydown', reachedOuterListener);
+  });
+
+  it.each(['leash_required', 'off_leash_permitted', 'carrier_required'] as const)(
+    'focuses the checked option, not the first, when the current rule is %s',
+    async (current) => {
+      mount({ signedIn: true, restraintCondition: current });
+      await openEditor();
+
+      const checked = screen.getByRole('radio', { name: labelFor(current) });
+      expect(checked).toBeChecked();
+      await waitFor(() => expect(document.activeElement).toBe(checked));
+    }
+  );
+
+  it('checks nothing and disables send when the current rule is not offerable', async () => {
+    // other_sourced needs a sourced restraint note, so the group cannot represent it. Pre-checking
+    // a substitute would state a rule the place does not have and arm send on a stray click.
+    mount({ signedIn: true, restraintCondition: 'other_sourced' });
+    await openEditor();
+
+    expect(screen.getAllByRole('radio').some((radio) => (radio as HTMLInputElement).checked)).toBe(
+      false
+    );
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+  });
+
+  it('announces a repeated identical failure again rather than falling silent', async () => {
+    const announcements: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 503 }))
+    );
+    mount({ signedIn: true, announce: (message) => announcements.push(message) });
+    await openEditor();
+    await fireEvent.click(screen.getByRole('radio', { name: 'Off-leash allowed' }));
+    const send = screen.getByRole('button', { name: 'Send' });
+    await fireEvent.click(send);
+    await waitFor(() => expect(announcements).toHaveLength(1));
+    await fireEvent.click(send);
+
+    await waitFor(() => expect(announcements).toHaveLength(2));
+    expect(announcements).toEqual([
+      'That did not send. Try again.',
+      'That did not send. Try again.'
+    ]);
+  });
+
+  it('keeps both quiet controls above the minimum pointer target size', async () => {
+    mount({ signedIn: true });
+    const start = screen.getByRole('button', { name: /correct the restraint rule/i });
+    expect(start.getBoundingClientRect().height).toBeGreaterThanOrEqual(24);
+
+    await openEditor();
+    expect(
+      screen.getByRole('button', { name: 'Cancel' }).getBoundingClientRect().height
+    ).toBeGreaterThanOrEqual(24);
   });
 
   it('caps the note so a long paste cannot be silently rejected by the server', async () => {

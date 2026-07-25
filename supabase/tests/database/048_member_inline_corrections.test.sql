@@ -127,7 +127,7 @@ select lives_ok(
           'source_citation', 'Restraint condition changed from leash required to off-leash allowed.',
           'source_metadata', jsonb_build_object(
             'submissionProfile', 'inline-v1', 'surface', 'place-card',
-            'citationSource', 'synthesized'
+            'memberNoteProvided', false
           )
         ),
         'proposed_value', jsonb_build_object(
@@ -237,6 +237,75 @@ select is(
   ),
   'carrier_required',
   'The revised claim is recorded with its own proposed value instead of being silently discarded'
+);
+
+-- The merge window is fifteen minutes wide, so every field that defines a claim must participate --
+
+select set_config('request.jwt.claim.sub', '97000000-0000-4000-8000-000000000001', true);
+set local role authenticated;
+
+-- A Report escalated from inaccurate to unsafe. Reports carry no proposed_value at all, so before
+-- the report-defining fields joined the predicate this vanished for a quarter of an hour.
+select lives_ok(
+  $$
+    select * from public.submit_place_report(
+      jsonb_build_object(
+        'place_id', '97300000-0000-4000-8000-000000000001',
+        'target_kind', 'access_condition',
+        'access_condition_id', '97400000-0000-4000-8000-000000000001',
+        'explanation', 'The posted policy looks wrong.',
+        'evidence', jsonb_build_object(
+          'kind', 'member_report', 'source_label', 'Member report from the place page',
+          'observed_at', '2026-07-25T09:20:00Z', 'source_url', null,
+          'source_citation', 'Observed in person.', 'source_metadata', '{}'::jsonb
+        ),
+        'report_reason', 'inaccurate', 'is_safety_concern', false
+      ),
+      '97700000-0000-4000-8000-000000000005'
+    )
+  $$,
+  'A first Report is accepted'
+);
+select lives_ok(
+  $$
+    select * from public.submit_place_report(
+      jsonb_build_object(
+        'place_id', '97300000-0000-4000-8000-000000000001',
+        'target_kind', 'access_condition',
+        'access_condition_id', '97400000-0000-4000-8000-000000000001',
+        'explanation', 'A dog was hurt here, this is a safety problem.',
+        'evidence', jsonb_build_object(
+          'kind', 'member_report', 'source_label', 'Member report from the place page',
+          'observed_at', '2026-07-25T09:25:00Z', 'source_url', null,
+          'source_citation', 'Observed in person.', 'source_metadata', '{}'::jsonb
+        ),
+        'report_reason', 'unsafe', 'is_safety_concern', true
+      ),
+      '97700000-0000-4000-8000-000000000006'
+    )
+  $$,
+  'An escalated Report inside the merge window is accepted'
+);
+
+reset role;
+
+select is(
+  (
+    select count(*) from private.place_flags flag
+    where flag.member_id = '97000000-0000-4000-8000-000000000001'
+      and flag.kind = 'report'
+  ),
+  2::bigint,
+  'An escalated Report is its own item instead of folding into the milder one'
+);
+
+select ok(
+  (
+    select flag.is_safety_concern and flag.report_reason = 'unsafe'
+    from private.place_flags flag
+    where flag.request_id = '97700000-0000-4000-8000-000000000006'
+  ),
+  'The escalation keeps the Safety Concern that drives queue priority'
 );
 
 select is(

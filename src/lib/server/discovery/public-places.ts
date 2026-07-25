@@ -284,7 +284,7 @@ export async function getPublishedProfile(
         wheelchairAccessibility: first.wheelchair_accessibility as WheelchairAccessibility,
         openingHours: first.opening_hours as Readonly<Record<string, Json>>,
         dogAmenities: first.dog_amenities as string[],
-        accessConditions: data.map(mapAccessFacts),
+        accessConditions: data.map((row) => mapAccessFacts(row, publicVisitorNote)),
         // Evidence URLs are moderator provenance, not visitor-facing place links. The public card
         // exposes only the Place's clearly labelled website when one exists.
         accessInformationUrls: [],
@@ -292,6 +292,47 @@ export async function getPublishedProfile(
         photos
       }
     };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+export type StoredAccessConditionResult =
+  | { status: 'success'; value: PublishedAccessFacts }
+  | { status: 'not_found' }
+  | { status: 'infrastructure_error' };
+
+/**
+ * One Access Condition of a Published Place with its notes exactly as a Moderator wrote them.
+ *
+ * `getPublishedProfile` deliberately withholds any note carrying a URL or Moderator vocabulary from
+ * visitors. A Correction proposal is read only by Moderators and has to carry the Place's real facts
+ * through untouched, so building one from the visitor projection would silently delete a note the
+ * Place actually has, and would make an `other_bounded` Place permanently uncorrectable because the
+ * database requires its note to be present.
+ */
+export async function getStoredAccessCondition(
+  client: RequestSupabaseClient,
+  placeId: string,
+  accessConditionId: string,
+  locale: Locale
+): Promise<StoredAccessConditionResult> {
+  try {
+    const { data, error } = await client.rpc('get_published_place_profile_v3', {
+      requested_place_id: placeId,
+      requested_locale: locale
+    });
+    if (error) return { status: 'infrastructure_error' };
+    if (!Array.isArray(data)) return { status: 'infrastructure_error' };
+
+    const row = data.find(
+      (candidate) =>
+        candidate.place_id === placeId && candidate.access_condition_id === accessConditionId
+    );
+    if (!row) return { status: 'not_found' };
+    if (!isProfileRow(row)) return { status: 'infrastructure_error' };
+
+    return { status: 'success', value: mapAccessFacts(row, storedNote) };
   } catch {
     return { status: 'infrastructure_error' };
   }
@@ -435,7 +476,14 @@ function isPrimaryPhotoRow(
   );
 }
 
-function mapAccessFacts(row: ProfileRow): PublishedAccessFacts {
+/**
+ * `note` is required rather than defaulted, so no caller can pick the visitor rule by accident and
+ * `data.map(mapAccessFacts)` cannot silently pass the element index as the transform.
+ */
+function mapAccessFacts(
+  row: ProfileRow,
+  note: (value: string | null) => string | null
+): PublishedAccessFacts {
   const dogEligibility = parseDogEligibility(row.dog_eligibility);
   const availabilityWindow = parseAvailabilityWindow(row.availability_window);
   const accessInformationUrls = parseUrlList(row.access_information_urls);
@@ -445,15 +493,20 @@ function mapAccessFacts(row: ProfileRow): PublishedAccessFacts {
   return {
     id: row.access_condition_id,
     accessArea: row.access_area as AccessArea,
-    accessAreaNote: publicVisitorNote(row.access_area_note),
+    accessAreaNote: note(row.access_area_note),
     restraintCondition: row.restraint_condition as RestraintCondition,
-    restraintNote: publicVisitorNote(row.restraint_note),
+    restraintNote: note(row.restraint_note),
     dogEligibility,
     availabilityWindow,
     availabilityState: row.availability_state as AvailabilityState,
     permissionRequirement: row.permission_requirement as PermissionRequirement,
     accessInformationUrls: []
   };
+}
+
+function storedNote(value: string | null): string | null {
+  const note = value?.trim() ?? '';
+  return note === '' ? null : note;
 }
 
 function publicVisitorNote(value: string | null): string | null {

@@ -1,39 +1,24 @@
 import type { AvailabilityWindow } from '$domain/access';
 import { isLocale } from '$i18n';
-import { clearRequestAuthSession } from '$server/auth/callback';
-import { AuthenticationExpiredError, getMemberSession } from '$server/auth/session';
+import { requireMemberResponse } from '$server/auth/require-member-response';
 import { parseAccessConditionCorrectionInput } from '$server/contributions/access-condition-correction-input';
 import {
   buildMemberExplanation,
   buildMemberReportEvidence,
   describeRestraintChange
 } from '$server/contributions/member-evidence';
-import { getPublishedProfile, type PublishedAccessFacts } from '$server/discovery/public-places';
+import {
+  getStoredAccessCondition,
+  type PublishedAccessFacts
+} from '$server/discovery/public-places';
 import type { Json } from '$server/db/generated.types';
 import { privateJson } from '$server/http/private-json';
 import type { AccessConditionValue } from '$server/place-flags/place-flag-input';
 import { submitCorrection, type PlaceFlagRpcClient } from '$server/place-flags/place-flags';
 
-import type { RequestEvent, RequestHandler } from './$types';
+import type { RequestHandler } from './$types';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-async function requireMember(event: RequestEvent): Promise<Response | null> {
-  if (!event.locals.supabase) return privateJson({ error: 'unavailable' }, 503);
-  try {
-    const session = await getMemberSession(event.locals.supabase);
-    if (session.status === 'orphaned')
-      await clearRequestAuthSession(event.locals.supabase, event.cookies);
-    if (session.status !== 'member') return privateJson({ error: 'authentication_required' }, 401);
-    return null;
-  } catch (error) {
-    if (error instanceof AuthenticationExpiredError) {
-      await clearRequestAuthSession(event.locals.supabase, event.cookies);
-      return privateJson({ error: 'authentication_required' }, 401);
-    }
-    return privateJson({ error: 'unavailable' }, 503);
-  }
-}
 
 export const POST: RequestHandler = async (event) => {
   const locale = event.url.searchParams.get('lang');
@@ -46,7 +31,7 @@ export const POST: RequestHandler = async (event) => {
     return privateJson({ error: 'invalid_request' }, 400);
   }
 
-  const authError = await requireMember(event);
+  const authError = await requireMemberResponse(event);
   if (authError) return authError;
 
   let body: unknown;
@@ -58,14 +43,17 @@ export const POST: RequestHandler = async (event) => {
   const input = parseAccessConditionCorrectionInput(body);
   if (!input) return privateJson({ error: 'invalid_request' }, 400);
 
-  const profileResult = await getPublishedProfile(event.locals.supabase!, event.params.id, locale);
-  if (profileResult.status === 'not_found') return privateJson({ error: 'not_found' }, 404);
-  if (profileResult.status !== 'success') return privateJson({ error: 'unavailable' }, 503);
-
-  const condition = profileResult.value.accessConditions.find(
-    (candidate) => candidate.id === input.accessConditionId
+  // The stored condition, not the visitor projection: the proposal has to carry the Place's real
+  // notes through, and it is read only by Moderators.
+  const conditionResult = await getStoredAccessCondition(
+    event.locals.supabase!,
+    event.params.id,
+    input.accessConditionId,
+    locale
   );
-  if (!condition) return privateJson({ error: 'not_found' }, 404);
+  if (conditionResult.status === 'not_found') return privateJson({ error: 'not_found' }, 404);
+  if (conditionResult.status !== 'success') return privateJson({ error: 'unavailable' }, 503);
+  const condition = conditionResult.value;
 
   // The client-side disabled confirm is a convenience, not the guard: the profile it decided
   // against can be stale, and a no-op flag is work a Moderator should never be handed.

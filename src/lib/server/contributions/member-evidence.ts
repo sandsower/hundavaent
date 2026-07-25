@@ -42,19 +42,23 @@ const placeFieldNames: Record<PlaceField, string> = {
 };
 
 export function buildMemberReportEvidence(input: MemberReportEvidenceInput): FlagEvidence {
-  const note = meaningfulNote(input.note);
   return {
     kind: 'member_report',
     source_url: null,
-    source_citation: note ?? input.changeSummary,
+    // Always the server's own summary, never the Member's words. A Moderator's application draft
+    // defaults to this Evidence record, applying it copies the citation into private.evidence, and
+    // public.get_published_place_profile returns that citation to anonymous callers. The Member is
+    // told their explanation is never published, so it stays in the Correction's explanation, which
+    // no public projection reads, and never enters Evidence.
+    source_citation: input.changeSummary,
     source_label: sourceLabels[input.surface],
     observed_at: input.observedAt,
     source_metadata: {
       submissionProfile: 'inline-v1',
       surface: input.surface,
-      // A Moderator has to be able to tell a Member's words from the server's, and metadata is
-      // where that belongs without polluting the citation itself.
-      citationSource: note ? 'member' : 'synthesized'
+      // Tells a Moderator the explanation holds the Member's own account, without copying those
+      // words into a record that can reach the public profile.
+      memberNoteProvided: meaningfulNote(input.note) !== null
     }
   };
 }

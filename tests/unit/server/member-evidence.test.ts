@@ -10,7 +10,7 @@ import {
 const observedAt = '2026-07-25T09:00:00.000Z';
 
 describe('member report evidence synthesis', () => {
-  it('labels a synthesized citation as the server wrote it', () => {
+  it('cites the server summary and records that no member note was given', () => {
     const evidence = buildMemberReportEvidence({
       note: null,
       changeSummary: 'Restraint condition changed from leash required to off-leash allowed.',
@@ -27,24 +27,31 @@ describe('member report evidence synthesis', () => {
       source_metadata: {
         submissionProfile: 'inline-v1',
         surface: 'place-card',
-        citationSource: 'synthesized'
+        memberNoteProvided: false
       }
     });
   });
 
-  it("labels a member's own words as the member's, and cites them", () => {
+  it("never copies the member's private words into the citation, only flags that they exist", () => {
+    // The citation reaches private.evidence when a Moderator applies the Correction, and
+    // public.get_published_place_profile returns it to anonymous callers. The Member is promised
+    // their explanation is never published, so it must not travel in Evidence at all.
+    const note = 'Staff told me dogs can be off leash on the terrace.';
     const evidence = buildMemberReportEvidence({
-      note: 'Staff told me dogs can be off leash on the terrace.',
+      note,
       changeSummary: 'Restraint condition changed from leash required to off-leash allowed.',
       observedAt,
       surface: 'place-card'
     });
 
-    expect(evidence.source_citation).toBe('Staff told me dogs can be off leash on the terrace.');
-    expect(evidence.source_metadata.citationSource).toBe('member');
+    expect(evidence.source_citation).toBe(
+      'Restraint condition changed from leash required to off-leash allowed.'
+    );
+    expect(JSON.stringify(evidence)).not.toContain(note);
+    expect(evidence.source_metadata.memberNoteProvided).toBe(true);
   });
 
-  it('treats a blank note as no note rather than an empty citation', () => {
+  it('treats a blank note as no note', () => {
     const evidence = buildMemberReportEvidence({
       note: '   ',
       changeSummary: 'Restraint condition changed from leash required to carrier required.',
@@ -55,7 +62,7 @@ describe('member report evidence synthesis', () => {
     expect(evidence.source_citation).toBe(
       'Restraint condition changed from leash required to carrier required.'
     );
-    expect(evidence.source_metadata.citationSource).toBe('synthesized');
+    expect(evidence.source_metadata.memberNoteProvided).toBe(false);
   });
 
   it('names the surface the report came from', () => {
@@ -79,6 +86,20 @@ describe('member report evidence synthesis', () => {
         surface: 'place-card'
       }).source_url
     ).toBeNull();
+  });
+
+  it('keeps the member note out of every evidence field, not just the citation', () => {
+    const note = 'The manager said it is because of a neighbour complaint.';
+    const evidence = buildMemberReportEvidence({
+      note,
+      changeSummary: 'Restraint condition changed.',
+      observedAt,
+      surface: 'correction-form'
+    });
+
+    for (const value of Object.values(evidence)) {
+      expect(JSON.stringify(value)).not.toContain(note);
+    }
   });
 });
 

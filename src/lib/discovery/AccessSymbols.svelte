@@ -249,13 +249,19 @@
 
   function activate(symbol: AccessSymbol): void {
     activeDimension = activeDimension === symbol.dimension ? null : symbol.dimension;
-    announce(activeDimension ? `${label(symbol)} ${fullExplanation(symbol)}` : '');
+    void announce(activeDimension ? `${label(symbol)} ${fullExplanation(symbol)}` : '');
     if (activeDimension && (symbol.state === 'special' || symbol.state === 'limited')) {
       onOpenDetails();
     }
   }
 
-  function announce(message: string): void {
+  async function announce(message: string): Promise<void> {
+    // Assigning the identical string is not a state change, so the live region would stay silent
+    // on a repeat. Clearing first makes a second identical outcome its own announcement.
+    if (announcement === message) {
+      announcement = '';
+      await tick();
+    }
     announcement = message;
   }
 
@@ -392,7 +398,7 @@
       onclick={() => {
         closeTooltip();
         activeDimension = activeDimension === 'complex' ? null : 'complex';
-        announce(activeDimension === 'complex' ? explanation : '');
+        void announce(activeDimension === 'complex' ? explanation : '');
         onOpenDetails();
       }}
     >
