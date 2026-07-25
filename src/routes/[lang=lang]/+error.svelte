@@ -1,6 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
+  import PawMark from '$lib/member-activity/PawMark.svelte';
 
   let data = $derived(page.data);
   let notFound = $derived(page.status === 404);
@@ -17,6 +18,7 @@
 
 <main data-ui-mode="place">
   <section aria-labelledby="error-title">
+    <span class="brand-paw" aria-hidden="true"><PawMark active={true} /></span>
     <p class="status">{page.status}</p>
     <h1 id="error-title">
       {notFound ? data.copy['error.notFoundTitle'] : data.copy['error.unexpectedTitle']}
@@ -47,6 +49,27 @@
     border-radius: var(--hv-radius-panel);
     background: var(--hv-color-snow-raised);
     box-shadow: var(--hv-shadow-raised);
+  }
+
+  /* The brand paw lands large on the dead end: a friendly stamp, not an alarm. The words
+     stay still; only the decoration settles in. */
+  .brand-paw {
+    display: block;
+    width: clamp(3.25rem, 9vw, 4.5rem);
+    margin-bottom: 0.9rem;
+    color: var(--hv-color-brand-paw);
+    transform: rotate(-10deg);
+    animation: brand-paw-settles var(--hv-motion-celebrate) var(--hv-ease-overshoot) both;
+  }
+
+  @keyframes brand-paw-settles {
+    from {
+      transform: rotate(-10deg) scale(0.72);
+    }
+
+    to {
+      transform: rotate(-10deg) scale(1);
+    }
   }
 
   .status {

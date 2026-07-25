@@ -223,6 +223,12 @@
     color: var(--hv-color-moss);
     padding: 0.58rem;
     place-items: center;
+    /* A small lift when the tile is revisited: the badge perks up without the words moving. */
+    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
+  }
+
+  .achievement:hover .earned-icon {
+    transform: translateY(-0.2rem) rotate(-4deg);
   }
 
   .name-line {
