@@ -1,13 +1,19 @@
 import type { Locale } from '$i18n';
 import { applyWeeklyRhythmRecognition } from '$lib/member-activity/client';
 import { parseWeeklyRhythmRecognition } from '$lib/member-activity/types';
-import type { CorrectionInput } from '$lib/contributions/access-condition-correction';
+import type { CorrectionInput, PendingPlaceFlag } from '$lib/contributions/correction';
 
 export type CorrectionResult =
   | { status: 'submitted'; flagId: string }
   | { status: 'unchanged' }
   | { status: 'authentication_required' }
   | { status: 'rate_limited' }
+  | { status: 'invalid' }
+  | { status: 'unavailable' };
+
+export type PendingCorrectionsResult =
+  | { status: 'loaded'; pending: PendingPlaceFlag[] }
+  | { status: 'authentication_required' }
   | { status: 'invalid' }
   | { status: 'unavailable' };
 
@@ -66,6 +72,36 @@ export async function submitInlineCorrection(
   return { status: 'submitted', flagId: payload.flagId };
 }
 
+/**
+ * The caller's own open flags on one Place. A signed-out reader has none to fetch, so the caller
+ * decides whether to ask at all and reads `authentication_required` as "nothing pending".
+ */
+export async function fetchPendingCorrections(placeId: string): Promise<PendingCorrectionsResult> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/places/${encodeURIComponent(placeId)}/corrections`);
+  } catch {
+    return { status: 'unavailable' };
+  }
+
+  if (response.status === 401) return { status: 'authentication_required' };
+  if (response.status === 400) return { status: 'invalid' };
+  if (!response.ok) return { status: 'unavailable' };
+
+  let payload: { pending?: unknown };
+  try {
+    payload = (await response.json()) as typeof payload;
+  } catch {
+    return { status: 'unavailable' };
+  }
+
+  if (!Array.isArray(payload.pending) || !payload.pending.every(isPendingPlaceFlag)) {
+    return { status: 'unavailable' };
+  }
+
+  return { status: 'loaded', pending: payload.pending };
+}
+
 function correctionBody(request: CorrectionRequest): Record<string, unknown> {
   switch (request.target) {
     case 'access_condition':
@@ -76,5 +112,25 @@ function correctionBody(request: CorrectionRequest): Record<string, unknown> {
         value: request.value,
         note: request.note
       };
+    case 'place_field':
+      return {
+        target: request.target,
+        field: request.field,
+        value: request.value,
+        note: request.note
+      };
   }
+}
+
+function isPendingPlaceFlag(value: unknown): value is PendingPlaceFlag {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    (candidate.kind === 'correction' || candidate.kind === 'report') &&
+    (candidate.targetKind === 'place_field' || candidate.targetKind === 'access_condition') &&
+    (candidate.targetField === null || typeof candidate.targetField === 'string') &&
+    (candidate.accessConditionId === null || typeof candidate.accessConditionId === 'string') &&
+    (candidate.reportReason === null || typeof candidate.reportReason === 'string') &&
+    (candidate.status === 'submitted' || candidate.status === 'needs_information')
+  );
 }

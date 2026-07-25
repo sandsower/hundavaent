@@ -1,11 +1,16 @@
-import type { AvailabilityWindow } from '$domain/access';
-import type { AccessConditionDimensionChange } from '$lib/contributions/access-condition-correction';
+import type { AvailabilityWindow, DogEligibility } from '$domain/access';
+import type {
+  AccessConditionDimensionChange,
+  MemberEligibilityValue
+} from '$lib/contributions/correction';
 import type { Json } from '$server/db/generated.types';
 import type { PublishedAccessFacts } from '$server/discovery/public-places';
 import type { AccessConditionValue } from '$server/place-flags/place-flag-input';
 
 import {
   describeAreaChange,
+  describeEligibilityChange,
+  describePermissionChange,
   describeRestraintChange,
   type MemberContributionSurface
 } from './member-evidence';
@@ -25,7 +30,26 @@ export function isUnchangedAccessCondition(
       return condition.restraintCondition === change.value;
     case 'area':
       return condition.accessArea === change.value;
+    case 'permission':
+      return condition.permissionRequirement === change.value;
+    case 'eligibility':
+      return isUnchangedEligibility(condition.dogEligibility, change.value);
   }
+}
+
+/**
+ * A stored eligibility carrying a sourced note is never unchanged, because the proposal cannot
+ * carry that note and dropping it is a change a Moderator has to see.
+ */
+function isUnchangedEligibility(stored: DogEligibility, proposed: MemberEligibilityValue): boolean {
+  const proposedWeight = 'maximumWeightKg' in proposed ? proposed.maximumWeightKg : undefined;
+  const proposedDogs = 'maximumDogs' in proposed ? proposed.maximumDogs : undefined;
+  return (
+    stored.scope === proposed.scope &&
+    stored.notes === undefined &&
+    stored.maximumWeightKg === proposedWeight &&
+    stored.maximumDogs === proposedDogs
+  );
 }
 
 /**
@@ -56,6 +80,13 @@ export function proposedAccessCondition(
       return { ...carried, restraint_condition: change.value, restraint_note: null };
     case 'area':
       return { ...carried, access_area: change.value, access_area_note: null };
+    case 'permission':
+      // Permission carries no sourced note of its own, so there is nothing for the rule to drop.
+      return { ...carried, permission_requirement: change.value };
+    case 'eligibility':
+      // The Member's eligibility has no `notes` key at all, so replacing the object wholesale is
+      // what drops the sourced note the rule requires dropping.
+      return { ...carried, dog_eligibility: change.value };
   }
 }
 
@@ -69,6 +100,10 @@ export function describeAccessConditionChange(
       return describeRestraintChange(condition.restraintCondition, change.value, surface);
     case 'area':
       return describeAreaChange(condition.accessArea, change.value, surface);
+    case 'permission':
+      return describePermissionChange(condition.permissionRequirement, change.value, surface);
+    case 'eligibility':
+      return describeEligibilityChange(condition.dogEligibility, change.value, surface);
   }
 }
 

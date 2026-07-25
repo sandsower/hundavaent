@@ -1,8 +1,9 @@
 import {
   memberNoteMaximumLength,
   parseDimensionChange,
+  parseFieldChange,
   type CorrectionInput
-} from '$lib/contributions/access-condition-correction';
+} from '$lib/contributions/correction';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -17,6 +18,8 @@ export function parseCorrectionInput(value: unknown): CorrectionInput | null {
   switch (candidate.target) {
     case 'access_condition':
       return parseAccessConditionCorrection(candidate);
+    case 'place_field':
+      return parsePlaceFieldCorrection(candidate);
     default:
       return null;
   }
@@ -37,6 +40,18 @@ function parseAccessConditionCorrection(
   if (!note) return null;
 
   return { target: 'access_condition', accessConditionId, ...change, note: note.value };
+}
+
+function parsePlaceFieldCorrection(candidate: Record<string, unknown>): CorrectionInput | null {
+  const field = candidate.field;
+  if (typeof field !== 'string') return null;
+  const change = parseFieldChange(field, candidate.value);
+  if (!change) return null;
+
+  const note = parseNote(candidate.note);
+  if (!note) return null;
+
+  return { target: 'place_field', ...change, note: note.value };
 }
 
 /**

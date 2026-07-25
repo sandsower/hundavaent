@@ -1,4 +1,14 @@
-import type { AccessArea, RestraintCondition } from '$domain/access';
+import type {
+  AccessArea,
+  DogEligibility,
+  PermissionRequirement,
+  RestraintCondition
+} from '$domain/access';
+import {
+  memberEligibilityChoiceFor,
+  type MemberEligibilityChoice,
+  type MemberEligibilityValue
+} from '$lib/contributions/correction';
 import type { FlagEvidence, PlaceField } from '$server/place-flags/place-flag-input';
 
 /**
@@ -37,6 +47,25 @@ const areaNames: Record<AccessArea, string> = {
   outdoors: 'outdoors',
   designated_area: 'a designated area',
   other_bounded: 'another stated area'
+};
+
+const permissionNames: Record<PermissionRequirement, string> = {
+  standing_permission: 'standing permission',
+  ask_on_arrival: 'ask on arrival',
+  advance_approval: 'advance approval'
+};
+
+/**
+ * Eligibility is named by the shape of the limit, never by the number that bounds it. A Member
+ * types that number, and the summary becomes a citation an anonymous caller can read, so the same
+ * rule that keeps the note out keeps the figure out. A Moderator reads the figure in
+ * `proposed_value`, which is where it belongs.
+ */
+const eligibilityNames: Record<MemberEligibilityChoice | 'other', string> = {
+  all_dogs: 'all dogs',
+  maximum_weight_kg: 'a weight limit',
+  maximum_dogs: 'a limit on the number of dogs',
+  other: 'other stated restrictions'
 };
 
 const placeFieldNames: Record<PlaceField, string> = {
@@ -107,12 +136,38 @@ export function describeAreaChange(
   );
 }
 
+export function describePermissionChange(
+  from: PermissionRequirement,
+  to: PermissionRequirement,
+  surface: MemberContributionSurface
+): string {
+  return (
+    `Permission requirement changed from ${permissionNames[from]} to ${permissionNames[to]}, ` +
+    `reported from ${surfaceNames[surface]}.`
+  );
+}
+
+export function describeEligibilityChange(
+  from: DogEligibility,
+  to: MemberEligibilityValue,
+  surface: MemberContributionSurface
+): string {
+  return (
+    `Dog eligibility changed from ${eligibilityName(from)} to ${eligibilityName(to)}, ` +
+    `reported from ${surfaceNames[surface]}.`
+  );
+}
+
 export function describePlaceFieldCorrection(
   field: PlaceField | null,
   surface: MemberContributionSurface
 ): string {
   const target = field === null ? 'an access condition' : placeFieldNames[field];
   return `Correction to ${target}, reported from ${surfaceNames[surface]}.`;
+}
+
+function eligibilityName(eligibility: DogEligibility): string {
+  return eligibilityNames[memberEligibilityChoiceFor(eligibility) ?? 'other'];
 }
 
 function meaningfulNote(value: string | null): string | null {

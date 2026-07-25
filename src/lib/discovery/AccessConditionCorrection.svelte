@@ -5,13 +5,23 @@
     type CorrectionResult
   } from '$lib/contributions/correction-client';
   import {
+    isMemberAreaChoice,
+    isMemberRestraintChoice,
     memberDimensionChoices,
     parseDimensionChange,
-    type AccessConditionDimension,
-    type MemberDimensionChoice
-  } from '$lib/contributions/access-condition-correction';
+    type MemberAreaChoice,
+    type MemberRestraintChoice
+  } from '$lib/contributions/correction';
   import InlineCorrectionShell from '$lib/discovery/InlineCorrectionShell.svelte';
   import type { PublishedAccessFacts } from '$server/discovery/public-places';
+
+  /**
+   * The dimensions this editor renders as a plain radio group. Permission joins them and
+   * eligibility needs a numeric control beside the group, so both stay out until that editor work
+   * lands rather than being half-rendered here.
+   */
+  type RadioDimension = 'restraint' | 'area';
+  type RadioChoice = MemberRestraintChoice | MemberAreaChoice;
 
   interface Props {
     placeId: string;
@@ -20,7 +30,7 @@
     copy: Catalogue;
     signedIn: boolean;
     condition: PublishedAccessFacts;
-    dimension: AccessConditionDimension;
+    dimension: RadioDimension;
     announce?: (message: string) => void;
   }
 
@@ -37,7 +47,7 @@
 
   // Restraint labels reuse the chip copy the Member just tapped, so the choice reads as the same
   // fact. Area has no chip label of its own below indoors, so it names the three areas directly.
-  const choiceLabels: Record<MemberDimensionChoice, MessageKey> = {
+  const choiceLabels: Record<RadioChoice, MessageKey> = {
     leash_required: 'accessSymbols.leash',
     off_leash_permitted: 'accessSymbols.offLeash',
     carrier_required: 'accessSymbols.carrier',
@@ -46,12 +56,12 @@
     designated_area: 'inlineCorrection.areaDesignated'
   };
 
-  const startLabels: Record<AccessConditionDimension, MessageKey> = {
+  const startLabels: Record<RadioDimension, MessageKey> = {
     restraint: 'inlineCorrection.startLabelRestraint',
     area: 'inlineCorrection.startLabelArea'
   };
 
-  let choice = $state<MemberDimensionChoice | null>(seededChoice());
+  let choice = $state<RadioChoice | null>(seededChoice());
 
   const choices = $derived(memberDimensionChoices[dimension]);
   const published = $derived(currentValue());
@@ -66,8 +76,10 @@
    * substitute would state a rule the Place does not have and would arm the confirm button before
    * the Member chose anything.
    */
-  function seededChoice(): MemberDimensionChoice | null {
-    return parseDimensionChange(dimension, currentValue())?.value ?? null;
+  function seededChoice(): RadioChoice | null {
+    const current = currentValue();
+    if (isMemberRestraintChoice(current)) return current;
+    return isMemberAreaChoice(current) ? current : null;
   }
 
   function reseed(): void {

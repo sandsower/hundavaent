@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AccessConditionDimensionChange } from '../../../src/lib/contributions/access-condition-correction';
+import type { AccessConditionDimensionChange } from '../../../src/lib/contributions/correction';
 import {
   describeAccessConditionChange,
   isUnchangedAccessCondition,
@@ -32,6 +32,14 @@ const restraintChange: AccessConditionDimensionChange = {
   value: 'off_leash_permitted'
 };
 const areaChange: AccessConditionDimensionChange = { dimension: 'area', value: 'outdoors' };
+const permissionChange: AccessConditionDimensionChange = {
+  dimension: 'permission',
+  value: 'advance_approval'
+};
+const eligibilityChange: AccessConditionDimensionChange = {
+  dimension: 'eligibility',
+  value: { scope: 'all_dogs' }
+};
 
 describe('the per-dimension Access Condition swap', () => {
   it('changes only the restraint and carries every other dimension through', () => {
@@ -84,6 +92,54 @@ describe('the per-dimension Access Condition swap', () => {
     );
   });
 
+  it('changes only the permission and carries every other dimension through', () => {
+    expect(proposedAccessCondition(condition(), permissionChange)).toEqual({
+      access_area: 'indoors',
+      access_area_note: areaNote,
+      restraint_condition: 'leash_required',
+      restraint_note: restraintNote,
+      dog_eligibility: { scope: 'restricted', maximumWeightKg: 10 },
+      availability_state: 'limited',
+      availability_window: { days: [1, 2], startsAt: '09:00' },
+      permission_requirement: 'advance_approval'
+    });
+  });
+
+  it('changes only the eligibility and carries every other dimension through', () => {
+    expect(proposedAccessCondition(condition(), eligibilityChange)).toEqual({
+      access_area: 'indoors',
+      access_area_note: areaNote,
+      restraint_condition: 'leash_required',
+      restraint_note: restraintNote,
+      dog_eligibility: { scope: 'all_dogs' },
+      availability_state: 'limited',
+      availability_window: { days: [1, 2], startsAt: '09:00' },
+      permission_requirement: 'ask_on_arrival'
+    });
+  });
+
+  it('drops the sourced eligibility note and keeps the other dimensions notes', () => {
+    const stored = condition({
+      dogEligibility: { scope: 'restricted', maximumDogs: 2, notes: 'Small dogs only, staff said.' }
+    });
+    const proposed = proposedAccessCondition(stored, {
+      dimension: 'eligibility',
+      value: { scope: 'restricted', maximumWeightKg: 8 }
+    });
+
+    expect(proposed.dog_eligibility).toEqual({ scope: 'restricted', maximumWeightKg: 8 });
+    expect(proposed.access_area_note).toBe(areaNote);
+    expect(proposed.restraint_note).toBe(restraintNote);
+  });
+
+  it('leaves every note standing on a permission change, which has none of its own', () => {
+    const proposed = proposedAccessCondition(condition(), permissionChange);
+
+    expect(proposed.access_area_note).toBe(areaNote);
+    expect(proposed.restraint_note).toBe(restraintNote);
+    expect(proposed.dog_eligibility).toEqual({ scope: 'restricted', maximumWeightKg: 10 });
+  });
+
   it('defaults an unstated availability rather than inventing one', () => {
     const stored = condition({ availabilityState: undefined, availabilityWindow: {} });
 
@@ -105,6 +161,61 @@ describe('the unchanged verdict', () => {
       true
     );
     expect(isUnchangedAccessCondition(condition(), areaChange)).toBe(false);
+  });
+
+  it('recognises a permission that already reads that way', () => {
+    expect(
+      isUnchangedAccessCondition(condition(), { dimension: 'permission', value: 'ask_on_arrival' })
+    ).toBe(true);
+    expect(isUnchangedAccessCondition(condition(), permissionChange)).toBe(false);
+  });
+
+  it('recognises an eligibility limit that already reads that way', () => {
+    expect(
+      isUnchangedAccessCondition(condition(), {
+        dimension: 'eligibility',
+        value: { scope: 'restricted', maximumWeightKg: 10 }
+      })
+    ).toBe(true);
+    expect(
+      isUnchangedAccessCondition(condition(), {
+        dimension: 'eligibility',
+        value: { scope: 'restricted', maximumWeightKg: 12 }
+      })
+    ).toBe(false);
+    expect(isUnchangedAccessCondition(condition(), eligibilityChange)).toBe(false);
+  });
+
+  it('never calls an eligibility unchanged when the proposal would drop its sourced note', () => {
+    // The Member's shape cannot carry a note, so submitting the same limit still removes one,
+    // and that is a change a Moderator has to be shown rather than a no-op.
+    const stored = condition({
+      dogEligibility: { scope: 'restricted', maximumWeightKg: 10, notes: 'Small dogs only.' }
+    });
+
+    expect(
+      isUnchangedAccessCondition(stored, {
+        dimension: 'eligibility',
+        value: { scope: 'restricted', maximumWeightKg: 10 }
+      })
+    ).toBe(false);
+  });
+
+  it('does not confuse one eligibility limit with the other', () => {
+    const stored = condition({ dogEligibility: { scope: 'restricted', maximumDogs: 2 } });
+
+    expect(
+      isUnchangedAccessCondition(stored, {
+        dimension: 'eligibility',
+        value: { scope: 'restricted', maximumWeightKg: 2 }
+      })
+    ).toBe(false);
+    expect(
+      isUnchangedAccessCondition(stored, {
+        dimension: 'eligibility',
+        value: { scope: 'restricted', maximumDogs: 2 }
+      })
+    ).toBe(true);
   });
 
   it('judges each dimension only against its own stored value', () => {
@@ -143,16 +254,56 @@ describe('Access Condition change summaries', () => {
     );
   });
 
+  it('names the before value, the after value and the surface for a permission', () => {
+    expect(describeAccessConditionChange(condition(), permissionChange, 'place-card')).toBe(
+      'Permission requirement changed from ask on arrival to advance approval, reported from the place card.'
+    );
+  });
+
+  it('names the shape of an eligibility limit and never the number a member typed', () => {
+    expect(describeAccessConditionChange(condition(), eligibilityChange, 'place-card')).toBe(
+      'Dog eligibility changed from a weight limit to all dogs, reported from the place card.'
+    );
+    const summary = describeAccessConditionChange(
+      condition({ dogEligibility: { scope: 'all_dogs' } }),
+      { dimension: 'eligibility', value: { scope: 'restricted', maximumDogs: 2 } },
+      'place-card'
+    );
+    expect(summary).toBe(
+      'Dog eligibility changed from all dogs to a limit on the number of dogs, reported from the place card.'
+    );
+    expect(summary).not.toContain('2');
+  });
+
+  it('names a stored eligibility the member cannot choose without quoting its note', () => {
+    const summary = describeAccessConditionChange(
+      condition({ dogEligibility: { scope: 'restricted', notes: 'Ask about large breeds.' } }),
+      eligibilityChange,
+      'place-card'
+    );
+
+    expect(summary).toBe(
+      'Dog eligibility changed from other stated restrictions to all dogs, reported from the place card.'
+    );
+    expect(summary).not.toContain('Ask about large breeds.');
+  });
+
   it.each([
     ['restraint', restraintChange],
-    ['area', areaChange]
+    ['area', areaChange],
+    ['permission', permissionChange],
+    ['eligibility', eligibilityChange]
   ] as const)(
     'keeps stored free text and the member note out of the %s citation entirely',
     (_dimension, change) => {
       // The summary becomes source_citation, which reaches anonymous callers through
       // get_published_place_profile. Only enum labels may travel in it.
       const memberNote = 'The manager told me on Tuesday.';
-      const summary = describeAccessConditionChange(condition(), change, 'place-card');
+      const eligibilityNote = 'Only dogs the staff already know.';
+      const stored = condition({
+        dogEligibility: { scope: 'restricted', maximumDogs: 3, notes: eligibilityNote }
+      });
+      const summary = describeAccessConditionChange(stored, change, 'place-card');
       const evidence = buildMemberReportEvidence({
         note: memberNote,
         changeSummary: summary,
@@ -160,12 +311,10 @@ describe('Access Condition change summaries', () => {
         surface: 'place-card'
       });
 
-      expect(summary).not.toContain(areaNote);
-      expect(summary).not.toContain(restraintNote);
-      expect(summary).not.toContain(memberNote);
-      expect(JSON.stringify(evidence)).not.toContain(memberNote);
-      expect(JSON.stringify(evidence)).not.toContain(areaNote);
-      expect(JSON.stringify(evidence)).not.toContain(restraintNote);
+      for (const secret of [areaNote, restraintNote, eligibilityNote, memberNote]) {
+        expect(summary).not.toContain(secret);
+        expect(JSON.stringify(evidence)).not.toContain(secret);
+      }
     }
   );
 });

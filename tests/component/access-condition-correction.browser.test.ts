@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { catalogues } from '$i18n';
-import type { AccessConditionDimension } from '$lib/contributions/access-condition-correction';
 import AccessConditionCorrection from '$lib/discovery/AccessConditionCorrection.svelte';
 import type { PublishedAccessFacts } from '$server/discovery/public-places';
 
@@ -33,7 +32,7 @@ function condition(overrides: Partial<PublishedAccessFacts> = {}): PublishedAcce
 function mount(options: {
   signedIn: boolean;
   announce?: (message: string) => void;
-  dimension?: AccessConditionDimension;
+  dimension?: 'restraint' | 'area';
   condition?: Partial<PublishedAccessFacts>;
 }) {
   return render(AccessConditionCorrection, {

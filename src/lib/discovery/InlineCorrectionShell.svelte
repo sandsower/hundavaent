@@ -3,7 +3,7 @@
 
   import type { Catalogue } from '$i18n';
   import { requestAuthentication } from '$lib/auth/controller';
-  import { memberNoteMaximumLength } from '$lib/contributions/access-condition-correction';
+  import { memberNoteMaximumLength } from '$lib/contributions/correction';
   import type { CorrectionResult } from '$lib/contributions/correction-client';
 
   /**

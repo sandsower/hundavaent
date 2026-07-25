@@ -27,6 +27,12 @@ export interface FlagEvidence {
 export interface PlaceFieldValue {
   is?: string;
   en?: string;
+  /**
+   * The omitted-locale hatch: a one-language name or description names the locale it could not
+   * write instead of writing it, and that locale's key is absent. Moderation fills it before the
+   * draft can be applied, so no published value is ever half-translated.
+   */
+  needs_review?: 'is' | 'en';
   value?: string | null | Record<string, Json> | string[];
 }
 
