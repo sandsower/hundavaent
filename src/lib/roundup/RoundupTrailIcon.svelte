@@ -87,40 +87,65 @@
     height: 4.5rem;
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .roundup-icon .trail {
-      animation: trail-arrive 700ms ease-out both;
-    }
+  /* Every piece both moves and fades, so each runs as two entries, one per family: reduced
+     motion stills the travel while the trail, paw, and spark keep appearing (see tokens.css). */
+  .roundup-icon .trail {
+    animation:
+      trail-arrive var(--hv-motion-celebrate) var(--hv-ease-settle) both,
+      trail-appear var(--hv-fade-considered) var(--hv-ease-settle) both;
+  }
 
-    .roundup-icon .paw {
-      transform-origin: 32px 28px;
-      animation: paw-settle 420ms 120ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-    }
+  .roundup-icon .paw {
+    transform-origin: 32px 28px;
+    animation:
+      paw-settle var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 2)
+        var(--hv-ease-settle) both,
+      paw-appear var(--hv-fade-considered) calc(var(--hv-motion-stagger) * 2)
+        var(--hv-ease-settle) both;
+  }
 
-    .roundup-icon .spark {
-      transform-origin: 50px 13px;
-      animation: spark-turn 480ms 220ms ease-out both;
-    }
+  .roundup-icon .spark {
+    transform-origin: 50px 13px;
+    animation:
+      spark-turn var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 4)
+        var(--hv-ease-settle) both,
+      spark-appear var(--hv-fade-considered) calc(var(--hv-motion-stagger) * 4)
+        var(--hv-ease-settle) both;
+  }
 
-    @keyframes trail-arrive {
-      from {
-        stroke-dashoffset: 32;
-        opacity: 0.25;
-      }
+  @keyframes trail-arrive {
+    from {
+      stroke-dashoffset: 32;
     }
+  }
 
-    @keyframes paw-settle {
-      from {
-        transform: translateY(-4px) scale(0.86);
-        opacity: 0;
-      }
+  @keyframes trail-appear {
+    from {
+      opacity: 0.25;
     }
+  }
 
-    @keyframes spark-turn {
-      from {
-        transform: rotate(-35deg) scale(0.65);
-        opacity: 0;
-      }
+  @keyframes paw-settle {
+    from {
+      transform: translateY(-4px) scale(0.86);
+    }
+  }
+
+  @keyframes paw-appear {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes spark-turn {
+    from {
+      transform: rotate(-35deg) scale(0.65);
+    }
+  }
+
+  @keyframes spark-appear {
+    from {
+      opacity: 0;
     }
   }
 </style>

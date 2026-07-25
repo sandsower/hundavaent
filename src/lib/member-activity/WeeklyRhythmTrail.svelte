@@ -241,14 +241,4 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .weekly-rhythm *,
-    .weekly-rhythm *::before,
-    .weekly-rhythm *::after {
-      scroll-behavior: auto;
-      animation-duration: 0.001ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.001ms !important;
-    }
-  }
 </style>
