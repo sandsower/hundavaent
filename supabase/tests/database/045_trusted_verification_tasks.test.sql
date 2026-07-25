@@ -426,7 +426,15 @@ values (
   50,
   interval '1 hour',
   true
-);
+)
+-- The singleton now ships seeded, so this test overrides it rather than creating it.
+on conflict (singleton) do update set
+  policy_version = excluded.policy_version,
+  submission_window = excluded.submission_window,
+  maximum_submissions = excluded.maximum_submissions,
+  maximum_open = excluded.maximum_open,
+  merge_window = excluded.merge_window,
+  enabled = excluded.enabled;
 
 create temporary table trusted_contribution_seed (
   suggestion_id uuid primary key,

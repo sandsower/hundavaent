@@ -1,3 +1,4 @@
+import type { DogEligibility } from '$domain/access';
 import type { Json } from '$server/db/generated.types';
 
 export type PlaceFlagInputError = 'incomplete' | 'invalid';
@@ -35,7 +36,9 @@ export interface AccessConditionValue {
   restraint_condition:
     'leash_required' | 'off_leash_permitted' | 'carrier_required' | 'other_sourced';
   restraint_note: string | null;
-  dog_eligibility: { scope: 'all_dogs' };
+  // Every eligibility shape `access_conditions` stores, so a Correction can carry a size-restricted
+  // Place's real eligibility through untouched instead of flattening it to all_dogs.
+  dog_eligibility: DogEligibility;
   availability_state: 'whenever_open' | 'limited' | 'not_stated';
   availability_window: Record<string, Json>;
   permission_requirement: 'standing_permission' | 'ask_on_arrival' | 'advance_approval';
@@ -125,6 +128,10 @@ const evidenceKinds = new Set<FlagEvidence['kind']>([
   'public_record',
   'other'
 ]);
+
+export function isPlaceField(value: unknown): value is PlaceField {
+  return typeof value === 'string' && placeFields.has(value as PlaceField);
+}
 
 function readTarget(form: FormData): FlagTarget | null {
   const value = (key: string): string => String(form.get(key) ?? '').trim();
@@ -265,12 +272,20 @@ export function readPlaceFieldValue(form: FormData, field: PlaceField): PlaceFie
   }
 }
 
-export function parseCorrectionFormData(form: FormData): CorrectionInputResult {
+/**
+ * `suppliedEvidence` lets a Member-facing surface hand in a server-synthesized Evidence record
+ * instead of asking the Member to fill in the Moderator's worksheet. The Moderation and Report
+ * surfaces still solicit their own Evidence and read it from the form.
+ */
+export function parseCorrectionFormData(
+  form: FormData,
+  suppliedEvidence?: FlagEvidence
+): CorrectionInputResult {
   const value = (key: string): string => String(form.get(key) ?? '').trim();
   const placeId = value('placeId');
   const explanation = value('explanation');
   const target = readTarget(form);
-  const evidence = readEvidence(form);
+  const evidence = suppliedEvidence ?? readEvidence(form);
 
   if (!placeId || !explanation || !target || !evidence) {
     return { ok: false, error: 'incomplete' };

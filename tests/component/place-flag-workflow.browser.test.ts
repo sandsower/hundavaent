@@ -166,33 +166,40 @@ describe('Member Correction and Report submission', () => {
 
       expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
       expect(screen.getByLabelText(catalogues[lang]['correction.explanation'])).toBeTruthy();
-      expect(screen.getByLabelText(catalogues[lang]['evidenceField.observedAt'])).toBeTruthy();
       expect(screen.getByRole('button', { name: submitLabel })).toBeTruthy();
     }
   );
 
-  it.each(['is', 'en'] as const)('localizes the %s Correction source choices', (lang) => {
-    render(CorrectionPage, {
-      params: { lang, id: place.placeId },
-      data: {
-        lang,
-        copy: catalogues[lang],
-        signInUrl: null,
-        place,
-        presetField: 'phone',
-        presetConditionId: null
-      },
-      form: null
-    } as never);
+  it.each(['is', 'en'] as const)(
+    'never asks a %s Member to construct an Evidence record',
+    (lang) => {
+      render(CorrectionPage, {
+        params: { lang, id: place.placeId },
+        data: {
+          lang,
+          copy: catalogues[lang],
+          signInUrl: null,
+          place,
+          presetField: 'phone',
+          presetConditionId: null
+        },
+        form: null
+      } as never);
 
-    const source = screen.getByLabelText(
-      catalogues[lang]['evidenceField.kind']
-    ) as HTMLSelectElement;
-    expect(Array.from(source.options, (option) => option.textContent)).toEqual(
-      evidenceKindLabels(lang)
-    );
-    expect(source.textContent).not.toContain('official_website');
-  });
+      expect(screen.queryByText(catalogues[lang]['evidenceField.section'])).toBeNull();
+      for (const field of [
+        'evidenceField.kind',
+        'evidenceField.label',
+        'evidenceField.url',
+        'evidenceField.citation',
+        'evidenceField.observedAt'
+      ] as const) {
+        expect(screen.queryByLabelText(catalogues[lang][field])).toBeNull();
+      }
+      // The Member still explains the change in their own words; only the Moderator worksheet is gone.
+      expect(screen.getByLabelText(catalogues[lang]['correction.explanation'])).toBeTruthy();
+    }
+  );
 
   it('preselects an Access Condition target from the query preset', () => {
     render(CorrectionPage, {
