@@ -1104,6 +1104,11 @@ export function provisionLocalSuggestionIdentityFixtures(): void {
   );
 }
 
+/**
+ * The abuse policy singleton now ships seeded and enabled by migration, so this is an override
+ * rather than the only place it exists. Keeping the override means the end-to-end thresholds stay
+ * deliberately tighter than production and do not move when production tuning changes.
+ */
 export async function configureLocalPlaceFlagAbusePolicy(): Promise<void> {
   const status = getLocalSupabaseStatus();
   const serviceClient = createClient<Database>(status.apiUrl, status.secretKey, {

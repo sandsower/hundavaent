@@ -7,6 +7,7 @@
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
   import type { PublishedPlaceProfile } from '$server/discovery/public-places';
   import { explainAccessCondition } from '$domain/access-explanation';
+  import type { AccessSymbolDimension } from '$domain/access-symbols';
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
   import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
   import { subscribeToDeferredFavouriteRecognition } from '$lib/member-activity/client';
@@ -15,6 +16,7 @@
   import InlineRating from '$lib/discovery/InlineRating.svelte';
   import PlacePhotos from '$lib/discovery/PlacePhotos.svelte';
   import AccessSymbols from '$lib/discovery/AccessSymbols.svelte';
+  import AccessConditionCorrection from '$lib/discovery/AccessConditionCorrection.svelte';
   import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
   import PhotoCredit from '$lib/discovery/PhotoCredit.svelte';
   import RefreshablePlaceImage from '$lib/discovery/RefreshablePlaceImage.svelte';
@@ -102,7 +104,37 @@
     completeDetails.open = true;
     queueMicrotask(onDetailsOpened);
   });
+
+  /**
+   * A Correction targets `access_condition_id`, which only the loaded profile carries, so the
+   * affordance cannot exist before the profile arrives. Multi-condition Places render a single
+   * "different conditions" chip with no per-dimension symbol to attach an editor to, so they get
+   * no inline edit path yet.
+   */
+  const correctableCondition = $derived(
+    profile?.accessConditions.length === 1 ? profile.accessConditions[0] : null
+  );
 </script>
+
+{#snippet accessConditionEditor({
+  dimension,
+  announce
+}: {
+  dimension: AccessSymbolDimension;
+  announce: (message: string) => void;
+})}
+  {#if dimension === 'restraint' && correctableCondition}
+    <AccessConditionCorrection
+      placeId={place.placeId}
+      placeName={place.name}
+      {lang}
+      {copy}
+      {signedIn}
+      condition={correctableCondition}
+      {announce}
+    />
+  {/if}
+{/snippet}
 
 <aside
   class="hv-panel selected-place"
@@ -184,6 +216,7 @@
         conditions={profile?.accessConditions ?? place.accessConditions}
         {copy}
         onOpenDetails={openCompleteDetails}
+        editor={correctableCondition ? accessConditionEditor : undefined}
       />
     </section>
 
@@ -400,6 +433,13 @@
 
   .summary-photo figcaption {
     padding: 0.35rem 0.5rem;
+  }
+
+  /* basalt-muted is not a readable pair with fjord-soft: at this caption's 0.68rem the credit
+     measured 4.34:1 against the 4.5:1 minimum, which Axe caught intermittently. Full basalt
+     takes the same text to 10:1 on the same background. */
+  .summary-photo figcaption :global(.photo-credit) {
+    color: var(--hv-color-basalt);
   }
 
   .member-actions :global(.check-in) {

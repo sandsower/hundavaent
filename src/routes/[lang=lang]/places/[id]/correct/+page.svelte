@@ -317,44 +317,8 @@
           </fieldset>
         {/if}
 
-        <fieldset class="hv-form-section hv-panel">
-          <legend>{data.copy['evidenceField.section']}</legend>
-          <div class="hv-grid" data-columns="2">
-            <label class="hv-stack">
-              {data.copy['evidenceField.kind']}
-              <select class="hv-field" name="evidenceKind" required>
-                <option value="official_website">{data.copy['evidence.officialWebsite']}</option>
-                <option value="venue_representative"
-                  >{data.copy['evidence.venueRepresentative']}</option
-                >
-                <option value="member_report">{data.copy['evidence.memberReport']}</option>
-                <option value="direct_observation">{data.copy['evidence.directObservation']}</option
-                >
-                <option value="public_record">{data.copy['evidence.publicRecord']}</option>
-                <option value="other">{data.copy['evidence.other']}</option>
-              </select>
-            </label>
-            <label class="hv-stack">
-              {data.copy['evidenceField.label']}
-              <input class="hv-field" name="evidenceSourceLabel" required />
-            </label>
-          </div>
-          <div class="hv-grid" data-columns="2">
-            <label class="hv-stack">
-              {data.copy['evidenceField.url']}
-              <input class="hv-field" name="evidenceUrl" type="url" />
-            </label>
-            <label class="hv-stack">
-              {data.copy['evidenceField.citation']}
-              <input class="hv-field" name="evidenceCitation" />
-            </label>
-          </div>
-          <label class="hv-stack">
-            {data.copy['evidenceField.observedAt']}
-            <input class="hv-field" name="evidenceObservedAt" type="datetime-local" required />
-          </label>
-        </fieldset>
-
+        <!-- No Evidence fieldset: the server synthesizes the Member report record the database
+             requires, so a Member is never asked to fill in the Moderator's worksheet. -->
         <fieldset class="hv-form-section hv-panel">
           <legend>{data.copy['correction.explanation']}</legend>
           <label class="hv-stack">
