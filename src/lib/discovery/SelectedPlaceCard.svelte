@@ -17,6 +17,15 @@
   import PlacePhotos from '$lib/discovery/PlacePhotos.svelte';
   import AccessSymbols from '$lib/discovery/AccessSymbols.svelte';
   import AccessConditionCorrection from '$lib/discovery/AccessConditionCorrection.svelte';
+  import AccessEligibilityCorrection from '$lib/discovery/AccessEligibilityCorrection.svelte';
+  import ContributionReveal from '$lib/discovery/ContributionReveal.svelte';
+  import {
+    hasPendingAccessCondition,
+    type AccessConditionDimension,
+    type PendingPlaceFlag
+  } from '$lib/contributions/correction';
+  import { fetchPendingCorrections } from '$lib/contributions/correction-client';
+  import { correctConditionHref } from '$lib/discovery/correct-link';
   import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
   import PhotoCredit from '$lib/discovery/PhotoCredit.svelte';
   import RefreshablePlaceImage from '$lib/discovery/RefreshablePlaceImage.svelte';
@@ -77,6 +86,10 @@
   let completeDetails = $state<HTMLDetailsElement>();
   let recognition = $state<FavouriteRecognition | null>(null);
   let recognitionTimer: ReturnType<typeof setTimeout> | undefined;
+  let pending = $state<PendingPlaceFlag[]>([]);
+  // Deliberately not reactive: it is the guard that stops the effect below from re-requesting on
+  // its own write, and it must never be a dependency of the effect that sets it.
+  let pendingRequestedFor: string | null = null;
 
   onDestroy(() => {
     if (recognitionTimer) clearTimeout(recognitionTimer);
@@ -108,12 +121,65 @@
   /**
    * A Correction targets `access_condition_id`, which only the loaded profile carries, so the
    * affordance cannot exist before the profile arrives. Multi-condition Places render a single
-   * "different conditions" chip with no per-dimension symbol to attach an editor to, so they get
-   * no inline edit path yet.
+   * "different conditions" chip with no per-dimension symbol to attach an editor to, so their
+   * Conditions are reached through the reveal's per-condition links instead.
    */
   const correctableCondition = $derived(
     profile?.accessConditions.length === 1 ? profile.accessConditions[0] : null
   );
+
+  /**
+   * The chip dimensions that have an inline editor, and the Correction dimension each one names.
+   * A chip without an entry renders exactly as it always has. `timing` is absent on purpose: an
+   * availability window is a schedule, not a choice, so it links to the form rather than pretending
+   * to be a radio group.
+   */
+  const editableDimensions: Partial<Record<AccessSymbolDimension, AccessConditionDimension>> = {
+    restraint: 'restraint',
+    area: 'area',
+    permission: 'permission',
+    dogs: 'eligibility'
+  };
+
+  /**
+   * What the Member already has open on this Place. Fetched only when signed in, because a signed
+   * out reader has nothing pending and the request would be a member-scoped read nobody asked for.
+   */
+  const conditionPending = $derived(
+    correctableCondition ? hasPendingAccessCondition(pending, correctableCondition.id) : false
+  );
+
+  $effect(() => {
+    if (!signedIn) {
+      pending = [];
+      pendingRequestedFor = null;
+      return;
+    }
+    const loadedPlaceId = profile?.placeId;
+    if (!loadedPlaceId || pendingRequestedFor === loadedPlaceId) return;
+    pendingRequestedFor = loadedPlaceId;
+    void loadPending(loadedPlaceId);
+  });
+
+  async function loadPending(placeId: string): Promise<void> {
+    const result = await fetchPendingCorrections(placeId);
+    // A different Place may have been selected while the request was in flight.
+    if (pendingRequestedFor !== placeId) return;
+    pending = result.status === 'loaded' ? [...result.pending] : [];
+  }
+
+  /**
+   * The pending markers are the card's own state, so a Correction it just sent belongs in them
+   * immediately. Suppression on an Access Condition covers all four of its editors, and the three
+   * the Member did not touch have to say pending the moment the fourth is sent: leaving them armed
+   * until a refetch would invite a second edit that proposes reverting the first.
+   *
+   * There is nothing to re-read, either. Everything the markers need is addressing the editor
+   * already had, so a round trip would ask the server to confirm what the client just did.
+   */
+  function recordSubmitted(flag: PendingPlaceFlag): void {
+    pending = [...pending, flag];
+  }
 </script>
 
 {#snippet accessConditionEditor({
@@ -123,16 +189,49 @@
   dimension: AccessSymbolDimension;
   announce: (message: string) => void;
 })}
-  {#if dimension === 'restraint' && correctableCondition}
-    <AccessConditionCorrection
-      placeId={place.placeId}
-      placeName={place.name}
-      {lang}
-      {copy}
-      {signedIn}
-      condition={correctableCondition}
-      {announce}
-    />
+  {@const editable = editableDimensions[dimension]}
+  {#if correctableCondition && (editable || dimension === 'timing')}
+    {#if conditionPending}
+      <!-- A flag on an Access Condition proposes the whole Condition object, so a second edit
+           raised beside it would build from the stored value and propose reverting the first.
+           Every affordance on that Condition says pending, not just the one already sent. -->
+      <p class="pending-correction" data-correction-pending>
+        {copy['inlineCorrection.pending']}
+      </p>
+    {:else if dimension === 'timing'}
+      <!-- eslint-disable svelte/no-navigation-without-resolve -- correctConditionHref builds the path with $app/paths resolve() -->
+      <a
+        href={correctConditionHref(lang, place.placeId, correctableCondition.id)}
+        class="timing-link"
+        aria-label={copy['inlineCorrection.timingLinkLabel'].replace('{name}', place.name)}
+      >
+        {copy['inlineCorrection.timingLink']}
+      </a>
+      <!-- eslint-enable svelte/no-navigation-without-resolve -->
+    {:else if editable === 'eligibility'}
+      <AccessEligibilityCorrection
+        placeId={place.placeId}
+        placeName={place.name}
+        {lang}
+        {copy}
+        {signedIn}
+        condition={correctableCondition}
+        {announce}
+        onSubmitted={recordSubmitted}
+      />
+    {:else if editable}
+      <AccessConditionCorrection
+        placeId={place.placeId}
+        placeName={place.name}
+        {lang}
+        {copy}
+        {signedIn}
+        condition={correctableCondition}
+        dimension={editable}
+        {announce}
+        onSubmitted={recordSubmitted}
+      />
+    {/if}
   {/if}
 {/snippet}
 
@@ -340,6 +439,19 @@
               {/if}
             </nav>
           {/if}
+
+          <!-- One quiet line, and nothing else, until a Member asks. The practical details are
+               what a reader came for, so the affordances stay behind a disclosure rather than
+               competing with the facts. -->
+          <ContributionReveal
+            placeName={place.name}
+            {lang}
+            {copy}
+            {signedIn}
+            {profile}
+            {pending}
+            onSubmitted={recordSubmitted}
+          />
         </div>
       </details>
     {/if}
@@ -388,6 +500,32 @@
   .details-status {
     margin: 0.45rem 0 0;
     font-weight: 700;
+  }
+
+  .pending-correction {
+    margin: 0.45rem 0 0;
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.75rem;
+    font-weight: 750;
+    line-height: 1.35;
+  }
+
+  .timing-link {
+    display: inline-flex;
+    min-height: 1.5rem;
+    align-items: center;
+    margin-top: 0.45rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: var(--hv-radius-control);
+    color: var(--hv-color-fjord);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-decoration: underline;
+  }
+
+  .timing-link:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 2px;
   }
 
   .member-actions {

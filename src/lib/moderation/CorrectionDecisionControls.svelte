@@ -7,17 +7,30 @@
     kind: PlaceFlagKind;
     targetKind: 'place_field' | 'access_condition';
     disabled?: boolean;
+    /**
+     * The primary outcome alone, disabled while the claim cannot honestly be applied. Every other
+     * outcome stays open, because a Correction that cannot be applied can still be rejected or
+     * sent back for information.
+     */
+    acceptDisabled?: boolean;
     ondecide: (outcome: Exclude<PlaceFlagOutcome, 'submitted'>) => void;
   }
 
-  let { copy, kind, targetKind, disabled = false, ondecide }: Props = $props();
+  let {
+    copy,
+    kind,
+    targetKind,
+    disabled = false,
+    acceptDisabled = false,
+    ondecide
+  }: Props = $props();
 </script>
 
 <div class="decision-options" role="group" aria-label={copy['flag.resolve']}>
   <button
     class="primary"
     type="button"
-    {disabled}
+    disabled={disabled || acceptDisabled}
     onclick={() => ondecide(kind === 'correction' ? 'applied' : 'confirmed_useful')}
   >
     {kind === 'correction' ? copy['flag.action.apply'] : copy['flag.action.confirmUseful']}

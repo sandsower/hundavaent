@@ -69,11 +69,46 @@ describe('Correction input', () => {
     expect(result.payload.proposed_value).toEqual({ is: 'Nýtt heiti', en: 'New name' });
   });
 
-  it('rejects a name Correction missing one locale', () => {
+  it.each([
+    ['fieldValueIs', 'fieldValueEn', { is: 'Nýtt heiti', needs_review: 'en' }],
+    ['fieldValueEn', 'fieldValueIs', { en: 'New name', needs_review: 'is' }]
+  ] as const)(
+    'names the locale it could not write when only %s is filled in',
+    (filled, blank, expected) => {
+      // The hatch on the form, not just on the card. Requiring both locales asked a Member for a
+      // language they may not speak, and the only honest answer was to abandon the Correction.
+      const form = placeFieldForm({ targetField: 'name' });
+      form.set(filled, filled === 'fieldValueIs' ? 'Nýtt heiti' : 'New name');
+      form.set(blank, '   ');
+
+      const result = parseCorrectionFormData(form);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.payload.proposed_value).toEqual(expected);
+    }
+  );
+
+  it('rejects a name Correction with neither locale written', () => {
     const form = placeFieldForm({ targetField: 'name' });
-    form.set('fieldValueIs', 'Nýtt heiti');
+    form.set('fieldValueIs', '');
+    form.set('fieldValueEn', '  ');
 
     expect(parseCorrectionFormData(form)).toEqual({ ok: false, error: 'invalid' });
+  });
+
+  it('applies the same hatch to a description, which is what un-orphans it', () => {
+    const form = placeFieldForm({ targetField: 'description' });
+    form.set('fieldValueEn', 'A quiet garden the dogs can use.');
+
+    const result = parseCorrectionFormData(form);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.payload.proposed_value).toEqual({
+      en: 'A quiet garden the dogs can use.',
+      needs_review: 'is'
+    });
   });
 
   it('parses an Access Condition Correction', () => {

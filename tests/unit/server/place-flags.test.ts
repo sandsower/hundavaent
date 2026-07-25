@@ -5,6 +5,7 @@ import {
   getModerationPlaceFlag,
   listMemberPlaceFlags,
   listModerationPlaceFlags,
+  listMyOpenPlaceFlags,
   listRelatedPlaceFlags,
   resolvePlaceFlag,
   submitCorrection,
@@ -484,5 +485,99 @@ describe('Place-flag RPC adapter', () => {
     await expect(
       submitCorrection({ rpc } satisfies PlaceFlagRpcClient, correctionPayload, 'request-1')
     ).resolves.toEqual({ status: 'infrastructure_error' });
+  });
+});
+
+describe('the caller open flags on one Place', () => {
+  const openRow = {
+    kind: 'correction',
+    target_kind: 'place_field',
+    target_field: 'phone',
+    access_condition_id: null,
+    report_reason: null,
+    status: 'submitted'
+  };
+
+  it('maps the addressing and asks only about the Place it was given', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        openRow,
+        {
+          kind: 'report',
+          target_kind: 'access_condition',
+          target_field: null,
+          access_condition_id: '76400000-0000-4000-8000-000000000001',
+          report_reason: 'moved',
+          status: 'needs_information'
+        }
+      ],
+      error: null
+    });
+
+    await expect(
+      listMyOpenPlaceFlags(
+        { rpc } satisfies PlaceFlagRpcClient,
+        '76300000-0000-4000-8000-000000000001'
+      )
+    ).resolves.toEqual({
+      status: 'success',
+      value: [
+        {
+          kind: 'correction',
+          targetKind: 'place_field',
+          targetField: 'phone',
+          accessConditionId: null,
+          reportReason: null,
+          status: 'submitted'
+        },
+        {
+          kind: 'report',
+          targetKind: 'access_condition',
+          targetField: null,
+          accessConditionId: '76400000-0000-4000-8000-000000000001',
+          reportReason: 'moved',
+          status: 'needs_information'
+        }
+      ]
+    });
+    expect(rpc).toHaveBeenCalledWith('list_my_open_place_flags', {
+      requested_place_id: '76300000-0000-4000-8000-000000000001'
+    });
+  });
+
+  it('reads an empty projection as no pending work rather than as a failure', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: [], error: null });
+
+    await expect(
+      listMyOpenPlaceFlags({ rpc } satisfies PlaceFlagRpcClient, 'place-1')
+    ).resolves.toEqual({ status: 'success', value: [] });
+  });
+
+  it('refuses a resolved status, which a read promising open flags never returns', async () => {
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: [{ ...openRow, status: 'applied' }], error: null });
+
+    await expect(
+      listMyOpenPlaceFlags({ rpc } satisfies PlaceFlagRpcClient, 'place-1')
+    ).resolves.toEqual({ status: 'infrastructure_error' });
+  });
+
+  it('refuses a row whose target field is outside the database vocabulary', async () => {
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: [{ ...openRow, target_field: 'nickname' }], error: null });
+
+    await expect(
+      listMyOpenPlaceFlags({ rpc } satisfies PlaceFlagRpcClient, 'place-1')
+    ).resolves.toEqual({ status: 'infrastructure_error' });
+  });
+
+  it('maps a refused read to forbidden rather than to an empty list', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: '42501' } });
+
+    await expect(
+      listMyOpenPlaceFlags({ rpc } satisfies PlaceFlagRpcClient, 'place-1')
+    ).resolves.toEqual({ status: 'forbidden' });
   });
 });
