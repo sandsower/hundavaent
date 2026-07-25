@@ -641,8 +641,10 @@ describe('MapListShell synchronization', () => {
 
   it('arrives on a quiet map and floats a matching-width detail card over it on desktop', async () => {
     const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    const initialMoss = document.documentElement.style.getPropertyValue('--hv-color-moss');
     await browserPage.viewport(1280, 800);
     history.replaceState(null, '', '/en');
+    document.documentElement.style.setProperty('--hv-color-moss', '#287e91');
 
     try {
       const { container } = render(MapListShell, {
@@ -694,6 +696,7 @@ describe('MapListShell synchronization', () => {
       const cardOverlay = container.querySelector<HTMLElement>('[data-selected-place-overlay]');
       expect(cardOverlay).toBeTruthy();
       if (!cardOverlay) throw new Error('Expected the floating detail card');
+      expect(getComputedStyle(cardOverlay).borderColor).toBe('rgb(40, 126, 145)');
       expect(
         within(cardOverlay).getByAltText('A dog in a public park').getBoundingClientRect().height
       ).toBeCloseTo(83.2, 0);
@@ -714,6 +717,11 @@ describe('MapListShell synchronization', () => {
         expect(Number(mapRoot?.dataset.paddingRight ?? 0)).toBeGreaterThan(sidebarWidth)
       );
     } finally {
+      if (initialMoss) {
+        document.documentElement.style.setProperty('--hv-color-moss', initialMoss);
+      } else {
+        document.documentElement.style.removeProperty('--hv-color-moss');
+      }
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }
   });
