@@ -11,16 +11,18 @@ Never paste provider secrets into Linear, source control, logs, screenshots, or 
 - Keep email OTP single-use and set its expiry to 60 minutes or less.
 - Set provider and email rate limits in Supabase before enabling either feature switch.
 - Keep both provider switches disabled by default until the environment passes this checklist.
-- Keep both production provider variables exactly `false` until a real release has produced an Auth-capable recovery point and the hosted email prerequisites below are live.
+- Both production provider variables must be set to exactly `true` or `false`; an empty or unset GitHub environment binding fails the release closed rather than being read as "not enabled".
+  The recovery precondition is satisfied: production release `0e11acb` produced a recovery point reporting `managed_auth_mode: "included-identities-and-owned-rows-restore-tested"`, restoring 3 identities, 6 active role grants, and attribution on 64 Places and 11 media rows.
+  Keep them `false` until the hosted email prerequisites below are live, because email sign-in cannot deliver a link without production SMTP and the hosted token-hash template.
   The recovery workflow now captures `auth.users`, `auth.identities`, and every identity-owned application row at full fidelity, and preserves identity attribution rather than neutralizing it.
   Ephemeral session material (`auth.sessions`, `auth.refresh_tokens`, `auth.flow_state`, `auth.one_time_tokens`) is deliberately excluded, because restoring it would resurrect authentication that may have been revoked since capture; Members re-authenticate after a restore.
   Single-use credential tokens on `auth.users` are redacted before the artifact is retained.
 - The recovery bundle no longer relaxes any schema contract, so the `private.place_media.uploaded_by` nullability relaxation it once required is gone.
   Migration `202607150036_nullable_place_media_uploader.sql` dropped that column's `NOT NULL` solely to accommodate the previous lossy capture, so its rationale no longer holds and restoring the constraint is a candidate follow-up.
   The recovery verification compares restored attribution nullability against the captured source rather than asserting a fixed contract, so it stays correct either way.
-- Before activating either provider, confirm a real production release has produced a recovery point whose manifest reports `managed_auth_mode: "included-identities-and-owned-rows-restore-tested"`.
-  The local rehearsal (`scripts/recovery/rehearse-recovery-point.sh`) proves the capture, restore, and verification logic, but it cannot prove behaviour against the production pooler, real role grants, or production data volume.
-  Only then remove the provider guards in `.github/workflows/production.yml`.
+- The provider-disabled guards are removed; the recovery precondition they enforced has been met by a real release.
+  What replaces them is a weaker but still fail-closed check that each switch is explicitly `true` or `false`.
+  Re-run `scripts/recovery/rehearse-recovery-point.sh` after any change to `scripts/recovery/`, since it is the only pre-release proof of that logic.
 - Apply `202607150032_auth_funnel.sql` before enabling sign-in.
 - Confirm `get_member_provider_policy()` returns `member-linked-providers-v2`, both providers enabled, and verified-email automatic linking enabled.
 - Enable Facebook and email together only after the Supabase project confirms automatic identity linking for the same verified email in both sign-in orders.
@@ -80,8 +82,8 @@ Never paste provider secrets into Linear, source control, logs, screenshots, or 
 - Provision production SMTP and publish SPF, DKIM, and DMARC.
 - Install the hosted token-hash magic-link template because local repository configuration does not update a hosted Supabase project.
 - Add both localized callback URLs to the hosted Supabase redirect allowlist.
-- Confirm the Auth-capable recovery point has been produced and restore-tested by a real release, then remove the provider-disabled guards before changing either production deployment switch.
-- Set both deployment switches and rotate the environment-specific Member activation secret only after the recovery upgrade and all checks above pass.
+- Done: the Auth-capable recovery point was produced and restore-tested by release `0e11acb`, and the provider-disabled guards are removed.
+- Set both deployment switches and rotate the environment-specific Member activation secret only after all remaining checks above pass.
 
 ## Hosted production audit - 2026-07-15
 

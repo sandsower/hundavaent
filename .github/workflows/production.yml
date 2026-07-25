@@ -111,11 +111,17 @@ jobs:
             echo "The production backup passphrase must be a high-entropy value of at least 32 characters." >&2
             exit 1
           fi
-          if [[ "${AUTH_EMAIL_ENABLED}" != "false" || \
-              "${AUTH_FACEBOOK_ENABLED}" != "false" ]]; then
-            echo "Production Auth providers stay disabled until an Auth-capable recovery point has been produced by a real release, and until production SMTP and the hosted token-hash template are installed." >&2
-            exit 1
-          fi
+          # The provider switches are no longer pinned to false: recovery now
+          # captures managed Auth identities and identity-owned rows, and a real
+          # release has restore-tested that path. They must still be explicit,
+          # because an unset GitHub environment binding arrives as an empty
+          # string and would otherwise be read as "not enabled" by accident.
+          for provider_switch in "${AUTH_EMAIL_ENABLED}" "${AUTH_FACEBOOK_ENABLED}"; do
+            if [[ "${provider_switch}" != "true" && "${provider_switch}" != "false" ]]; then
+              echo "Production Auth provider switches must be exactly 'true' or 'false'." >&2
+              exit 1
+            fi
+          done
       - uses: pnpm/action-setup@v6
         with:
           version: 11.7.0
@@ -581,11 +587,17 @@ jobs:
             echo "APP_RELEASE must be the exact requested SHA." >&2
             exit 1
           fi
-          if [[ "${AUTH_EMAIL_ENABLED}" != "false" || \
-              "${AUTH_FACEBOOK_ENABLED}" != "false" ]]; then
-            echo "Production Auth providers stay disabled until an Auth-capable recovery point has been produced by a real release, and until production SMTP and the hosted token-hash template are installed." >&2
-            exit 1
-          fi
+          # The provider switches are no longer pinned to false: recovery now
+          # captures managed Auth identities and identity-owned rows, and a real
+          # release has restore-tested that path. They must still be explicit,
+          # because an unset GitHub environment binding arrives as an empty
+          # string and would otherwise be read as "not enabled" by accident.
+          for provider_switch in "${AUTH_EMAIL_ENABLED}" "${AUTH_FACEBOOK_ENABLED}"; do
+            if [[ "${provider_switch}" != "true" && "${provider_switch}" != "false" ]]; then
+              echo "Production Auth provider switches must be exactly 'true' or 'false'." >&2
+              exit 1
+            fi
+          done
           if [[ ! "${MEMBER_ACTIVATION_SECRET}" =~ ^[A-Za-z0-9_-]{43,}$ ]]; then
             echo "The Member activation secret must be high-entropy base64url." >&2
             exit 1
