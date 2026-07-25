@@ -13,12 +13,27 @@ begin;
 -- own contract reserves for a new version. That is safe only while no unlock pins a version, so the
 -- assumption is enforced rather than trusted: a deploy against a populated ledger fails loudly here
 -- instead of silently mis-evaluating a pinned definition.
+-- The message carries its own remedy on purpose. Whoever meets this failure meets it mid-deploy,
+-- and the decision it demands - are these unlocks disposable or earned? - is one nobody should have
+-- to reconstruct under that pressure. Deleting is the sanctioned move for disposable rows: the
+-- immutability trigger rejects UPDATE and TRUNCATE but permits DELETE, which is exactly how
+-- private.detach_member_achievements performs account-deletion cleanup.
 do $$
+declare
+  unlock_count bigint;
+  member_count bigint;
 begin
-  if exists (select 1 from private.achievement_unlocks) then
+  select count(*), count(distinct member_id) into unlock_count, member_count
+  from private.achievement_unlocks;
+
+  if unlock_count > 0 then
     raise exception using
       errcode = '55000',
-      message = 'Tiered collections rewrite achievement_definitions.criteria at version 1, which is only safe while the unlock ledger is empty. Existing unlocks found; migrate them deliberately instead.';
+      message = format(
+        'Tiered collections rewrite achievement_definitions.criteria at version 1, which is only safe while the unlock ledger is empty. Found %s unlock(s) across %s member(s).',
+        unlock_count, member_count
+      ),
+      hint = 'If these unlocks are disposable test data, clear them and redeploy: delete from private.achievement_unlocks; (achievement_recalculations cascades via unlock_id). If any unlock was genuinely earned by a real Member, do not delete it - this migration must instead seed the twelve tiers at a new definition version and leave the earned rows pinned to their old one.';
   end if;
 end;
 $$;
