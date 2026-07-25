@@ -1,4 +1,4 @@
-import type { RestraintCondition } from '$domain/access';
+import type { AccessArea, RestraintCondition } from '$domain/access';
 import type { FlagEvidence, PlaceField } from '$server/place-flags/place-flag-input';
 
 /**
@@ -30,6 +30,13 @@ const restraintNames: Record<RestraintCondition, string> = {
   off_leash_permitted: 'off-leash allowed',
   carrier_required: 'carrier required',
   other_sourced: 'other stated conditions'
+};
+
+const areaNames: Record<AccessArea, string> = {
+  indoors: 'indoors',
+  outdoors: 'outdoors',
+  designated_area: 'a designated area',
+  other_bounded: 'another stated area'
 };
 
 const placeFieldNames: Record<PlaceField, string> = {
@@ -73,6 +80,10 @@ export function buildMemberExplanation(input: {
 /**
  * English on purpose. The explanation and citation are read in the Moderation workspace, which
  * already uses English constants for server-written source labels.
+ *
+ * Every change summary is built from these enum label tables and nothing else. The summary becomes
+ * the Evidence citation, which reaches anonymous callers through the published profile, so neither
+ * the Member's note nor any stored free text may enter one.
  */
 export function describeRestraintChange(
   from: RestraintCondition,
@@ -81,6 +92,17 @@ export function describeRestraintChange(
 ): string {
   return (
     `Restraint condition changed from ${restraintNames[from]} to ${restraintNames[to]}, ` +
+    `reported from ${surfaceNames[surface]}.`
+  );
+}
+
+export function describeAreaChange(
+  from: AccessArea,
+  to: AccessArea,
+  surface: MemberContributionSurface
+): string {
+  return (
+    `Access area changed from ${areaNames[from]} to ${areaNames[to]}, ` +
     `reported from ${surfaceNames[surface]}.`
   );
 }

@@ -1,7 +1,7 @@
 import type { Locale } from '$i18n';
 import { applyWeeklyRhythmRecognition } from '$lib/member-activity/client';
 import { parseWeeklyRhythmRecognition } from '$lib/member-activity/types';
-import type { MemberRestraintChoice } from '$lib/contributions/access-condition-correction';
+import type { CorrectionInput } from '$lib/contributions/access-condition-correction';
 
 export type CorrectionResult =
   | { status: 'submitted'; flagId: string }
@@ -11,20 +11,18 @@ export type CorrectionResult =
   | { status: 'invalid' }
   | { status: 'unavailable' };
 
-export interface AccessConditionCorrectionRequest {
-  placeId: string;
-  lang: Locale;
-  accessConditionId: string;
-  restraintCondition: MemberRestraintChoice;
-  note: string | null;
-}
+/**
+ * The endpoint's own body, plus the addressing the URL needs. `placeId` and `lang` are deliberately
+ * kept out of the payload the server parses.
+ */
+export type CorrectionRequest = CorrectionInput & { placeId: string; lang: Locale };
 
 /**
  * The transport for inline contribution. It owns the request shape and the result vocabulary so
  * every affordance on the place card reports the same outcomes, and holds no UI state of its own.
  */
-export async function submitAccessConditionCorrection(
-  request: AccessConditionCorrectionRequest
+export async function submitInlineCorrection(
+  request: CorrectionRequest
 ): Promise<CorrectionResult> {
   let response: Response;
   try {
@@ -36,11 +34,7 @@ export async function submitAccessConditionCorrection(
           'content-type': 'application/json',
           'idempotency-key': crypto.randomUUID()
         },
-        body: JSON.stringify({
-          accessConditionId: request.accessConditionId,
-          restraintCondition: request.restraintCondition,
-          note: request.note
-        })
+        body: JSON.stringify(correctionBody(request))
       }
     );
   } catch {
@@ -70,4 +64,17 @@ export async function submitAccessConditionCorrection(
   if (recognition) applyWeeklyRhythmRecognition(recognition);
 
   return { status: 'submitted', flagId: payload.flagId };
+}
+
+function correctionBody(request: CorrectionRequest): Record<string, unknown> {
+  switch (request.target) {
+    case 'access_condition':
+      return {
+        target: request.target,
+        accessConditionId: request.accessConditionId,
+        dimension: request.dimension,
+        value: request.value,
+        note: request.note
+      };
+  }
 }

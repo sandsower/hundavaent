@@ -17,6 +17,7 @@
   import PlacePhotos from '$lib/discovery/PlacePhotos.svelte';
   import AccessSymbols from '$lib/discovery/AccessSymbols.svelte';
   import AccessConditionCorrection from '$lib/discovery/AccessConditionCorrection.svelte';
+  import type { AccessConditionDimension } from '$lib/contributions/access-condition-correction';
   import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
   import PhotoCredit from '$lib/discovery/PhotoCredit.svelte';
   import RefreshablePlaceImage from '$lib/discovery/RefreshablePlaceImage.svelte';
@@ -114,6 +115,15 @@
   const correctableCondition = $derived(
     profile?.accessConditions.length === 1 ? profile.accessConditions[0] : null
   );
+
+  /**
+   * The chip dimensions that have an inline editor, and the Correction dimension each one names.
+   * A chip without an entry renders exactly as it always has.
+   */
+  const editableDimensions: Partial<Record<AccessSymbolDimension, AccessConditionDimension>> = {
+    restraint: 'restraint',
+    area: 'area'
+  };
 </script>
 
 {#snippet accessConditionEditor({
@@ -123,7 +133,8 @@
   dimension: AccessSymbolDimension;
   announce: (message: string) => void;
 })}
-  {#if dimension === 'restraint' && correctableCondition}
+  {@const editable = editableDimensions[dimension]}
+  {#if editable && correctableCondition}
     <AccessConditionCorrection
       placeId={place.placeId}
       placeName={place.name}
@@ -131,6 +142,7 @@
       {copy}
       {signedIn}
       condition={correctableCondition}
+      dimension={editable}
       {announce}
     />
   {/if}

@@ -1,19 +1,17 @@
-import type { AvailabilityWindow } from '$domain/access';
 import { isLocale } from '$i18n';
 import { requireMemberResponse } from '$server/auth/require-member-response';
-import { parseAccessConditionCorrectionInput } from '$server/contributions/access-condition-correction-input';
+import {
+  describeAccessConditionChange,
+  isUnchangedAccessCondition,
+  proposedAccessCondition
+} from '$server/contributions/access-condition-change';
+import { parseCorrectionInput } from '$server/contributions/correction-input';
 import {
   buildMemberExplanation,
-  buildMemberReportEvidence,
-  describeRestraintChange
+  buildMemberReportEvidence
 } from '$server/contributions/member-evidence';
-import {
-  getStoredAccessCondition,
-  type PublishedAccessFacts
-} from '$server/discovery/public-places';
-import type { Json } from '$server/db/generated.types';
+import { getStoredAccessCondition } from '$server/discovery/public-places';
 import { privateJson } from '$server/http/private-json';
-import type { AccessConditionValue } from '$server/place-flags/place-flag-input';
 import { submitCorrection, type PlaceFlagRpcClient } from '$server/place-flags/place-flags';
 
 import type { RequestHandler } from './$types';
@@ -40,7 +38,7 @@ export const POST: RequestHandler = async (event) => {
   } catch {
     return privateJson({ error: 'invalid_request' }, 400);
   }
-  const input = parseAccessConditionCorrectionInput(body);
+  const input = parseCorrectionInput(body);
   if (!input) return privateJson({ error: 'invalid_request' }, 400);
 
   // The stored condition, not the visitor projection: the proposal has to carry the Place's real
@@ -57,15 +55,11 @@ export const POST: RequestHandler = async (event) => {
 
   // The client-side disabled confirm is a convenience, not the guard: the profile it decided
   // against can be stale, and a no-op flag is work a Moderator should never be handed.
-  if (condition.restraintCondition === input.restraintCondition) {
+  if (isUnchangedAccessCondition(condition, input)) {
     return privateJson({ status: 'unchanged' });
   }
 
-  const changeSummary = describeRestraintChange(
-    condition.restraintCondition,
-    input.restraintCondition,
-    'place-card'
-  );
+  const changeSummary = describeAccessConditionChange(condition, input, 'place-card');
   const result = await submitCorrection(
     event.locals.supabase as unknown as PlaceFlagRpcClient,
     {
@@ -80,7 +74,7 @@ export const POST: RequestHandler = async (event) => {
         observedAt: new Date().toISOString(),
         surface: 'place-card'
       }),
-      proposed_value: proposedCondition(condition, input.restraintCondition)
+      proposed_value: proposedAccessCondition(condition, input)
     },
     suppliedCommandId ?? crypto.randomUUID()
   );
@@ -105,37 +99,3 @@ export const POST: RequestHandler = async (event) => {
     recognition: result.value.recognition
   });
 };
-
-/**
- * The client sends the condition id and the intended restraint, never a whole condition. The
- * published condition is the source of truth for every other dimension, so a client that gets
- * one wrong, or lies about one, cannot rewrite it through a Correction.
- */
-function proposedCondition(
-  condition: PublishedAccessFacts,
-  restraintCondition: AccessConditionValue['restraint_condition']
-): AccessConditionValue {
-  return {
-    access_area: condition.accessArea,
-    access_area_note: condition.accessAreaNote,
-    restraint_condition: restraintCondition,
-    // The existing note describes the rule being replaced, so carrying it forward would attach a
-    // stale justification to the new one.
-    restraint_note: null,
-    dog_eligibility: condition.dogEligibility,
-    availability_state: condition.availabilityState ?? 'not_stated',
-    availability_window: availabilityWindowJson(condition.availabilityWindow),
-    permission_requirement: condition.permissionRequirement
-  };
-}
-
-function availabilityWindowJson(window: AvailabilityWindow): Record<string, Json> {
-  return {
-    ...(window.days ? { days: [...window.days] } : {}),
-    ...(window.startsAt ? { startsAt: window.startsAt } : {}),
-    ...(window.endsAt ? { endsAt: window.endsAt } : {}),
-    ...(window.startsOn ? { startsOn: window.startsOn } : {}),
-    ...(window.endsOn ? { endsOn: window.endsOn } : {}),
-    ...(window.notes ? { notes: window.notes } : {})
-  };
-}

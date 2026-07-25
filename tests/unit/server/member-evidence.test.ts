@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildMemberExplanation,
   buildMemberReportEvidence,
+  describeAreaChange,
   describePlaceFieldCorrection,
   describeRestraintChange
 } from '../../../src/lib/server/contributions/member-evidence';
@@ -139,6 +140,18 @@ describe('change summaries', () => {
   it('covers every restraint condition the domain defines', () => {
     expect(describeRestraintChange('carrier_required', 'other_sourced', 'place-card')).toBe(
       'Restraint condition changed from carrier required to other stated conditions, reported from the place card.'
+    );
+  });
+
+  it('names the before area, the after area, and the surface', () => {
+    expect(describeAreaChange('indoors', 'designated_area', 'place-card')).toBe(
+      'Access area changed from indoors to a designated area, reported from the place card.'
+    );
+  });
+
+  it('covers every access area the domain defines', () => {
+    expect(describeAreaChange('other_bounded', 'outdoors', 'correction-form')).toBe(
+      'Access area changed from another stated area to outdoors, reported from the correction form.'
     );
   });
 

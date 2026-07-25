@@ -9,6 +9,16 @@ const placeId = '30000000-0000-4000-8000-000000000003';
 const accessConditionId = '40000000-0000-4000-8000-000000000003';
 const commandId = 'a2000000-0000-4000-8000-000000000001';
 
+function correction(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    target: 'access_condition',
+    accessConditionId,
+    dimension: 'restraint',
+    value: 'off_leash_permitted',
+    ...overrides
+  };
+}
+
 function storedCondition(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: accessConditionId,
@@ -92,9 +102,7 @@ beforeEach(() => {
 describe('inline Access Condition Correction API', () => {
   it('carries the real dog eligibility through and never hardcodes all_dogs', async () => {
     const client = memberClient();
-    const response = await POST(
-      event(client, { accessConditionId, restraintCondition: 'off_leash_permitted' })
-    );
+    const response = await POST(event(client, correction()));
 
     expect(response.status).toBe(200);
     const command = submittedCommand(client);
@@ -110,9 +118,32 @@ describe('inline Access Condition Correction API', () => {
     });
   });
 
+  it('swaps the area alone and leaves the restraint and its note standing', async () => {
+    const client = memberClient();
+    const response = await POST(
+      event(client, correction({ dimension: 'area', value: 'outdoors' }))
+    );
+
+    expect(response.status).toBe(200);
+    const command = submittedCommand(client);
+    expect(command.proposed_value).toEqual({
+      access_area: 'outdoors',
+      access_area_note: null,
+      restraint_condition: 'leash_required',
+      restraint_note: 'Short leashes only.',
+      dog_eligibility: { scope: 'restricted', maximumWeightKg: 10 },
+      availability_state: 'not_stated',
+      availability_window: {},
+      permission_requirement: 'standing_permission'
+    });
+    expect(command.explanation).toBe(
+      'Access area changed from indoors to outdoors, reported from the place card.'
+    );
+  });
+
   it('synthesizes member_report evidence and a factual explanation when no note is given', async () => {
     const client = memberClient();
-    await POST(event(client, { accessConditionId, restraintCondition: 'off_leash_permitted' }));
+    await POST(event(client, correction()));
 
     const command = submittedCommand(client);
     expect(command.evidence).toMatchObject({
@@ -130,14 +161,10 @@ describe('inline Access Condition Correction API', () => {
     );
   });
 
-  it("uses the member's note as both explanation and citation when they wrote one", async () => {
+  it("uses the member's note as the explanation but never as the citation", async () => {
     const client = memberClient();
     await POST(
-      event(client, {
-        accessConditionId,
-        restraintCondition: 'carrier_required',
-        note: 'They now ask for a carrier.'
-      })
+      event(client, correction({ value: 'carrier_required', note: 'They now ask for a carrier.' }))
     );
 
     const command = submittedCommand(client);
@@ -164,9 +191,7 @@ describe('inline Access Condition Correction API', () => {
       })
     });
     const client = memberClient();
-    const response = await POST(
-      event(client, { accessConditionId, restraintCondition: 'off_leash_permitted' })
-    );
+    const response = await POST(event(client, correction()));
 
     expect(response.status).toBe(200);
     const proposed = submittedCommand(client).proposed_value as Record<string, unknown>;
@@ -176,9 +201,16 @@ describe('inline Access Condition Correction API', () => {
 
   it('reports an unchanged restraint without creating a no-op flag', async () => {
     const client = memberClient();
-    const response = await POST(
-      event(client, { accessConditionId, restraintCondition: 'leash_required' })
-    );
+    const response = await POST(event(client, correction({ value: 'leash_required' })));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: 'unchanged' });
+    expect(client.rpc.mock.calls.map(([name]) => name)).not.toContain('submit_place_correction');
+  });
+
+  it('reports an unchanged area without creating a no-op flag', async () => {
+    const client = memberClient();
+    const response = await POST(event(client, correction({ dimension: 'area', value: 'indoors' })));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: 'unchanged' });
@@ -187,20 +219,29 @@ describe('inline Access Condition Correction API', () => {
 
   it('does not carry a restraint note describing the rule that just changed', async () => {
     const client = memberClient();
-    await POST(event(client, { accessConditionId, restraintCondition: 'carrier_required' }));
+    await POST(event(client, correction({ value: 'carrier_required' })));
 
     const command = submittedCommand(client);
     expect((command.proposed_value as Record<string, unknown>).restraint_note).toBeNull();
+  });
+
+  it('does not carry an area note describing the area that just changed', async () => {
+    getStoredAccessCondition.mockResolvedValue({
+      status: 'success',
+      value: storedCondition({ accessAreaNote: 'The covered terrace only.' })
+    });
+    const client = memberClient();
+    await POST(event(client, correction({ dimension: 'area', value: 'designated_area' })));
+
+    const command = submittedCommand(client);
+    expect((command.proposed_value as Record<string, unknown>).access_area_note).toBeNull();
   });
 
   it('rejects an Access Condition that does not belong to this Place', async () => {
     getStoredAccessCondition.mockResolvedValue({ status: 'not_found' });
     const client = memberClient();
     const response = await POST(
-      event(client, {
-        accessConditionId: '40000000-0000-4000-8000-000000000009',
-        restraintCondition: 'off_leash_permitted'
-      })
+      event(client, correction({ accessConditionId: '40000000-0000-4000-8000-000000000009' }))
     );
 
     expect(response.status).toBe(404);
@@ -211,9 +252,7 @@ describe('inline Access Condition Correction API', () => {
     const client = memberClient();
     client.auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
 
-    const response = await POST(
-      event(client, { accessConditionId, restraintCondition: 'off_leash_permitted' })
-    );
+    const response = await POST(event(client, correction()));
 
     expect(response.status).toBe(401);
     expect(getStoredAccessCondition).not.toHaveBeenCalled();
@@ -221,8 +260,16 @@ describe('inline Access Condition Correction API', () => {
 
   it('rejects a malformed body without reaching the profile', async () => {
     const client = memberClient();
+    const response = await POST(event(client, correction({ value: 'other_sourced' })));
+
+    expect(response.status).toBe(400);
+    expect(getStoredAccessCondition).not.toHaveBeenCalled();
+  });
+
+  it('rejects an area the member is not offered without reaching the profile', async () => {
+    const client = memberClient();
     const response = await POST(
-      event(client, { accessConditionId, restraintCondition: 'other_sourced' })
+      event(client, correction({ dimension: 'area', value: 'other_bounded' }))
     );
 
     expect(response.status).toBe(400);
@@ -235,10 +282,7 @@ describe('inline Access Condition Correction API', () => {
       cookies: {},
       locals: { supabase: client, requestId: crypto.randomUUID() },
       params: { id: placeId },
-      request: request(
-        { accessConditionId, restraintCondition: 'off_leash_permitted' },
-        { 'idempotency-key': 'not-a-uuid' }
-      ),
+      request: request(correction(), { 'idempotency-key': 'not-a-uuid' }),
       url: new URL(`http://localhost/api/places/${placeId}/corrections?lang=is`)
     } as never);
 
@@ -247,9 +291,7 @@ describe('inline Access Condition Correction API', () => {
 
   it('rejects a missing or unknown language', async () => {
     const client = memberClient();
-    const response = await POST(
-      event(client, { accessConditionId, restraintCondition: 'off_leash_permitted' }, 'fr')
-    );
+    const response = await POST(event(client, correction(), 'fr'));
 
     expect(response.status).toBe(400);
   });
@@ -263,9 +305,7 @@ describe('inline Access Condition Correction API', () => {
       return { data: null, error: { code: 'unexpected' } };
     });
 
-    const response = await POST(
-      event(client, { accessConditionId, restraintCondition: 'off_leash_permitted' })
-    );
+    const response = await POST(event(client, correction()));
 
     expect(response.status).toBe(429);
     expect(await response.json()).toEqual({ error: 'rate_limited' });
@@ -280,18 +320,14 @@ describe('inline Access Condition Correction API', () => {
       return { data: null, error: { code: 'unexpected' } };
     });
 
-    const response = await POST(
-      event(client, { accessConditionId, restraintCondition: 'off_leash_permitted' })
-    );
+    const response = await POST(event(client, correction()));
 
     expect(response.status).toBe(409);
   });
 
   it('keeps the response private and returns the recognition the member earned', async () => {
     const client = memberClient();
-    const response = await POST(
-      event(client, { accessConditionId, restraintCondition: 'off_leash_permitted' })
-    );
+    const response = await POST(event(client, correction()));
 
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     const payload = (await response.json()) as Record<string, unknown>;
@@ -304,9 +340,7 @@ describe('inline Access Condition Correction API', () => {
     getStoredAccessCondition.mockResolvedValue({ status: 'infrastructure_error' });
     const client = memberClient();
 
-    const response = await POST(
-      event(client, { accessConditionId, restraintCondition: 'off_leash_permitted' })
-    );
+    const response = await POST(event(client, correction()));
 
     expect(response.status).toBe(503);
   });
