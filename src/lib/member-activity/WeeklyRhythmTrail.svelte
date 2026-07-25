@@ -74,6 +74,11 @@
     position: relative;
     display: grid;
     grid-column: 1 / -1;
+    /* The trail is laid out against its own width, not the viewport's. It renders both as a
+       full-width panel on the account home and inside a narrow pillar on the impact record,
+       where eight columns leave roughly 59px per week and the date captions wrap to three
+       lines. A container query keeps one component correct in both places. */
+    container-type: inline-size;
     overflow: hidden;
     padding: 1.15rem;
     border-color: color-mix(in srgb, var(--hv-color-fjord) 36%, var(--hv-border-subtle));
@@ -204,7 +209,9 @@
     color: var(--hv-color-fjord);
   }
 
-  @media (max-width: 42rem) {
+  /* Two columns of four. Below this the week range needs the full cell width, so the
+     per-week state caption is dropped rather than allowed to wrap under it. */
+  @container (max-width: 42rem) {
     .weekly-rhythm {
       padding: 1rem;
     }
@@ -219,6 +226,17 @@
     }
 
     .week-state {
+      display: none;
+    }
+  }
+
+  /* Four rows of two: the narrowest the trail ever gets, inside a pillar on a small screen. */
+  @container (max-width: 22rem) {
+    .trail {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .trail li:nth-child(odd) .trail-segment {
       display: none;
     }
   }

@@ -272,7 +272,7 @@
 
   .roundup-state.quiet-state {
     padding: clamp(1rem, 4vw, 1.5rem);
-    border: 1px solid var(--hv-color-line);
+    border: 1px solid var(--hv-border-subtle);
     border-radius: 1rem;
     background: var(--hv-color-snow-raised);
   }

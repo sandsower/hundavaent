@@ -12,6 +12,12 @@
     --hv-color-signal: #ffd642;
     --hv-color-signal-soft: #fff0a8;
     --hv-color-brand-paw: #ef5f56;
+    /* Accessible derived inks. The display values above carry enough contrast for fills, borders,
+       and large marks, but not for small text. Every one of these clears 4.5:1 on snow-raised so a
+       tinted label never trades legibility for warmth. */
+    --hv-color-brand-paw-ink: #b3392e;
+    --hv-color-moss-ink: #1c5b69;
+    --hv-color-signal-strong: #9b6500;
     --hv-color-danger: #9b3d32;
     --hv-color-danger-soft: #f6e1dc;
     --hv-color-success: #356246;

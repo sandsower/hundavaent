@@ -397,7 +397,7 @@
     align-items: center;
     overflow: hidden;
     padding: clamp(1.35rem, 5vw, 3rem);
-    border-color: color-mix(in srgb, var(--hv-color-moss) 28%, var(--hv-color-line));
+    border-color: color-mix(in srgb, var(--hv-color-moss) 28%, var(--hv-border-subtle));
     background: linear-gradient(
       135deg,
       rgb(79 143 104 / 14%) 0%,
@@ -413,7 +413,7 @@
     gap: clamp(1rem, 3vw, 1.8rem);
     align-items: center;
     overflow: hidden;
-    border-color: color-mix(in srgb, var(--hv-color-moss) 38%, var(--hv-color-line));
+    border-color: color-mix(in srgb, var(--hv-color-moss) 38%, var(--hv-border-subtle));
     background: linear-gradient(
       135deg,
       color-mix(in srgb, var(--hv-color-moss) 16%, var(--hv-color-snow-raised)) 0%,
@@ -445,7 +445,7 @@
     width: 0.45rem;
     height: 0.45rem;
     border-radius: 50%;
-    background: var(--hv-color-coral);
+    background: var(--hv-color-brand-paw);
     animation: trusted-spark 820ms 140ms ease-out both;
   }
 
