@@ -345,8 +345,8 @@ select is(
   'A Member who has never rated has not unlocked first_rating'
 );
 
--- M1: 10 distinct, month-spaced Check-ins -> first_checkin, explorer_ten_places, category_curious,
--- capital_region_wanderer, six_month_member, and one_year_member all derive from this one fixture.
+-- M1: 10 distinct, month-spaced Check-ins -> first_checkin, the Places, Categories and
+-- Municipalities collections, six_month_member, and one_year_member all derive from this one fixture.
 
 update private.member_accounts
 set created_at = now() - interval '13 months'
@@ -383,26 +383,29 @@ select is(
 select is(
   (
     select count(*) from private.achievement_unlocks
-    where member_id = '95000000-0000-4000-8000-000000000001' and achievement_key = 'explorer_ten_places'
+    where member_id = '95000000-0000-4000-8000-000000000001'
+      and achievement_key in ('explorer_places_bronze', 'explorer_places_silver')
   ),
-  1::bigint,
-  'Ten distinct, adequately-spaced Places unlocks explorer_ten_places'
+  2::bigint,
+  'Ten distinct, adequately-spaced Places closes the Places collection up to silver'
 );
 select is(
   (
     select count(*) from private.achievement_unlocks
-    where member_id = '95000000-0000-4000-8000-000000000001' and achievement_key = 'category_curious'
+    where member_id = '95000000-0000-4000-8000-000000000001'
+      and achievement_key = 'explorer_places_gold'
   ),
-  1::bigint,
-  'Places across all five category groups unlocks category_curious'
+  0::bigint,
+  'Ten Places leaves Places gold open at fifteen, so the collection still pulls forward'
 );
 select is(
   (
     select count(*) from private.achievement_unlocks
-    where member_id = '95000000-0000-4000-8000-000000000001' and achievement_key = 'capital_region_wanderer'
+    where member_id = '95000000-0000-4000-8000-000000000001'
+      and achievement_key in ('place_categories_gold', 'municipalities_gold')
   ),
-  1::bigint,
-  'Places across six municipalities unlocks capital_region_wanderer'
+  2::bigint,
+  'Five category groups across six municipalities closes both of those collections at gold'
 );
 select is(
   (
@@ -421,7 +424,7 @@ select is(
   'Twelve months elapsed with activity in six-plus distinct months unlocks one_year_member'
 );
 
--- BX: nine distinct Places is a non-unlock boundary for explorer_ten_places ---------------------
+-- BX: nine distinct Places is a non-unlock boundary for Places silver ---------------------
 
 insert into private.check_ins (member_id, place_id, request_id, checked_in_at)
 select
@@ -442,13 +445,13 @@ from (
 select is(
   (
     select count(*) from private.achievement_unlocks
-    where member_id = '95000000-0000-4000-8000-000000000002' and achievement_key = 'explorer_ten_places'
+    where member_id = '95000000-0000-4000-8000-000000000002' and achievement_key = 'explorer_places_silver'
   ),
   0::bigint,
-  'Nine distinct Places is below the ten-Place explorer_ten_places threshold'
+  'Nine distinct Places is below the ten-Place Places silver threshold'
 );
 
--- BCAT: three of five category groups is a non-unlock boundary for category_curious ------------
+-- BCAT: three of five category groups is a non-unlock boundary for Categories gold ------------
 
 insert into private.check_ins (member_id, place_id, request_id, checked_in_at)
 select
@@ -463,13 +466,13 @@ from (
 select is(
   (
     select count(*) from private.achievement_unlocks
-    where member_id = '95000000-0000-4000-8000-000000000003' and achievement_key = 'category_curious'
+    where member_id = '95000000-0000-4000-8000-000000000003' and achievement_key = 'place_categories_gold'
   ),
   0::bigint,
-  'Three of five category groups is below the category_curious threshold'
+  'Three of five category groups is below the Categories gold threshold of four'
 );
 
--- BMUNI: two municipalities is a non-unlock boundary for capital_region_wanderer ----------------
+-- BMUNI: two municipalities is a non-unlock boundary for Municipalities silver ----------------
 
 insert into private.check_ins (member_id, place_id, request_id, checked_in_at)
 select
@@ -483,14 +486,14 @@ from (
 select is(
   (
     select count(*) from private.achievement_unlocks
-    where member_id = '95000000-0000-4000-8000-000000000004' and achievement_key = 'capital_region_wanderer'
+    where member_id = '95000000-0000-4000-8000-000000000004' and achievement_key = 'municipalities_silver'
   ),
   0::bigint,
-  'Two municipalities is below the capital_region_wanderer threshold'
+  'Two municipalities is below the Municipalities silver threshold of three'
 );
 
 -- B3: ten distinct Places in one burst - the 15-minute (here, 1-minute) credit-spacing rule blocks
--- explorer_ten_places even though ten raw distinct Check-in rows exist.
+-- Places bronze even though ten raw distinct Check-in rows exist.
 
 insert into private.check_ins (member_id, place_id, request_id, checked_in_at)
 select
@@ -521,10 +524,10 @@ select is(
 select is(
   (
     select count(*) from private.achievement_unlocks
-    where member_id = '95000000-0000-4000-8000-000000000005' and achievement_key = 'explorer_ten_places'
+    where member_id = '95000000-0000-4000-8000-000000000005' and achievement_key = 'explorer_places_bronze'
   ),
   0::bigint,
-  'The credit-spacing anti-gaming rule blocks explorer_ten_places despite ten raw Check-in rows'
+  'The credit-spacing anti-gaming rule blocks Places bronze despite ten raw Check-in rows'
 );
 select is(
   (
@@ -539,8 +542,8 @@ select is(
 
 select is(
   (
-    select private.evaluate_achievement_criteria(
-      'six_month_member', '95000000-0000-4000-8000-00000000000e'::uuid, now(), 1
+    select private.evaluate_bespoke_achievement_criteria(
+      'six_month_member', '95000000-0000-4000-8000-00000000000e'::uuid, now()
     )
   ),
   false,
@@ -548,8 +551,8 @@ select is(
 );
 select is(
   (
-    select private.evaluate_achievement_criteria(
-      'one_year_member', '95000000-0000-4000-8000-00000000000e'::uuid, now(), 1
+    select private.evaluate_bespoke_achievement_criteria(
+      'one_year_member', '95000000-0000-4000-8000-00000000000e'::uuid, now()
     )
   ),
   false,
@@ -619,10 +622,10 @@ reset role;
 select is(
   (
     select count(*) from private.achievement_unlocks
-    where member_id = '95000000-0000-4000-8000-000000000001' and achievement_key = 'first_accepted_contribution'
+    where member_id = '95000000-0000-4000-8000-000000000001' and achievement_key = 'contributions_bronze'
   ),
   1::bigint,
-  'M1''s first confirmed Contribution unlocks first_accepted_contribution'
+  'M1''s first confirmed Contribution unlocks contributions_bronze'
 );
 select is(
   (
@@ -645,10 +648,10 @@ values (
 select is(
   (
     select count(*) from private.achievement_unlocks
-    where member_id = '95000000-0000-4000-8000-000000000006' and achievement_key = 'first_accepted_contribution'
+    where member_id = '95000000-0000-4000-8000-000000000006' and achievement_key = 'contributions_bronze'
   ),
   1::bigint,
-  'BTRUST''s single confirmed Contribution unlocks first_accepted_contribution'
+  'BTRUST''s single confirmed Contribution unlocks contributions_bronze'
 );
 select is(
   (
@@ -673,10 +676,10 @@ values (
 select is(
   (
     select count(*) from private.achievement_unlocks
-    where member_id = '95000000-0000-4000-8000-000000000007' and achievement_key = 'first_accepted_contribution'
+    where member_id = '95000000-0000-4000-8000-000000000007' and achievement_key = 'contributions_bronze'
   ),
   1::bigint,
-  'R1''s single confirmed Contribution unlocks first_accepted_contribution'
+  'R1''s single confirmed Contribution unlocks contributions_bronze'
 );
 
 select id as r1_contribution_id into temporary table r1_contribution
@@ -697,7 +700,7 @@ select public.revoke_contribution(
 select is(
   (
     select count(*) from private.achievement_unlocks
-    where member_id = '95000000-0000-4000-8000-000000000007' and achievement_key = 'first_accepted_contribution'
+    where member_id = '95000000-0000-4000-8000-000000000007' and achievement_key = 'contributions_bronze'
   ),
   1::bigint,
   'Revoking R1''s only Contribution does not remove the already-earned badge'
@@ -707,7 +710,7 @@ select is(
     select count(*) from private.achievement_recalculations as recalculation
     join private.achievement_unlocks as unlock on unlock.id = recalculation.unlock_id
     where unlock.member_id = '95000000-0000-4000-8000-000000000007'
-      and unlock.achievement_key = 'first_accepted_contribution'
+      and unlock.achievement_key = 'contributions_bronze'
       and recalculation.triggering_event = 'contribution_revoked'
   ),
   1::bigint,
@@ -866,8 +869,8 @@ select set_config('request.jwt.claim.sub', '95000000-0000-4000-8000-000000000001
 set local role authenticated;
 select is(
   (select count(*) from public.get_my_achievements() where earned_at is not null),
-  10::bigint,
-  'M1 sees exactly the ten Achievements earned so far in their own catalogue read'
+  16::bigint,
+  'M1 sees exactly the sixteen Achievements earned so far in their own catalogue read'
 );
 reset role;
 
@@ -878,10 +881,18 @@ select is(
   0::bigint,
   'OTHER, who has earned nothing, cannot see any of M1''s earned Achievements through their own read'
 );
-select is(
-  (select count(*) from public.get_my_achievements()),
-  1::bigint,
-  'OTHER receives only the enabled empty sentinel and cannot discover the locked catalogue'
+-- OTHER now receives the full grid of open tiers rather than an empty sentinel: that is the point
+-- of visible gaps. What must still hold is that nothing of another Member's progress leaks into it,
+-- so every row is a locked tier at zero with no earned entry and no bespoke definition.
+select ok(
+  (
+    select count(*) = 12
+      and bool_and(entry_kind = 'locked')
+      and bool_and(collection is not null)
+      and bool_and(progress_current = 0)
+    from public.get_my_achievements()
+  ),
+  'OTHER receives only open tiers at zero and cannot discover a bespoke definition or another Member''s progress'
 );
 select throws_ok(
   $$select * from public.get_moderation_member_achievements('95000000-0000-4000-8000-000000000001')$$,
@@ -1057,7 +1068,7 @@ select extensions.dblink_disconnect('achievement_race_b');
 
 select is(
   (select private.detach_member_achievements('95000000-0000-4000-8000-000000000001'::uuid)),
-  10::bigint,
+  16::bigint,
   'The account-deletion cleanup seam hard-deletes every unlock row for the member'
 );
 select is(

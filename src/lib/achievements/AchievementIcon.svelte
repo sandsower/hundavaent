@@ -4,30 +4,31 @@
   interface Props {
     achievementKey: string;
     group: AchievementGroup;
+    // A tier has no motif of its own: the three rungs of a collection share the collection's motif,
+    // so the icon keys off the collection whenever there is one.
+    collection?: string | null;
   }
 
-  let { achievementKey, group }: Props = $props();
+  let { achievementKey, group, collection = null }: Props = $props();
+
+  const collectionMotifs: Record<string, string> = {
+    explorer_places: 'trail',
+    place_categories: 'categories',
+    municipalities: 'map',
+    contributions: 'contribution'
+  };
+
+  const bespokeMotifs: Record<string, string> = {
+    first_favourite: 'favourite',
+    first_rating: 'rating',
+    first_checkin: 'place',
+    sustained_quality_contributor: 'quality'
+  };
 
   const motif = $derived(
-    achievementKey === 'first_favourite'
-      ? 'favourite'
-      : achievementKey === 'first_rating'
-        ? 'rating'
-        : achievementKey === 'first_checkin'
-          ? 'place'
-          : achievementKey === 'explorer_ten_places'
-            ? 'trail'
-            : achievementKey === 'category_curious'
-              ? 'categories'
-              : achievementKey === 'capital_region_wanderer'
-                ? 'map'
-                : achievementKey === 'first_accepted_contribution'
-                  ? 'contribution'
-                  : achievementKey === 'sustained_quality_contributor'
-                    ? 'quality'
-                    : group === 'longevity'
-                      ? 'longevity'
-                      : 'paw'
+    (collection ? collectionMotifs[collection] : undefined) ??
+      bespokeMotifs[achievementKey] ??
+      (group === 'longevity' ? 'longevity' : 'paw')
   );
 </script>
 

@@ -720,14 +720,18 @@ for (const locale of ['is', 'en'] as const) {
       );
     };
 
+    // A Member with nothing earned sees the full grid of open tiers, not an empty page: the twelve
+    // visible gaps are what tell them what is ahead.
     await page.goto(`/${locale}/account/achievements`);
     await expect(page.getByRole('heading', { name: achievementsTitle })).toBeVisible();
-    await capture(page, evidence, `achievements-empty-${locale}-desktop.png`);
+    await expect(page.locator('[data-achievement-tier]')).toHaveCount(12);
+    await capture(page, evidence, `achievements-untouched-${locale}-desktop.png`);
 
     await provisionLocalAchievementProgress(evaluationModerator.email);
     await page.goto(`/${locale}/account/achievements`);
-    await expect(page.locator('[data-achievement-milestone]')).toHaveCount(2);
-    await capture(page, evidence, `achievements-milestones-${locale}-desktop.png`);
+    await expect(page.locator('[data-achievement-tier]')).toHaveCount(12);
+    await expect(page.locator('[data-tier-state="started"]')).toHaveCount(3);
+    await capture(page, evidence, `achievements-collections-${locale}-desktop.png`);
 
     await provisionCelebrationEvidence();
     await page.goto(`/${locale}/account`);

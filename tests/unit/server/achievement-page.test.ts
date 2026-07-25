@@ -8,6 +8,12 @@ const emptyCatalogue = {
   achievement_key: null,
   achievement_group: null,
   display_order: null,
+  collection: null,
+  tier: null,
+  collection_name_is: null,
+  collection_name_en: null,
+  collection_description_is: null,
+  collection_description_en: null,
   name_is: null,
   name_en: null,
   description_is: null,
@@ -24,6 +30,12 @@ const claimedAchievement = {
   achievement_key: 'first_favourite',
   achievement_group: 'participation',
   display_order: 1,
+  collection: null,
+  tier: null,
+  collection_name_is: null,
+  collection_name_en: null,
+  progress_kind: null,
+  progress_target: null,
   name_is: 'Fyrsta uppáhaldið',
   name_en: 'First Favourite',
   description_is: 'Þú vistaðir þinn fyrsta stað sem uppáhald.',
@@ -85,7 +97,8 @@ describe('Achievements page boundary', () => {
           descriptionIs: 'Þú vistaðir þinn fyrsta stað sem uppáhald.',
           descriptionEn: 'You saved your first Place as a Favourite.',
           earnedAt: '2026-07-23T12:00:00Z',
-          kind: 'earned'
+          kind: 'earned',
+          entry: 'bespoke'
         }
       ]
     });

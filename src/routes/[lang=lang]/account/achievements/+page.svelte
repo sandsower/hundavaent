@@ -7,41 +7,47 @@
   import { formatLocalizedDate } from '$i18n/date';
   import type { MessageKey } from '$i18n';
   import AchievementCelebration from '$lib/achievements/AchievementCelebration.svelte';
+  import AchievementCollectionGrid from '$lib/achievements/AchievementCollectionGrid.svelte';
   import AchievementIcon from '$lib/achievements/AchievementIcon.svelte';
-  import AchievementMilestoneCard from '$lib/achievements/AchievementMilestoneCard.svelte';
   import { publishAchievementAcknowledged } from '$lib/achievements/client';
-  import type { AchievementGroup, EarnedAchievement } from '$server/achievements/achievements';
+  import type {
+    AchievementGroup,
+    ClaimedAchievement,
+    EarnedBespokeAchievement
+  } from '$server/achievements/achievements';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
   let claimForm = $state<HTMLFormElement>();
-  let claimed = $state<EarnedAchievement[]>([]);
+  let claimed = $state<ClaimedAchievement[]>([]);
 
   $effect.pre(() => {
-    if (hasClaimResult(form)) claimed = form.claimed as EarnedAchievement[];
+    if (hasClaimResult(form)) claimed = form.claimed as ClaimedAchievement[];
   });
 
   const groupKey = (group: AchievementGroup): MessageKey =>
     `achievements.group.${group}` as MessageKey;
-  const name = (achievement: EarnedAchievement): string =>
+  const name = (achievement: EarnedBespokeAchievement): string =>
     data.lang === 'is' ? achievement.nameIs : achievement.nameEn;
-  const description = (achievement: EarnedAchievement): string =>
+  const description = (achievement: EarnedBespokeAchievement): string =>
     data.lang === 'is' ? achievement.descriptionIs : achievement.descriptionEn;
   const earnedLine = (earnedAt: string): string =>
     data.copy['achievements.earned'].replace('{date}', formatLocalizedDate(earnedAt, data.lang));
 
-  const milestones = $derived(
-    data.achievements.achievements.filter((achievement) => achievement.kind === 'milestone')
-  );
-  const earned = $derived(
-    data.achievements.achievements.filter((achievement) => achievement.kind === 'earned')
+  // The archive holds only the bespoke Achievements. Tiers live in the grid above, where their
+  // locked siblings are the point.
+  const earnedBespoke = $derived(
+    data.achievements.achievements.filter(
+      (achievement): achievement is EarnedBespokeAchievement =>
+        achievement.kind === 'earned' && achievement.entry === 'bespoke'
+    )
   );
   const claimedKeys = $derived(new Set(claimed.map((achievement) => achievement.key)));
 
   // Group in catalogue order: the RPC returns entries sorted by display_order, so the first
   // appearance of each group preserves the catalogue's own group sequence.
   const groups = $derived(
-    earned.reduce<{ group: AchievementGroup; items: EarnedAchievement[] }[]>(
+    earnedBespoke.reduce<{ group: AchievementGroup; items: EarnedBespokeAchievement[] }[]>(
       (accumulated, achievement) => {
         const existing = accumulated.find((candidate) => candidate.group === achievement.group);
         if (existing) {
@@ -66,7 +72,7 @@
         return;
       }
 
-      claimed = result.data.claimed as EarnedAchievement[];
+      claimed = result.data.claimed as ClaimedAchievement[];
       publishAchievementAcknowledged();
     };
   };
@@ -79,7 +85,7 @@
 
   function hasClaimResult(value: PageProps['form']): value is NonNullable<PageProps['form']> & {
     action: 'claimAchievements';
-    claimed: EarnedAchievement[];
+    claimed: ClaimedAchievement[];
   } {
     return (
       value !== null &&
@@ -124,23 +130,11 @@
       </section>
     {/if}
 
-    {#if milestones.length > 0}
-      <section class="next hv-stack" aria-labelledby="next-achievement-heading">
-        <header class="section-header">
-          <h2 id="next-achievement-heading">{data.copy['achievements.nextTitle']}</h2>
-          <p>{data.copy['achievements.nextIntro']}</p>
-        </header>
-        <div class="milestone-grid">
-          {#each milestones as milestone (milestone.key)}
-            <AchievementMilestoneCard {milestone} lang={data.lang} copy={data.copy} />
-          {/each}
-        </div>
-      </section>
-    {/if}
-
-    {#if groups.length === 0 && milestones.length === 0}
-      <p class="empty hv-notice" data-tone="info">{data.copy['achievements.empty']}</p>
-    {/if}
+    <AchievementCollectionGrid
+      achievements={data.achievements.achievements}
+      lang={data.lang}
+      copy={data.copy}
+    />
 
     {#if groups.length > 0}
       <section class="archive hv-stack" aria-labelledby="achievement-archive-heading">
@@ -194,34 +188,14 @@
   }
 
   .celebrations,
-  .next,
   .archive {
     --hv-space-context: 1rem;
   }
 
-  .section-header h2,
-  .section-header p,
   .archive > h2 {
     margin: 0;
-  }
-
-  .section-header h2,
-  .archive > h2 {
     font-family: var(--hv-font-display);
     font-size: clamp(1.35rem, 4vw, 1.8rem);
-  }
-
-  .section-header p {
-    max-width: 48ch;
-    margin-block-start: 0.35rem;
-    color: var(--hv-color-basalt-muted);
-    line-height: 1.5;
-  }
-
-  .milestone-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.85rem;
   }
 
   .group {
@@ -292,10 +266,6 @@
     font-weight: 700;
   }
 
-  .empty {
-    margin: 0;
-  }
-
   .disabled-card p {
     margin: 0;
     line-height: 1.55;
@@ -305,11 +275,5 @@
     border-color: var(--hv-color-fjord);
     justify-self: start;
     color: var(--hv-color-fjord);
-  }
-
-  @media (max-width: 40rem) {
-    .milestone-grid {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

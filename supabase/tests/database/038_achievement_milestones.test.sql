@@ -4,12 +4,9 @@ create extension if not exists pgtap with schema extensions;
 
 select no_plan();
 
-select has_column(
-  'private',
-  'achievement_definitions',
-  'locked_visibility',
-  'Achievement definitions designate milestone or surprise visibility'
-);
+-- Locked visibility is no longer a column of its own: belonging to a collection is the single
+-- source of truth for it, and 048 covers that surface. This file keeps what it alone proves - the
+-- eligibility boundary, version pinning, claim-once semantics and the disabled sentinel.
 select has_column(
   'private',
   'achievement_definitions',
@@ -24,7 +21,7 @@ select has_column(
 );
 select has_function(
   'private',
-  'get_member_achievement_progress',
+  'member_achievement_metrics',
   array['uuid', 'timestamp with time zone', 'integer'],
   'Achievement progress has one durable-source private seam'
 );
@@ -254,10 +251,10 @@ set local role authenticated;
 
 select ok(
   (
-    select count(*) = 1
+    select count(*) = 12
       and bool_and(enabled)
-      and bool_and(achievement_key is null)
-      and bool_and(entry_kind is null)
+      and bool_and(entry_kind = 'locked')
+      and bool_and(progress_current = 0)
     from public.get_my_achievements()
   ),
   'Pre-activation activity produces neither surfaced progress nor an earned Achievement'
@@ -301,10 +298,10 @@ select is(
   (
     select max(progress_current)
     from public.get_my_achievements()
-    where entry_kind = 'milestone'
+    where entry_kind = 'locked'
   ),
   1,
-  'Post-activation activity starts milestone progress at one without historical credit'
+  'Post-activation activity starts tier progress at one without historical credit'
 );
 select is(
   (
@@ -326,34 +323,36 @@ select set_config(
 );
 set local role authenticated;
 
+-- This Member has two credited Places across two category groups and two municipalities, which
+-- closes both bronze tiers whose threshold is two and leaves the other ten tiers visibly open.
 select is(
   (
     select count(*)
     from public.get_my_achievements()
-    where entry_kind = 'milestone'
+    where entry_kind = 'locked'
   ),
-  2::bigint,
-  'An enabled Member receives no more than two relevant locked milestones'
+  10::bigint,
+  'Every unearned tier stays visible, so the Member can see the shape of what is ahead'
 );
-select results_eq(
+select set_eq(
   $$
     select achievement_key
     from public.get_my_achievements()
-    where entry_kind = 'milestone'
-    order by display_order
+    where entry_kind = 'earned'
   $$,
   $$
     values
-      ('category_curious'::text),
-      ('capital_region_wanderer'::text)
+      ('place_categories_bronze'::text),
+      ('municipalities_bronze'::text),
+      ('first_checkin'::text)
   $$,
-  'Normalized closeness selects category and municipality diversity ahead of raw Place count'
+  'Crossing a bronze threshold earns exactly that tier'
 );
 select is(
   (
     select progress_current
     from public.get_my_achievements()
-    where achievement_key = 'category_curious'
+    where achievement_key = 'place_categories_silver'
   ),
   2,
   'Category progress comes from distinct credited Place category groups'
@@ -362,16 +361,16 @@ select is(
   (
     select progress_target
     from public.get_my_achievements()
-    where achievement_key = 'category_curious'
+    where achievement_key = 'place_categories_silver'
   ),
-  4,
+  3,
   'Category progress exposes its understandable definition target'
 );
 select is(
   (
     select progress_current
     from public.get_my_achievements()
-    where achievement_key = 'capital_region_wanderer'
+    where achievement_key = 'municipalities_silver'
   ),
   2,
   'Municipality progress comes from distinct credited Place municipalities'
@@ -383,7 +382,6 @@ select is(
     where achievement_key in (
       'first_favourite',
       'first_rating',
-      'first_accepted_contribution',
       'sustained_quality_contributor',
       'six_month_member',
       'one_year_member'
@@ -395,12 +393,12 @@ select is(
 );
 select is(
   (
-    select count(*)
+    select progress_current
     from public.get_my_achievements()
-    where achievement_key = 'explorer_ten_places'
+    where achievement_key = 'explorer_places_bronze'
   ),
-  0::bigint,
-  'A third relevant milestone remains absent after the deterministic two-item limit'
+  2,
+  'A tier the Member is far from is still shown, with honest progress, rather than being hidden'
 );
 
 select is(
@@ -457,7 +455,6 @@ insert into private.achievement_definitions (
   description_is,
   description_en,
   criteria,
-  locked_visibility,
   progress_kind
 )
 select
@@ -470,7 +467,6 @@ select
   definition.description_is,
   definition.description_en,
   definition.criteria,
-  definition.locked_visibility,
   definition.progress_kind
 from private.achievement_definitions as definition
 where definition.key = 'first_checkin'
@@ -487,10 +483,12 @@ select is(
   'First Check-in',
   'An earned Achievement remains pinned to its recorded definition version'
 );
+-- Three unlocks are waiting: first_checkin plus the two bronze tiers this Member's two credited
+-- Places closed. A single claim takes all of them exactly once.
 select is(
   (select count(*) from public.claim_my_achievement_celebrations()),
-  1::bigint,
-  'The intended experience atomically claims the newly earned Achievement once'
+  3::bigint,
+  'The intended experience atomically claims every newly earned Achievement once'
 );
 select is(
   (select count(*) from public.claim_my_achievement_celebrations()),
@@ -571,13 +569,14 @@ set local role authenticated;
 
 select ok(
   (
-    select count(*) = 1
+    select count(*) = 12
       and bool_and(enabled)
-      and bool_and(achievement_key is null)
-      and bool_and(entry_kind is null)
+      and bool_and(entry_kind = 'locked')
+      and bool_and(earned_at is null)
+      and bool_and(collection is not null)
     from public.get_my_achievements()
   ),
-  'An enabled Member with no earned or started milestone receives a safe empty sentinel'
+  'An enabled Member with nothing earned receives the full grid of open tiers, never an empty page'
 );
 
 reset role;

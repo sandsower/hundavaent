@@ -4,11 +4,12 @@
   import type { Catalogue, Locale } from '$i18n';
   import { formatLocalizedDate } from '$i18n/date';
   import PawMark from '$lib/member-activity/PawMark.svelte';
-  import type { EarnedAchievement } from '$server/achievements/achievements';
+  import type { ClaimedAchievement } from '$server/achievements/achievements';
   import AchievementIcon from './AchievementIcon.svelte';
+  import { collectionName, tierDescription, tierDisplayName } from './tier-copy';
 
   interface Props {
-    achievement: EarnedAchievement;
+    achievement: ClaimedAchievement;
     lang: Locale;
     copy: Catalogue;
   }
@@ -16,9 +17,21 @@
   let { achievement, lang, copy }: Props = $props();
   let reducedMotion = $state(false);
 
-  const name = $derived(lang === 'is' ? achievement.nameIs : achievement.nameEn);
+  // A tier has no copy of its own, so its card is composed from the collection name, the tier label
+  // and the threshold it closed.
+  const name = $derived(
+    achievement.entry === 'tier'
+      ? tierDisplayName(collectionName(achievement, lang), achievement.tier, copy)
+      : lang === 'is'
+        ? achievement.nameIs
+        : achievement.nameEn
+  );
   const description = $derived(
-    lang === 'is' ? achievement.descriptionIs : achievement.descriptionEn
+    achievement.entry === 'tier'
+      ? tierDescription(achievement.progressKind, achievement.progressTarget, copy)
+      : lang === 'is'
+        ? achievement.descriptionIs
+        : achievement.descriptionEn
   );
   const regionLabel = $derived(copy['achievements.celebrationRegion'].replace('{name}', name));
   const earnedLine = $derived(
@@ -39,7 +52,11 @@
   <div class="art" aria-hidden="true">
     <span class="halo"></span>
     <span class="achievement-icon">
-      <AchievementIcon achievementKey={achievement.key} group={achievement.group} />
+      <AchievementIcon
+        achievementKey={achievement.key}
+        collection={achievement.entry === 'tier' ? achievement.collection : null}
+        group={achievement.group}
+      />
     </span>
     <svg class="trail" viewBox="0 0 110 38" fill="none">
       <path d="M5 29c18 5 19-17 36-12s21 20 35 5c8-9 18-8 29-3" />
