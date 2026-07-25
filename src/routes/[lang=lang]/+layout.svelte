@@ -1,7 +1,7 @@
 <script lang="ts">
   import '../../app.css';
 
-  import { afterNavigate, invalidateAll, replaceState } from '$app/navigation';
+  import { afterNavigate, invalidateAll, onNavigate, replaceState } from '$app/navigation';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
   import { env } from '$env/dynamic/public';
@@ -15,6 +15,7 @@
   import AuthDialog from '$lib/auth/AuthDialog.svelte';
   import { requestAuthentication } from '$lib/auth/controller';
   import AchievementUnreadIndicator from '$lib/achievements/AchievementUnreadIndicator.svelte';
+  import { shouldViewTransition } from '$lib/design-system/navigation';
   import { subscribeToAchievementAcknowledged } from '$lib/achievements/client';
   import {
     publishDeferredFavouriteRecognition,
@@ -77,6 +78,30 @@
 
   afterNavigate(() => {
     setTimeout(captureAuthResult, 0);
+  });
+
+  onNavigate((navigation) => {
+    if (
+      !shouldViewTransition({
+        fromRouteId: navigation.from?.route.id ?? null,
+        toRouteId: navigation.to?.route.id ?? null,
+        prefersReducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+        supported: typeof document.startViewTransition === 'function'
+      })
+    ) {
+      return;
+    }
+    return new Promise((navigationReady) => {
+      const transition = document.startViewTransition(async () => {
+        navigationReady();
+        await navigation.complete;
+      });
+      // A skipped transition (rapid double navigation, hidden tab, duplicate name) and a
+      // failed load both reject these promises as their normal outcome; leaving them
+      // unhandled would feed spurious unhandledrejection events to browser error tracking.
+      transition.ready.catch(() => undefined);
+      transition.finished.catch(() => undefined);
+    });
   });
 
   onMount(() => {
@@ -373,6 +398,9 @@
   .site-header {
     position: relative;
     z-index: 10;
+    /* The header morphs between its floating discovery pills and the solid bar during view
+       transitions instead of crossfading with the rest of the page. */
+    view-transition-name: site-header;
     display: flex;
     width: 100%;
     height: var(--hv-app-header-height);
