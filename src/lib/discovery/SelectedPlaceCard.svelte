@@ -435,6 +435,13 @@
     padding: 0.35rem 0.5rem;
   }
 
+  /* basalt-muted is not a readable pair with fjord-soft: at this caption's 0.68rem the credit
+     measured 4.34:1 against the 4.5:1 minimum, which Axe caught intermittently. Full basalt
+     takes the same text to 10:1 on the same background. */
+  .summary-photo figcaption :global(.photo-credit) {
+    color: var(--hv-color-basalt);
+  }
+
   .member-actions :global(.check-in) {
     margin-top: 0;
     padding-top: 0.6rem;
