@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { page as browserPage } from 'vitest/browser';
 
 import { catalogues } from '$i18n';
@@ -929,6 +929,10 @@ describe('MapListShell synchronization', () => {
       '--hv-ease-settle',
       `cubic-bezier(${motionEasings.settle.join(', ')})`
     );
+    onTestFinished(() => {
+      document.documentElement.style.removeProperty('--hv-motion-quick');
+      document.documentElement.style.removeProperty('--hv-ease-settle');
+    });
     render(MapListShell, {
       places,
       lang: 'en',
@@ -968,9 +972,6 @@ describe('MapListShell synchronization', () => {
       expect(getComputedStyle(element).opacity).toBe('1');
       expect(getComputedStyle(element).transform).not.toBe('none');
     }
-
-    document.documentElement.style.removeProperty('--hv-motion-quick');
-    document.documentElement.style.removeProperty('--hv-ease-settle');
   });
 
   it('isolates cached and late profile responses by locale and Place', async () => {

@@ -27,7 +27,7 @@ const unconvertedSurfaces = new Set<string>([]);
 // the token scale exactly as a hand-picked duration does, and it is the half of a stagger that
 // has to collapse for reduced motion to work.
 const durationDeclarationPattern = /\b(?:transition|animation)(?:-duration|-delay)?\s*:[^;{}]*/g;
-const durationLiteralPattern = /\b\d+(?:\.\d+)?m?s\b/;
+const durationLiteralPattern = /(?<!\w)(?:\d+(?:\.\d+)?|\.\d+)m?s\b/;
 const easingPattern = /cubic-bezier\s*\(/g;
 
 // Durations picked in script drift exactly as CSS ones do, but they hide in plain assignments:
