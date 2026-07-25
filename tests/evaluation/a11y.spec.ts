@@ -597,28 +597,25 @@ test('reduced motion keeps the selected card legible without wiping the bar open
   // The bar is the state, not decoration. Reduced motion takes the wipe away; a Member who
   // asked for less motion still has to see which card is selected, so the bar has to arrive at
   // full height rather than being suppressed alongside the movement.
-  const readBar = (locator: typeof selected) =>
-    locator.evaluate((element) => {
-      const styles = getComputedStyle(element, '::before');
-      const duration = styles.transitionDuration;
-      // matrix(a, b, c, d, e, f): d carries the Y scale, so a fully wiped bar reads as 1.
-      return {
-        verticalScale: Number.parseFloat(
-          styles.transform.replace(/^matrix\(|\)$/g, '').split(',')[3]
-        ),
-        duration: duration.endsWith('ms')
-          ? Number.parseFloat(duration)
-          : Number.parseFloat(duration) * 1_000
-      };
-    });
-
-  const bar = await readBar(selected);
+  // Only the selected card is read here. Whether an unselected card keeps its bar shut is
+  // covered by tests/component/everyday-motion.browser.test.ts, which can render both states on
+  // demand; asserting it here would tie this test to how many Places the fixture set publishes,
+  // and the accessibility fixtures publish exactly one.
+  const bar = await selected.evaluate((element) => {
+    const styles = getComputedStyle(element, '::before');
+    const duration = styles.transitionDuration;
+    // matrix(a, b, c, d, e, f): d carries the Y scale, so a fully wiped bar reads as 1.
+    return {
+      verticalScale: Number.parseFloat(
+        styles.transform.replace(/^matrix\(|\)$/g, '').split(',')[3]
+      ),
+      duration: duration.endsWith('ms')
+        ? Number.parseFloat(duration)
+        : Number.parseFloat(duration) * 1_000
+    };
+  });
   expect(bar.duration).toBeLessThanOrEqual(0.01);
   expect(bar.verticalScale).toBe(1);
-  // And it still discriminates: an unselected card keeps its bar closed.
-  expect(
-    (await readBar(page.locator('[data-place-card]:not(.selected)').first())).verticalScale
-  ).toBe(0);
 
   await expectNoSeriousAxeViolations(page, evidence);
 });
