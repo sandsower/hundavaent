@@ -6,6 +6,7 @@ import {
   formatOpeningHours,
   localizeAccessArea,
   localizeEvidenceKind,
+  localizeFlagTarget,
   localizePermission,
   localizeRestraint
 } from '$i18n/structured-place';
@@ -34,5 +35,15 @@ describe('structured Place copy', () => {
     expect(localizeRestraint('leash_required', catalogues.en)).toBe('Leash required');
     expect(localizePermission('ask_on_arrival', catalogues.is)).toBe('Spyrja þarf við komu');
     expect(localizeEvidenceKind('public_record', catalogues.is)).toBe('Opinber skrá');
+  });
+
+  it('names every flag target kind, and never calls a whole-Place claim an Access Condition', () => {
+    expect(localizeFlagTarget('place', null, catalogues.en)).toBe('The whole place');
+    expect(localizeFlagTarget('place', null, catalogues.is)).toBe('Staðurinn í heild');
+    expect(localizeFlagTarget('place_field', 'phone', catalogues.en)).toBe('Phone');
+    expect(localizeFlagTarget('access_condition', null, catalogues.en)).toBe('An Access Condition');
+    // A place_field row that lost its field is still not a Condition claim, but the Condition
+    // wording is the only honest fallback left: it is the shape the older rows all had.
+    expect(localizeFlagTarget('place_field', null, catalogues.en)).toBe('An Access Condition');
   });
 });

@@ -3,13 +3,17 @@
   import {
     hasPendingAccessCondition,
     hasPendingPlaceField,
+    hasPendingPlaceReport,
     memberPlaceFields,
+    placeReportReasons,
     type MemberPlaceField,
-    type PendingPlaceFlag
+    type PendingPlaceFlag,
+    type PlaceReportReason
   } from '$lib/contributions/correction';
-  import { correctConditionHref } from '$lib/discovery/correct-link';
+  import { correctConditionHref, reportPlaceHref } from '$lib/discovery/correct-link';
   import { createLiveAnnouncer } from '$lib/discovery/live-announcement';
   import PlaceFieldCorrection from '$lib/discovery/PlaceFieldCorrection.svelte';
+  import PlaceReportAction from '$lib/discovery/PlaceReportAction.svelte';
   import type { PublishedPlaceProfile } from '$server/discovery/public-places';
 
   /**
@@ -46,6 +50,14 @@
   let panel = $state<HTMLElement>();
   let trigger = $state<HTMLButtonElement>();
   let focusTarget = $state<'panel' | 'trigger' | null>(null);
+  /**
+   * The affordance a Member just sent from is gone the instant it succeeds, replaced by the
+   * pending line standing in for it. The shell cannot return focus to a trigger it no longer
+   * renders, so the parent that made the swap moves focus onto the line that replaced it: the
+   * Member hears what happened, and the next Tab carries on from where they were rather than from
+   * the top of the document.
+   */
+  let submittedFlag = $state<PendingPlaceFlag | null>(null);
   // Four editors share this one region, so two of them reporting the same outcome in a row is the
   // ordinary case rather than the edge case. The shared announcer is what makes the repeat audible.
   let announcement = $state('');
@@ -56,6 +68,15 @@
     website_url: 'placeField.websiteUrl',
     phone: 'placeField.phone',
     dog_amenities: 'placeField.dogAmenities'
+  };
+
+  // Only for the pending line, which has to name the claim it is standing in for now that the
+  // action that carried those words is gone. The actions themselves read the same copy through
+  // `PlaceReportAction`, which owns the trigger's label pair.
+  const reportLabels: Record<PlaceReportReason, MessageKey> = {
+    closed: 'placeReport.closed',
+    moved: 'placeReport.moved',
+    unsafe: 'placeReport.unsafe'
   };
 
   // The raw stored values, joined, and deliberately not the localized rendering the details show
@@ -86,6 +107,19 @@
     return hasPendingPlaceField(pending, field);
   }
 
+  function recordSubmitted(flag: PendingPlaceFlag): void {
+    submittedFlag = flag;
+    onSubmitted(flag);
+  }
+
+  function justSubmittedField(field: MemberPlaceField): boolean {
+    return submittedFlag?.targetKind === 'place_field' && submittedFlag.targetField === field;
+  }
+
+  function justSubmittedReport(reason: PlaceReportReason): boolean {
+    return submittedFlag?.targetKind === 'place' && submittedFlag.reportReason === reason;
+  }
+
   $effect(() => {
     if (focusTarget === 'panel' && panel) {
       panel.querySelector<HTMLElement>('button, a[href]')?.focus();
@@ -95,6 +129,17 @@
       trigger.focus();
       focusTarget = null;
     }
+  });
+
+  $effect(() => {
+    // `pending` is read so this re-runs when the card hands the suppression back down, which is
+    // what renders the line being focused.
+    void pending;
+    if (!submittedFlag || !panel) return;
+    const line = panel.querySelector<HTMLElement>('[data-pending-focus]');
+    if (!line) return;
+    line.focus();
+    submittedFlag = null;
   });
 </script>
 
@@ -114,7 +159,7 @@
             <span class="fact-label">{copy[fieldLabels[field]]}</span>
             <span class="fact-value">{values[field] || copy['common.notAvailable']}</span>
             {#if pendingField(field)}
-              {@render pendingLine()}
+              {@render pendingLine(justSubmittedField(field))}
             {:else}
               <PlaceFieldCorrection
                 placeId={profile.placeId}
@@ -125,7 +170,7 @@
                 {field}
                 currentValue={values[field]}
                 {announce}
-                {onSubmitted}
+                onSubmitted={recordSubmitted}
               />
             {/if}
           </li>
@@ -142,7 +187,9 @@
                   >{copy['place.conditionLabel'].replace('{number}', String(index + 1))}</span
                 >
                 {#if hasPendingAccessCondition(pending, condition.id)}
-                  {@render pendingLine()}
+                  <!-- Never focused from here: these are links out to the form, so nothing in this
+                       panel can turn one into a pending line while the Member is standing on it. -->
+                  {@render pendingLine(false)}
                 {:else}
                   <!-- eslint-disable svelte/no-navigation-without-resolve -- correctConditionHref builds the path with $app/paths resolve() -->
                   <a
@@ -161,6 +208,52 @@
           </ul>
         </div>
       {/if}
+
+      <!-- Beneath the per-fact affordances, because these three are not about any fact: they are
+           claims about the whole Place, and a Member who has one is not looking for a field. -->
+      <div class="reports">
+        <h5>{copy['placeReport.heading']}</h5>
+        <ul class="facts">
+          {#each placeReportReasons as reason (reason)}
+            <li>
+              {#if hasPendingPlaceReport(pending, reason)}
+                <!-- Per reason, not per Place: an open "closed" says nothing about "unsafe", so
+                     the other two claims stay available. -->
+                <span class="fact-label report-claim">{copy[reportLabels[reason]]}</span>
+                <p
+                  class="pending"
+                  data-report-pending
+                  data-pending-focus={justSubmittedReport(reason) ? '' : undefined}
+                  tabindex="-1"
+                >
+                  {copy['placeReport.pending']}
+                </p>
+              {:else}
+                <PlaceReportAction
+                  placeId={profile.placeId}
+                  {placeName}
+                  {copy}
+                  {signedIn}
+                  {reason}
+                  {announce}
+                  onSubmitted={recordSubmitted}
+                />
+              {/if}
+            </li>
+          {/each}
+          <li>
+            <!-- eslint-disable svelte/no-navigation-without-resolve -- reportPlaceHref builds the path with $app/paths resolve() -->
+            <a
+              href={reportPlaceHref(lang, profile.placeId)}
+              class="report-link"
+              aria-label={copy['placeReport.somethingElseLabel'].replace('{name}', placeName)}
+            >
+              {copy['placeReport.somethingElse']}
+            </a>
+            <!-- eslint-enable svelte/no-navigation-without-resolve -->
+          </li>
+        </ul>
+      </div>
 
       <button class="hide" type="button" onclick={collapse}>
         {copy['inlineCorrection.revealHide']}
@@ -183,8 +276,15 @@
   {announcement}
 </p>
 
-{#snippet pendingLine()}
-  <p class="pending" data-correction-pending>{copy['inlineCorrection.pending']}</p>
+{#snippet pendingLine(focused: boolean)}
+  <p
+    class="pending"
+    data-correction-pending
+    data-pending-focus={focused ? '' : undefined}
+    tabindex="-1"
+  >
+    {copy['inlineCorrection.pending']}
+  </p>
 {/snippet}
 
 <style>
@@ -265,7 +365,8 @@
     font-weight: 700;
   }
 
-  .conditions {
+  .conditions,
+  .reports {
     display: grid;
     gap: 0.5rem;
   }
@@ -277,12 +378,56 @@
     font-weight: 800;
   }
 
+  /* Every claim in this group is a whole list item rather than an affordance hanging off a fact
+     label, so they all have to start on the same left edge. The three actions are buttons carrying
+     0.4rem of their own padding, so the pending line that replaces one and the link that follows
+     them are inset to match; the 0.45rem lead-in is the same one the buttons bring with them, so
+     the rhythm does not change when a claim turns into a pending line. */
+  .reports .facts {
+    gap: 0.25rem;
+  }
+
+  .report-claim,
+  .report-link {
+    margin-top: 0.45rem;
+    padding-left: 0.4rem;
+  }
+
+  .reports .pending {
+    margin-top: 0.1rem;
+    padding-left: 0.4rem;
+  }
+
+  .report-link {
+    display: inline-flex;
+    min-height: 1.5rem;
+    align-items: center;
+    justify-self: start;
+    padding-right: 0.4rem;
+    border-radius: var(--hv-radius-control);
+    color: var(--hv-color-fjord);
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+
+  .report-link:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 2px;
+  }
+
   .pending {
     margin: 0.2rem 0 0;
     color: var(--hv-color-basalt-muted);
     font-size: 0.75rem;
     font-weight: 750;
     line-height: 1.35;
+  }
+
+  /* Focusable only so this component can land the Member on the line that replaced the affordance
+     they just sent from; it is never in the tab order. */
+  .pending:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 2px;
   }
 
   .hide {

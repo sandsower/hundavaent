@@ -67,6 +67,7 @@ function mount(
     signedIn?: boolean;
     pending?: PendingPlaceFlag[];
     profile?: Partial<PublishedPlaceProfile>;
+    onSubmitted?: (flag: PendingPlaceFlag) => void;
   } = {}
 ) {
   return render(ContributionReveal, {
@@ -75,7 +76,8 @@ function mount(
     copy: catalogues.en,
     signedIn: options.signedIn ?? true,
     profile: profile(options.profile),
-    pending: options.pending ?? []
+    pending: options.pending ?? [],
+    onSubmitted: options.onSubmitted ?? (() => undefined)
   });
 }
 
@@ -99,6 +101,21 @@ function pendingCondition(accessConditionId: string): PendingPlaceFlag {
     reportReason: null,
     status: 'submitted'
   };
+}
+
+function pendingReport(reportReason: string): PendingPlaceFlag {
+  return {
+    kind: 'report',
+    targetKind: 'place',
+    targetField: null,
+    accessConditionId: null,
+    reportReason,
+    status: 'submitted'
+  };
+}
+
+function reportAction(name: string): HTMLElement {
+  return screen.getByRole('button', { name });
 }
 
 function submittedResponse(): Response {
@@ -377,6 +394,147 @@ describe('what the reveal does about a correction already sent', () => {
     expect(
       screen.getByRole('button', { name: 'Not right? Correct the name of Brikk' })
     ).toBeTruthy();
+  });
+});
+
+const closedAction = 'This place is closed - report a closure at Brikk';
+const movedAction = 'This place has moved - report a move at Brikk';
+const unsafeAction = 'This place is unsafe for dogs - report unsafe conditions for dogs at Brikk';
+
+describe('the place-level report actions behind the reveal', () => {
+  it('stays out of the way until a member asks, then offers all three claims', async () => {
+    mount();
+    expect(screen.queryByRole('button', { name: closedAction })).toBeNull();
+
+    await reveal();
+
+    expect(reportAction(closedAction)).toBeTruthy();
+    expect(reportAction(movedAction)).toBeTruthy();
+    expect(reportAction(unsafeAction)).toBeTruthy();
+  });
+
+  it('expands to a confirmation and a note, and to nothing else at all', async () => {
+    mount();
+    await reveal();
+    await fireEvent.click(reportAction(closedAction));
+
+    // The claim is the trigger. There is nothing to pick, and the note is the only field.
+    expect(screen.getByText('Report that this place is closed')).toBeTruthy();
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+    const note = screen.getByRole('textbox', { name: 'Anything to add? (optional)' });
+    expect(screen.getAllByRole('textbox')).toEqual([note]);
+    await waitFor(() => expect(document.activeElement).toBe(note));
+  });
+
+  it('sends the reason and the note, and never a language the server would have to trust', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        calls.push({ url: String(input), init: init ?? {} });
+        return submittedResponse();
+      })
+    );
+    const submitted: PendingPlaceFlag[] = [];
+    mount({ onSubmitted: (flag) => submitted.push(flag) });
+    await reveal();
+    await fireEvent.click(reportAction(unsafeAction));
+    await fireEvent.input(screen.getByRole('textbox', { name: 'Anything to add? (optional)' }), {
+      target: { value: '  Broken glass by the door.  ' }
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0].url).toBe(`/api/places/${placeId}/reports`);
+    expect(calls[0].url).not.toContain('lang=');
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({
+      reason: 'unsafe',
+      note: 'Broken glass by the door.'
+    });
+
+    // Appended by the card without a refetch, so the action it came from is silenced at once.
+    await waitFor(() =>
+      expect(submitted).toEqual([
+        {
+          kind: 'report',
+          targetKind: 'place',
+          targetField: null,
+          accessConditionId: null,
+          reportReason: 'unsafe',
+          status: 'submitted'
+        }
+      ])
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText('Thank you. A Moderator will check this.', { selector: 'p' })
+      ).toBeTruthy()
+    );
+  });
+
+  it('asks a signed-out reader to sign in at confirm and sends nothing', async () => {
+    const fetchSpy = vi.fn(async () => submittedResponse());
+    vi.stubGlobal('fetch', fetchSpy);
+    mount({ signedIn: false });
+    await reveal();
+
+    // All four lines are offered to everyone; the gate is at confirm, exactly as it is for a
+    // Correction.
+    await fireEvent.click(reportAction(closedAction));
+    await fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(requestAuthentication).toHaveBeenCalledWith({ origin: 'contribution' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('deep-links everything else to the report form with no target chosen for the member', async () => {
+    mount();
+    await reveal();
+
+    const link = screen.getByRole('link', {
+      name: 'Something else is wrong - report another problem with Brikk'
+    });
+    expect(link.getAttribute('href')).toContain(`/places/${placeId}/report`);
+    expect(link.getAttribute('href')).not.toContain('?');
+  });
+});
+
+describe('what the reveal does about a report already sent', () => {
+  it('replaces only the reason that is open and names the claim it is standing in for', async () => {
+    mount({ pending: [pendingReport('closed')] });
+    await reveal();
+
+    expect(screen.getByText('Report sent - pending review')).toBeTruthy();
+    expect(screen.getByText('This place is closed')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: closedAction })).toBeNull();
+    expect(reportAction(movedAction)).toBeTruthy();
+    expect(reportAction(unsafeAction)).toBeTruthy();
+  });
+
+  it('suppresses reports and corrections independently in both directions', async () => {
+    mount({
+      pending: [pendingReport('closed'), pendingCondition(firstConditionId), pendingField('name')]
+    });
+    await reveal();
+
+    // A Correction on a fact says nothing about the Place being closed, and the reverse.
+    expect(reportAction(movedAction)).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Not right? Correct the phone number for Brikk' })
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: closedAction })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Not right? Correct the name of Brikk' })
+    ).toBeNull();
+  });
+
+  it('leaves every claim available when the open report is about a different place', async () => {
+    mount({ pending: [pendingReport('inaccurate')] });
+    await reveal();
+
+    // 'inaccurate' is a report-form reason with no card action, so nothing is silenced.
+    expect(screen.queryByText('Report sent - pending review')).toBeNull();
+    expect(reportAction(closedAction)).toBeTruthy();
   });
 });
 

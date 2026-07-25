@@ -453,7 +453,88 @@ describe('CorrectionReviewPanel', () => {
 
     expect(screen.queryByRole('button', { name: 'Confirm useful' })).toBeNull();
   });
+
+  it('names the whole Place as the subject instead of an Access Condition nobody mentioned', () => {
+    render(CorrectionReviewPanel, {
+      data: placeLevelReport(),
+      form: null,
+      standalone: true
+    });
+
+    expect(screen.getByText('The whole place')).toBeTruthy();
+    expect(screen.queryByText('An Access Condition')).toBeNull();
+  });
+
+  it('renders the place snapshot, which is neither of the other two snapshot shapes', () => {
+    const { container } = render(CorrectionReviewPanel, {
+      data: placeLevelReport(),
+      form: null,
+      standalone: true
+    });
+
+    const snapshot = container.querySelector('[data-place-snapshot]');
+    expect(snapshot).toBeTruthy();
+    expect(snapshot).toHaveTextContent('Prófstaður / Test Place');
+    // Localized, not the stored enum: 'cafe' is a database word and a Moderator reads a catalogue.
+    expect(snapshot).toHaveTextContent('Café');
+    expect(snapshot).toHaveTextContent('Reykjavík');
+    // Nothing was proposed and there is no live value, so no before-and-after grid is laid out.
+    expect(screen.queryByText("Member's proposal")).toBeNull();
+  });
+
+  it('never reads a missing live value on a whole-Place Report as drift', () => {
+    render(CorrectionReviewPanel, {
+      data: placeLevelReport(),
+      form: null,
+      standalone: true
+    });
+
+    // The safety bit is the only thing that should ask for attention here.
+    expect(screen.queryByText('Current value now')).toBeNull();
+  });
+
+  it('offers no Access Dispute on a target that has no Access Condition', () => {
+    render(CorrectionReviewPanel, {
+      data: placeLevelReport(),
+      form: null,
+      standalone: true
+    });
+
+    expect(screen.queryByRole('button', { name: 'Open dispute' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Inactivate Place' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Confirm useful' })).toBeTruthy();
+  });
 });
+
+/**
+ * A Report about the whole Place: no field, no Condition, no proposal, and a snapshot recording what
+ * identified the Place at the moment the claim was raised.
+ */
+function placeLevelReport(): typeof data {
+  return {
+    ...data,
+    flag: {
+      ...flag,
+      reportReason: 'closed' as const,
+      targetKind: 'place' as const,
+      targetField: null,
+      accessConditionId: null,
+      currentValueSnapshot: {
+        name: { is: 'Prófstaður', en: 'Test Place' },
+        category: 'cafe',
+        locality: 'Reykjavík'
+      } as never,
+      currentLiveValue: null,
+      currentVerificationId: null,
+      currentVerificationStatus: null,
+      currentVerificationVerifiedAt: null,
+      currentVerificationFreshnessUntil: null,
+      currentVerificationEvidence: null,
+      proposedValue: null
+    },
+    related: []
+  };
+}
 
 function hatchedNameCorrection(): typeof data {
   return {

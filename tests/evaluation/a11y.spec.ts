@@ -800,10 +800,19 @@ test('Correction, Report, and Moderator review forms are keyboard-operable and A
   await expect(page.getByLabel('Choose the detail')).toBeFocused();
   await expectNoSeriousAxeViolations(page, evidence);
 
-  await page.goto(
-    `/en/places/${correctable.placeId}/report?conditionId=${correctable.accessConditionId}`
-  );
+  // Deliberately the bare URL, which is what "Something else is wrong" on the card links to and
+  // what every other run of this form has never exercised: the deep-linked `?conditionId=` state
+  // is still captured by visual.spec.ts, so this pass covers the default one instead.
+  await page.goto(`/en/places/${correctable.placeId}/report`);
   await expect(page.getByRole('heading', { name: 'Report a problem' })).toBeVisible();
+  // The whole Place is the default, and it carries neither a field nor a Condition, so neither
+  // selector is in the DOM to be tabbed into or read out.
+  await expect(page.getByLabel('What are you correcting?')).toHaveValue('place');
+  await expect(page.getByLabel('What are you correcting?').locator('option:checked')).toHaveText(
+    'The whole place'
+  );
+  await expect(page.getByLabel('Choose the detail')).toHaveCount(0);
+  await expect(page.getByLabel('Choose the Access Condition')).toHaveCount(0);
   await page.getByLabel('What kind of problem is this?').focus();
   await page.keyboard.press('Tab');
   await expect(page.getByLabel('This is a Safety Concern')).toBeFocused();

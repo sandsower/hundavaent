@@ -291,3 +291,86 @@ describe('the reveal on the practical details', () => {
     expect(screen.queryByRole('button', { name: /correct the name of/i })).toBeNull();
   });
 });
+
+/**
+ * A successful send is the one exit the shared shell cannot manage: the parent replaces the whole
+ * affordance with a pending line, so the trigger the shell would hand focus back to is gone before
+ * it could. Left alone, focus falls to `body` and a keyboard Member restarts from the top of the
+ * document with no idea what happened.
+ */
+describe('where focus lands when a send removes the affordance it came from', () => {
+  function stubSubmittingFetch(): void {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const body =
+          init?.method === 'POST'
+            ? { status: 'submitted', flagId: 'flag-1' }
+            : url.includes('/corrections')
+              ? { pending: [] }
+              : {};
+        return new Response(JSON.stringify(body), {
+          headers: { 'content-type': 'application/json' }
+        });
+      })
+    );
+  }
+
+  async function openReveal(): Promise<void> {
+    await fireEvent.click(screen.getByText('Place details'));
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Spot something wrong? Correct the details for Brikk' })
+    );
+  }
+
+  it('moves onto the pending line after a card report', async () => {
+    stubSubmittingFetch();
+    mount();
+
+    await openReveal();
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'This place is closed - report a closure at Brikk' })
+    );
+    await fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    const line = await waitFor(() => screen.getByText('Report sent - pending review'));
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+    expect(document.activeElement).toBe(line);
+  });
+
+  it('moves onto the pending line after a place-field correction', async () => {
+    stubSubmittingFetch();
+    mount();
+
+    await openReveal();
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Not right? Correct the name of Brikk' })
+    );
+    await fireEvent.input(screen.getByRole('textbox', { name: 'Name of this place' }), {
+      target: { value: 'Brikk Kaffihús' }
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    const line = await waitFor(() => screen.getByText(pendingLine));
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+    expect(document.activeElement).toBe(line);
+  });
+
+  it('moves onto the pending line after a chip-panel correction takes all four editors', async () => {
+    stubSubmittingFetch();
+    mount();
+
+    await openChip('Leash required');
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /correct the restraint rule/i })).toBeTruthy()
+    );
+    await fireEvent.click(screen.getByRole('button', { name: /correct the restraint rule/i }));
+    await fireEvent.click(screen.getByRole('radio', { name: 'Off-leash allowed' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    const line = await waitFor(() => screen.getByText(pendingLine));
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+    expect(document.activeElement).toBe(line);
+  });
+});

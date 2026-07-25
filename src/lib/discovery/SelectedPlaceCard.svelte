@@ -179,7 +179,29 @@
    */
   function recordSubmitted(flag: PendingPlaceFlag): void {
     pending = [...pending, flag];
+    // Only the chip panel's editors are this component's to clean up after. The reveal owns focus
+    // for the affordances it renders, and it also routes its submissions through here.
+    if (flag.targetKind === 'access_condition') focusConditionPending = true;
   }
+
+  /**
+   * A Correction sent from a chip panel removes every editor in that panel, including the one the
+   * Member was standing on, so there is no trigger left for the shell to hand focus back to. The
+   * panel is this component's, so the move is too: focus lands on the pending line that replaced
+   * the editors, which says what happened and keeps the next Tab inside the card.
+   */
+  let focusConditionPending = $state(false);
+  let welcomeAnswer = $state<HTMLElement>();
+
+  $effect(() => {
+    // `conditionPending` is read so this re-runs once the panel has swapped in the pending line.
+    void conditionPending;
+    if (!focusConditionPending || !welcomeAnswer) return;
+    const line = welcomeAnswer.querySelector<HTMLElement>('[data-correction-pending]');
+    if (!line) return;
+    line.focus();
+    focusConditionPending = false;
+  });
 </script>
 
 {#snippet accessConditionEditor({
@@ -195,7 +217,7 @@
       <!-- A flag on an Access Condition proposes the whole Condition object, so a second edit
            raised beside it would build from the stored value and propose reverting the first.
            Every affordance on that Condition says pending, not just the one already sent. -->
-      <p class="pending-correction" data-correction-pending>
+      <p class="pending-correction" data-correction-pending tabindex="-1">
         {copy['inlineCorrection.pending']}
       </p>
     {:else if dimension === 'timing'}
@@ -308,7 +330,11 @@
       </figure>
     {/if}
 
-    <section class="welcome-answer" aria-labelledby={`welcome-${place.placeId}`}>
+    <section
+      bind:this={welcomeAnswer}
+      class="welcome-answer"
+      aria-labelledby={`welcome-${place.placeId}`}
+    >
       <h3 id={`welcome-${place.placeId}`}>{copy['place.welcomeQuestion']}</h3>
       <AccessSymbols
         placeName={place.name}
@@ -508,6 +534,13 @@
     font-size: 0.75rem;
     font-weight: 750;
     line-height: 1.35;
+  }
+
+  /* Focusable only so this card can land the Member on the line that replaced the editor they just
+     sent from; it is never in the tab order. */
+  .pending-correction:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 2px;
   }
 
   .timing-link {

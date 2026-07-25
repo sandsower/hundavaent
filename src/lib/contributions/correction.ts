@@ -167,11 +167,26 @@ export type PendingPlaceField = MemberPlaceField | 'description' | 'opening_hour
  */
 export interface PendingPlaceFlag {
   kind: 'correction' | 'report';
-  targetKind: 'place_field' | 'access_condition';
+  targetKind: 'place_field' | 'access_condition' | 'place';
   targetField: PendingPlaceField | null;
   accessConditionId: string | null;
   reportReason: string | null;
   status: 'submitted' | 'needs_information';
+}
+
+/**
+ * The place-level Report reasons the card offers. Each is a claim about the whole Place rather than
+ * about one fact, which is why they address the `place` target and carry no proposed value.
+ *
+ * The database's `report_reason` vocabulary is wider: `successor_place` and the per-field reasons
+ * stay on the report form, where a Member who knows the successor can name it.
+ */
+export type PlaceReportReason = 'closed' | 'moved' | 'unsafe';
+
+export const placeReportReasons: readonly PlaceReportReason[] = ['closed', 'moved', 'unsafe'];
+
+export function isPlaceReportReason(value: string): value is PlaceReportReason {
+  return placeReportReasons.some((reason) => reason === value);
 }
 
 /**
@@ -206,6 +221,22 @@ export function submittedAccessConditionFlag(accessConditionId: string): Pending
 }
 
 /**
+ * The Report counterpart. `reportReason` is what the pending markers key on, because suppression is
+ * per reason: an open "closed" Report silences that one action and leaves "moved" and "unsafe"
+ * available.
+ */
+export function submittedPlaceReportFlag(reason: PlaceReportReason): PendingPlaceFlag {
+  return {
+    kind: 'report',
+    targetKind: 'place',
+    targetField: null,
+    accessConditionId: null,
+    reportReason: reason,
+    status: 'submitted'
+  };
+}
+
+/**
  * Suppression is per Access Condition, not per dimension, because a flag targeting a Condition
  * records no dimension: its proposed value is the whole Condition object. A second dimension edit
  * raised while one is open would build from the stored Condition and propose reverting the first,
@@ -229,6 +260,18 @@ export function hasPendingPlaceField(
   field: PendingPlaceField
 ): boolean {
   return pending.some((flag) => flag.targetKind === 'place_field' && flag.targetField === field);
+}
+
+/**
+ * Place-level Reports all share one target, so the reason is what separates them: a pending
+ * "closed" must not silence "moved" or "unsafe". Corrections and Reports suppress independently
+ * for the same reason, since a Correction never reaches this target at all.
+ */
+export function hasPendingPlaceReport(
+  pending: readonly PendingPlaceFlag[],
+  reason: PlaceReportReason
+): boolean {
+  return pending.some((flag) => flag.targetKind === 'place' && flag.reportReason === reason);
 }
 
 /**

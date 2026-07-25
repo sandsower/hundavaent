@@ -11,24 +11,44 @@
    * fieldset, the note, the send lifecycle, the focus round-trip and the outcome announcements.
    * An editor supplies only its own controls and its own unchanged test, so no two editors can
    * drift on the accessibility conventions.
+   *
+   * The focus round-trip covers the shell's own lifetime only - expand, cancel, and every outcome
+   * that leaves the affordance standing. A successful send is the one exit it cannot own: the
+   * parent replaces the whole affordance with a pending line, so the trigger this shell would
+   * return focus to no longer exists by the time it could. The parent that renders the pending
+   * line owns focus from that moment on, and every parent that swaps an affordance out must move
+   * focus itself or drop the Member on `body`.
    */
   interface Props {
     copy: Catalogue;
     /** Already interpolated, because only the editor knows which fact it is correcting. */
     startLabel: string;
+    /**
+     * The trigger's visible words. WCAG 2.5.3 makes `startLabel` a superset of this, so an
+     * affordance that renames one must rename both.
+     */
+    startText?: string;
+    /** What the fieldset is for. A Report confirms a claim rather than choosing a value. */
+    legend?: string;
     signedIn: boolean;
     /** The editor's own unchanged test. The server repeats it against the stored value. */
     canSend: boolean;
     /** Called on every expand so the editor can reseed from the currently published value. */
     onOpen?: () => void;
     send: (note: string | null) => Promise<CorrectionResult>;
-    controls: Snippet<[{ dismiss: (event: KeyboardEvent) => void; groupName: string }]>;
+    /**
+     * Absent for an affordance whose whole claim is its trigger: a place-level Report alleges
+     * rather than proposes, so it has no value to edit and the note is the only field there is.
+     */
+    controls?: Snippet<[{ dismiss: (event: KeyboardEvent) => void; groupName: string }]>;
     announce?: (message: string) => void;
   }
 
   let {
     copy,
     startLabel,
+    startText,
+    legend,
     signedIn,
     canSend,
     onOpen = () => undefined,
@@ -45,6 +65,7 @@
   let attempt = $state(0);
   let editor = $state<HTMLFieldSetElement>();
   let valueControls = $state<HTMLDivElement>();
+  let noteInput = $state<HTMLInputElement>();
   let trigger = $state<HTMLButtonElement>();
   let focusTarget = $state<'editor' | 'trigger' | null>(null);
 
@@ -118,21 +139,32 @@
     attempt += 1;
   }
 
-  // Focus follows the disclosure in both directions, so keyboard focus is never left on a node
-  // that has just been removed. The checked option is the entry point, as in any radio group;
-  // the first control is only a fallback for a value the editor's group cannot represent.
+  // Focus follows the disclosure in both directions for as long as the disclosure exists, so
+  // keyboard focus is never left on a node that has just been removed. The `trigger` half is a
+  // no-op after a successful send, because the parent has already unmounted the trigger by then
+  // and owns focus instead; see the contract on `Props` above.
+  //
+  // The checked option is the entry point, as in any radio group; the first control is only a
+  // fallback for a value the editor's group cannot represent.
   //
   // The search is scoped to the value controls rather than to the whole fieldset. The note is the
   // last control in the fieldset and the optional one, so a query over the fieldset would land on
   // it the moment an editor rendered no matching control, and the Member would be typing a note
   // before ever seeing the fact they came to correct.
+  //
+  // An affordance with no value controls at all is the one case where the note is where focus
+  // belongs: there is no fact to see, because the claim was made by the trigger.
   $effect(() => {
     if (focusTarget === 'editor' && editor) {
-      const region = valueControls ?? editor;
-      (
-        region.querySelector<HTMLInputElement>('input[type="radio"]:checked') ??
-        region.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea, select')
-      )?.focus();
+      if (controls) {
+        const region = valueControls ?? editor;
+        (
+          region.querySelector<HTMLInputElement>('input[type="radio"]:checked') ??
+          region.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea, select')
+        )?.focus();
+      } else {
+        noteInput?.focus();
+      }
       focusTarget = null;
     }
     if (focusTarget === 'trigger' && trigger) {
@@ -151,16 +183,19 @@
 <div class="inline-correction">
   {#if open}
     <fieldset bind:this={editor} class="editor" aria-labelledby={`${componentId}-legend`}>
-      <legend id={`${componentId}-legend`}>{copy['inlineCorrection.legend']}</legend>
+      <legend id={`${componentId}-legend`}>{legend ?? copy['inlineCorrection.legend']}</legend>
       <!-- The value the Member came to change always precedes the note, in DOM order and in the
            tab order, because the note is the optional afterthought and the value is the point. -->
-      <div bind:this={valueControls} class="value-controls">
-        {@render controls({ dismiss, groupName: `${componentId}-choice` })}
-      </div>
+      {#if controls}
+        <div bind:this={valueControls} class="value-controls">
+          {@render controls({ dismiss, groupName: `${componentId}-choice` })}
+        </div>
+      {/if}
 
       <label class="note">
         <span>{copy['inlineCorrection.note']}</span>
         <input
+          bind:this={noteInput}
           type="text"
           maxlength={memberNoteMaximumLength}
           bind:value={note}
@@ -196,7 +231,7 @@
       aria-label={startLabel}
       onclick={expand}
     >
-      {copy['inlineCorrection.start']}
+      {startText ?? copy['inlineCorrection.start']}
     </button>
   {/if}
 </div>

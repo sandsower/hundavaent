@@ -36,6 +36,18 @@ export interface PlaceFieldValue {
   value?: string | null | Record<string, Json> | string[];
 }
 
+/**
+ * What `private.snapshot_place` records: what identified the Place at the moment a place-level
+ * Report was raised. A third snapshot shape, and deliberately not either of the other two: the whole
+ * Place has no single value, so what a Moderator needs is enough to recognize the Place months later
+ * even if it has since been renamed or recategorized.
+ */
+export interface PlaceSnapshotValue {
+  name: { is: string; en: string };
+  category: string;
+  locality: string;
+}
+
 export interface AccessConditionValue {
   access_area: 'indoors' | 'outdoors' | 'designated_area' | 'other_bounded';
   access_area_note: string | null;
@@ -62,7 +74,21 @@ interface AccessConditionTarget {
   access_condition_id: string;
 }
 
-export type FlagTarget = PlaceFieldTarget | AccessConditionTarget;
+/**
+ * The whole Place, addressed by nothing but the Place itself. "This place is closed" is not a claim
+ * about a field or a Condition, and making a Member pick one before saying it was the reason
+ * Reports asked for a target they did not have.
+ *
+ * Reports only: a Correction proposes a replacement value for one fact, and the whole Place has no
+ * single value to replace. `place_flag_kind_shape` holds the same rule at the database.
+ */
+interface PlaceTarget {
+  target_kind: 'place';
+  target_field: null;
+  access_condition_id: null;
+}
+
+export type FlagTarget = PlaceFieldTarget | AccessConditionTarget | PlaceTarget;
 
 export interface CorrectionCommand {
   place_id: string;
@@ -139,6 +165,15 @@ export function isPlaceField(value: unknown): value is PlaceField {
   return typeof value === 'string' && placeFields.has(value as PlaceField);
 }
 
+/**
+ * The counterpart for Report reasons, so a surface that has to name the reason before the parser
+ * runs -- the report form builds its Evidence citation from it -- reads the same vocabulary the
+ * parser will enforce a moment later.
+ */
+export function isReportReason(value: unknown): value is ReportReason {
+  return typeof value === 'string' && reportReasons.has(value as ReportReason);
+}
+
 function readTarget(form: FormData): FlagTarget | null {
   const value = (key: string): string => String(form.get(key) ?? '').trim();
   const targetKind = value('targetKind');
@@ -159,6 +194,9 @@ function readTarget(form: FormData): FlagTarget | null {
       target_field: null,
       access_condition_id: accessConditionId
     };
+  }
+  if (targetKind === 'place') {
+    return { target_kind: 'place', target_field: null, access_condition_id: null };
   }
   return null;
 }
@@ -315,8 +353,8 @@ function readFieldValue(
 
 /**
  * `suppliedEvidence` lets a Member-facing surface hand in a server-synthesized Evidence record
- * instead of asking the Member to fill in the Moderator's worksheet. The Moderation and Report
- * surfaces still solicit their own Evidence and read it from the form.
+ * instead of asking the Member to fill in the Moderator's worksheet. Both parsers accept one; the
+ * Moderation surfaces still solicit their own Evidence and read it from the form.
  */
 export function parseCorrectionFormData(
   form: FormData,
@@ -330,6 +368,12 @@ export function parseCorrectionFormData(
 
   if (!placeId || !explanation || !target || !evidence) {
     return { ok: false, error: 'incomplete' };
+  }
+
+  // The whole Place is a Report target only. A Correction proposes a replacement value for one
+  // fact, and there is no value here to read, let alone replace.
+  if (target.target_kind === 'place') {
+    return { ok: false, error: 'invalid' };
   }
 
   const proposedValue =
@@ -347,16 +391,25 @@ export function parseCorrectionFormData(
   };
 }
 
-export function parseReportFormData(form: FormData): ReportInputResult {
+export function parseReportFormData(
+  form: FormData,
+  suppliedEvidence?: FlagEvidence
+): ReportInputResult {
   const value = (key: string): string => String(form.get(key) ?? '').trim();
   const placeId = value('placeId');
   const explanation = value('explanation');
   const target = readTarget(form);
-  const evidence = readEvidence(form);
+  const evidence = suppliedEvidence ?? readEvidence(form);
   const reportReason = value('reportReason');
   const successorPlaceId = value('successorPlaceId');
+  // A Member-initiated "unsafe" is definitionally a Safety Concern, so the checkbox cannot
+  // un-escalate one: the card endpoint already hard-codes the pairing, and a claim raised through
+  // the form must not reach Moderation quieter than the same claim raised from the card. The
+  // free-standing checkbox stays, because every other reason can honestly be either.
   const isSafetyConcern =
-    form.get('isSafetyConcern') === 'on' || form.get('isSafetyConcern') === 'true';
+    reportReason === 'unsafe' ||
+    form.get('isSafetyConcern') === 'on' ||
+    form.get('isSafetyConcern') === 'true';
 
   if (!placeId || !explanation || !target || !evidence) {
     return { ok: false, error: 'incomplete' };

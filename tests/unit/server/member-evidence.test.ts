@@ -7,6 +7,7 @@ import {
   describeEligibilityChange,
   describePermissionChange,
   describePlaceFieldCorrection,
+  describePlaceReport,
   describeRestraintChange
 } from '../../../src/lib/server/contributions/member-evidence';
 
@@ -204,5 +205,55 @@ describe('change summaries', () => {
     expect(describePlaceFieldCorrection(null, 'correction-form')).toBe(
       'Correction to an access condition, reported from the correction form.'
     );
+  });
+
+  it('names a place-level report by its reason and the surface it came from', () => {
+    expect(describePlaceReport('closed', 'place-card')).toBe(
+      'Reported closed from the place card.'
+    );
+    expect(describePlaceReport('moved', 'place-card')).toBe('Reported moved from the place card.');
+    expect(describePlaceReport('unsafe', 'place-card')).toBe(
+      'Reported unsafe for dogs from the place card.'
+    );
+  });
+
+  it('names the report form as its own surface', () => {
+    expect(describePlaceReport('closed', 'report-form')).toBe(
+      'Reported closed from the report form.'
+    );
+  });
+
+  it('builds a report summary from fixed labels alone, whatever the member wrote', () => {
+    // The property, not one example: the summary becomes the Evidence citation, which reaches
+    // anonymous callers through the published profile. A summary is only ever one of nine
+    // sentences, so no member free text can ride out on one.
+    const summaries = (['closed', 'moved', 'unsafe'] as const).flatMap((reason) =>
+      (['place-card', 'correction-form', 'report-form'] as const).map((surface) =>
+        describePlaceReport(reason, surface)
+      )
+    );
+
+    for (const summary of summaries) {
+      expect(summary).toMatch(
+        /^Reported (closed|moved|unsafe for dogs) from the (place card|correction form|report form)\.$/
+      );
+    }
+    expect(new Set(summaries).size).toBe(9);
+  });
+
+  it('keeps the member note out of a report citation and in the explanation alone', () => {
+    const note = 'The gate was chained shut and a neighbour said it shut for good in May.';
+    const changeSummary = describePlaceReport('closed', 'place-card');
+    const evidence = buildMemberReportEvidence({
+      note,
+      changeSummary,
+      observedAt,
+      surface: 'place-card'
+    });
+
+    expect(buildMemberExplanation({ note, changeSummary })).toBe(note);
+    expect(evidence.source_citation).toBe('Reported closed from the place card.');
+    expect(JSON.stringify(evidence)).not.toContain('neighbour');
+    expect(evidence.source_metadata.memberNoteProvided).toBe(true);
   });
 });

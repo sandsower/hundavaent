@@ -6,15 +6,17 @@
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import {
     localizeAccessArea,
+    localizeFlagTarget,
     localizePermission,
-    localizePlaceField,
     localizeReportReason,
-    localizeRestraint
+    localizeRestraint,
+    localizeStoredPlaceCategory
   } from '$i18n/structured-place';
   import type {
     AccessConditionValue,
     FlagEvidence,
-    PlaceFieldValue
+    PlaceFieldValue,
+    PlaceSnapshotValue
   } from '$server/place-flags/place-flag-input';
   import type {
     ModerationPlaceFlag,
@@ -77,8 +79,12 @@
     data.trustedVerification?.outcome === 'superseded'
   );
   const showDecision = $derived(isOpen && !trustedVerificationSuperseded);
+  // A place-level Report addresses neither a field nor a Condition, so the detail read has no live
+  // value to compare and always returns null. Reading that as drift would put a permanent warning
+  // on every whole-place Report and say nothing true about the Place.
   const hasLiveDrift = $derived(
-    JSON.stringify(data.flag.currentLiveValue) !== JSON.stringify(data.flag.currentValueSnapshot)
+    data.flag.targetKind !== 'place' &&
+      JSON.stringify(data.flag.currentLiveValue) !== JSON.stringify(data.flag.currentValueSnapshot)
   );
 
   let submitting = $state(false);
@@ -317,9 +323,27 @@
   }
 
   function target(): string {
-    return data.flag.targetKind === 'place_field' && data.flag.targetField
-      ? localizePlaceField(data.flag.targetField, data.copy)
-      : data.copy['correction.targetAccessCondition'];
+    return localizeFlagTarget(data.flag.targetKind, data.flag.targetField, data.copy);
+  }
+
+  /**
+   * The place snapshot has no key in common with either of the other two snapshot shapes, so it is
+   * read structurally rather than by trusting `targetKind` alone: a row that says `place` but
+   * carries something else renders nothing rather than half a Place.
+   */
+  function placeSnapshot(value: unknown): PlaceSnapshotValue | null {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+    const record = value as Record<string, unknown>;
+    const name = record.name;
+    if (typeof name !== 'object' || name === null) return null;
+    const localized = name as Record<string, unknown>;
+    if (typeof localized.is !== 'string' || typeof localized.en !== 'string') return null;
+    if (typeof record.category !== 'string' || typeof record.locality !== 'string') return null;
+    return {
+      name: { is: localized.is, en: localized.en },
+      category: record.category,
+      locality: record.locality
+    };
   }
 
   function describeValue(value: unknown): string {
@@ -560,6 +584,29 @@
           {/if}
           {@render sectionActions('application')}
         </form>
+      {:else if data.flag.targetKind === 'place'}
+        <!-- The whole Place has no before-and-after pair to lay out: nothing is proposed, and there
+             is no live value to drift from. What a Moderator needs is what identified the Place at
+             the moment the claim was raised, in case it has been renamed or recategorized since. -->
+        {@const snapshot = placeSnapshot(data.flag.currentValueSnapshot)}
+        {#if snapshot}
+          <dl class="place-snapshot" data-place-snapshot>
+            <div>
+              <dt>{data.copy['flag.placeSnapshot']}</dt>
+              <dd>{snapshot.name.is} / {snapshot.name.en}</dd>
+            </div>
+            <div>
+              <dt>{data.copy['suggestion.category']}</dt>
+              <dd>{localizeStoredPlaceCategory(snapshot.category, data.copy)}</dd>
+            </div>
+            <div>
+              <dt>{data.copy['moderation.localityLabel']}</dt>
+              <dd>{snapshot.locality}</dd>
+            </div>
+          </dl>
+        {:else}
+          <p>{describeValue(data.flag.currentValueSnapshot)}</p>
+        {/if}
       {:else}
         <div class="diff-grid">
           <article>
@@ -908,6 +955,26 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.55rem;
   }
+  .place-snapshot {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+  }
+  .place-snapshot > div {
+    display: grid;
+    grid-template-columns: minmax(8rem, 0.35fr) 1fr;
+    gap: 1rem;
+    min-width: 0;
+  }
+  .place-snapshot dt {
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.72rem;
+    font-weight: 850;
+  }
+  .place-snapshot dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
   .evidence-grid,
   .date-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1036,7 +1103,8 @@
     .diff-grid,
     .evidence-grid,
     .date-grid,
-    .section-form {
+    .section-form,
+    .place-snapshot > div {
       grid-template-columns: 1fr;
     }
     .section-form > :global(.field-grid),
