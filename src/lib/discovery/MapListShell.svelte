@@ -15,11 +15,7 @@
   import { onMount, tick, untrack } from 'svelte';
   import { SvelteMap, SvelteSet } from 'svelte/reactivity';
   import { postHogAnalytics } from '$lib/analytics/posthog';
-  import {
-    cubicBezierEasing,
-    motionDurationsMs,
-    motionEasings
-  } from '$lib/design-system/motion';
+  import { cubicBezierEasing, motionDurationsMs, motionEasings } from '$lib/design-system/motion';
   import { subscribeToFavouriteInvalidation } from '$lib/favourites/sync';
 
   import type { Catalogue, Locale } from '$i18n';
