@@ -129,13 +129,17 @@ describe('the contribution reveal', () => {
     mount();
     await reveal();
 
-    expect(screen.getByRole('button', { name: 'Correct the name of Brikk' })).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Correct the website address for Brikk' })
+      screen.getByRole('button', { name: 'Not right? Correct the name of Brikk' })
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Correct the phone number for Brikk' })).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Correct what is there for dogs at Brikk' })
+      screen.getByRole('button', { name: 'Not right? Correct the website address for Brikk' })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Not right? Correct the phone number for Brikk' })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Not right? Correct what is there for dogs at Brikk' })
     ).toBeTruthy();
   });
 
@@ -156,7 +160,7 @@ describe('the contribution reveal', () => {
 
     await waitFor(() =>
       expect(document.activeElement).toBe(
-        screen.getByRole('button', { name: 'Correct the name of Brikk' })
+        screen.getByRole('button', { name: 'Not right? Correct the name of Brikk' })
       )
     );
     await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
@@ -185,7 +189,9 @@ describe('the place-field editors behind the reveal', () => {
     );
     mount();
     await reveal();
-    await fireEvent.click(screen.getByRole('button', { name: 'Correct the name of Brikk' }));
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Not right? Correct the name of Brikk' })
+    );
 
     const input = screen.getByRole('textbox', { name: 'Name of this place' });
     expect(input).toHaveValue('Brikk');
@@ -204,7 +210,9 @@ describe('the place-field editors behind the reveal', () => {
   it('never offers to clear a name, because a place always has one', async () => {
     mount();
     await reveal();
-    await fireEvent.click(screen.getByRole('button', { name: 'Correct the name of Brikk' }));
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Not right? Correct the name of Brikk' })
+    );
 
     expect(screen.queryByRole('button', { name: /^clear/i })).toBeNull();
     await fireEvent.input(screen.getByRole('textbox', { name: 'Name of this place' }), {
@@ -225,7 +233,7 @@ describe('the place-field editors behind the reveal', () => {
     mount();
     await reveal();
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Correct the website address for Brikk' })
+      screen.getByRole('button', { name: 'Not right? Correct the website address for Brikk' })
     );
 
     await fireEvent.click(screen.getByRole('button', { name: 'Clear Website address' }));
@@ -253,7 +261,7 @@ describe('the place-field editors behind the reveal', () => {
     mount();
     await reveal();
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Correct what is there for dogs at Brikk' })
+      screen.getByRole('button', { name: 'Not right? Correct what is there for dogs at Brikk' })
     );
 
     const input = screen.getByRole('textbox', { name: 'What is there for dogs?' });
@@ -273,7 +281,9 @@ describe('the place-field editors behind the reveal', () => {
   it('caps what a member can type so the server never has to reject a long paste', async () => {
     mount();
     await reveal();
-    await fireEvent.click(screen.getByRole('button', { name: 'Correct the name of Brikk' }));
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Not right? Correct the name of Brikk' })
+    );
     expect(screen.getByRole('textbox', { name: 'Name of this place' })).toHaveAttribute(
       'maxlength',
       '200'
@@ -281,11 +291,21 @@ describe('the place-field editors behind the reveal', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Correct the website address for Brikk' })
+      screen.getByRole('button', { name: 'Not right? Correct the website address for Brikk' })
     );
     expect(screen.getByRole('textbox', { name: 'Website address' })).toHaveAttribute(
       'maxlength',
       '2048'
+    );
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    // The amenities control holds the whole comma-separated list, so any per-entry maxlength on it
+    // would cap the list at about one entry and lock a longer stored list out of editing.
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Not right? Correct what is there for dogs at Brikk' })
+    );
+    expect(screen.getByRole('textbox', { name: 'What is there for dogs?' })).not.toHaveAttribute(
+      'maxlength'
     );
   });
 
@@ -293,7 +313,7 @@ describe('the place-field editors behind the reveal', () => {
     mount();
     await reveal();
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Correct what is there for dogs at Brikk' })
+      screen.getByRole('button', { name: 'Not right? Correct what is there for dogs at Brikk' })
     );
 
     await fireEvent.input(screen.getByRole('textbox', { name: 'What is there for dogs?' }), {
@@ -308,7 +328,7 @@ describe('the place-field editors behind the reveal', () => {
     mount();
     await reveal();
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Correct the phone number for Brikk' })
+      screen.getByRole('button', { name: 'Not right? Correct the phone number for Brikk' })
     );
 
     const value = screen.getByRole('textbox', { name: 'Phone number' });
@@ -322,7 +342,9 @@ describe('the place-field editors behind the reveal', () => {
     vi.stubGlobal('fetch', fetchSpy);
     mount({ signedIn: false });
     await reveal();
-    await fireEvent.click(screen.getByRole('button', { name: 'Correct the name of Brikk' }));
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Not right? Correct the name of Brikk' })
+    );
     await fireEvent.input(screen.getByRole('textbox', { name: 'Name of this place' }), {
       target: { value: 'Brikk Kaffihús' }
     });
@@ -339,8 +361,12 @@ describe('what the reveal does about a correction already sent', () => {
     await reveal();
 
     expect(screen.getByText('Correction sent - pending review')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Correct the name of Brikk' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Correct the phone number for Brikk' })).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Not right? Correct the name of Brikk' })
+    ).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Not right? Correct the phone number for Brikk' })
+    ).toBeTruthy();
   });
 
   it('leaves every affordance in place when nothing is open', async () => {
@@ -348,7 +374,9 @@ describe('what the reveal does about a correction already sent', () => {
     await reveal();
 
     expect(screen.queryByText('Correction sent - pending review')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Correct the name of Brikk' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Not right? Correct the name of Brikk' })
+    ).toBeTruthy();
   });
 });
 
@@ -364,12 +392,14 @@ describe('the multi-condition deep links', () => {
     });
     await reveal();
 
-    const first = screen.getByRole('link', { name: 'Correct condition 1 at Brikk' });
+    const first = screen.getByRole('link', { name: 'Not right? Correct condition 1 at Brikk' });
     expect(first.getAttribute('href')).toContain(
       `/places/${placeId}/correct?conditionId=${firstConditionId}`
     );
     expect(
-      screen.getByRole('link', { name: 'Correct condition 2 at Brikk' }).getAttribute('href')
+      screen
+        .getByRole('link', { name: 'Not right? Correct condition 2 at Brikk' })
+        .getAttribute('href')
     ).toContain(`conditionId=${secondConditionId}`);
   });
 
@@ -392,8 +422,12 @@ describe('the multi-condition deep links', () => {
     });
     await reveal();
 
-    expect(screen.queryByRole('link', { name: 'Correct condition 1 at Brikk' })).toBeNull();
-    expect(screen.getByRole('link', { name: 'Correct condition 2 at Brikk' })).toBeTruthy();
+    expect(
+      screen.queryByRole('link', { name: 'Not right? Correct condition 1 at Brikk' })
+    ).toBeNull();
+    expect(
+      screen.getByRole('link', { name: 'Not right? Correct condition 2 at Brikk' })
+    ).toBeTruthy();
     expect(screen.getByText('Correction sent - pending review')).toBeTruthy();
   });
 });

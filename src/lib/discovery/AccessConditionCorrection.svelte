@@ -10,9 +10,11 @@
     isMemberRestraintChoice,
     memberDimensionChoices,
     parseDimensionChange,
+    submittedAccessConditionFlag,
     type MemberAreaChoice,
     type MemberPermissionChoice,
-    type MemberRestraintChoice
+    type MemberRestraintChoice,
+    type PendingPlaceFlag
   } from '$lib/contributions/correction';
   import InlineCorrectionShell from '$lib/discovery/InlineCorrectionShell.svelte';
   import type { PublishedAccessFacts } from '$server/discovery/public-places';
@@ -34,6 +36,8 @@
     condition: PublishedAccessFacts;
     dimension: RadioDimension;
     announce?: (message: string) => void;
+    /** Reports what was just sent, so the card can suppress its siblings without a refetch. */
+    onSubmitted?: (flag: PendingPlaceFlag) => void;
   }
 
   let {
@@ -44,7 +48,8 @@
     signedIn,
     condition,
     dimension,
-    announce = () => undefined
+    announce = () => undefined,
+    onSubmitted = () => undefined
   }: Props = $props();
 
   // Labels reuse the chip copy the Member just tapped wherever a chip states that value, so the
@@ -102,7 +107,7 @@
     // Unreachable while the shell gates sending on `changed`; it is also what proves to the type
     // system that the chosen value belongs to the dimension being corrected.
     if (!change) return { status: 'invalid' };
-    return submitInlineCorrection({
+    const result = await submitInlineCorrection({
       placeId,
       lang,
       target: 'access_condition',
@@ -110,6 +115,8 @@
       note,
       ...change
     });
+    if (result.status === 'submitted') onSubmitted(submittedAccessConditionFlag(condition.id));
+    return result;
   }
 </script>
 

@@ -170,7 +170,7 @@ test('a Member corrects the restraint rule inline on the place card and the Mode
   // The affordance targets access_condition_id, which only the loaded profile carries, so it
   // appears once the profile arrives rather than with the summary chips.
   const start = selectedPlace.getByRole('button', {
-    name: `Correct the restraint rule for ${correctable.nameEn}`
+    name: `Not right? Correct the restraint rule for ${correctable.nameEn}`
   });
   await expect(start).toBeVisible();
   await start.click();
@@ -192,8 +192,11 @@ test('a Member corrects the restraint rule inline on the place card and the Mode
   const inlineFlagId = (JSON.parse(submissionBody) as { flagId: string }).flagId;
   expect(inlineFlagId).toBeTruthy();
 
-  // The editor collapses back to its quiet trigger and the outcome is announced out of band.
-  await expect(start).toBeVisible();
+  // The editor closes into the pending line straight away, without waiting for a read of the
+  // server: the Condition now has something open, and a second edit raised beside it would build
+  // from the stored Condition and propose reverting this one. The outcome is announced out of band.
+  await expect(start).toHaveCount(0);
+  await expect(selectedPlace.locator('[data-correction-pending]').first()).toBeVisible();
   await expect(selectedPlace.locator('[data-access-announcement]')).toHaveText(
     'Thank you. A Moderator will check this.'
   );
@@ -227,7 +230,11 @@ test('a Member corrects the Place name in one language and a Moderator cannot ap
   page
 }) => {
   const { correctable } = localPlaceFlagFixtures;
-  const correctedName = `Flag E2E Cafe & Bakery ${Date.now()}`;
+  // Fixed, not stamped with the clock. The fixture translations are re-seeded on every run, so the
+  // corrected name is the same every time and a second run against the same database sees the
+  // original name again rather than the previous run's. A unique name would have hidden a fixture
+  // that could not be re-provisioned.
+  const correctedName = 'Flag E2E Cafe and Bakery';
   const memberEmail = `name-hatch-member-${Date.now()}@example.invalid`;
   await signInMember(page, memberEmail);
 
@@ -239,16 +246,18 @@ test('a Member corrects the Place name in one language and a Moderator cannot ap
   // exactly as they always have, and one quiet line at the foot of them.
   await selectedPlace.getByText('Place details').click();
   const revealLine = selectedPlace.getByRole('button', {
-    name: `Correct the details for ${correctable.nameEn}`
+    name: `Spot something wrong? Correct the details for ${correctable.nameEn}`
   });
   await expect(revealLine).toBeVisible();
   await expect(
-    selectedPlace.getByRole('button', { name: `Correct the name of ${correctable.nameEn}` })
+    selectedPlace.getByRole('button', {
+      name: `Not right? Correct the name of ${correctable.nameEn}`
+    })
   ).toHaveCount(0);
   await revealLine.click();
 
   await selectedPlace
-    .getByRole('button', { name: `Correct the name of ${correctable.nameEn}` })
+    .getByRole('button', { name: `Not right? Correct the name of ${correctable.nameEn}` })
     .click();
   const nameInput = selectedPlace.getByLabel('Name of this place');
   await expect(nameInput).toHaveValue(correctable.nameEn);

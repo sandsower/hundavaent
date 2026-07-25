@@ -225,6 +225,48 @@ describe('what the card does about a correction already sent', () => {
     expect(screen.getByText(pendingLine)).toBeTruthy();
   });
 
+  it('suppresses the sibling editors the moment a correction is sent, without asking the server again', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!url.includes('/corrections')) {
+        return new Response(JSON.stringify({}), {
+          headers: { 'content-type': 'application/json' }
+        });
+      }
+      const body =
+        init?.method === 'POST' ? { status: 'submitted', flagId: 'flag-1' } : { pending: [] };
+      return new Response(JSON.stringify(body), {
+        headers: { 'content-type': 'application/json' }
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    mount();
+
+    await openChip('Leash required');
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /correct the restraint rule/i })).toBeTruthy()
+    );
+    await fireEvent.click(screen.getByRole('button', { name: /correct the restraint rule/i }));
+    await fireEvent.click(screen.getByRole('radio', { name: 'Off-leash allowed' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(screen.getByText(pendingLine)).toBeTruthy());
+    expect(screen.queryByRole('button', { name: /correct the restraint rule/i })).toBeNull();
+
+    // A dimension on the same Condition that the Member never touched. Leaving it armed would
+    // invite a second edit that builds from the stored Condition and proposes reverting the first.
+    await openChip('Generally welcome');
+    expect(screen.queryByRole('button', { name: /correct the permission needed/i })).toBeNull();
+    expect(screen.getByText(pendingLine)).toBeTruthy();
+
+    // One read on load and the send itself. Everything the marker needs is addressing the editor
+    // already had, so there is nothing to ask the server for.
+    const correctionCalls = fetchMock.mock.calls.filter((call) =>
+      String(call[0]).includes('/corrections')
+    );
+    expect(correctionCalls).toHaveLength(2);
+  });
+
   it('leaves the editors alone when the open flag is on another condition', async () => {
     stubFetch([pendingCondition(secondConditionId)]);
     mount();
@@ -243,7 +285,9 @@ describe('the reveal on the practical details', () => {
     mount();
 
     await fireEvent.click(screen.getByText('Place details'));
-    expect(screen.getByRole('button', { name: 'Correct the details for Brikk' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Spot something wrong? Correct the details for Brikk' })
+    ).toBeTruthy();
     expect(screen.queryByRole('button', { name: /correct the name of/i })).toBeNull();
   });
 });

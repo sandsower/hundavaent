@@ -1,8 +1,8 @@
 import type { Json } from '$server/db/generated.types';
 import {
   readAccessConditionValue,
+  readCompletePlaceFieldValue,
   readEvidence,
-  readPlaceFieldValue,
   type AccessConditionValue
 } from '$server/place-flags/place-flag-input';
 import type { ModerationPlaceFlag } from '$server/place-flags/place-flags';
@@ -21,7 +21,9 @@ export function parseCorrectionDraftSection(
     if (flag.targetKind === 'place_field') {
       if (!flag.targetField) return null;
       const expectedVersion = positiveInteger(form.get('expectedVersion'));
-      const fieldValue = readPlaceFieldValue(form, flag.targetField);
+      // The complete reader, not the Member's: a draft is the value that gets published, so a
+      // blank locale box is an unfinished draft rather than a locale named for review.
+      const fieldValue = readCompletePlaceFieldValue(form, flag.targetField);
       if (expectedVersion === null || !fieldValue) return null;
       return {
         sectionId,

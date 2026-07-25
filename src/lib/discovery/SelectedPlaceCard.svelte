@@ -167,6 +167,19 @@
     if (pendingRequestedFor !== placeId) return;
     pending = result.status === 'loaded' ? [...result.pending] : [];
   }
+
+  /**
+   * The pending markers are the card's own state, so a Correction it just sent belongs in them
+   * immediately. Suppression on an Access Condition covers all four of its editors, and the three
+   * the Member did not touch have to say pending the moment the fourth is sent: leaving them armed
+   * until a refetch would invite a second edit that proposes reverting the first.
+   *
+   * There is nothing to re-read, either. Everything the markers need is addressing the editor
+   * already had, so a round trip would ask the server to confirm what the client just did.
+   */
+  function recordSubmitted(flag: PendingPlaceFlag): void {
+    pending = [...pending, flag];
+  }
 </script>
 
 {#snippet accessConditionEditor({
@@ -204,6 +217,7 @@
         {signedIn}
         condition={correctableCondition}
         {announce}
+        onSubmitted={recordSubmitted}
       />
     {:else if editable}
       <AccessConditionCorrection
@@ -215,6 +229,7 @@
         condition={correctableCondition}
         dimension={editable}
         {announce}
+        onSubmitted={recordSubmitted}
       />
     {/if}
   {/if}
@@ -428,7 +443,15 @@
           <!-- One quiet line, and nothing else, until a Member asks. The practical details are
                what a reader came for, so the affordances stay behind a disclosure rather than
                competing with the facts. -->
-          <ContributionReveal placeName={place.name} {lang} {copy} {signedIn} {profile} {pending} />
+          <ContributionReveal
+            placeName={place.name}
+            {lang}
+            {copy}
+            {signedIn}
+            {profile}
+            {pending}
+            onSubmitted={recordSubmitted}
+          />
         </div>
       </details>
     {/if}

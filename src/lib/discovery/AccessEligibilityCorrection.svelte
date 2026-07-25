@@ -7,8 +7,10 @@
   import {
     memberEligibilityChoiceFor,
     memberEligibilityChoices,
+    submittedAccessConditionFlag,
     type MemberEligibilityChoice,
-    type MemberEligibilityValue
+    type MemberEligibilityValue,
+    type PendingPlaceFlag
   } from '$lib/contributions/correction';
   import InlineCorrectionShell from '$lib/discovery/InlineCorrectionShell.svelte';
   import type { PublishedAccessFacts } from '$server/discovery/public-places';
@@ -27,6 +29,8 @@
     signedIn: boolean;
     condition: PublishedAccessFacts;
     announce?: (message: string) => void;
+    /** Reports what was just sent, so the card can suppress its siblings without a refetch. */
+    onSubmitted?: (flag: PendingPlaceFlag) => void;
   }
 
   let {
@@ -36,7 +40,8 @@
     copy,
     signedIn,
     condition,
-    announce = () => undefined
+    announce = () => undefined,
+    onSubmitted = () => undefined
   }: Props = $props();
 
   const choiceLabels: Record<MemberEligibilityChoice, MessageKey> = {
@@ -118,7 +123,7 @@
     // Unreachable while the shell gates sending on `changed`; it is also what proves to the type
     // system that a limit choice arrived with the figure that bounds it.
     if (!proposed) return { status: 'invalid' };
-    return submitInlineCorrection({
+    const result = await submitInlineCorrection({
       placeId,
       lang,
       target: 'access_condition',
@@ -127,6 +132,8 @@
       value: proposed,
       note
     });
+    if (result.status === 'submitted') onSubmitted(submittedAccessConditionFlag(condition.id));
+    return result;
   }
 </script>
 

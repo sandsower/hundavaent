@@ -8,6 +8,7 @@
     type PendingPlaceFlag
   } from '$lib/contributions/correction';
   import { correctConditionHref } from '$lib/discovery/correct-link';
+  import { createLiveAnnouncer } from '$lib/discovery/live-announcement';
   import PlaceFieldCorrection from '$lib/discovery/PlaceFieldCorrection.svelte';
   import type { PublishedPlaceProfile } from '$server/discovery/public-places';
 
@@ -26,16 +27,29 @@
     signedIn: boolean;
     profile: PublishedPlaceProfile;
     pending?: readonly PendingPlaceFlag[];
+    /** Forwarded from each editor so the card can suppress the fact without a refetch. */
+    onSubmitted?: (flag: PendingPlaceFlag) => void;
   }
 
-  let { placeName, lang, copy, signedIn, profile, pending = [] }: Props = $props();
+  let {
+    placeName,
+    lang,
+    copy,
+    signedIn,
+    profile,
+    pending = [],
+    onSubmitted = () => undefined
+  }: Props = $props();
 
   const componentId = $props.id();
   let open = $state(false);
   let panel = $state<HTMLElement>();
   let trigger = $state<HTMLButtonElement>();
   let focusTarget = $state<'panel' | 'trigger' | null>(null);
+  // Four editors share this one region, so two of them reporting the same outcome in a row is the
+  // ordinary case rather than the edge case. The shared announcer is what makes the repeat audible.
   let announcement = $state('');
+  const announce = createLiveAnnouncer((message) => (announcement = message));
 
   const fieldLabels: Record<MemberPlaceField, MessageKey> = {
     name: 'placeField.name',
@@ -66,10 +80,6 @@
   function collapse(): void {
     open = false;
     focusTarget = 'trigger';
-  }
-
-  function announce(message: string): void {
-    announcement = message;
   }
 
   function pendingField(field: MemberPlaceField): boolean {
@@ -115,6 +125,7 @@
                 {field}
                 currentValue={values[field]}
                 {announce}
+                {onSubmitted}
               />
             {/if}
           </li>

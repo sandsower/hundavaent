@@ -10,6 +10,7 @@
     type AccessSymbolDimension,
     type AccessSymbolState
   } from '$domain/access-symbols';
+  import { createLiveAnnouncer } from '$lib/discovery/live-announcement';
 
   interface Props {
     placeName: string;
@@ -43,6 +44,7 @@
   // announce every radio change. Announcements go through this dedicated region instead, which
   // still carries the explanation when a chip opens the panel.
   let announcement = $state('');
+  const announce = createLiveAnnouncer((message) => (announcement = message));
   const presentation = $derived(buildAccessSymbolPresentation(conditions));
   const labels: Record<AccessSymbolState, MessageKey> = {
     indoors: 'accessSymbols.indoors',
@@ -249,20 +251,10 @@
 
   function activate(symbol: AccessSymbol): void {
     activeDimension = activeDimension === symbol.dimension ? null : symbol.dimension;
-    void announce(activeDimension ? `${label(symbol)} ${fullExplanation(symbol)}` : '');
+    announce(activeDimension ? `${label(symbol)} ${fullExplanation(symbol)}` : '');
     if (activeDimension && (symbol.state === 'special' || symbol.state === 'limited')) {
       onOpenDetails();
     }
-  }
-
-  async function announce(message: string): Promise<void> {
-    // Assigning the identical string is not a state change, so the live region would stay silent
-    // on a repeat. Clearing first makes a second identical outcome its own announcement.
-    if (announcement === message) {
-      announcement = '';
-      await tick();
-    }
-    announcement = message;
   }
 
   function portal(node: HTMLElement): { destroy: () => void } {
@@ -398,7 +390,7 @@
       onclick={() => {
         closeTooltip();
         activeDimension = activeDimension === 'complex' ? null : 'complex';
-        void announce(activeDimension === 'complex' ? explanation : '');
+        announce(activeDimension === 'complex' ? explanation : '');
         onOpenDetails();
       }}
     >

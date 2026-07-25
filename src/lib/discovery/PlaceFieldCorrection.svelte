@@ -9,7 +9,9 @@
     memberFieldTextMaximumLength,
     memberUrlMaximumLength,
     parseFieldChange,
-    type MemberPlaceField
+    submittedPlaceFieldFlag,
+    type MemberPlaceField,
+    type PendingPlaceFlag
   } from '$lib/contributions/correction';
   import InlineCorrectionShell from '$lib/discovery/InlineCorrectionShell.svelte';
 
@@ -28,6 +30,8 @@
     /** The published value, already flattened to the text the control edits. */
     currentValue: string;
     announce?: (message: string) => void;
+    /** Reports what was just sent, so the card can suppress this fact without a refetch. */
+    onSubmitted?: (flag: PendingPlaceFlag) => void;
   }
 
   let {
@@ -38,7 +42,8 @@
     signedIn,
     field,
     currentValue,
-    announce = () => undefined
+    announce = () => undefined,
+    onSubmitted = () => undefined
   }: Props = $props();
 
   const startLabels: Record<MemberPlaceField, MessageKey> = {
@@ -76,8 +81,18 @@
   // The database puts no ceiling on any of these, so the ceiling is the client's to state. The
   // server rejects an over-long value rather than truncating it, which would publish words the
   // Member did not write.
+  //
+  // Amenities get no `maxlength` at all. The cap is 20 entries of 200 characters each, and this
+  // one control holds the whole comma-separated list, so a 200-character attribute would cap the
+  // list at roughly one entry: the entry cap could never be reached, and a stored list already
+  // longer than 200 characters could not even be opened and edited. `amenitiesOverCap` counts the
+  // entries the way the server does and gates sending, which is what it was written to do.
   const maximumLength = $derived(
-    field === 'website_url' ? memberUrlMaximumLength : memberFieldTextMaximumLength
+    field === 'dog_amenities'
+      ? undefined
+      : field === 'website_url'
+        ? memberUrlMaximumLength
+        : memberFieldTextMaximumLength
   );
 
   const amenities = $derived(
@@ -117,7 +132,15 @@
     // Unreachable while the shell gates sending on `changed`; it is also what proves to the type
     // system that the text belongs to the field being corrected.
     if (!change) return { status: 'invalid' };
-    return submitInlineCorrection({ placeId, lang, target: 'place_field', note, ...change });
+    const result = await submitInlineCorrection({
+      placeId,
+      lang,
+      target: 'place_field',
+      note,
+      ...change
+    });
+    if (result.status === 'submitted') onSubmitted(submittedPlaceFieldFlag(field));
+    return result;
   }
 </script>
 

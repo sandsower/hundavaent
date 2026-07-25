@@ -175,6 +175,37 @@ export interface PendingPlaceFlag {
 }
 
 /**
+ * What a Correction the card has just sent looks like to the pending markers, before any read of
+ * the server comes back.
+ *
+ * The card already knows everything suppression needs: a new flag is created `submitted`, and only
+ * the addressing is ever read. So the editor that sent it hands one of these up and the card
+ * appends it, which is what makes the three sibling editors on the same Condition say "pending"
+ * the moment the fourth is sent rather than after a round trip nobody asked for.
+ */
+export function submittedPlaceFieldFlag(field: MemberPlaceField): PendingPlaceFlag {
+  return {
+    kind: 'correction',
+    targetKind: 'place_field',
+    targetField: field,
+    accessConditionId: null,
+    reportReason: null,
+    status: 'submitted'
+  };
+}
+
+export function submittedAccessConditionFlag(accessConditionId: string): PendingPlaceFlag {
+  return {
+    kind: 'correction',
+    targetKind: 'access_condition',
+    targetField: null,
+    accessConditionId,
+    reportReason: null,
+    status: 'submitted'
+  };
+}
+
+/**
  * Suppression is per Access Condition, not per dimension, because a flag targeting a Condition
  * records no dimension: its proposed value is the whole Condition object. A second dimension edit
  * raised while one is open would build from the stored Condition and propose reverting the first,

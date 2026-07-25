@@ -350,7 +350,7 @@ describe('AccessConditionCorrection on the area dimension', () => {
     mount({ signedIn: true, dimension: 'area' });
 
     expect(
-      screen.getByRole('button', { name: 'Correct where dogs are welcome at Brikk' })
+      screen.getByRole('button', { name: 'Not right? Correct where dogs are welcome at Brikk' })
     ).toBeTruthy();
   });
 

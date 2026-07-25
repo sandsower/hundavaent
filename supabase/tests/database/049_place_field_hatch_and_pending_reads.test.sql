@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(31);
+select plan(34);
 
 -- Fixtures --------------------------------------------------------------------------------------
 
@@ -158,6 +158,12 @@ select throws_ok(
   $$ select private.validate_place_field_value('name', '{"is":"Lykilkaffi","en":"   "}'::jsonb) $$,
   '22023', null,
   'The unflagged both-locales rule is unchanged: an empty locale is still invalid'
+);
+
+select throws_ok(
+  $$ select private.validate_place_field_value('name', '{"is":"Lykilkaffi"}'::jsonb) $$,
+  '22023', null,
+  'One locale with no needs_review is still rejected: the hatch is the flag, not the omission'
 );
 
 select throws_ok(
@@ -436,6 +442,54 @@ select throws_ok(
   $$ select * from public.list_my_open_place_flags('98300000-0000-4000-8000-000000000001') $$,
   '42501', null,
   'A signed-out caller cannot reach the pending read at all'
+);
+
+reset role;
+
+-- The apply path refuses the hatch ---------------------------------------------------------------
+--
+-- The baseline drops the flag, so a Moderator who leaves the draft alone never sees it. A saved
+-- draft is deep merged onto that baseline, though, so a section edit naming needs_review puts it
+-- back, and validate_place_field_value accepts exactly that shape: one written locale beside a
+-- flag naming the other. Applying it would write nothing for the locale it named, so the apply
+-- path refuses it by name, before the validator that would let it through.
+
+-- Read while still unrestricted and carried in a setting: a Moderator calls these functions as
+-- `authenticated`, which cannot read private.place_flags to find the identifier itself.
+select set_config(
+  'tests.hatch_flag_id',
+  (
+    select flag.id::text from private.place_flags flag
+    where flag.request_id = '98700000-0000-4000-8000-000000000001'
+  ),
+  true
+);
+
+select set_config('request.jwt.claim.sub', '98000000-0000-4000-8000-000000000003', true);
+set local role authenticated;
+
+select lives_ok(
+  $$
+    select * from public.save_place_flag_moderation_draft(
+      current_setting('tests.hatch_flag_id')::uuid,
+      1, 0, 'application',
+      '{"application_payload":{"field_value":{"needs_review":"en"}}}'::jsonb,
+      '98700000-0000-4000-8000-000000000006'
+    )
+  $$,
+  'A draft can put the omitted-locale flag back into the application payload, which is the shape the guard exists for'
+);
+
+select throws_ok(
+  $$
+    select * from public.resolve_place_flag(
+      current_setting('tests.hatch_flag_id')::uuid,
+      'applied', 1, 1, null, null, null, null, null, null,
+      '98700000-0000-4000-8000-000000000007'
+    )
+  $$,
+  '22023', 'Application command cannot carry an omitted-locale flag',
+  'An application payload naming a locale it does not write cannot be applied'
 );
 
 reset role;
