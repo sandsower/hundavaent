@@ -180,6 +180,65 @@ describe('Member Suggestion workflow', () => {
     expect(screen.queryByLabelText(catalogues[lang]['suggestion.category'])).toBeNull();
   });
 
+  it('keeps the pin an unanswered question and blocks sending until it is placed', async () => {
+    render(SuggestionPage, {
+      params: { lang: 'en' },
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        unavailable: false,
+        signInUrl: '/en/account',
+        presetLatitude: null,
+        presetLongitude: null
+      },
+      form: null
+    } as never);
+
+    const form = screen.getByRole('button', { name: 'Send suggestion' }).closest('form')!;
+    await fireEvent.input(screen.getByLabelText('Place name'), {
+      target: { value: 'Unplaced pin cafe' }
+    });
+    await fireEvent.click(screen.getByRole('radio', { name: 'Outdoors' }));
+
+    // Two of three answers given: the map has a camera on it, but nobody has stated a Location.
+    expect(new FormData(form).get('latitude')).toBeNull();
+    expect(new FormData(form).get('longitude')).toBeNull();
+    expect(screen.getByText('Place the pin where the place is.')).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Send suggestion' }));
+    expect(screen.getByRole('alert').textContent).toContain('Place the pin where the place is.');
+    expect(new FormData(form).get('latitude')).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Enter coordinates instead' }));
+    await fireEvent.input(screen.getByLabelText('Latitude'), { target: { value: '64.15' } });
+    await fireEvent.input(screen.getByLabelText('Longitude'), { target: { value: '-21.93' } });
+
+    expect(new FormData(form).get('latitude')).toBe('64.15');
+    expect(new FormData(form).get('longitude')).toBe('-21.93');
+    expect(screen.queryByText('Place the pin where the place is.')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('counts the pin the map entry point handed over as the answer it is', () => {
+    render(SuggestionPage, {
+      params: { lang: 'en' },
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        unavailable: false,
+        signInUrl: '/en/account',
+        presetLatitude: '64.1423',
+        presetLongitude: '-21.9555'
+      },
+      form: null
+    } as never);
+
+    const form = screen.getByRole('button', { name: 'Send suggestion' }).closest('form')!;
+    expect(new FormData(form).get('latitude')).toBe('64.1423');
+    expect(new FormData(form).get('longitude')).toBe('-21.9555');
+    expect(screen.queryByText('Place the pin where the place is.')).toBeNull();
+  });
+
   it('turns a signed-out submission into the sign-in flow without sending anything', () => {
     render(SuggestionPage, {
       params: { lang: 'en' },

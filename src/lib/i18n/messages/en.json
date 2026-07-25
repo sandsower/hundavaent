@@ -674,6 +674,7 @@
   "suggestion.category": "Place type",
   "suggestion.location": "Where is it?",
   "suggestion.locationRegion": "Choose where the place is",
+  "suggestion.locationRequired": "Place the pin where the place is.",
   "suggestion.locationPickerTitle": "Drop the pin",
   "suggestion.locationPickerHelp": "Place the pin as close to the entrance as you can.",
   "suggestion.locationMarker": "Suggested place",

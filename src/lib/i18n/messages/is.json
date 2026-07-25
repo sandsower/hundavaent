@@ -674,6 +674,7 @@
   "suggestion.category": "Tegund staðar",
   "suggestion.location": "Hvar er hann?",
   "suggestion.locationRegion": "Veldu hvar staðurinn er",
+  "suggestion.locationRequired": "Settu pinnann þar sem staðurinn er.",
   "suggestion.locationPickerTitle": "Settu pinnann",
   "suggestion.locationPickerHelp": "Settu pinnann eins nálægt innganginum og þú getur.",
   "suggestion.locationMarker": "Tillaga að stað",

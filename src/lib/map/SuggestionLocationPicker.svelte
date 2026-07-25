@@ -9,30 +9,48 @@
   interface Props {
     adapter: MapAdapter;
     copy: Catalogue;
-    initialLatitude: number;
-    initialLongitude: number;
+    /**
+     * Where the map opens before anyone has answered. It is a camera and never an answer: a
+     * Member who never touches the picker submits no coordinates at all, so the map can point
+     * somewhere plausible without the form claiming a Place is there.
+     */
+    fallbackCamera: MapCamera;
+    /** The placed pin, or `null` while the question is unanswered. */
+    latitude?: number | null;
+    longitude?: number | null;
+    requiredHintId?: string;
   }
 
-  let { adapter, copy, initialLatitude, initialLongitude }: Props = $props();
-  let latitude = $state(untrack(() => initialLatitude));
-  let longitude = $state(untrack(() => initialLongitude));
+  let {
+    adapter,
+    copy,
+    fallbackCamera,
+    latitude = $bindable(null),
+    longitude = $bindable(null),
+    requiredHintId = 'suggestion-location-required'
+  }: Props = $props();
   let camera = $state<MapCamera>(
-    untrack(() => ({
-      latitude: initialLatitude,
-      longitude: initialLongitude,
-      zoom: 15
-    }))
+    untrack(() =>
+      latitude === null || longitude === null
+        ? fallbackCamera
+        : { latitude, longitude, zoom: fallbackCamera.zoom }
+    )
   );
   let announcement = $state('');
   let coordinatesOpen = $state(false);
-  const places = $derived([
-    {
-      placeId: 'suggested-location',
-      name: copy['suggestion.locationMarker'],
-      latitude,
-      longitude
-    }
-  ]);
+  const answered = $derived(latitude !== null && longitude !== null);
+  const places = $derived.by(() =>
+    latitude === null || longitude === null
+      ? []
+      : [
+          {
+            placeId: 'suggested-location',
+            name: copy['suggestion.locationMarker'],
+            latitude,
+            longitude
+          }
+        ]
+  );
 
   function selectPoint(point: MapPoint): void {
     latitude = rounded(point.latitude);
@@ -65,7 +83,7 @@
   <MapSurface
     {adapter}
     {places}
-    selectedPlaceId="suggested-location"
+    selectedPlaceId={answered ? 'suggested-location' : null}
     {camera}
     {copy}
     onMarkerSelect={() => undefined}
@@ -73,6 +91,10 @@
     onMapSelect={selectPoint}
     compact
   />
+
+  {#if !answered}
+    <p class="pin-required" id={requiredHintId}>{copy['suggestion.locationRequired']}</p>
+  {/if}
 
   <div class="coordinate-alternative hv-meta">
     <span>{copy['suggestion.manualLocationHelp']}</span>
@@ -115,7 +137,9 @@
         />
       </label>
     </div>
-  {:else}
+  {:else if answered}
+    <!-- Only a placed pin is submitted. An unanswered question sends nothing, which is what makes
+         the server's missing-coordinate branch the honest refusal it is written to be. -->
     <input name="latitude" type="hidden" value={latitude} />
     <input name="longitude" type="hidden" value={longitude} />
   {/if}
@@ -152,6 +176,11 @@
 
   .picker-heading button {
     flex: none;
+  }
+
+  .pin-required {
+    color: var(--hv-color-basalt);
+    font-weight: 800;
   }
 
   .coordinate-alternative {

@@ -12,6 +12,16 @@
 
   let { data, form }: PageProps = $props();
   let submitting = $state(false);
+  // The map has to open somewhere before anyone has answered, and the capital region is where.
+  // This is a camera, not a pin: it is never submitted and never becomes a Location fact.
+  const fallbackCamera = { latitude: 64.1466, longitude: -21.9426, zoom: 15 };
+  const pinRequiredHintId = 'suggestion-location-required';
+  // A pin the map entry point handed over in the query string is a real answer - the member chose
+  // that camera or that place before following the link. Anything else has to be placed here.
+  let pinLatitude = $state<number | null>(untrack(() => presetCoordinate(data.presetLatitude)));
+  let pinLongitude = $state<number | null>(untrack(() => presetCoordinate(data.presetLongitude)));
+  let pinAttempted = $state(false);
+  let locationRegion = $state<HTMLFieldSetElement>();
   let mapAdapter = $state<MapAdapter>(
     untrack(() =>
       createMapLibreAdapter({
@@ -30,7 +40,26 @@
     { value: 'designated_area', key: 'access.designated' }
   ] as const;
 
-  const enhanceForm: SubmitFunction = () => {
+  const pinAnswered = $derived(pinLatitude !== null && pinLongitude !== null);
+  const pinMissing = $derived(pinAttempted && !pinAnswered);
+
+  // The map hands the pin over as a query string, so it arrives as text.
+  function presetCoordinate(value: string | null | undefined): number | null {
+    if (value === null || value === undefined) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  // The pin is the one answer with no native required control behind it, so the block lives here.
+  // The server refuses the same submission on its own (`incomplete`), which is what a member with
+  // no JavaScript meets; this only spares a member with JavaScript the round trip.
+  const enhanceForm: SubmitFunction = ({ cancel }) => {
+    if (!pinAnswered) {
+      pinAttempted = true;
+      cancel();
+      locationRegion?.focus();
+      return;
+    }
     submitting = true;
     return async ({ update }) => {
       await update();
@@ -72,7 +101,11 @@
   {#if data.unavailable}
     <p class="hv-notice" data-tone="error" role="alert">{data.copy['error.unexpectedBody']}</p>
   {:else}
-    {#if signInRequired}
+    {#if pinMissing}
+      <p class="hv-notice" data-tone="error" role="alert">
+        {data.copy['suggestion.locationRequired']}
+      </p>
+    {:else if signInRequired}
       <div class="hv-notice sign-in-gate" data-tone="info" role="alert">
         <span>{data.copy['suggestion.signInRequired']}</span>
         <!-- A full navigation (not a client-side route transition) keeps the account page's own
@@ -103,13 +136,18 @@
           class="hv-form-section hv-panel"
           role="region"
           aria-label={data.copy['suggestion.locationRegion']}
+          aria-describedby={pinAnswered ? undefined : pinRequiredHintId}
+          tabindex="-1"
+          bind:this={locationRegion}
         >
           <legend>{data.copy['suggestion.location']}</legend>
           <SuggestionLocationPicker
             adapter={mapAdapter}
             copy={data.copy}
-            initialLatitude={Number(data.presetLatitude ?? 64.1466)}
-            initialLongitude={Number(data.presetLongitude ?? -21.9426)}
+            {fallbackCamera}
+            requiredHintId={pinRequiredHintId}
+            bind:latitude={pinLatitude}
+            bind:longitude={pinLongitude}
           />
         </fieldset>
 

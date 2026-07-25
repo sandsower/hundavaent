@@ -117,6 +117,26 @@ describe('minimal Suggestion input', () => {
     }
   );
 
+  // The form only emits coordinates once the pin has been placed, so a submission with no pin at
+  // all is the shape this branch actually meets rather than a hand-built POST.
+  it('refuses a submission whose pin was never placed', () => {
+    const form = minimalForm();
+    form.delete('latitude');
+    form.delete('longitude');
+
+    expect(parseSuggestionFormData(form)).toEqual({ ok: false, error: 'incomplete' });
+  });
+
+  it.each(['latitude', 'longitude'])(
+    'treats an empty %s as the unanswered pin it is, not a bad coordinate',
+    (field) => {
+      const form = minimalForm();
+      form.set(field, '');
+
+      expect(parseSuggestionFormData(form)).toEqual({ ok: false, error: 'incomplete' });
+    }
+  );
+
   it.each([
     ['latitude', '91'],
     ['longitude', '-181'],

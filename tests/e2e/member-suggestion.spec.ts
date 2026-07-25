@@ -38,6 +38,21 @@ test('the map entry point carries its pin to the three questions, and only sendi
   const memberEmail = `suggestion-map-${Date.now()}@example.invalid`;
   const discoveryPath = '/en?lat=64.1423&lng=-21.9555&z=13&view=map';
 
+  // A bare arrival has no pin to carry. The map still opens on the capital region, and that camera
+  // is deliberately not an answer: sending is blocked until the member states a Location.
+  await page.goto('/en/suggest');
+  await waitForHydration(page);
+  await expect(page.getByText('Place the pin where the place is.')).toBeVisible();
+  await page.getByLabel('Place name').fill('Unplaced pin cafe');
+  await page.getByRole('radio', { name: 'Outdoors', exact: true }).check();
+  await page.getByRole('button', { name: 'Send suggestion' }).click();
+  await expect(page.getByRole('alert')).toContainText('Place the pin where the place is.');
+  expect(getLocalSuggestionProposal('Unplaced pin cafe')).toBeNull();
+  await page.getByRole('button', { name: 'Enter coordinates instead' }).click();
+  await page.getByLabel('Latitude').fill('64.1499');
+  await page.getByLabel('Longitude').fill('-21.9199');
+  await expect(page.getByText('Place the pin where the place is.')).toHaveCount(0);
+
   await page.goto(discoveryPath);
   const entry = page.getByRole('link', { name: 'Suggest a place' });
   await expect(entry).toBeVisible();
@@ -54,6 +69,9 @@ test('the map entry point carries its pin to the three questions, and only sendi
   await expect(page).toHaveURL(suggestPath);
   await waitForHydration(page);
   await expect(page.getByRole('region', { name: 'Choose where the place is' })).toBeVisible();
+  // The pin the entry point handed over is the member's own answer: they chose that camera before
+  // following the link, so the form has nothing left to ask about the Location.
+  await expect(page.getByText('Place the pin where the place is.')).toHaveCount(0);
   await page.getByRole('button', { name: 'Enter coordinates instead' }).click();
   await expect(page.getByLabel('Latitude')).toHaveValue('64.1423');
   await expect(page.getByLabel('Longitude')).toHaveValue('-21.9555');
