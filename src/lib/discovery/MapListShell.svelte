@@ -15,6 +15,11 @@
   import { onMount, tick, untrack } from 'svelte';
   import { SvelteMap, SvelteSet } from 'svelte/reactivity';
   import { postHogAnalytics } from '$lib/analytics/posthog';
+  import {
+    cubicBezierEasing,
+    motionDurationsMs,
+    motionEasings
+  } from '$lib/design-system/motion';
   import { subscribeToFavouriteInvalidation } from '$lib/favourites/sync';
 
   import type { Catalogue, Locale } from '$i18n';
@@ -198,7 +203,9 @@
       ? { top: 12, right: directoryRailWidth + 36, bottom: 12, left: 12 }
       : { top: 0, right: 0, bottom: 0, left: 0 }
   );
-  let mapMotionDuration = $derived(reducedMotion ? 0 : 450);
+  let mapMotionDuration = $derived(reducedMotion ? 0 : motionDurationsMs.traverse);
+  // The camera rides the same settle curve as the pin and card it moves with.
+  const mapMotionEasing = cubicBezierEasing(motionEasings.settle);
   // Maps a Place ID to its most recent Check-in timestamp (or null once confirmed there is none
   // within the rolling window). Absence of the key means "not yet loaded".
   let checkInStatusByPlaceId = $state<Record<string, string | null>>({});
@@ -1120,6 +1127,7 @@
           onFailureChange={(failed) => (mapFailed = failed)}
           viewportPadding={mapViewportPadding}
           motionDurationMs={mapMotionDuration}
+          motionEasing={mapMotionEasing}
           {fitPlacesOnMount}
         />
       </div>
@@ -1210,7 +1218,7 @@
      steps back and returns on its own when the gesture settles. Opacity only:
      a transform would become the containing block for the fixed detail card. */
   .directory-sidebar {
-    transition: opacity 200ms ease;
+    transition: opacity var(--hv-fade-quick) var(--hv-ease-settle);
   }
 
   .map-list-shell[data-map-moving='true'][data-detail-layout='none'] .directory-sidebar {
@@ -1339,7 +1347,7 @@
     border-radius: var(--hv-radius-shell);
     background: var(--hv-color-snow-raised);
     box-shadow: var(--hv-shadow-floating);
-    animation: detail-card-enter 240ms ease-out both;
+    animation: detail-card-enter var(--hv-motion-considered) var(--hv-ease-settle) both;
   }
 
   .selected-place-overlay:has(:global(details[open])) {
@@ -1500,7 +1508,7 @@
       /* The controls' own margin already contributes the edge inset, so the
          safe offset backs it out to keep a steady 12px gap to the card. */
       right: calc(var(--detail-safe-right) - var(--floating-card-inset));
-      transition: right 240ms ease-out;
+      transition: right var(--hv-motion-considered) var(--hv-ease-settle);
     }
   }
 
@@ -1556,31 +1564,8 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .selected-place-overlay {
-      animation: none;
-    }
-
-    .map-list-shell[data-detail-layout='floating'] .map-stage :global(.maplibregl-ctrl-top-right),
-    .map-list-shell[data-detail-layout='floating']
-      .map-stage
-      :global(.maplibregl-ctrl-bottom-right) {
-      transition: none;
-    }
-  }
-
-  .map-list-shell[data-reduced-motion='true'] .selected-place-overlay {
-    animation: none;
-  }
-
-  .map-list-shell[data-reduced-motion='true'][data-detail-layout='floating']
-    .map-stage
-    :global(.maplibregl-ctrl-top-right),
-  .map-list-shell[data-reduced-motion='true'][data-detail-layout='floating']
-    .map-stage
-    :global(.maplibregl-ctrl-bottom-right) {
-    transition: none;
-  }
+  /* No reduced-motion overrides here: every duration above is a motion token, and the tokens
+     collapse to zero under reduce on their own. */
 
   @media (max-height: 42rem) {
     .map-list-shell[data-shell-layout='compact'] .selected-place-overlay {
