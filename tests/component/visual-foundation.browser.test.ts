@@ -81,7 +81,8 @@ test('selected map markers stay compact and reveal labels only on direct interac
   const pin = marker.querySelector<SVGElement>('.pin')!;
   const label = marker.querySelector<HTMLElement>('.marker-label')!;
   expect(getComputedStyle(pin).width).toBe('36px');
-  expect(getComputedStyle(label).display).toBe('none');
+  // Hidden by visibility rather than display, so the reveal can settle on a transform.
+  expect(getComputedStyle(label).visibility).toBe('hidden');
   expect(getComputedStyle(marker.querySelector('.pin-body')!).fill).toBe('rgb(255, 214, 66)');
 
   marker.remove();
