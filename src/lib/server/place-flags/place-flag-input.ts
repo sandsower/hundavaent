@@ -402,8 +402,14 @@ export function parseReportFormData(
   const evidence = suppliedEvidence ?? readEvidence(form);
   const reportReason = value('reportReason');
   const successorPlaceId = value('successorPlaceId');
+  // A Member-initiated "unsafe" is definitionally a Safety Concern, so the checkbox cannot
+  // un-escalate one: the card endpoint already hard-codes the pairing, and a claim raised through
+  // the form must not reach Moderation quieter than the same claim raised from the card. The
+  // free-standing checkbox stays, because every other reason can honestly be either.
   const isSafetyConcern =
-    form.get('isSafetyConcern') === 'on' || form.get('isSafetyConcern') === 'true';
+    reportReason === 'unsafe' ||
+    form.get('isSafetyConcern') === 'on' ||
+    form.get('isSafetyConcern') === 'true';
 
   if (!placeId || !explanation || !target || !evidence) {
     return { ok: false, error: 'incomplete' };

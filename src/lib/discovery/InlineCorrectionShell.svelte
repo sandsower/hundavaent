@@ -11,6 +11,13 @@
    * fieldset, the note, the send lifecycle, the focus round-trip and the outcome announcements.
    * An editor supplies only its own controls and its own unchanged test, so no two editors can
    * drift on the accessibility conventions.
+   *
+   * The focus round-trip covers the shell's own lifetime only - expand, cancel, and every outcome
+   * that leaves the affordance standing. A successful send is the one exit it cannot own: the
+   * parent replaces the whole affordance with a pending line, so the trigger this shell would
+   * return focus to no longer exists by the time it could. The parent that renders the pending
+   * line owns focus from that moment on, and every parent that swaps an affordance out must move
+   * focus itself or drop the Member on `body`.
    */
   interface Props {
     copy: Catalogue;
@@ -132,9 +139,13 @@
     attempt += 1;
   }
 
-  // Focus follows the disclosure in both directions, so keyboard focus is never left on a node
-  // that has just been removed. The checked option is the entry point, as in any radio group;
-  // the first control is only a fallback for a value the editor's group cannot represent.
+  // Focus follows the disclosure in both directions for as long as the disclosure exists, so
+  // keyboard focus is never left on a node that has just been removed. The `trigger` half is a
+  // no-op after a successful send, because the parent has already unmounted the trigger by then
+  // and owns focus instead; see the contract on `Props` above.
+  //
+  // The checked option is the entry point, as in any radio group; the first control is only a
+  // fallback for a value the editor's group cannot represent.
   //
   // The search is scoped to the value controls rather than to the whole fieldset. The note is the
   // last control in the fieldset and the optional one, so a query over the fieldset would land on

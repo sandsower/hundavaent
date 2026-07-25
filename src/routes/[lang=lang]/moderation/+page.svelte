@@ -18,8 +18,8 @@
   import type { MessageKey } from '$i18n';
   import { formatLocalizedDate } from '$i18n/date';
   import {
+    localizeFlagTarget,
     localizePlaceCategory,
-    localizePlaceField,
     localizeReportReason
   } from '$i18n/structured-place';
 
@@ -67,11 +67,11 @@
         ? data.corrections.map((flag): ModerationWorkItem => ({
             id: flag.flagId,
             title: data.lang === 'is' ? flag.placeNameIs : flag.placeNameEn,
-            summary: `${data.copy[`flag.kind.${flag.kind}` as MessageKey]} · ${
-              flag.targetKind === 'place_field' && flag.targetField
-                ? localizePlaceField(flag.targetField, data.copy)
-                : data.copy['correction.targetAccessCondition']
-            }${flag.reportReason ? ` · ${localizeReportReason(flag.reportReason, data.copy)}` : ''}`,
+            summary: `${data.copy[`flag.kind.${flag.kind}` as MessageKey]} · ${localizeFlagTarget(
+              flag.targetKind,
+              flag.targetField,
+              data.copy
+            )}${flag.reportReason ? ` · ${localizeReportReason(flag.reportReason, data.copy)}` : ''}`,
             statusLabel: data.copy[`flag.status.${flag.outcome}` as MessageKey],
             meta: formatLocalizedDate(flag.submittedAt, data.lang),
             priority: flag.isSafetyConcern,

@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(33);
+select plan(34);
 
 -- Fixtures --------------------------------------------------------------------------------------
 
@@ -537,6 +537,21 @@ select is(
   ),
   pg_temp.place_snapshot('97300000-0000-4000-8000-000000000001'),
   'A Moderator reads the Place as the Member saw it, not as it stands now'
+);
+
+-- Pinned deliberately, because the null is currently a side effect rather than a decision:
+-- `get_moderation_place_flag` falls to its Access Condition branch for any target kind that is not
+-- `place_field`, and `snapshot_access_condition(null, place_id)` selects zero rows. The behaviour is
+-- right - the whole Place addresses no single live value - so this asserts it before a future
+-- recreation of the function states it with an explicit case arm.
+select is(
+  (
+    select detail.current_live_value from public.get_moderation_place_flag(
+      pg_temp.flag_id('97700000-0000-4000-8000-000000000001')
+    ) detail
+  ),
+  null::jsonb,
+  'A whole-Place claim names no live value, because it addresses no single fact'
 );
 
 select ok(

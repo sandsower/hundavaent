@@ -137,8 +137,12 @@ export interface ModerationPlaceFlag {
   targetField: PlaceField | null;
   accessConditionId: string | null;
   currentValueSnapshot: PlaceFlagSnapshot;
-  // Null on a place-level Report: `get_moderation_place_flag` reads the live value through the
-  // field or the Condition, and the whole Place addresses neither.
+  // Null on a place-level Report, which is the right answer reached by accident rather than by
+  // decision: `get_moderation_place_flag` branches on `place_field` and falls through to the
+  // Access Condition read for everything else, so a whole-Place target hands
+  // `snapshot_access_condition` a null Condition id and gets zero rows back. Pinned by
+  // `050_place_level_reports.test.sql`; the next recreation of that function should state the null
+  // in an explicit `place` case arm instead of leaving it to the fall-through.
   currentLiveValue: PlaceFlagSnapshot | null;
   currentPlaceVersion: number | null;
   currentVerificationId: string | null;

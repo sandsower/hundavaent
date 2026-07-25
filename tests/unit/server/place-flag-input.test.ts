@@ -214,8 +214,30 @@ describe('Report input', () => {
     });
   });
 
-  it('defaults is_safety_concern to false when the checkbox is absent', () => {
-    const result = parseReportFormData(reportForm());
+  it('escalates an unsafe Report whether or not the member found the checkbox', () => {
+    // A member-initiated "unsafe" is definitionally a Safety Concern, so the unticked checkbox
+    // cannot quietly downgrade it. The card endpoint hard-codes the same pairing, and the two
+    // routes into Moderation must not disagree about what the claim is.
+    const result = parseReportFormData(reportForm({ reportReason: 'unsafe' }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.payload.is_safety_concern).toBe(true);
+  });
+
+  it('still honours the checkbox for a reason that can honestly be either', () => {
+    const form = reportForm({ reportReason: 'obsolete' });
+    form.set('isSafetyConcern', 'on');
+
+    const result = parseReportFormData(form);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.payload.is_safety_concern).toBe(true);
+  });
+
+  it('defaults is_safety_concern to false when the checkbox is absent and the reason is not unsafe', () => {
+    const result = parseReportFormData(reportForm({ reportReason: 'obsolete' }));
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;

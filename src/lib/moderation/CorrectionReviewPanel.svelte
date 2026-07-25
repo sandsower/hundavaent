@@ -6,8 +6,8 @@
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import {
     localizeAccessArea,
+    localizeFlagTarget,
     localizePermission,
-    localizePlaceField,
     localizeReportReason,
     localizeRestraint,
     localizeStoredPlaceCategory
@@ -322,15 +322,8 @@
     return `flag.kind.${kind}` as MessageKey;
   }
 
-  /**
-   * Every target kind names itself. The whole Place used to fall through to "An Access Condition",
-   * which told a Moderator the claim was about a fact the Member never mentioned.
-   */
   function target(): string {
-    if (data.flag.targetKind === 'place') return data.copy['correction.targetWholePlace'];
-    return data.flag.targetKind === 'place_field' && data.flag.targetField
-      ? localizePlaceField(data.flag.targetField, data.copy)
-      : data.copy['correction.targetAccessCondition'];
+    return localizeFlagTarget(data.flag.targetKind, data.flag.targetField, data.copy);
   }
 
   /**

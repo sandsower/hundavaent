@@ -90,6 +90,12 @@ test('a Member reports a Place closed from the card and a Moderator reviews a wh
   );
   await waitForHydration(moderatorPage);
 
+  // The queue summary says the same thing the panel does, because both read one helper. It used to
+  // say "An Access Condition" here, naming a fact the Member never mentioned.
+  const queueItem = moderatorPage.locator(`[data-work-item-id="${flagId}"]`);
+  await expect(queueItem).toContainText('The whole place');
+  await expect(queueItem).not.toContainText('An Access Condition');
+
   // The subject is the whole Place, not an Access Condition the Member never mentioned.
   const changeSection = moderatorPage.locator('#correction-change');
   await expect(changeSection).toContainText('The whole place');
@@ -155,6 +161,40 @@ test('an unsafe claim from the card reaches the Moderator already escalated as a
     evidenceSection.getByText('Reported unsafe for dogs from the place card.').first()
   ).toBeVisible();
   await moderatorContext.close();
+});
+
+test('the card hands a claim it cannot make to the form, which opens on the whole Place', async ({
+  page
+}) => {
+  const memberEmail = `card-report-form-${Date.now()}@example.invalid`;
+  await signInMember(page, memberEmail);
+
+  const selectedPlace = await openContributionReveal(page);
+  await selectedPlace
+    .getByRole('link', {
+      name: `Something else is wrong - report another problem with ${correctable.nameEn}`
+    })
+    .click();
+  await waitForHydration(page);
+
+  // The link named no target, so the form opens on the whole Place and offers neither narrower
+  // selector. This is the default state; every other test of this form deep-links past it.
+  await expect(page.getByRole('heading', { name: 'Report a problem' })).toBeVisible();
+  await expect(page.getByLabel('What are you correcting?')).toHaveValue('place');
+  await expect(page.getByLabel('Choose the detail')).toHaveCount(0);
+  await expect(page.getByLabel('Choose the Access Condition')).toHaveCount(0);
+
+  await page.getByLabel('What kind of problem is this?').selectOption('misleading');
+  await page
+    .getByLabel('Private explanation to the Moderator')
+    .fill('The listing describes a garden that was paved over.');
+  await page.getByRole('button', { name: 'Send private Report' }).click();
+
+  // The Member lands on their own list, where the claim is named as what they raised it about.
+  await expect(page).toHaveURL(/\/en\/account\/corrections-and-reports/);
+  const raised = page.getByRole('listitem').filter({ hasText: correctable.nameEn }).first();
+  await expect(raised).toContainText('Report · The whole place');
+  await expect(raised).not.toContainText('An Access Condition');
 });
 
 async function openContributionReveal(page: Page): Promise<Locator> {

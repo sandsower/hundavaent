@@ -38,8 +38,12 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 
   const presetField = url.searchParams.get('field');
   const presetConditionId = url.searchParams.get('conditionId');
-  // A Member who followed a card action already said what the claim is. The form opens on it rather
-  // than on the top of the list, and on the whole Place unless the link named a narrower target.
+  // The form opens on the whole Place unless the link named a narrower target, and on the reason
+  // the link named if it named one. Nothing in the product produces `?reason=` today: the card's
+  // three claims submit straight to the API and never route through this form. It is kept, and
+  // validated, because this page is an addressable URL - a Moderator or a support reply can hand a
+  // Member a link that opens on the claim they were just asked about - and because dropping it
+  // would silently ignore a parameter a Member can already see in the query string.
   const requestedReason = url.searchParams.get('reason');
   const presetReason = isReportReason(requestedReason) ? requestedReason : null;
 
