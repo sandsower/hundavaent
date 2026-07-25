@@ -263,7 +263,7 @@
     border: 1px solid var(--hv-border-subtle);
     border-radius: 0.4rem;
     background: var(--hv-color-snow-raised);
-    animation: correction-reveal 160ms ease both;
+    animation: correction-reveal var(--hv-motion-quick) var(--hv-ease-settle) both;
   }
 
   legend {
@@ -350,20 +350,16 @@
     cursor: pointer;
   }
 
+  /* Transform only, and deliberately no opacity: the editor is text-bearing, so fading it in
+     would start its legend and choices at a 1:1 contrast ratio and climb through the whole
+     duration. Words arrive at full contrast and move into place. Reduced motion is handled by
+     --hv-motion-quick collapsing to zero rather than by an override here. */
   @keyframes correction-reveal {
     from {
-      opacity: 0;
       transform: translateY(-0.15rem);
     }
     to {
-      opacity: 1;
       transform: translateY(0);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .editor {
-      animation: none;
     }
   }
 </style>
