@@ -71,11 +71,13 @@ test('earned verification reaches review, permanent impact, feedback, and a safe
 
   await expect(page.getByTestId('trusted-submission-success')).toBeVisible();
   await expect(page.getByText('This useful step marked your current week active.')).toBeVisible();
-  expect(
-    await page
-      .locator('.celebration-icon')
-      .evaluate((element) => getComputedStyle(element).animationName)
-  ).toBe('none');
+  // The celebration icon rides the token families: reduced motion collapses the travelling
+  // half to zero duration while the fade half keeps appearing at full duration, so the
+  // interface reads as calm rather than broken. The animation names stay.
+  const celebrationTiming = await page
+    .locator('.celebration-icon')
+    .evaluate((element) => getComputedStyle(element).animationDuration);
+  expect(celebrationTiming).toBe('0s, 0.26s');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
 
   const flagId = await getLocalTrustedVerificationFlagId(memberEmail, fixture.placeId);
