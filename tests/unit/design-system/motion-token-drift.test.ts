@@ -18,12 +18,9 @@ const motionSourcePath = 'src/lib/design-system/motion.ts';
  */
 const unconvertedSurfaces = new Set([
   'src/app.css',
-  'src/lib/achievements/AchievementCelebration.svelte',
-  'src/lib/achievements/AchievementUnreadIndicator.svelte',
   'src/lib/member-activity/WeeklyRhythmAcknowledgement.svelte',
   'src/lib/member-activity/WeeklyRhythmTrail.svelte',
   'src/lib/roundup/RoundupTrailIcon.svelte',
-  'src/routes/[lang=lang]/account/achievements/+page.svelte',
   'src/routes/[lang=lang]/account/impact/+page.svelte',
   'src/routes/[lang=lang]/account/keep-current/+page.svelte',
   'src/routes/[lang=lang]/account/roundup/+page.svelte'

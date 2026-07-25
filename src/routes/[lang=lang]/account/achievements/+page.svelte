@@ -239,18 +239,16 @@
     text-transform: uppercase;
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .new-badge {
-      animation: new-badge-settle 360ms ease-out 1;
-    }
+  .new-badge {
+    animation: new-badge-settle var(--hv-motion-celebrate) var(--hv-ease-settle) 1;
+  }
 
-    @keyframes new-badge-settle {
-      from {
-        transform: scale(1.18);
-      }
-      to {
-        transform: scale(1);
-      }
+  @keyframes new-badge-settle {
+    from {
+      transform: scale(1.18);
+    }
+    to {
+      transform: scale(1);
     }
   }
 

@@ -191,85 +191,113 @@
     font-weight: 800;
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .celebration {
-      animation: achievement-card-arrives 260ms ease-out both;
-    }
+  /* The choreography rides the token families, so reduced motion collapses every travelling
+     entry on its own while the fade halves keep breathing: the halo, icon, and paw still
+     appear, they just stop moving. Anything that both moves and fades runs as two entries,
+     one per family (see tokens.css). The card and its words are transform-only. */
+  .celebration {
+    animation: achievement-card-arrives var(--hv-motion-considered) var(--hv-ease-settle) both;
+  }
 
-    .halo {
-      animation: achievement-halo-breathes 520ms 120ms ease-out both;
-    }
+  .halo {
+    animation:
+      achievement-halo-swells var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 2)
+        var(--hv-ease-settle) both,
+      achievement-halo-brightens var(--hv-fade-considered) calc(var(--hv-motion-stagger) * 2)
+        var(--hv-ease-settle) both;
+  }
 
-    .achievement-icon {
-      animation: achievement-icon-settles 420ms 120ms cubic-bezier(0.2, 0.85, 0.2, 1) both;
-    }
+  .achievement-icon {
+    animation:
+      achievement-icon-settles var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 2)
+        var(--hv-ease-settle) both,
+      achievement-icon-appears var(--hv-fade-considered) calc(var(--hv-motion-stagger) * 2)
+        var(--hv-ease-settle) both;
+  }
 
-    .trail path {
-      animation: achievement-trail-draws 420ms 220ms ease-out both;
-    }
+  .trail path {
+    animation: achievement-trail-draws var(--hv-motion-celebrate)
+      calc(var(--hv-motion-stagger) * 4) var(--hv-ease-settle) both;
+  }
 
-    .paw {
-      animation: achievement-paw-stamps 360ms 480ms cubic-bezier(0.2, 0.85, 0.2, 1) both;
-    }
+  .paw {
+    animation:
+      achievement-paw-stamps var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 10)
+        var(--hv-ease-settle) both,
+      achievement-paw-appears var(--hv-fade-considered) calc(var(--hv-motion-stagger) * 10)
+        var(--hv-ease-settle) both;
+  }
 
-    @keyframes achievement-card-arrives {
-      from {
-        transform: translateY(0.7rem);
-      }
-      to {
-        transform: translateY(0);
-      }
+  @keyframes achievement-card-arrives {
+    from {
+      transform: translateY(0.7rem);
     }
-
-    @keyframes achievement-halo-breathes {
-      from {
-        opacity: 0.35;
-        transform: translateX(-50%) scale(0.8);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(-50%) scale(1);
-      }
-    }
-
-    @keyframes achievement-icon-settles {
-      from {
-        opacity: 0;
-        transform: translateX(-50%) scale(0.72) rotate(-8deg);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(-50%) scale(1) rotate(0);
-      }
-    }
-
-    @keyframes achievement-trail-draws {
-      from {
-        stroke-dashoffset: 42;
-      }
-      to {
-        stroke-dashoffset: 0;
-      }
-    }
-
-    @keyframes achievement-paw-stamps {
-      from {
-        opacity: 0;
-        transform: scale(1.45) rotate(18deg);
-      }
-      to {
-        opacity: 1;
-        transform: scale(1) rotate(9deg);
-      }
+    to {
+      transform: translateY(0);
     }
   }
 
-  .celebration[data-reduced-motion='true'],
-  .celebration[data-reduced-motion='true'] .halo,
-  .celebration[data-reduced-motion='true'] .achievement-icon,
-  .celebration[data-reduced-motion='true'] .trail path,
-  .celebration[data-reduced-motion='true'] .paw {
-    animation: none;
+  @keyframes achievement-halo-swells {
+    from {
+      transform: translateX(-50%) scale(0.8);
+    }
+    to {
+      transform: translateX(-50%) scale(1);
+    }
+  }
+
+  @keyframes achievement-halo-brightens {
+    from {
+      opacity: 0.35;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes achievement-icon-settles {
+    from {
+      transform: translateX(-50%) scale(0.72) rotate(-8deg);
+    }
+    to {
+      transform: translateX(-50%) scale(1) rotate(0);
+    }
+  }
+
+  @keyframes achievement-icon-appears {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes achievement-trail-draws {
+    from {
+      stroke-dashoffset: 42;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes achievement-paw-stamps {
+    from {
+      transform: scale(1.45) rotate(18deg);
+    }
+    to {
+      transform: scale(1) rotate(9deg);
+    }
+  }
+
+  @keyframes achievement-paw-appears {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   @media (max-width: 34rem) {
