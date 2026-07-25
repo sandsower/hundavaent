@@ -1,4 +1,8 @@
-export type AuthOrigin = 'header' | 'favourite' | 'rating';
+/**
+ * `contribution` gates at the moment of action and never defers intent: a Correction is replayed
+ * from nothing, because the magic link round trip can land in a different browser.
+ */
+export type AuthOrigin = 'header' | 'favourite' | 'rating' | 'contribution';
 
 export type PendingAuthIntent =
   | { action: 'favourite'; placeId: string; placeName?: string }
@@ -20,8 +24,16 @@ export function requestAuthentication(request: AuthRequest): void {
 export function isAuthRequest(value: unknown): value is AuthRequest {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<AuthRequest>;
-  if (!['header', 'favourite', 'rating'].includes(candidate.origin ?? '')) return false;
-  if (!candidate.intent) return candidate.origin === 'header' && !candidate.continuationToken;
+  if (!['header', 'favourite', 'rating', 'contribution'].includes(candidate.origin ?? '')) {
+    return false;
+  }
+  if (!candidate.intent) {
+    return (
+      (candidate.origin === 'header' || candidate.origin === 'contribution') &&
+      !candidate.continuationToken
+    );
+  }
+  if (candidate.origin === 'contribution') return false;
   if (candidate.continuationToken && candidate.continuationToken.length < 32) return false;
   if (!candidate.intent.placeId) return false;
   if (

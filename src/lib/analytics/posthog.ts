@@ -37,14 +37,14 @@ export interface ProductAnalyticsEvents {
     proximity: 'confirmed' | 'not_confirmed' | 'unknown';
   };
   'auth modal opened': {
-    origin: 'header' | 'favourite' | 'rating';
+    origin: 'header' | 'favourite' | 'rating' | 'contribution';
   };
   'auth method selected': {
     method: 'email' | 'facebook';
-    origin: 'header' | 'favourite' | 'rating';
+    origin: 'header' | 'favourite' | 'rating' | 'contribution';
   };
   'auth link requested': {
-    origin: 'header' | 'favourite' | 'rating';
+    origin: 'header' | 'favourite' | 'rating' | 'contribution';
   };
   'auth completed': {
     method: 'email' | 'facebook';

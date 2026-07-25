@@ -22,6 +22,19 @@ describe('authentication controller', () => {
     expect(isAuthRequest({ origin: 'favourite' })).toBe(false);
   });
 
+  it('accepts an intent-less contribution request, because contribution never defers intent', () => {
+    expect(isAuthRequest({ origin: 'contribution' })).toBe(true);
+    expect(isAuthRequest({ origin: 'contribution', continuationToken: 'x'.repeat(32) })).toBe(
+      false
+    );
+    expect(
+      isAuthRequest({
+        origin: 'contribution',
+        intent: { action: 'favourite', placeId: 'place-1' }
+      })
+    ).toBe(false);
+  });
+
   it('publishes a typed request without retaining unrelated user data', () => {
     const dispatchEvent = vi.fn();
     vi.stubGlobal('window', { dispatchEvent });

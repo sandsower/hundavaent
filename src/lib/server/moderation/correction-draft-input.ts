@@ -2,7 +2,8 @@ import type { Json } from '$server/db/generated.types';
 import {
   readAccessConditionValue,
   readEvidence,
-  readPlaceFieldValue
+  readPlaceFieldValue,
+  type AccessConditionValue
 } from '$server/place-flags/place-flag-input';
 import type { ModerationPlaceFlag } from '$server/place-flags/place-flags';
 
@@ -35,6 +36,16 @@ export function parseCorrectionDraftSection(
 
     const expectedVerificationId = requiredText(form.get('expectedVerificationId'));
     const replacementCondition = readAccessConditionValue(form);
+    if (replacementCondition) {
+      // The application form has no dog eligibility inputs at all, so readAccessConditionValue
+      // returns all_dogs unconditionally. Letting that stand would erase a size-restricted Place's
+      // real eligibility the moment a Moderator applied any Access Condition Correction, so the
+      // claim's own eligibility is carried through instead.
+      const carried =
+        (flag.proposedValue as AccessConditionValue | null)?.dog_eligibility ??
+        (flag.currentLiveValue as AccessConditionValue | null)?.dog_eligibility;
+      if (carried) replacementCondition.dog_eligibility = carried;
+    }
     const evidence = readEvidence(form);
     const verifiedAt = dateTime(form.get('verifiedAt'));
     const freshnessUntil = dateTime(form.get('freshnessUntil'));

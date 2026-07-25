@@ -31,7 +31,9 @@
       ? copy['auth.favouriteTitle'].replace('{name}', request.intent.placeName)
       : request.intent?.action === 'rating'
         ? copy['auth.ratingTitle'].replace('{name}', request.intent.placeName)
-        : copy['auth.continue']
+        : request.origin === 'contribution'
+          ? copy['auth.contributionTitle']
+          : copy['auth.continue']
   );
 
   afterNavigate(() => {

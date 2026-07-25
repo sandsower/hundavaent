@@ -34,7 +34,11 @@ const unconvertedSurfaces = new Set([
 
 // Declarations are matched across newlines: a multi-line `transition:` is exactly the shape a
 // hand-picked duration hides in, and a line-by-line scan walks straight past it.
-const durationDeclarationPattern = /\b(?:transition|animation)(?:-duration)?\s*:[^;{}]*/g;
+//
+// Delays count as timing. A staggered cascade written as `animation-delay: 60ms` drifts from
+// the token scale exactly as a hand-picked duration does, and it is the half of a stagger that
+// has to collapse for reduced motion to work.
+const durationDeclarationPattern = /\b(?:transition|animation)(?:-duration|-delay)?\s*:[^;{}]*/g;
 const durationLiteralPattern = /\b\d+(?:\.\d+)?m?s\b/;
 const easingPattern = /cubic-bezier\s*\(/g;
 

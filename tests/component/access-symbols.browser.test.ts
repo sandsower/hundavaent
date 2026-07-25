@@ -50,12 +50,37 @@ describe('AccessSymbols', () => {
     const timing = screen.getByRole('button', { name: 'Information not stated' });
     await fireEvent.click(timing);
     expect(timing.getAttribute('aria-expanded')).toBe('true');
-    const persistentDetail = screen.getByRole('status');
+    const persistentDetail = document.querySelector<HTMLElement>('[data-access-detail]')!;
     expect(persistentDetail.textContent).toContain('does not imply permission');
     const detailStyle = getComputedStyle(persistentDetail);
     expect(detailStyle.backgroundColor).toBe('rgb(251, 252, 249)');
     expect(detailStyle.borderLeftColor).toBe('rgb(242, 201, 76)');
     expect(Number.parseFloat(detailStyle.borderLeftWidth)).toBeGreaterThanOrEqual(4);
+  });
+
+  it('still announces the explanation through the dedicated live region when a chip opens', async () => {
+    // The detail panel gave up role="status" so it could hold interactive controls. That is only
+    // safe if the announcement it used to make now comes from the visually hidden region.
+    render(AccessSymbols, {
+      placeName: 'Brikk',
+      conditions: [simpleCondition],
+      copy: catalogues.en
+    });
+    const region = document.querySelector<HTMLElement>('[data-access-announcement]')!;
+    expect(region.getAttribute('aria-live')).toBe('polite');
+    expect(region.textContent?.trim()).toBe('');
+    expect(document.querySelector('[data-access-detail]')).toBeNull();
+
+    const restraint = screen.getByRole('button', { name: 'Leash required' });
+    await fireEvent.click(restraint);
+
+    await waitFor(() => expect(region.textContent).toContain('Leash required'));
+    expect(region.textContent).toContain('must remain on a leash');
+    // The panel that used to be the live region must not be one any more.
+    expect(document.querySelector('[data-access-detail]')?.getAttribute('role')).toBeNull();
+
+    await fireEvent.click(restraint);
+    await waitFor(() => expect(region.textContent?.trim()).toBe(''));
   });
 
   it('keeps every access symbol in place when an explanation opens', async () => {
@@ -75,7 +100,7 @@ describe('AccessSymbols', () => {
     expect(symbols.map((symbol) => ({ left: symbol.offsetLeft, top: symbol.offsetTop }))).toEqual(
       initialPositions
     );
-    const detail = screen.getByRole('status');
+    const detail = document.querySelector<HTMLElement>('[data-access-detail]')!;
     expect(detail.offsetTop).toBeGreaterThanOrEqual(
       Math.max(...symbols.map((symbol) => symbol.offsetTop + symbol.offsetHeight))
     );
@@ -265,7 +290,9 @@ describe('AccessSymbols', () => {
       expect(getComputedStyle(tooltip).pointerEvents).toBe('auto');
 
       await fireEvent.click(special);
-      expect(screen.getByRole('status').textContent).toContain('Lok skýringar.');
+      expect(document.querySelector('[data-access-detail]')?.textContent).toContain(
+        'Lok skýringar.'
+      );
     } finally {
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }

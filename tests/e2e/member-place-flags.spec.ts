@@ -154,6 +154,74 @@ test('a Moderator can open an Access Dispute or retire a Place directly from a R
   await expect(page.getByText(/inactive|review|verified|reconfirm|source/i)).toHaveCount(0);
 });
 
+test('a Member corrects the restraint rule inline on the place card and the Moderator receives a synthesized Member report', async ({
+  browser,
+  page
+}) => {
+  const { correctable } = localPlaceFlagFixtures;
+  const memberEmail = `inline-correction-member-${Date.now()}@example.invalid`;
+  await signInMember(page, memberEmail);
+
+  await page.goto(`/en?place=${correctable.placeId}`);
+  await waitForHydration(page);
+  const selectedPlace = page.getByRole('complementary', { name: 'Selected place' });
+  await selectedPlace.getByRole('button', { name: 'Leash required' }).click();
+
+  // The affordance targets access_condition_id, which only the loaded profile carries, so it
+  // appears once the profile arrives rather than with the summary chips.
+  const start = selectedPlace.getByRole('button', {
+    name: `Correct the restraint rule for ${correctable.nameEn}`
+  });
+  await expect(start).toBeVisible();
+  await start.click();
+
+  const send = selectedPlace.getByRole('button', { name: 'Send', exact: true });
+  await expect(send).toBeDisabled();
+  await selectedPlace.getByRole('radio', { name: 'Off-leash allowed' }).check();
+  await expect(send).toBeEnabled();
+
+  const submissionPromise = page.waitForResponse((response) => {
+    return (
+      response.request().method() === 'POST' && response.url().includes('/corrections?lang=en')
+    );
+  });
+  await send.click();
+  const submission = await submissionPromise;
+  const submissionBody = await submission.text();
+  expect(submission.status(), submissionBody).toBe(200);
+  const inlineFlagId = (JSON.parse(submissionBody) as { flagId: string }).flagId;
+  expect(inlineFlagId).toBeTruthy();
+
+  // The editor collapses back to its quiet trigger and the outcome is announced out of band.
+  await expect(start).toBeVisible();
+  await expect(selectedPlace.locator('[data-access-announcement]')).toHaveText(
+    'Thank you. A Moderator will check this.'
+  );
+
+  const moderatorContext = await browser.newContext();
+  const moderatorPage = await moderatorContext.newPage();
+  await signInModerator(moderatorPage);
+  await moderatorPage.goto(
+    `/en/moderation?queue=corrections-and-reports&item=${inlineFlagId}&filter=actionable`
+  );
+  await waitForHydration(moderatorPage);
+
+  // Truthfully labelled as a Member report the server wrote, with a factual explanation naming
+  // the before value, the after value and the surface.
+  const evidenceSection = moderatorPage.locator('#correction-evidence');
+  await expect(evidenceSection).toContainText('Member report from the place page');
+  await expandReviewSection(evidenceSection);
+  const synthesizedLine =
+    'Restraint condition changed from leash required to off-leash allowed, reported from the place card.';
+  await expect(evidenceSection.getByText(synthesizedLine).first()).toBeVisible();
+
+  // The proposed value carries the Place's own access facts through, changing only the restraint.
+  const changeSection = moderatorPage.locator('#correction-change');
+  await expandReviewSection(changeSection);
+  await expect(changeSection).toContainText('Off-leash permitted');
+  await moderatorContext.close();
+});
+
 test('a signed-in Member cannot open the Moderator Correction/Report queue', async ({ page }) => {
   const memberEmail = `place-flag-unauthorized-${Date.now()}@example.invalid`;
   await signInMember(page, memberEmail);
@@ -206,7 +274,7 @@ async function submitCorrection(
 ): Promise<string> {
   await page.goto(`/en/places/${placeId}/correct?field=${field}`);
   await page.getByLabel('New value').fill(newValue);
-  await fillEvidence(page, `Correction source for ${field}`);
+  // No Evidence fieldset: the server synthesizes the Member report record from the explanation.
   await page
     .getByLabel('Private explanation to the Moderator')
     .fill(`The ${field.replace('_', ' ')} changed.`);

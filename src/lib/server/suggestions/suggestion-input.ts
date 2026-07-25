@@ -1,3 +1,4 @@
+import type { DogEligibility } from '$domain/access';
 import type { Json } from '$server/db/generated.types';
 
 export type SuggestionInputError = 'excluded_purpose' | 'incomplete' | 'invalid';
@@ -39,7 +40,9 @@ export interface SuggestionProposal {
     restraint_condition:
       'leash_required' | 'off_leash_permitted' | 'carrier_required' | 'other_sourced';
     restraint_note: string | null;
-    dog_eligibility: { scope: 'all_dogs' };
+    // Suggestion forms only ever write all_dogs, but the Moderation panels reuse this shape to
+    // display an existing Access Condition, which may carry a restricted eligibility.
+    dog_eligibility: DogEligibility;
     availability_state: 'whenever_open' | 'limited' | 'not_stated';
     availability_window: Record<string, Json>;
     permission_requirement: 'standing_permission' | 'ask_on_arrival' | 'advance_approval';

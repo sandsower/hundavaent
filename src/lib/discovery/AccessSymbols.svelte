@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, type Snippet } from 'svelte';
 
   import type { Catalogue, MessageKey } from '$i18n';
   import { formatLocalizedDateOnly } from '$i18n/date';
@@ -16,9 +16,16 @@
     conditions: readonly AccessSymbolCondition[];
     copy: Catalogue;
     onOpenDetails?: () => void;
+    /**
+     * Optional contribution affordance rendered inside the open detail panel. Passed as a snippet
+     * so this component stays presentational and so `PlaceCard`, which passes nothing, renders
+     * exactly as it always has. The snippet receives the dimension the panel is explaining and the
+     * announcer below, because the live region belongs to whoever owns the panel.
+     */
+    editor?: Snippet<[{ dimension: AccessSymbolDimension; announce: (message: string) => void }]>;
   }
 
-  let { placeName, conditions, copy, onOpenDetails = () => undefined }: Props = $props();
+  let { placeName, conditions, copy, onOpenDetails = () => undefined, editor }: Props = $props();
   const componentId = $props.id();
   const tooltipId = `${componentId}-tooltip`;
   const isIcelandic = $derived(copy['hours.monday'] === 'Mánudagur');
@@ -32,6 +39,10 @@
   let tooltipTop = $state(0);
   let tooltipRevealY = $state('0.25rem');
   let tooltipHideTimer: ReturnType<typeof setTimeout> | undefined;
+  // The detail panel itself is inert: it holds interactive controls now, and a live region would
+  // announce every radio change. Announcements go through this dedicated region instead, which
+  // still carries the explanation when a chip opens the panel.
+  let announcement = $state('');
   const presentation = $derived(buildAccessSymbolPresentation(conditions));
   const labels: Record<AccessSymbolState, MessageKey> = {
     indoors: 'accessSymbols.indoors',
@@ -238,9 +249,20 @@
 
   function activate(symbol: AccessSymbol): void {
     activeDimension = activeDimension === symbol.dimension ? null : symbol.dimension;
+    void announce(activeDimension ? `${label(symbol)} ${fullExplanation(symbol)}` : '');
     if (activeDimension && (symbol.state === 'special' || symbol.state === 'limited')) {
       onOpenDetails();
     }
+  }
+
+  async function announce(message: string): Promise<void> {
+    // Assigning the identical string is not a state change, so the live region would stay silent
+    // on a repeat. Clearing first makes a second identical outcome its own announcement.
+    if (announcement === message) {
+      announcement = '';
+      await tick();
+    }
+    announcement = message;
   }
 
   function portal(node: HTMLElement): { destroy: () => void } {
@@ -376,6 +398,7 @@
       onclick={() => {
         closeTooltip();
         activeDimension = activeDimension === 'complex' ? null : 'complex';
+        void announce(activeDimension === 'complex' ? explanation : '');
         onOpenDetails();
       }}
     >
@@ -389,7 +412,7 @@
       <span>{copy['accessSymbols.differentConditions']}</span>
     </button>
     {#if activeDimension === 'complex'}
-      <p id={detailId} class="persistent-detail" role="status">
+      <p id={detailId} class="persistent-detail" data-access-detail>
         {explanation}
       </p>
     {/if}
@@ -492,18 +515,25 @@
         (symbol) => symbol.dimension === activeDimension
       )}
       {#if activeSymbol}
-        <p
+        <div
           id={`${componentId}-${activeSymbol.dimension}-detail`}
           class="persistent-detail"
-          role="status"
+          data-access-detail
         >
-          <strong>{label(activeSymbol)}</strong>
-          {fullExplanation(activeSymbol)}
-        </p>
+          <p>
+            <strong>{label(activeSymbol)}</strong>
+            {fullExplanation(activeSymbol)}
+          </p>
+          {@render editor?.({ dimension: activeSymbol.dimension, announce })}
+        </div>
       {/if}
     {/if}
   {/if}
 </div>
+
+<p class="visually-hidden" role="status" aria-live="polite" data-access-announcement>
+  {announcement}
+</p>
 
 <span
   use:portal
@@ -676,8 +706,24 @@
     animation: reveal 180ms ease both;
   }
 
+  .persistent-detail p {
+    margin: 0;
+  }
+
   .persistent-detail strong {
     display: block;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   @keyframes reveal {

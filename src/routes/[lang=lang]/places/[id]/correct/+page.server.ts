@@ -8,8 +8,12 @@ import {
   RoleRequiredError,
   requireRole
 } from '$server/auth/require-role';
+import {
+  buildMemberReportEvidence,
+  describePlaceFieldCorrection
+} from '$server/contributions/member-evidence';
 import { getPublishedProfile } from '$server/discovery/public-places';
-import { parseCorrectionFormData } from '$server/place-flags/place-flag-input';
+import { isPlaceField, parseCorrectionFormData } from '$server/place-flags/place-flag-input';
 import { submitCorrection, type PlaceFlagRpcClient } from '$server/place-flags/place-flags';
 import { serializeRedirectRecognition } from '$server/member-activity/redirect-recognition';
 
@@ -81,7 +85,23 @@ export const actions: Actions = {
       return fail(400, { error: 'invalid' as const });
     }
     formData.set('placeId', params.id);
-    const parsed = parseCorrectionFormData(formData);
+    // The Member is never asked to construct an Evidence record. The server writes it, truthfully
+    // labelled as a Member report, and cites the Member's own explanation.
+    const requestedField = formData.get('targetField');
+    const parsed = parseCorrectionFormData(
+      formData,
+      buildMemberReportEvidence({
+        note: String(formData.get('explanation') ?? ''),
+        changeSummary: describePlaceFieldCorrection(
+          formData.get('targetKind') === 'place_field' && isPlaceField(requestedField)
+            ? requestedField
+            : null,
+          'correction-form'
+        ),
+        observedAt: new Date().toISOString(),
+        surface: 'correction-form'
+      })
+    );
     if (!parsed.ok) return fail(400, { error: parsed.error });
 
     const result = await submitCorrection(
