@@ -3,7 +3,14 @@ import type { Map as MapLibreMap, Marker, StyleSpecification } from 'maplibre-gl
 import { clusterMapPlaces, isTerminalMapCluster } from '$lib/discovery/clusters';
 
 import { markerPinSvg } from './marker-icons';
-import type { MapAdapter, MapCallbacks, MapCamera, MapPadding, MapPlace } from './types';
+import type {
+  MapAdapter,
+  MapCallbacks,
+  MapCamera,
+  MapCameraOptions,
+  MapPadding,
+  MapPlace
+} from './types';
 
 export interface MapLibreAdapterOptions {
   style: string | StyleSpecification;
@@ -179,10 +186,7 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
     if (markerId) markers.get(markerId)?.element.focus();
   }
 
-  function setCamera(
-    camera: MapCamera,
-    options: { duration?: number; padding?: MapPadding } = {}
-  ): void {
+  function setCamera(camera: MapCamera, options: MapCameraOptions = {}): void {
     if (!map) return;
     const current = map.getCenter();
     const currentPadding = map.getPadding();
@@ -205,7 +209,9 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
         center: [camera.longitude, camera.latitude],
         zoom: camera.zoom,
         padding: nextPadding,
-        duration: options.duration
+        duration: options.duration,
+        // Spelling out an undefined easing would override maplibre's default with nothing.
+        ...(options.easing ? { easing: options.easing } : {})
       });
     } else {
       map.jumpTo({

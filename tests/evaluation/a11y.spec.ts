@@ -510,18 +510,31 @@ test('reduced motion suppresses marker transforms and selection has non-color st
   await expect(marker).toBeVisible();
   await marker.click();
   await expect(marker).toHaveAttribute('aria-pressed', 'true');
-  const motionDurations = await marker.evaluate((element) => {
-    const styles = getComputedStyle(element);
+  const markerMotion = await marker.evaluate((element) => {
     const toMilliseconds = (duration: string): number =>
       duration.endsWith('ms') ? Number.parseFloat(duration) : Number.parseFloat(duration) * 1_000;
+    const pin = element.querySelector('.pin');
+    const body = element.querySelector('.pin-body');
+    const label = element.querySelector('.marker-label');
     return {
-      animation: toMilliseconds(styles.animationDuration),
-      transition: toMilliseconds(styles.transitionDuration)
+      pinSettle: pin ? toMilliseconds(getComputedStyle(pin).animationDuration) : Number.NaN,
+      labelSlide: label ? toMilliseconds(getComputedStyle(label).transitionDuration) : Number.NaN,
+      strokeWidth: body ? getComputedStyle(body).strokeWidth : ''
     };
   });
-  expect(motionDurations.animation).toBeLessThanOrEqual(0.01);
-  expect(motionDurations.transition).toBeLessThanOrEqual(0.01);
+  // The settle punch and the label slide carry the motion family, so both collapse to zero
+  // for Members who prefer reduced motion; the thicker stroke stays as the non-color state.
+  expect(markerMotion.pinSettle).toBeLessThanOrEqual(0.01);
+  expect(markerMotion.labelSlide).toBeLessThanOrEqual(0.01);
+  expect(markerMotion.strokeWidth).toBe('5px');
   await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
+  // The card's entry animation is token-driven, so it must also collapse here. This is the
+  // real-browser home of that assertion: the component harness cannot resolve tokens, and a
+  // matchMedia mock cannot drive CSS media queries.
+  const cardEnter = await page
+    .locator('[data-selected-place-overlay]')
+    .evaluate((element) => Number.parseFloat(getComputedStyle(element).animationDuration) * 1_000);
+  expect(cardEnter).toBeLessThanOrEqual(0.01);
   await expectNoSeriousAxeViolations(page, evidence);
 });
 

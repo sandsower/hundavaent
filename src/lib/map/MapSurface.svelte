@@ -23,6 +23,7 @@
     fitPlacesOnMount?: boolean;
     viewportPadding?: MapPadding;
     motionDurationMs?: number;
+    motionEasing?: (t: number) => number;
   }
 
   let {
@@ -42,7 +43,8 @@
     compact = false,
     fitPlacesOnMount = false,
     viewportPadding = { top: 0, right: 0, bottom: 0, left: 0 },
-    motionDurationMs = 0
+    motionDurationMs = 0,
+    motionEasing
   }: Props = $props();
   let container = $state<HTMLElement>();
   let mounted = $state(false);
@@ -133,7 +135,11 @@
     }
     appliedCamera = camera;
     appliedPadding = viewportPadding;
-    adapter.setCamera(camera, { duration: motionDurationMs, padding: viewportPadding });
+    adapter.setCamera(camera, {
+      duration: motionDurationMs,
+      easing: motionEasing,
+      padding: viewportPadding
+    });
   });
 </script>
 

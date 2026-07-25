@@ -73,6 +73,8 @@ a {
   width: 2.25rem;
   height: auto;
   filter: drop-shadow(0 0.25rem 0.5rem rgb(30 45 49 / 22%));
+  /* The tail stays planted on the coordinate while the pin settles. */
+  transform-origin: 50% 100%;
 }
 
 .hundavaent-marker .pin-body {
@@ -93,10 +95,31 @@ a {
   fill: var(--hv-color-snow-raised, #fbfcf9);
 }
 
+/* Selection state - fill, icon colour, stroke weight - lands in one frame; only the settle
+   punch below takes time. stroke-width is not compositor-only, so it must never transition. */
 .hundavaent-marker.selected .pin-body,
 .hundavaent-marker[aria-pressed='true'] .pin-body {
   fill: var(--hv-color-signal, #f2c94c);
   stroke-width: 5;
+}
+
+.hundavaent-marker.selected .pin,
+.hundavaent-marker[aria-pressed='true'] .pin {
+  animation: hv-pin-settle var(--hv-motion-quick, 0ms) var(--hv-ease-settle, ease-out);
+}
+
+@keyframes hv-pin-settle {
+  0% {
+    transform: scale(1);
+  }
+
+  55% {
+    transform: scale(1.06);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 .hundavaent-marker.selected .pin-icon-stroke,
@@ -109,11 +132,14 @@ a {
   fill: var(--hv-color-basalt, #1e2d31);
 }
 
+/* The name arrives at full contrast and moves into place: visibility snaps (both ways - the
+   exit never lingers) while only the transform takes time. The label is text, so it must never
+   ride an opacity fade; see the fade-family limit in tokens.css. */
 .hundavaent-marker .marker-label {
   position: absolute;
   top: 100%;
   left: 50%;
-  display: none;
+  visibility: hidden;
   max-width: 14rem;
   margin-top: 0.25rem;
   padding: 0.1rem 0.55rem;
@@ -126,7 +152,8 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(-0.25rem);
+  transition: transform var(--hv-motion-quick, 0ms) var(--hv-ease-settle, ease-out);
 }
 
 .hundavaent-marker:hover,
@@ -138,7 +165,8 @@ a {
 
 .hundavaent-marker:hover .marker-label,
 .hundavaent-marker:focus-visible .marker-label {
-  display: block;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
 }
 
 .hundavaent-marker.cluster {
