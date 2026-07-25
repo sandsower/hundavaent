@@ -102,7 +102,6 @@
 
 <article
   data-place-card
-  data-motion="tokenized"
   data-interactive={interactive}
   class:selected
   aria-label={place.name}

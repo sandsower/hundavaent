@@ -12,13 +12,13 @@ const tokenSourcePath = 'src/lib/design-system/tokens.css';
 const motionSourcePath = 'src/lib/design-system/motion.ts';
 
 /**
- * Surfaces that still hard-code their own durations and easings, each one waiting for the phase
- * of the motion revamp that converts it. This set may only shrink. Adding an entry is how the
- * revamp regresses, so it should never happen without a deliberate decision in review.
+ * Surfaces that still hard-code their own durations and easings. The motion revamp drove this
+ * set to empty and it must stay that way: every duration, delay, and easing rides the token
+ * families in tokens.css, with motion.ts as the one sanctioned script-side copy. Adding an
+ * entry is how the revamp regresses, so it should never happen without a deliberate decision
+ * in review.
  */
-const unconvertedSurfaces = new Set([
-  'src/app.css'
-]);
+const unconvertedSurfaces = new Set<string>([]);
 
 // Declarations are matched across newlines: a multi-line `transition:` is exactly the shape a
 // hand-picked duration hides in, and a line-by-line scan walks straight past it.

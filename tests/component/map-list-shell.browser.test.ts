@@ -914,6 +914,15 @@ describe('MapListShell synchronization', () => {
 
   it('keeps selected-place text fully opaque throughout the approved entry motion', async () => {
     history.replaceState(null, '', '/en');
+    // The entry animation rides the motion tokens, and this harness never loads app.css, so the
+    // two tokens it needs are injected from motion.ts - the sanctioned script-side copy that the
+    // parity test holds to tokens.css. Without them the unresolved var() would collapse the
+    // animation shorthand and there would be nothing to assert against.
+    document.documentElement.style.setProperty('--hv-motion-quick', `${motionDurationsMs.quick}ms`);
+    document.documentElement.style.setProperty(
+      '--hv-ease-settle',
+      `cubic-bezier(${motionEasings.settle.join(', ')})`
+    );
     render(MapListShell, {
       places,
       lang: 'en',
@@ -953,6 +962,9 @@ describe('MapListShell synchronization', () => {
       expect(getComputedStyle(element).opacity).toBe('1');
       expect(getComputedStyle(element).transform).not.toBe('none');
     }
+
+    document.documentElement.style.removeProperty('--hv-motion-quick');
+    document.documentElement.style.removeProperty('--hv-ease-settle');
   });
 
   it('isolates cached and late profile responses by locale and Place', async () => {

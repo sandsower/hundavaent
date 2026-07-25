@@ -955,7 +955,6 @@
   <div
     class="map-list-shell"
     data-responsive-shell
-    data-motion="tokenized"
     data-map-failed={mapFailed}
     data-map-moving={mapMoving}
     data-focus-fold={manualFold}

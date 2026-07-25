@@ -54,7 +54,6 @@
   role="radiogroup"
   aria-label={label}
   data-inherited={inherited}
-  data-motion="tokenized"
 >
   {#each [1, 2, 3, 4, 5] as score (score)}
     <button

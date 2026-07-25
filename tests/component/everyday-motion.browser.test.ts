@@ -66,12 +66,6 @@ function verticalScale(transform: string): number | null {
 }
 
 describe('PlaceCard motion', () => {
-  it('opts its subtree out of the blanket reduced-motion reset', () => {
-    // Without this, the app.css reset flattens the card's own tokens to 0.01ms and takes the
-    // selection bar's legibility down with the movement it was meant to suppress.
-    expect(renderCard().dataset.motion).toBe('tokenized');
-  });
-
   it('carries the selection bar on a transform rather than an inset shadow', () => {
     const card = renderCard();
     const bar = getComputedStyle(card, '::before');

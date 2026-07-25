@@ -195,7 +195,6 @@
 
 <section
   class="check-in"
-  data-motion="tokenized"
   data-state={semanticState}
   aria-busy={semanticState === 'busy'}
   aria-label={copy['checkIn.title'].replace('{name}', placeName)}

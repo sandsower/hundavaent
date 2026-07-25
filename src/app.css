@@ -105,7 +105,7 @@ a {
 
 .hundavaent-marker.selected .pin,
 .hundavaent-marker[aria-pressed='true'] .pin {
-  animation: hv-pin-settle var(--hv-motion-quick, 0ms) var(--hv-ease-settle, ease-out);
+  animation: hv-pin-settle var(--hv-motion-quick) var(--hv-ease-settle, ease-out);
 }
 
 @keyframes hv-pin-settle {
@@ -153,7 +153,7 @@ a {
   text-overflow: ellipsis;
   white-space: nowrap;
   transform: translateX(-50%) translateY(-0.25rem);
-  transition: transform var(--hv-motion-quick, 0ms) var(--hv-ease-settle, ease-out);
+  transition: transform var(--hv-motion-quick) var(--hv-ease-settle, ease-out);
 }
 
 .hundavaent-marker:hover,
@@ -217,22 +217,12 @@ a {
   animation-name: none;
 }
 
-/* Surfaces that have adopted the motion token families declare data-motion="tokenized" and
-   govern their own reduced-motion behaviour through --hv-motion-* and --hv-fade-*, which lets
-   opacity and colour keep their full duration. Everything else still needs the blanket
-   suppression below: without it the decorative orbits on the impact page would keep running
-   indefinitely for Members who asked for less motion. Each phase of the revamp converts more
-   surfaces; the last one deletes this block. */
+/* Every surface rides the motion token families now, so reduced motion is governed entirely by
+   the tokens: --hv-motion-* collapses to zero while --hv-fade-* keeps its full duration, and
+   ambient scenery suppresses itself with animation: none at its use sites. Only smooth
+   scrolling needs a blanket override, because it never rides a token. */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto !important;
-  }
-
-  *:not([data-motion='tokenized'], [data-motion='tokenized'] *),
-  *:not([data-motion='tokenized'], [data-motion='tokenized'] *)::before,
-  *:not([data-motion='tokenized'], [data-motion='tokenized'] *)::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
   }
 }
