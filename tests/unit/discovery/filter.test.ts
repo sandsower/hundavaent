@@ -208,14 +208,20 @@ describe('discovery filtering', () => {
     expect(
       filterPublishedPlaces(
         [multiConditionPlace],
-        { ...defaultDiscoveryFilters, query: 'innandyra burðartösku almennt leyfðir' },
+        {
+          ...defaultDiscoveryFilters,
+          query: `${catalogues.is['access.indoor']} ${catalogues.is['access.carrierRequired']} ${catalogues.is['access.standingPermission']}`
+        },
         catalogues.is
       )
     ).toEqual([multiConditionPlace]);
     expect(
       filterPublishedPlaces(
         [multiConditionPlace],
-        { ...defaultDiscoveryFilters, query: 'innandyra burðartösku spyrja við komu' },
+        {
+          ...defaultDiscoveryFilters,
+          query: `${catalogues.is['access.indoor']} ${catalogues.is['access.carrierRequired']} ${catalogues.is['access.askOnArrival']}`
+        },
         catalogues.is
       )
     ).toEqual([]);

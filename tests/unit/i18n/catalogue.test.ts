@@ -34,6 +34,27 @@ describe('translation catalogues', () => {
     }
   });
 
+  it('keeps established Icelandic product terminology consistent', () => {
+    const legacyTerms = [
+      'stjórnand',
+      'umsjónarm',
+      'innrit',
+      'sönnunargagn',
+      'aðgengi hunda',
+      'umsjónarröð',
+      'umsjónarrað',
+      'yfirferðarröð',
+      'yfirferðarrað'
+    ];
+
+    for (const term of legacyTerms) {
+      const matchingKeys = Object.entries(catalogues.is)
+        .filter(([, value]) => value.toLocaleLowerCase('is').includes(term))
+        .map(([key]) => key);
+      expect(matchingKeys, term).toEqual([]);
+    }
+  });
+
   it('falls back to Icelandic for unsupported or missing locale values', () => {
     expect(defaultLocale).toBe('is');
     expect(parseLocale('en')).toBe('en');
