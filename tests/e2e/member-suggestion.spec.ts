@@ -42,10 +42,12 @@ test('the map entry point carries its pin to the three questions, and only sendi
   // is deliberately not an answer: sending is blocked until the member states a Location.
   await page.goto('/en/suggest');
   await waitForHydration(page);
-  await expect(page.getByText('Place the pin where the place is.')).toBeVisible();
-  await page.getByLabel('Place name').fill('Unplaced pin cafe');
+  // Nothing is demanded on arrival - an unanswered question is not yet a mistake.
+  await expect(page.getByText('Place the pin where the place is.')).toHaveCount(0);
+  await page.getByLabel('Name of the place').fill('Unplaced pin cafe');
   await page.getByRole('radio', { name: 'Outdoors', exact: true }).check();
   await page.getByRole('button', { name: 'Send suggestion' }).click();
+  // Trying to send is what turns it into one, and the alert is the only place it is ever said.
   await expect(page.getByRole('alert')).toContainText('Place the pin where the place is.');
   expect(getLocalSuggestionProposal('Unplaced pin cafe')).toBeNull();
   await page.getByRole('button', { name: 'Enter coordinates instead' }).click();
@@ -77,7 +79,7 @@ test('the map entry point carries its pin to the three questions, and only sendi
   await expect(page.getByLabel('Longitude')).toHaveValue('-21.9555');
 
   // The gate fires at send, and it hands over to sign-in rather than to a dead end.
-  await page.getByLabel('Place name').fill('Signed out pin cafe');
+  await page.getByLabel('Name of the place').fill('Signed out pin cafe');
   await page.getByRole('radio', { name: 'Outdoors' }).check();
   await page.getByRole('button', { name: 'Send suggestion' }).click();
   const gate = page.getByRole('alert');
@@ -366,7 +368,7 @@ async function submitSuggestion(
 ): Promise<void> {
   await page.goto('/en/suggest');
   await waitForHydration(page);
-  await page.getByLabel('Place name').fill(nameEn);
+  await page.getByLabel('Name of the place').fill(nameEn);
   await page.getByRole('button', { name: 'Enter coordinates instead' }).click();
   await page.getByLabel('Latitude').fill(latitude);
   await page.getByLabel('Longitude').fill(longitude);

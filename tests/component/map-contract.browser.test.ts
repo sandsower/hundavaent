@@ -152,7 +152,7 @@ describe('shared Map interface', () => {
     expect(onClusterSelect).toHaveBeenCalledWith([places[0].placeId, 'another-place']);
   });
 
-  it('emits no coordinates and asks for the pin until the Location is answered', async () => {
+  it('emits no coordinates until the Location is answered, and demands nothing while it waits', async () => {
     const adapter: DomTestMapAdapter = createDomTestMapAdapter();
     const { container } = render(SuggestionLocationPicker, {
       adapter,
@@ -165,7 +165,9 @@ describe('shared Map interface', () => {
     expect(container.querySelector('input[name="latitude"]')).toBeNull();
     expect(container.querySelector('input[name="longitude"]')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Suggested place' })).toBeNull();
-    expect(screen.getByText('Place the pin where the place is.')).toBeTruthy();
+    // The picker states no demand of its own. Sending is what the unanswered pin blocks, so the
+    // page raises it as an alert at that moment rather than standing under the map from arrival.
+    expect(screen.queryByText('Place the pin where the place is.')).toBeNull();
 
     adapter.simulateMapSelect({ latitude: 64.15, longitude: -21.93 });
     await waitFor(() =>

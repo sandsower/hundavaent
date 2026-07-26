@@ -686,7 +686,7 @@
   "suggestion.translationEn": "English information",
   "suggestion.translationNeeded": "Please add a translation before publishing.",
   "suggestion.name": "Name",
-  "suggestion.placeName": "Place name",
+  "suggestion.placeName": "Name of the place",
   "suggestion.description": "Description",
   "suggestion.access": "Are dogs welcome?",
   "suggestion.accessArea": "Where are dogs allowed?",
