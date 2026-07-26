@@ -2,6 +2,7 @@
   import type { Catalogue, Locale } from '$i18n';
   import type {
     AchievementTier,
+    AchievementCollectionProgress,
     EarnedTierAchievement,
     LockedTierAchievement,
     MyAchievement
@@ -13,9 +14,10 @@
     achievements: MyAchievement[];
     lang: Locale;
     copy: Catalogue;
+    progress?: AchievementCollectionProgress[];
   }
 
-  let { achievements, lang, copy }: Props = $props();
+  let { achievements, lang, copy, progress = [] }: Props = $props();
 
   type TierEntry = EarnedTierAchievement | LockedTierAchievement;
 
@@ -42,8 +44,13 @@
         return {
           ...collection,
           tiers,
+          progress: progress.find((entry) => entry.collection === collection.key),
           // The nearest unearned tier is the Member's one active target in this collection.
-          activeKey: tiers.find((entry) => entry.kind === 'locked')?.key
+          activeKey: tiers.find((entry) => entry.kind === 'locked')?.key,
+          goldEarned: tiers.some((entry) => entry.tier === 'gold' && entry.kind === 'earned'),
+          platinumEarned: tiers.some(
+            (entry) => entry.tier === 'platinum' && entry.kind === 'earned'
+          )
         };
       })
   );
@@ -64,6 +71,20 @@
         >
           <div class="collection-head">
             <h3>{collectionName(collection.head, lang)}</h3>
+            {#if collection.key === 'explorer_places' && collection.goldEarned && collection.progress?.total}
+              {@const percentage = Math.floor(
+                (100 * collection.progress.current) / Math.max(collection.progress.total, 15)
+              )}
+              <p class="continuation">
+                {copy['achievements.coverage'].replace('{percentage}', String(percentage))}
+              </p>
+            {:else if collection.key === 'contributions' && collection.platinumEarned && collection.progress?.nextMilestone}
+              <p class="continuation">
+                {copy['achievements.contributionContinuation']
+                  .replace('{current}', String(collection.progress.current))
+                  .replace('{next}', String(collection.progress.nextMilestone))}
+              </p>
+            {/if}
           </div>
 
           <div class="tier-row">
@@ -118,6 +139,10 @@
   }
 
   .collection-head {
+    display: flex;
+    gap: 0.75rem;
+    align-items: baseline;
+    justify-content: space-between;
     min-width: 0;
   }
 
@@ -126,6 +151,14 @@
     font-family: var(--hv-font-display);
     font-size: 1.08rem;
     line-height: 1.2;
+  }
+
+  .continuation {
+    margin: 0;
+    color: var(--hv-color-moss);
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-align: end;
   }
 
   .tier-row {

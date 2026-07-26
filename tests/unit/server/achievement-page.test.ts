@@ -50,6 +50,9 @@ describe('Achievements page boundary', () => {
       if (functionName === 'get_my_achievements') {
         return { data: [emptyCatalogue], error: null };
       }
+      if (functionName === 'get_my_achievement_collection_progress') {
+        return { data: [], error: null };
+      }
       throw new Error(`Unexpected RPC ${functionName}`);
     });
 
@@ -61,7 +64,8 @@ describe('Achievements page boundary', () => {
     );
 
     expect(result).toEqual({
-      achievements: { enabled: true, achievements: [] }
+      achievements: { enabled: true, achievements: [] },
+      collectionProgress: []
     });
     expect(rpc).toHaveBeenCalledWith('get_my_achievements');
     expect(rpc).not.toHaveBeenCalledWith('claim_my_achievement_celebrations');
@@ -72,6 +76,9 @@ describe('Achievements page boundary', () => {
       if (functionName === 'has_current_user_role') return { data: true, error: null };
       if (functionName === 'claim_my_achievement_celebrations') {
         return { data: [claimedAchievement], error: null };
+      }
+      if (functionName === 'claim_my_achievement_continuations') {
+        return { data: [], error: null };
       }
       throw new Error(`Unexpected RPC ${functionName}`);
     });
@@ -100,9 +107,11 @@ describe('Achievements page boundary', () => {
           kind: 'earned',
           entry: 'bespoke'
         }
-      ]
+      ],
+      continuations: []
     });
     expect(rpc).toHaveBeenCalledWith('claim_my_achievement_celebrations');
+    expect(rpc).toHaveBeenCalledWith('claim_my_achievement_continuations');
   });
 
   it('rejects an anonymous claim without invoking the consuming RPC', async () => {
