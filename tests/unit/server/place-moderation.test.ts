@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { notStatedByMember } from '$domain/access';
 import {
   AuthenticationRequiredError,
   AuthenticationUnavailableError,
@@ -739,6 +740,59 @@ describe('getCandidatePublicationReview', () => {
         checks: { geometryQuality: false },
         ready: false
       }
+    });
+  });
+
+  /**
+   * A minimal Suggestion writes the server's own sentence where the Member stated no restraint
+   * rule, and accept copies it onto the Candidate. That note is publishable text, so publication
+   * has to wait for a Moderator exactly as it waits for a missing translation - otherwise
+   * "Control rule: Not stated by the member" reaches a visitor in English on a published profile.
+   */
+  it('blocks publication while an Access Condition still carries the server restraint note', async () => {
+    const { client } = createReviewClient({
+      data: [
+        {
+          ...completeReviewRow,
+          access_conditions: [
+            {
+              ...completeReviewRow.access_conditions[0],
+              restraintCondition: 'other_sourced',
+              restraintNote: notStatedByMember
+            }
+          ]
+        }
+      ]
+    });
+
+    await expect(getCandidatePublicationReview(client, 'place-1')).resolves.toMatchObject({
+      status: 'success',
+      value: {
+        checks: { accessCondition: true, publishableRestraintNote: false },
+        ready: false
+      }
+    });
+  });
+
+  it('publishes once a Moderator has written a restraint note of their own', async () => {
+    const { client } = createReviewClient({
+      data: [
+        {
+          ...completeReviewRow,
+          access_conditions: [
+            {
+              ...completeReviewRow.access_conditions[0],
+              restraintCondition: 'other_sourced',
+              restraintNote: 'Leashed at the counter, off leash on the patio.'
+            }
+          ]
+        }
+      ]
+    });
+
+    await expect(getCandidatePublicationReview(client, 'place-1')).resolves.toMatchObject({
+      status: 'success',
+      value: { checks: { publishableRestraintNote: true }, ready: true }
     });
   });
 

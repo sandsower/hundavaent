@@ -4,18 +4,21 @@
      element, and a descendant-only guard silently skips exactly those elements: the class is
      present, the rule never matches, and the layout falls back to block flow with no error
      anywhere. The guard sits inside :where() so it stays specificity-free. */
+  /* The shell hugs the viewport edge on a narrow screen, so its inset is the shared edge token
+     rather than a private 1rem. A hard-coded value here put page content 4px off the site header
+     it sits directly beneath, which is the sort of misalignment nobody names and everybody sees. */
   :where([data-ui-mode], [data-ui-mode] *).hv-page-shell {
-    width: min(100% - 2rem, var(--hv-content-wide));
+    width: min(100% - var(--hv-space-edge) * 2, var(--hv-content-wide));
     margin-inline: auto;
     padding-block: var(--hv-space-section) 4rem;
   }
 
   :where([data-ui-mode], [data-ui-mode] *).hv-page-shell[data-width='narrow'] {
-    width: min(100% - 2rem, var(--hv-content-narrow));
+    width: min(100% - var(--hv-space-edge) * 2, var(--hv-content-narrow));
   }
 
   :where([data-ui-mode], [data-ui-mode] *).hv-page-shell[data-width='wide'] {
-    width: min(100% - 2rem, var(--hv-content-wide));
+    width: min(100% - var(--hv-space-edge) * 2, var(--hv-content-wide));
   }
 
   :where([data-ui-mode], [data-ui-mode] *).hv-page-header {
@@ -23,8 +26,34 @@
     gap: 0.5rem;
   }
 
-  :where([data-ui-mode], [data-ui-mode] *).hv-page-header > :where(h1, h2, p) {
+  /* The header is a band, not a paragraph: whatever follows it opens a new section of the page and
+     takes the section rhythm rather than the browser's default zero. Shells that are already a
+     stack carry one gap of their own and are left with it rather than given a second. */
+  :where([data-ui-mode], [data-ui-mode] *).hv-page-shell:not(.hv-stack) > .hv-page-header {
+    margin-block-end: var(--hv-space-section);
+  }
+
+  /* Descendant, not child. The direct-child form skipped every header that groups its eyebrow,
+     title and intro into a wrapper - which is most of them - and left a display title carrying
+     48px of user-agent margin on each side that no stylesheet asked for. */
+  :where([data-ui-mode], [data-ui-mode] *).hv-page-header :where(h1, h2, p) {
     margin-block: 0;
+  }
+
+  /* The name for the grouping those wrappers always were. With the margin reset reaching inside
+     them, the block needs its own rhythm rather than inheriting the header's collapsed one. The
+     page title sets line-height below 1, so its box clips the descenders and any gap measured off
+     that box reads several pixels tighter than it computes - 0.5rem left the intro touching the
+     tail of a "g". */
+  :where([data-ui-mode], [data-ui-mode] *).hv-page-heading {
+    display: grid;
+    gap: var(--hv-space-panel);
+  }
+
+  /* Actions are a separate band from the titling block, so they stand off further than the lines
+     within it do from each other. */
+  :where([data-ui-mode], [data-ui-mode] *).hv-page-header > .hv-page-actions {
+    margin-block-start: 0.5rem;
   }
 
   :where([data-ui-mode], [data-ui-mode] *).hv-page-title {

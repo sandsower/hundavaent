@@ -148,66 +148,121 @@ describe('Member Suggestion workflow', () => {
   it.each([
     ['is', 'Leggðu til stað', 'Senda tillögu'],
     ['en', 'Suggest a place', 'Send suggestion']
-  ] as const)('renders the friendly short %s form', (lang, heading, submitLabel) => {
+  ] as const)('asks three questions and no more in %s', (lang, heading, submitLabel) => {
     render(SuggestionPage, {
       params: { lang },
-      data: { lang, copy: catalogues[lang], unavailable: false },
+      data: { lang, copy: catalogues[lang], unavailable: false, signInUrl: `/${lang}/account` },
       form: null
     } as never);
 
     expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
+    // One: the name. Two: the pin. Three: where dogs are welcome.
     expect(screen.getByLabelText(catalogues[lang]['suggestion.placeName'])).toBeTruthy();
-    expect(screen.getByLabelText(catalogues[lang]['suggestion.locationNote'])).toBeTruthy();
-    expect(screen.getByLabelText(catalogues[lang]['suggestion.welcomeArea'])).toBeTruthy();
-    expect(screen.getByLabelText(catalogues[lang]['suggestion.allDogsWelcome'])).toBeTruthy();
-    expect(screen.getByLabelText(catalogues[lang]['suggestion.welcomePermission'])).toBeTruthy();
     expect(
-      screen.getByRole('group', { name: catalogues[lang]['suggestion.howKnow'] })
+      screen.getByRole('region', { name: catalogues[lang]['suggestion.locationRegion'] })
     ).toBeTruthy();
-    expect(screen.getByLabelText(catalogues[lang]['suggestion.howKnowExplanation'])).toBeTruthy();
-    expect(screen.getByLabelText(catalogues[lang]['suggestion.howKnowDate'])).toBeTruthy();
-    expect(screen.queryByLabelText(catalogues[lang]['suggestion.postalCode'])).toBeNull();
-    expect(screen.queryByText(catalogues[lang]['suggestion.translationEn'])).toBeNull();
-    expect(screen.queryByText(catalogues[lang]['suggestion.translationIs'])).toBeNull();
-    expect(screen.getByRole('button', { name: submitLabel })).toBeTruthy();
+    const areas = screen.getByRole('group', { name: catalogues[lang]['suggestion.welcomeArea'] });
+    expect(areas.querySelectorAll('input[type="radio"]').length).toBe(3);
+    expect(
+      [...areas.querySelectorAll<HTMLInputElement>('input[type="radio"]')].map(
+        (radio) => radio.value
+      )
+    ).toEqual(['indoors', 'outdoors', 'designated_area']);
+    // Nothing is preselected: an unanswered question stays unanswered.
+    expect(areas.querySelector('input[type="radio"]:checked')).toBeNull();
+
+    const form = screen.getByRole('button', { name: submitLabel }).closest('form')!;
+    expect(form.querySelectorAll('input:not([type="hidden"]), select, textarea').length).toBe(4);
+    expect(new FormData(form).get('submissionProfile')).toBe('minimal-v1');
+    expect(form.querySelector('select')).toBeNull();
+    expect(form.querySelector('textarea')).toBeNull();
+    expect(form.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(screen.queryByLabelText(catalogues[lang]['suggestion.category'])).toBeNull();
   });
 
-  it('preserves every Member timing state when the optional schedule disclosure closes', async () => {
+  it('keeps the pin an unanswered question and blocks sending until it is placed', async () => {
     render(SuggestionPage, {
       params: { lang: 'en' },
-      data: { lang: 'en', copy: catalogues.en, unavailable: false },
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        unavailable: false,
+        signInUrl: '/en/account',
+        presetLatitude: null,
+        presetLongitude: null
+      },
       form: null
     } as never);
 
-    const toggle = screen.getByRole('button', { name: 'Only welcome at certain times?' });
     const form = screen.getByRole('button', { name: 'Send suggestion' }).closest('form')!;
-    await fireEvent.click(toggle);
-    const timing = screen.getByLabelText('When are dogs welcome?') as HTMLSelectElement;
-    expect(timing.value).toBe('limited');
-    expect(Array.from(timing.options, (option) => option.value)).toEqual([
-      'not_stated',
-      'whenever_open',
-      'limited'
-    ]);
-    const days = screen.getByLabelText(
-      'Which weekdays? (1-7, separated by commas)'
-    ) as HTMLInputElement;
-    await fireEvent.input(days, { target: { value: '1,2' } });
-    await fireEvent.click(toggle);
-    expect(new FormData(form).get('availabilityState')).toBe('limited');
-    expect(new FormData(form).get('availabilityDays')).toBe('1,2');
+    await fireEvent.input(screen.getByLabelText('Name of the place'), {
+      target: { value: 'Unplaced pin cafe' }
+    });
+    await fireEvent.click(screen.getByRole('radio', { name: 'Outdoors' }));
 
-    await fireEvent.click(toggle);
-    await fireEvent.change(timing, { target: { value: 'whenever_open' } });
-    expect(screen.queryByLabelText('Which weekdays? (1-7, separated by commas)')).toBeNull();
-    await fireEvent.click(toggle);
-    expect(new FormData(form).get('availabilityState')).toBe('whenever_open');
-    expect(new FormData(form).get('availabilityDays')).toBeNull();
+    // Two of three answers given: the map has a camera on it, but nobody has stated a Location.
+    expect(new FormData(form).get('latitude')).toBeNull();
+    expect(new FormData(form).get('longitude')).toBeNull();
+    // An unanswered question that nobody has tried to send yet is not an error, so nothing is said
+    // about it. The demand appears when it becomes one.
+    expect(screen.queryByText('Place the pin where the place is.')).toBeNull();
 
-    await fireEvent.click(toggle);
-    await fireEvent.change(timing, { target: { value: 'not_stated' } });
-    await fireEvent.click(toggle);
-    expect(new FormData(form).get('availabilityState')).toBe('not_stated');
+    await fireEvent.click(screen.getByRole('button', { name: 'Send suggestion' }));
+    expect(screen.getByRole('alert').textContent).toContain('Place the pin where the place is.');
+    expect(new FormData(form).get('latitude')).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Enter coordinates instead' }));
+    await fireEvent.input(screen.getByLabelText('Latitude'), { target: { value: '64.15' } });
+    await fireEvent.input(screen.getByLabelText('Longitude'), { target: { value: '-21.93' } });
+
+    expect(new FormData(form).get('latitude')).toBe('64.15');
+    expect(new FormData(form).get('longitude')).toBe('-21.93');
+    expect(screen.queryByText('Place the pin where the place is.')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('counts the pin the map entry point handed over as the answer it is', () => {
+    render(SuggestionPage, {
+      params: { lang: 'en' },
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        unavailable: false,
+        signInUrl: '/en/account',
+        presetLatitude: '64.1423',
+        presetLongitude: '-21.9555'
+      },
+      form: null
+    } as never);
+
+    const form = screen.getByRole('button', { name: 'Send suggestion' }).closest('form')!;
+    expect(new FormData(form).get('latitude')).toBe('64.1423');
+    expect(new FormData(form).get('longitude')).toBe('-21.9555');
+    expect(screen.queryByText('Place the pin where the place is.')).toBeNull();
+  });
+
+  it('turns a signed-out submission into the sign-in flow without sending anything', () => {
+    render(SuggestionPage, {
+      params: { lang: 'en' },
+      data: {
+        lang: 'en',
+        copy: catalogues.en,
+        unavailable: false,
+        signInUrl: '/en/account?returnTo=%2Fen%2Fsuggest'
+      },
+      form: { error: 'authentication_required' }
+    } as never);
+
+    const gate = screen.getByRole('alert');
+    expect(gate.textContent).toContain('Sign in to send this suggestion.');
+    const signIn = screen.getByRole('link', { name: 'Sign in' });
+    expect(signIn.getAttribute('href')).toBe('/en/account?returnTo=%2Fen%2Fsuggest');
+    // The questions stay readable behind the gate: signing in is the next step, not a dead end.
+    expect(screen.getByLabelText('Name of the place')).toBeTruthy();
+    expect(
+      (screen.getByRole('button', { name: 'Send suggestion' }) as HTMLButtonElement).disabled
+    ).toBe(false);
+    expect(gate.textContent).not.toContain('Check the highlighted answers');
   });
 
   it('announces the fail-closed suggestion-abuse boundary without rendering a usable form', () => {
@@ -223,7 +278,7 @@ describe('Member Suggestion workflow', () => {
     expect(
       (screen.getByRole('button', { name: 'Send suggestion' }) as HTMLButtonElement).disabled
     ).toBe(true);
-    expect(screen.getByLabelText('Place name').matches(':disabled')).toBe(true);
+    expect(screen.getByLabelText('Name of the place').matches(':disabled')).toBe(true);
   });
 
   it('shows a private rejected outcome and its Member-safe reason', () => {
@@ -493,6 +548,18 @@ describe('Moderator Suggestion workflow', () => {
     expect(screen.getByText('Names and descriptions').closest('details')?.open).toBe(true);
     expect(screen.getByRole('region', { name: 'Review summary' }).textContent).toContain('Blocked');
     expect(screen.getByRole('button', { name: 'Accept as Candidate' })).toBeDisabled();
+
+    // The Member typed one name and it is the same string in both locales, so the editor hands it
+    // back rather than asking for it twice. The description is the only thing nobody wrote.
+    await beginSuggestionEdit('Names and descriptions');
+    const names = screen.getAllByLabelText('Name');
+    const descriptions = screen.getAllByLabelText('Description');
+    expect((names[0] as HTMLInputElement).value).toBe(proposal.translations.en.name);
+    expect((names[1] as HTMLInputElement).value).toBe(proposal.translations.en.name);
+    expect((descriptions[0] as HTMLTextAreaElement).value).toBe('');
+    expect((descriptions[1] as HTMLTextAreaElement).value).toBe(
+      proposal.translations.en.description
+    );
   });
 
   it('offers Contribution confirmation only after acceptance', () => {

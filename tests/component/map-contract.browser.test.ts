@@ -30,6 +30,7 @@ const places = [
   }
 ];
 const camera: MapCamera = { latitude: 64.1466, longitude: -21.9426, zoom: 11 };
+const fallbackCamera: MapCamera = { latitude: 64.1466, longitude: -21.9426, zoom: 15 };
 
 describe('shared Map interface', () => {
   it('renders markers, selection, attribution, and marker callbacks', async () => {
@@ -151,13 +152,44 @@ describe('shared Map interface', () => {
     expect(onClusterSelect).toHaveBeenCalledWith([places[0].placeId, 'another-place']);
   });
 
+  it('emits no coordinates until the Location is answered, and demands nothing while it waits', async () => {
+    const adapter: DomTestMapAdapter = createDomTestMapAdapter();
+    const { container } = render(SuggestionLocationPicker, {
+      adapter,
+      copy: catalogues.en,
+      fallbackCamera
+    });
+
+    await screen.findByText('Map data: deterministic test adapter');
+    // The fallback camera is where the map opens, never a fact the form carries.
+    expect(container.querySelector('input[name="latitude"]')).toBeNull();
+    expect(container.querySelector('input[name="longitude"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Suggested place' })).toBeNull();
+    // The picker states no demand of its own. Sending is what the unanswered pin blocks, so the
+    // page raises it as an alert at that moment rather than standing under the map from arrival.
+    expect(screen.queryByText('Place the pin where the place is.')).toBeNull();
+
+    adapter.simulateMapSelect({ latitude: 64.15, longitude: -21.93 });
+    await waitFor(() =>
+      expect(container.querySelector<HTMLInputElement>('input[name="latitude"]')?.value).toBe(
+        '64.15'
+      )
+    );
+    expect(container.querySelector<HTMLInputElement>('input[name="longitude"]')?.value).toBe(
+      '-21.93'
+    );
+    expect(screen.queryByText('Place the pin where the place is.')).toBeNull();
+    expect(await screen.findByRole('button', { name: 'Suggested place' })).toBeTruthy();
+  });
+
   it('supports pointer, keyboard-centre, and manual Location selection', async () => {
     const adapter: DomTestMapAdapter = createDomTestMapAdapter();
     render(SuggestionLocationPicker, {
       adapter,
       copy: catalogues.en,
-      initialLatitude: 64.1423,
-      initialLongitude: -21.9555
+      fallbackCamera,
+      latitude: 64.1423,
+      longitude: -21.9555
     });
 
     expect(screen.queryByLabelText('Latitude')).toBeNull();

@@ -308,6 +308,12 @@
         label: 'moderation.checkAccess',
         recovery: 'moderation.addAccess',
         target: 'access-condition'
+      },
+      {
+        key: 'publishableRestraintNote',
+        label: 'moderation.checkRestraintNote',
+        recovery: 'moderation.replaceRestraintNote',
+        target: 'access-condition'
       }
     ];
     if (data.review.lifecycle === 'candidate') {

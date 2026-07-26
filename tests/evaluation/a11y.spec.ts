@@ -165,6 +165,15 @@ test('public discovery and floating access details are keyboard-operable and Axe
   await page.setViewportSize({ width: 1024, height: 900 });
   await page.goto('/en?view=map');
   await waitForHydration(page);
+  // The permanent way to add a missing Place is chrome over the map: reachable from the keyboard
+  // while browsing, and named by exactly the words it shows.
+  const suggestPill = page.getByRole('link', { name: 'Suggest a place' });
+  await expect(suggestPill).toBeVisible();
+  await suggestPill.focus();
+  await expect(suggestPill).toBeFocused();
+  // Scanned here, on arrival, because this is the only state the pill is mounted in: the pass
+  // below runs after a selection has taken it away.
+  await expectNoSeriousAxeViolations(page, evidence);
   // Arrival is a quiet map: the "All" chip is the browse-everything toggle
   // that opens the floating list.
   await page.getByRole('button', { name: 'All', exact: true }).click();
@@ -189,6 +198,9 @@ test('public discovery and floating access details are keyboard-operable and Axe
   await expect(selectPlace).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('complementary', { name: 'Selected place' })).toBeVisible();
   await expect(page.getByText('Selected place: Published Place')).toBeAttached();
+  // The card owns the screen during a selection, and the left-edge tab is the only thing that
+  // stands beside it: the pill steps aside rather than competing for the same corner.
+  await expect(suggestPill).toHaveCount(0);
   await expectNoSeriousAxeViolations(page, evidence);
 
   const closeSelectedPlace = page.getByRole('button', { name: 'Close selected place' });
@@ -361,9 +373,15 @@ test('Moderator forms have keyboard focus order and Axe-clean semantics', async 
   await page.getByRole('button', { name: 'Use map centre' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('status')).toContainText('Location selected at');
-  await page.getByLabel('Place name').focus();
+  // Three questions, in the order they are asked: the name, then the pin, then the area radios.
+  await page.getByLabel('Name of the place').focus();
   await page.keyboard.press('Tab');
-  await expect(page.getByLabel('Place type')).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Use map centre' })).toBeFocused();
+  const welcomeAreas = page.getByRole('group', { name: 'Where can dogs be?' });
+  await expect(welcomeAreas.getByRole('radio')).toHaveCount(3);
+  await welcomeAreas.getByRole('radio', { name: 'Indoors' }).focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(welcomeAreas.getByRole('radio', { name: 'Outdoors' })).toBeChecked();
   await expectNoSeriousAxeViolations(page, evidence);
 
   await page.goto('/is/suggest');

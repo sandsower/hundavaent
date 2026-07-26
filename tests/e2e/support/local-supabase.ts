@@ -2596,6 +2596,63 @@ export function getLocalSuggestionStates(): LocalSuggestionState[] {
   return JSON.parse(output.trim()) as LocalSuggestionState[];
 }
 
+/**
+ * The stored proposal exactly as the Suggestion RPC accepted it. A minimal Suggestion is mostly
+ * server positions, and the only place to read them back honestly is the row itself.
+ */
+export function getLocalSuggestionProposal(nameEn: string): SuggestionProposalRow | null {
+  const sql = `
+    select coalesce(to_json(suggestion.proposal), 'null'::json)
+    from private.place_suggestions as suggestion
+    where suggestion.proposal #>> '{translations,en,name}' = '${nameEn.replaceAll("'", "''")}'
+    order by suggestion.submitted_at desc
+    limit 1
+  `;
+  const output = execFileSync(
+    'docker',
+    [
+      'exec',
+      localDatabaseContainer,
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-At',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      sql
+    ],
+    { encoding: 'utf8' }
+  ).trim();
+
+  return output === '' ? null : (JSON.parse(output) as SuggestionProposalRow);
+}
+
+interface SuggestionProposalRow {
+  category: string;
+  location: { address_line: string; locality: string; municipality: string; postal_code: string };
+  translations: {
+    is: { name: string; description: string; needs_review?: boolean };
+    en: { name: string; description: string; needs_review?: boolean };
+  };
+  access_condition: {
+    access_area: string;
+    restraint_condition: string;
+    restraint_note: string | null;
+    permission_requirement: string;
+    availability_state: string;
+  };
+  evidence: {
+    kind: string;
+    source_citation: string | null;
+    source_label: string;
+    explanation: string;
+    source_metadata: { submissionProfile?: string; surface?: string };
+  };
+}
+
 export interface LocalMemberIdentityState {
   id: string;
   identityProviders: string[];

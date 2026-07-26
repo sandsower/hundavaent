@@ -10,6 +10,8 @@
   import type { FavouriteRecognition } from '$lib/member-activity/types';
   import AccessSymbols from '$lib/discovery/AccessSymbols.svelte';
   import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
+  import { LUCIDE_CATEGORY_PATHS, PHOSPHOR_PAW_PRINT_FILL } from '$lib/map/marker-icons';
+  import { launchCategoryFor } from './filter';
   import PhotoCredit from './PhotoCredit.svelte';
   import RefreshablePlaceImage from './RefreshablePlaceImage.svelte';
 
@@ -98,6 +100,12 @@
   const displayPhoto = $derived(
     place.primaryPhoto && !photoUnavailable ? place.primaryPhoto : null
   );
+  /* The band symbol follows the map pins: the place's discovery group picks the glyph, and
+     the brand paw stands in only for places outside every group (service, other). */
+  const bandGlyphPaths = $derived.by(() => {
+    const group = launchCategoryFor(place.category);
+    return group ? LUCIDE_CATEGORY_PATHS[group] : null;
+  });
 </script>
 
 <article data-place-card data-interactive={interactive} class:selected aria-label={place.name}>
@@ -129,6 +137,16 @@
           />
         </figcaption>
       </figure>
+    {:else if bandGlyphPaths}
+      <svg class="band-symbol band-symbol-stroke" viewBox="0 0 24 24" aria-hidden="true">
+        {#each bandGlyphPaths as d (d)}
+          <path {d} />
+        {/each}
+      </svg>
+    {:else}
+      <svg class="band-symbol" viewBox="0 0 256 256" aria-hidden="true">
+        <path fill="currentColor" d={PHOSPHOR_PAW_PRINT_FILL} />
+      </svg>
     {/if}
     <span class="category-badge">{categoryBadge}</span>
   </div>
@@ -253,17 +271,24 @@
     );
   }
 
-  .category-band::after {
+  .band-symbol {
     position: absolute;
     top: 50%;
     right: 1rem;
     width: 2.6rem;
     height: 2.6rem;
-    background-color: color-mix(in srgb, var(--hv-color-basalt) 18%, transparent);
-    content: '';
-    mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M240,108a28,28,0,1,1-28-28A28,28,0,0,1,240,108ZM72,108a28,28,0,1,0-28,28A28,28,0,0,0,72,108ZM92,88A28,28,0,1,0,64,60,28,28,0,0,0,92,88Zm72,0a28,28,0,1,0-28-28A28,28,0,0,0,164,88Zm23.12,60.86a35.3,35.3,0,0,1-16.87-21.14,44,44,0,0,0-84.5,0A35.25,35.25,0,0,1,69,148.82,40,40,0,0,0,88,224a39.48,39.48,0,0,0,15.52-3.13,64.09,64.09,0,0,1,48.87,0,40,40,0,0,0,34.73-72Z"/></svg>')
-      center / contain no-repeat;
+    color: color-mix(in srgb, var(--hv-color-basalt, #1e2d31) 18%, transparent);
     transform: translateY(-50%) rotate(-12deg);
+  }
+
+  /* Same stroke treatment as the map pins' category glyphs, so the band and the pin read as
+     one symbol family. */
+  .band-symbol-stroke {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.1;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .category-badge {

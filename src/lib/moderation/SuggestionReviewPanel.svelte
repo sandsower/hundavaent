@@ -278,15 +278,17 @@
         geometrySource: 'Moderator-confirmed map point'
       };
     } else if (sectionId === 'translations') {
-      translationNameIs = proposal.translations.is.needs_review
-        ? ''
-        : proposal.translations.is.name;
+      // The name carries even under `needs_review`. A flagged translation means "nobody wrote
+      // this in this language", which is true of the description and false of the name: the
+      // Member typed one name and it is the same string in both locales. Blanking it made a
+      // Moderator retype that one answer twice, and a typo in either copy silently parts the
+      // Place from the `operator_name` the Member actually gave. The description stays blank,
+      // because there is nothing there but the server's own sentence.
+      translationNameIs = proposal.translations.is.name;
       translationDescriptionIs = proposal.translations.is.needs_review
         ? ''
         : proposal.translations.is.description;
-      translationNameEn = proposal.translations.en.needs_review
-        ? ''
-        : proposal.translations.en.name;
+      translationNameEn = proposal.translations.en.name;
       translationDescriptionEn = proposal.translations.en.needs_review
         ? ''
         : proposal.translations.en.description;

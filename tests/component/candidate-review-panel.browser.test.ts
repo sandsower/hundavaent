@@ -75,7 +75,8 @@ const data = {
       geometryQuality: true,
       icelandicTranslation: true,
       englishTranslation: true,
-      accessCondition: true
+      accessCondition: true,
+      publishableRestraintNote: true
     },
     ready: true
   },

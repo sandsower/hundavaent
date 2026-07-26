@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   buildMemberExplanation,
   buildMemberReportEvidence,
+  buildMemberSuggestionEvidence,
   describeAreaChange,
   describeEligibilityChange,
   describePermissionChange,
   describePlaceFieldCorrection,
   describePlaceReport,
+  describePlaceSuggestion,
   describeRestraintChange
 } from '../../../src/lib/server/contributions/member-evidence';
 
@@ -255,5 +257,38 @@ describe('change summaries', () => {
     expect(evidence.source_citation).toBe('Reported closed from the place card.');
     expect(JSON.stringify(evidence)).not.toContain('neighbour');
     expect(evidence.source_metadata.memberNoteProvided).toBe(true);
+  });
+
+  it('writes a minimal Suggestion its whole Evidence record from fixed strings', () => {
+    const evidence = buildMemberSuggestionEvidence({
+      changeSummary: describePlaceSuggestion('suggestion-form'),
+      observedAt,
+      surface: 'suggestion-form'
+    });
+
+    expect(evidence).toEqual({
+      kind: 'member_report',
+      source_url: null,
+      source_citation: 'New place suggestion, reported from the suggestion form.',
+      source_label: 'Member report from the suggestion form',
+      observed_at: observedAt,
+      explanation: 'New place suggestion, reported from the suggestion form.',
+      source_metadata: { submissionProfile: 'minimal-v1', surface: 'suggestion-form' }
+    });
+  });
+
+  it('names the surface a Suggestion came from and nothing about the Place itself', () => {
+    // A minimal Suggestion carries exactly one piece of member text, the Place name, and the
+    // summary this builds becomes the Evidence citation an anonymous caller can read.
+    const summaries = (
+      ['place-card', 'correction-form', 'report-form', 'suggestion-form'] as const
+    ).map((surface) => describePlaceSuggestion(surface));
+
+    for (const summary of summaries) {
+      expect(summary).toMatch(
+        /^New place suggestion, reported from the (place card|correction form|report form|suggestion form)\.$/
+      );
+    }
+    expect(new Set(summaries).size).toBe(4);
   });
 });
