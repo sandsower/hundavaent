@@ -6,7 +6,6 @@
     LockedTierAchievement,
     MyAchievement
   } from '$server/achievements/achievements';
-  import AchievementIcon from './AchievementIcon.svelte';
   import AchievementTierCell from './AchievementTierCell.svelte';
   import { collectionName } from './tier-copy';
 
@@ -64,16 +63,7 @@
           aria-label={collectionName(collection.head, lang)}
         >
           <div class="collection-head">
-            <span class="collection-icon" aria-hidden="true">
-              <AchievementIcon
-                achievementKey={collection.head.key}
-                collection={collection.key}
-                group={collection.head.group}
-              />
-            </span>
-            <div>
-              <h3>{collectionName(collection.head, lang)}</h3>
-            </div>
+            <h3>{collectionName(collection.head, lang)}</h3>
           </div>
 
           <div class="tier-row">
@@ -128,21 +118,7 @@
   }
 
   .collection-head {
-    display: grid;
-    grid-template-columns: 2.6rem minmax(0, 1fr);
-    gap: 0.8rem;
-    align-items: start;
-  }
-
-  .collection-icon {
-    display: grid;
-    width: 2.6rem;
-    height: 2.6rem;
-    border-radius: 0.9rem;
-    background: color-mix(in srgb, var(--hv-color-fjord) 12%, white);
-    color: var(--hv-color-fjord);
-    padding: 0.55rem;
-    place-items: center;
+    min-width: 0;
   }
 
   h3 {

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { catalogues } from '$i18n';
 import { createDomTestMapAdapter, type DomTestMapAdapter } from '$lib/map/dom-test-adapter';
@@ -31,6 +31,8 @@ const places = [
 ];
 const camera: MapCamera = { latitude: 64.1466, longitude: -21.9426, zoom: 11 };
 const fallbackCamera: MapCamera = { latitude: 64.1466, longitude: -21.9426, zoom: 15 };
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('shared Map interface', () => {
   it('renders markers, selection, attribution, and marker callbacks', async () => {
@@ -219,6 +221,67 @@ describe('shared Map interface', () => {
     await fireEvent.click(useMapCentre);
     expect(latitude.value).toBe('64.17');
     expect(longitude.value).toBe('-21.91');
+  });
+
+  it('searches for an address and places the suggestion pin at the chosen result', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            results: [
+              {
+                id: 'gisco-1',
+                label: 'Laugavegur 30, 101 Reykjavík',
+                addressLine: 'Laugavegur 30',
+                locality: 'Reykjavík',
+                postalCode: '101',
+                municipality: 'reykjavik',
+                latitude: 64.145245,
+                longitude: -21.927444,
+                source: 'EU GISCO Address API'
+              }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+    );
+    const adapter: DomTestMapAdapter = createDomTestMapAdapter();
+    const setCamera = vi.spyOn(adapter, 'setCamera');
+    const { container } = render(SuggestionLocationPicker, {
+      adapter,
+      copy: catalogues.en,
+      fallbackCamera
+    });
+
+    await fireEvent.input(screen.getByLabelText('Find an address or place'), {
+      target: { value: 'Laugavegur 30' }
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await fireEvent.click(
+      await screen.findByRole('button', { name: 'Laugavegur 30, 101 Reykjavík' })
+    );
+
+    expect(container.querySelector<HTMLInputElement>('input[name="latitude"]')?.value).toBe(
+      '64.145245'
+    );
+    expect(container.querySelector<HTMLInputElement>('input[name="longitude"]')?.value).toBe(
+      '-21.927444'
+    );
+    expect(screen.getByRole('status').textContent).toContain(
+      'Location selected at 64.145245, -21.927444'
+    );
+    await waitFor(() =>
+      expect(setCamera).toHaveBeenLastCalledWith(
+        { latitude: 64.145245, longitude: -21.927444, zoom: 17 },
+        expect.objectContaining({ duration: 0 })
+      )
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/locations/search?q=Laugavegur%2030',
+      expect.objectContaining({ headers: { accept: 'application/json' } })
+    );
   });
 
   it('ignores startup camera events until the initial camera is applied', async () => {

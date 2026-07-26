@@ -229,8 +229,12 @@ describe('private impact record', () => {
     expect(document.querySelectorAll('[data-achievement-kind="upcoming"] progress')).toHaveLength(
       2
     );
+    expect(document.querySelectorAll('[data-achievement-badge]')).toHaveLength(4);
     for (const icon of document.querySelectorAll('[data-impact-icon], [data-achievement-icon]')) {
       expect(icon.getAttribute('aria-hidden')).toBe('true');
+      if (icon.hasAttribute('data-achievement-icon')) {
+        expect(icon.closest('[data-achievement-badge]')).toBeTruthy();
+      }
     }
   });
 

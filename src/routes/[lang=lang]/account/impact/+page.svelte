@@ -1,7 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
 
-  import AchievementIcon from '$lib/achievements/AchievementIcon.svelte';
+  import AchievementBadge from '$lib/achievements/AchievementBadge.svelte';
   import ImpactPillarIcon from '$lib/impact/ImpactPillarIcon.svelte';
   import WeeklyRhythmTrail from '$lib/member-activity/WeeklyRhythmTrail.svelte';
   import { formatLocalizedDate } from '$i18n/date';
@@ -466,10 +466,13 @@
               {#each earnedAchievements as achievement (achievement.key)}
                 <li>
                   <span class="achievement-icon" aria-hidden="true">
-                    <AchievementIcon
+                    <AchievementBadge
                       achievementKey={achievement.key}
                       collection={achievement.entry === 'tier' ? achievement.collection : null}
                       group={achievement.group}
+                      tier={achievement.entry === 'tier' ? achievement.tier : null}
+                      state="earned"
+                      progress={1}
                     />
                   </span>
                   <strong>{achievementName(achievement)}</strong>
@@ -486,10 +489,13 @@
               {#each upcomingAchievements as achievement (achievement.key)}
                 <li>
                   <span class="achievement-icon" aria-hidden="true">
-                    <AchievementIcon
+                    <AchievementBadge
                       achievementKey={achievement.key}
                       collection={achievement.collection}
                       group={achievement.group}
+                      tier={achievement.tier}
+                      state="started"
+                      progress={achievement.progress.current / achievement.progress.target}
                     />
                   </span>
                   <span class="achievement-copy">
@@ -1086,8 +1092,9 @@
   }
 
   .achievement-icon {
-    width: 2rem;
-    height: 2rem;
+    flex: 0 0 auto;
+    width: 2.8rem;
+    height: 2.8rem;
   }
 
   .recognition-link,

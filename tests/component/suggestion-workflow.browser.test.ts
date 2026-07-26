@@ -172,7 +172,10 @@ describe('Member Suggestion workflow', () => {
     expect(areas.querySelector('input[type="radio"]:checked')).toBeNull();
 
     const form = screen.getByRole('button', { name: submitLabel }).closest('form')!;
-    expect(form.querySelectorAll('input:not([type="hidden"]), select, textarea').length).toBe(4);
+    expect(form.querySelectorAll('input:not([type="hidden"]), select, textarea').length).toBe(5);
+    expect(
+      screen.getByLabelText(catalogues[lang]['suggestion.locationSearchLabel']).getAttribute('name')
+    ).toBeNull();
     expect(new FormData(form).get('submissionProfile')).toBe('minimal-v1');
     expect(form.querySelector('select')).toBeNull();
     expect(form.querySelector('textarea')).toBeNull();
