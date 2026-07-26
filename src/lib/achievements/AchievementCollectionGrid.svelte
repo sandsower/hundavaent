@@ -8,7 +8,7 @@
   } from '$server/achievements/achievements';
   import AchievementIcon from './AchievementIcon.svelte';
   import AchievementTierCell from './AchievementTierCell.svelte';
-  import { collectionDescription, collectionName } from './tier-copy';
+  import { collectionName } from './tier-copy';
 
   interface Props {
     achievements: MyAchievement[];
@@ -54,13 +54,15 @@
   <section class="collections hv-stack" aria-labelledby="achievement-collections-heading">
     <header class="section-header">
       <h2 id="achievement-collections-heading">{copy['achievements.collectionsTitle']}</h2>
-      <p>{copy['achievements.collectionsIntro']}</p>
       <p class="spacing-note">{copy['achievements.spacingNote']}</p>
     </header>
 
     <ul class="collection-list hv-list">
       {#each collections as collection (collection.key)}
-        <li class="collection hv-panel" aria-label={collectionName(collection.head, lang)}>
+        <li
+          class="collection hv-panel hv-list-card"
+          aria-label={collectionName(collection.head, lang)}
+        >
           <div class="collection-head">
             <span class="collection-icon" aria-hidden="true">
               <AchievementIcon
@@ -71,9 +73,6 @@
             </span>
             <div>
               <h3>{collectionName(collection.head, lang)}</h3>
-              <p class="collection-description">
-                {collectionDescription(collection.head, lang)}
-              </p>
             </div>
           </div>
 
@@ -151,14 +150,6 @@
     font-family: var(--hv-font-display);
     font-size: 1.08rem;
     line-height: 1.2;
-  }
-
-  .collection-description {
-    max-width: 46ch;
-    margin: 0.25rem 0 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.9rem;
-    line-height: 1.45;
   }
 
   .tier-row {
