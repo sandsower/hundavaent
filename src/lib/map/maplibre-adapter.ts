@@ -9,7 +9,8 @@ import type {
   MapCamera,
   MapCameraOptions,
   MapPadding,
-  MapPlace
+  MapPlace,
+  MapPoint
 } from './types';
 
 export interface MapLibreAdapterOptions {
@@ -35,6 +36,7 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
   let applyingCamera = false;
   const markers = new Map<string, { marker: Marker; element: HTMLButtonElement }>();
   const markerPlaceIds = new Map<string, readonly string[]>();
+  let viewerMarker: Marker | null = null;
 
   async function mount(container: HTMLElement, nextCallbacks: MapCallbacks): Promise<void> {
     const maplibre = await import('maplibre-gl');
@@ -263,6 +265,27 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
     );
   }
 
+  function setViewerLocation(point: MapPoint | null): void {
+    if (!point) {
+      viewerMarker?.remove();
+      viewerMarker = null;
+      return;
+    }
+    if (viewerMarker) {
+      viewerMarker.setLngLat([point.longitude, point.latitude]);
+      return;
+    }
+    if (!map || !maplibreModule) return;
+    const element = document.createElement('div');
+    element.className = 'hundavaent-viewer-location';
+    // The dot is where the reader already knows they are standing; a screen reader hears the
+    // outcome through the shell's status line instead of a decorative map ornament.
+    element.setAttribute('aria-hidden', 'true');
+    viewerMarker = new maplibreModule.Marker({ element, anchor: 'center' })
+      .setLngLat([point.longitude, point.latitude])
+      .addTo(map);
+  }
+
   // Only user gestures (drag, wheel, pinch) carry an originalEvent; camera
   // animations must not de-emphasize the floating chrome.
   function handleMoveStart(event?: { originalEvent?: unknown }): void {
@@ -297,6 +320,8 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
     for (const entry of markers.values()) entry.marker.remove();
     markers.clear();
     markerPlaceIds.clear();
+    viewerMarker?.remove();
+    viewerMarker = null;
     map?.off('movestart', handleMoveStart);
     map?.off('moveend', handleMoveEnd);
     map?.off('click', handleMapClick);
@@ -320,6 +345,7 @@ export function createMapLibreAdapter(options: MapLibreAdapterOptions): MapLibre
     setCamera,
     setPadding,
     fitToPlaces,
+    setViewerLocation,
     destroy,
     getCamera
   };

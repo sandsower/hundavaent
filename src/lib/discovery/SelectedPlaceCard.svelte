@@ -28,7 +28,9 @@
   import { fetchPendingCorrections } from '$lib/contributions/correction-client';
   import type { MemberPlacePhoto } from '$lib/contributions/photo';
   import { fetchMyPlacePhotos } from '$lib/contributions/photo-client';
+  import { postHogAnalytics } from '$lib/analytics/posthog';
   import { correctConditionHref } from '$lib/discovery/correct-link';
+  import { googleMapsDirectionsUrl } from '$lib/discovery/directions';
   import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
   import PhotoCredit from '$lib/discovery/PhotoCredit.svelte';
   import RefreshablePlaceImage from '$lib/discovery/RefreshablePlaceImage.svelte';
@@ -390,6 +392,32 @@
       {/if}
     {/if}
 
+    <!-- Getting there is the one action every visitor shares, so it stands beside the summary
+         facts instead of waiting behind the practical-details disclosure. The summary already
+         carries the coordinates, so the link works before the profile arrives. -->
+    <p class="directions-row">
+      <!-- eslint-disable svelte/no-navigation-without-resolve -- external Google Maps URL -->
+      <a
+        class="directions-link"
+        href={googleMapsDirectionsUrl({ latitude: place.latitude, longitude: place.longitude })}
+        target="_blank"
+        rel="noreferrer noopener"
+        aria-label={copy['place.directionsLabel'].replace('{name}', place.name)}
+        onclick={() =>
+          postHogAnalytics.capture('directions opened', {
+            place_id: place.placeId,
+            category: place.category,
+            language: lang
+          })}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 17 17 7M9.5 7H17v7.5" />
+        </svg>
+        {copy['place.directions']}
+      </a>
+      <!-- eslint-enable svelte/no-navigation-without-resolve -->
+    </p>
+
     <section
       bind:this={welcomeAnswer}
       class="welcome-answer"
@@ -739,6 +767,49 @@
 
   .member-actions :global(.actions) {
     grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  }
+
+  .directions-row {
+    margin: 0 0 0.55rem;
+  }
+
+  .directions-link {
+    display: inline-flex;
+    min-height: 2.1rem;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.85rem;
+    border: 1px solid var(--hv-color-fjord);
+    border-radius: 999px;
+    color: var(--hv-color-fjord);
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-decoration: none;
+    transition: transform var(--hv-motion-instant) var(--hv-ease-settle);
+  }
+
+  .directions-link:hover {
+    transform: translateY(-1px);
+  }
+
+  .directions-link:active {
+    transform: scale(0.94);
+  }
+
+  .directions-link svg {
+    width: 0.95rem;
+    height: 0.95rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.1;
+  }
+
+  .directions-link:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   .welcome-answer {

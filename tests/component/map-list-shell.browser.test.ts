@@ -640,6 +640,164 @@ describe('MapListShell synchronization', () => {
     expect(document.activeElement).toBe(marker);
   });
 
+  it('shows the member location dot and pans the camera from the locate control', async () => {
+    history.replaceState(null, '', '/en');
+    sessionStorage.clear();
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query) =>
+        ({
+          matches: false,
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn()
+        }) satisfies MediaQueryList
+    );
+    vi.spyOn(navigator.geolocation, 'getCurrentPosition').mockImplementation((success) =>
+      success({
+        coords: {
+          latitude: 64.152311,
+          longitude: -21.934822,
+          accuracy: 12,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+          toJSON: () => ({})
+        },
+        timestamp: 1,
+        toJSON: () => ({})
+      })
+    );
+    const adapter = createDomTestMapAdapter();
+    const { container } = render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter,
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    await screen.findByRole('button', { name: 'Published Place' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Show my location on the map' }));
+
+    // The dot carries the fresh full-precision fix, not the privacy-rounded session copy.
+    await waitFor(() => {
+      const dot = container.querySelector<HTMLElement>('[data-viewer-location]');
+      expect(dot?.dataset.latitude).toBe('64.152311');
+      expect(dot?.dataset.longitude).toBe('-21.934822');
+    });
+    const mapRoot = container.querySelector<HTMLElement>('[data-map-adapter]');
+    await waitFor(() => {
+      expect(mapRoot?.dataset.latitude).toBe('64.152311');
+      expect(mapRoot?.dataset.longitude).toBe('-21.934822');
+      expect(mapRoot?.dataset.zoom).toBe('14');
+    });
+    expect(
+      screen
+        .getAllByRole('status')
+        .some((status) => status.textContent?.includes('Nearby search is ready.'))
+    ).toBe(true);
+  });
+
+  it('announces a denied locate request and leaves the camera and map untouched', async () => {
+    history.replaceState(null, '', '/en');
+    sessionStorage.clear();
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query) =>
+        ({
+          matches: false,
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn()
+        }) satisfies MediaQueryList
+    );
+    vi.spyOn(navigator.geolocation, 'getCurrentPosition').mockImplementation((_success, error) =>
+      error?.({
+        code: 1,
+        message: 'denied',
+        PERMISSION_DENIED: 1,
+        POSITION_UNAVAILABLE: 2,
+        TIMEOUT: 3
+      })
+    );
+    const adapter = createDomTestMapAdapter();
+    const { container } = render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter,
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    await screen.findByRole('button', { name: 'Published Place' });
+    const mapRoot = container.querySelector<HTMLElement>('[data-map-adapter]');
+    const arrivalLatitude = mapRoot?.dataset.latitude;
+    await fireEvent.click(screen.getByRole('button', { name: 'Show my location on the map' }));
+
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole('status')
+          .some((status) => status.textContent?.includes('Location is blocked in this browser.'))
+      ).toBe(true)
+    );
+    expect(container.querySelector('[data-viewer-location]')).toBeNull();
+    expect(mapRoot?.dataset.latitude).toBe(arrivalLatitude);
+  });
+
+  it('offers Google Maps directions for the selected Place from its coordinates', async () => {
+    history.replaceState(null, '', '/en');
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query) =>
+        ({
+          matches: false,
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn()
+        }) satisfies MediaQueryList
+    );
+    const adapter = createDomTestMapAdapter();
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter,
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Published Place' }));
+    const directions = await screen.findByRole('link', {
+      name: 'Get directions to Published Place'
+    });
+    expect(directions.getAttribute('href')).toBe(
+      'https://www.google.com/maps/dir/?api=1&destination=64.1423%2C-21.9555'
+    );
+    expect(directions.getAttribute('target')).toBe('_blank');
+    expect(directions.getAttribute('rel')).toContain('noreferrer');
+    expect(directions.textContent).toContain('Directions');
+  });
+
   it('arrives on a quiet map and floats a matching-width detail card over it on desktop', async () => {
     const initialViewport = { width: window.innerWidth, height: window.innerHeight };
     const initialMoss = document.documentElement.style.getPropertyValue('--hv-color-moss');
@@ -2572,7 +2730,7 @@ describe('MapListShell synchronization', () => {
       configurable: true,
       value: { getCurrentPosition }
     });
-    render(MapListShell, {
+    const { container } = render(MapListShell, {
       places: [...places, farPlace],
       lang: 'en',
       copy: catalogues.en,
@@ -2589,6 +2747,13 @@ describe('MapListShell synchronization', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Use my location' }));
     await waitFor(() => expect(screen.getByText('Nearby search is ready.')).toBeTruthy());
+    // The sheet flow drops the same full-precision dot the locate control does; only the
+    // camera move is the locate control's own.
+    await waitFor(() => {
+      const dot = container.querySelector<HTMLElement>('[data-viewer-location]');
+      expect(dot?.dataset.latitude).toBe('64.1466');
+      expect(dot?.dataset.longitude).toBe('-21.9426');
+    });
     expect(window.location.search).toContain('distance=5');
     expect(window.location.search).toContain('lat=64.2');
     expect(window.location.search).toContain('lng=-21.8');

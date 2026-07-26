@@ -31,6 +31,11 @@ export interface ProductAnalyticsEvents {
     place_id: string;
     saved: boolean;
   };
+  'directions opened': {
+    place_id: string;
+    category: string;
+    language: 'is' | 'en';
+  };
   'check in completed': {
     place_id: string;
     outcome: 'created' | 'duplicate';

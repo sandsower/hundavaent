@@ -97,6 +97,20 @@ export function createDomTestMapAdapter(): DomTestMapAdapter {
     root.dataset.paddingLeft = String(padding.left);
   }
 
+  function setViewerLocation(point: MapPoint | null): void {
+    if (!root) return;
+    const existing = root.querySelector<HTMLElement>('[data-viewer-location]');
+    if (!point) {
+      existing?.remove();
+      return;
+    }
+    const dot = existing ?? document.createElement('div');
+    dot.setAttribute('data-viewer-location', '');
+    dot.dataset.latitude = String(point.latitude);
+    dot.dataset.longitude = String(point.longitude);
+    if (!existing) root.append(dot);
+  }
+
   function destroy(): void {
     root?.remove();
     root = null;
@@ -112,6 +126,7 @@ export function createDomTestMapAdapter(): DomTestMapAdapter {
     focusPlace,
     setCamera,
     setPadding,
+    setViewerLocation,
     destroy,
     get destroyed() {
       return isDestroyed;
