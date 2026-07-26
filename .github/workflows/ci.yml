@@ -151,7 +151,10 @@ jobs:
       - name: Reset Supabase before visual evidence
         id: reset
         if: ${{ !cancelled() && steps.supabase.outcome == 'success' }}
-        run: pnpm exec supabase db reset
+        run: |
+          pnpm exec supabase db reset
+          api_url="$(pnpm exec supabase status --output json | jq -r '.API_URL')"
+          node --experimental-strip-types scripts/wait-for-health.ts "${api_url}/auth/v1/health"
       - if: ${{ !cancelled() && steps.reset.outcome == 'success' }}
         run: pnpm test:visual
       - name: Retain accessibility and visual evidence
