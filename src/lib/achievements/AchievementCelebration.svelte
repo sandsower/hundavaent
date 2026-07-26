@@ -5,7 +5,7 @@
   import { formatLocalizedDate } from '$i18n/date';
   import PawMark from '$lib/member-activity/PawMark.svelte';
   import type { ClaimedAchievement } from '$server/achievements/achievements';
-  import AchievementIcon from './AchievementIcon.svelte';
+  import AchievementBadge from './AchievementBadge.svelte';
   import { collectionName, tierDescription, tierDisplayName } from './tier-copy';
 
   interface Props {
@@ -53,10 +53,12 @@
     <div class="scene">
       <span class="halo"></span>
       <span class="achievement-icon">
-        <AchievementIcon
+        <AchievementBadge
           achievementKey={achievement.key}
           collection={achievement.entry === 'tier' ? achievement.collection : null}
           group={achievement.group}
+          tier={achievement.entry === 'tier' ? achievement.tier : null}
+          state="earned"
         />
       </span>
       <svg class="trail" viewBox="0 0 240 144" fill="none">
@@ -121,11 +123,10 @@
 
   .achievement-icon {
     position: absolute;
-    top: 1.05rem;
+    top: 0.7rem;
     left: 40%;
-    width: 4.4rem;
-    height: 4.4rem;
-    color: var(--hv-color-brand-paw);
+    width: 5.1rem;
+    height: 5.1rem;
     transform: translateX(-50%);
   }
 

@@ -141,8 +141,12 @@ describe('private impact record', () => {
     expect(screen.getByText('Municipalities - Silver')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'See all Achievements' })).toBeTruthy();
     expect(document.querySelector('form')).toBeNull();
+    expect(document.querySelectorAll('[data-achievement-badge]')).toHaveLength(4);
     for (const icon of document.querySelectorAll('[data-impact-icon], [data-achievement-icon]')) {
       expect(icon.getAttribute('aria-hidden')).toBe('true');
+      if (icon.hasAttribute('data-achievement-icon')) {
+        expect(icon.closest('[data-achievement-badge]')).toBeTruthy();
+      }
     }
   });
 

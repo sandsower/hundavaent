@@ -153,6 +153,38 @@ describe('Member Achievements view', () => {
     expect(document.querySelector('[data-tier-state="earned"]')).toBeTruthy();
   });
 
+  it('renders every current Achievement as a padded woven rosette with structural tier rings', () => {
+    renderPage('en');
+
+    const badges = document.querySelectorAll<HTMLElement>('[data-achievement-badge]');
+    expect(badges).toHaveLength(4);
+
+    for (const badge of badges) {
+      expect(badge.getAttribute('data-badge-shape')).toBe('woven-rosette');
+      const motif = badge.querySelector<HTMLElement>('[data-badge-motif]');
+      expect(motif).toBeTruthy();
+      if (!motif) continue;
+
+      const badgeBounds = badge.getBoundingClientRect();
+      const motifBounds = motif.getBoundingClientRect();
+      expect(motifBounds.width / badgeBounds.width).toBeLessThanOrEqual(0.32);
+      expect(motifBounds.height / badgeBounds.height).toBeLessThanOrEqual(0.32);
+    }
+
+    const bronze = document.querySelector('[data-achievement-tier="bronze"]');
+    const silver = document.querySelector('[data-achievement-tier="silver"]');
+    const gold = document.querySelector('[data-achievement-tier="gold"]');
+
+    expect(bronze?.querySelectorAll('[data-badge-ring]')).toHaveLength(1);
+    expect(silver?.querySelectorAll('[data-badge-ring]')).toHaveLength(2);
+    expect(gold?.querySelectorAll('[data-badge-ring]')).toHaveLength(2);
+    expect(gold?.querySelector('[data-badge-raised-edge]')).toBeTruthy();
+
+    for (const icon of document.querySelectorAll('[data-achievement-icon]')) {
+      expect(icon.closest('[data-achievement-badge]')).toBeTruthy();
+    }
+  });
+
   it('gives every collection card the design-system panel inset', async () => {
     const initialViewport = { width: window.innerWidth, height: window.innerHeight };
 
@@ -181,7 +213,11 @@ describe('Member Achievements view', () => {
     expect(within(celebration).getByText('Nicely done')).toBeTruthy();
     expect(within(celebration).getByText('Categories - Bronze')).toBeTruthy();
     expect(within(celebration).getByText('Check in at places across 2 categories.')).toBeTruthy();
-    expect(celebration.querySelector('[data-achievement-icon]')).toBeTruthy();
+    expect(
+      celebration.querySelector(
+        '[data-achievement-badge][data-badge-state="earned"][data-badge-tier="bronze"]'
+      )
+    ).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 

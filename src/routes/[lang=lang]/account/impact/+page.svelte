@@ -1,7 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
 
-  import AchievementIcon from '$lib/achievements/AchievementIcon.svelte';
+  import AchievementBadge from '$lib/achievements/AchievementBadge.svelte';
   import ImpactPillarIcon from '$lib/impact/ImpactPillarIcon.svelte';
   import WeeklyRhythmTrail from '$lib/member-activity/WeeklyRhythmTrail.svelte';
   import { formatLocalizedDate } from '$i18n/date';
@@ -310,10 +310,15 @@
         {#each visibleAchievements as achievement (achievement.key)}
           <li>
             <span class="achievement-icon" aria-hidden="true">
-              <AchievementIcon
+              <AchievementBadge
                 achievementKey={achievement.key}
                 collection={achievement.entry === 'tier' ? achievement.collection : null}
                 group={achievement.group}
+                tier={achievement.entry === 'tier' ? achievement.tier : null}
+                state={achievement.kind === 'earned' ? 'earned' : 'started'}
+                progress={achievement.kind === 'locked'
+                  ? achievement.progress.current / achievement.progress.target
+                  : 1}
               />
             </span>
             <span>
@@ -799,8 +804,9 @@
   }
 
   .achievement-icon {
-    width: 2rem;
-    height: 2rem;
+    flex: 0 0 auto;
+    width: 2.8rem;
+    height: 2.8rem;
   }
 
   .recognition-link,
