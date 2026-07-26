@@ -24,6 +24,7 @@
     viewportPadding?: MapPadding;
     motionDurationMs?: number;
     motionEasing?: (t: number) => number;
+    viewerLocation?: MapPoint | null;
   }
 
   let {
@@ -44,7 +45,8 @@
     fitPlacesOnMount = false,
     viewportPadding = { top: 0, right: 0, bottom: 0, left: 0 },
     motionDurationMs = 0,
-    motionEasing
+    motionEasing,
+    viewerLocation = null
   }: Props = $props();
   let container = $state<HTMLElement>();
   let mounted = $state(false);
@@ -76,6 +78,7 @@
       });
       adapter.setPlaces(places);
       adapter.setSelectedPlace(selectedPlaceId);
+      adapter.setViewerLocation?.(viewerLocation);
       if (fitPlacesOnMount && places.length > 0 && adapter.fitToPlaces) {
         adapter.fitToPlaces(places);
       } else {
@@ -117,6 +120,10 @@
 
   $effect(() => {
     if (mounted) adapter.setSelectedPlace(selectedPlaceId);
+  });
+
+  $effect(() => {
+    if (mounted) adapter.setViewerLocation?.(viewerLocation);
   });
 
   $effect(() => {

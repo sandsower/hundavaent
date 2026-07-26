@@ -123,6 +123,40 @@ describe('shared Map interface', () => {
     expect(onMarkerMove).toHaveBeenCalledWith(places[0].placeId, point);
   });
 
+  it('shows, moves, and clears the viewer location dot', async () => {
+    const adapter: DomTestMapAdapter = createDomTestMapAdapter();
+    const { container, rerender } = render(MapSurface, {
+      adapter,
+      places,
+      selectedPlaceId: null,
+      camera,
+      copy: catalogues.en,
+      onMarkerSelect: vi.fn(),
+      onCameraChange: vi.fn(),
+      viewerLocation: { latitude: 64.152311, longitude: -21.934822 }
+    });
+
+    await screen.findByRole('button', { name: 'Published Place' });
+    await waitFor(() =>
+      expect(screen.getByRole('region', { name: 'Map' }).getAttribute('data-paint-ready')).toBe(
+        'true'
+      )
+    );
+    const dot = container.querySelector<HTMLElement>('[data-viewer-location]');
+    expect(dot?.dataset.latitude).toBe('64.152311');
+    expect(dot?.dataset.longitude).toBe('-21.934822');
+
+    await rerender({ viewerLocation: { latitude: 64.16, longitude: -21.92 } });
+    await waitFor(() => {
+      const moved = container.querySelector<HTMLElement>('[data-viewer-location]');
+      expect(moved?.dataset.latitude).toBe('64.16');
+      expect(moved?.dataset.longitude).toBe('-21.92');
+    });
+
+    await rerender({ viewerLocation: null });
+    await waitFor(() => expect(container.querySelector('[data-viewer-location]')).toBeNull());
+  });
+
   it('forwards terminal cluster members for an accessible selection fallback', async () => {
     let mountedCallbacks: MapCallbacks | null = null;
     const onClusterSelect = vi.fn();

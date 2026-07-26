@@ -22,14 +22,18 @@
   import ContributionReveal from '$lib/discovery/ContributionReveal.svelte';
   import {
     hasPendingAccessCondition,
+    hasPendingPlaceField,
     type AccessConditionDimension,
     type PendingPlaceFlag
   } from '$lib/contributions/correction';
   import { fetchPendingCorrections } from '$lib/contributions/correction-client';
   import type { MemberPlacePhoto } from '$lib/contributions/photo';
   import { fetchMyPlacePhotos } from '$lib/contributions/photo-client';
+  import { postHogAnalytics } from '$lib/analytics/posthog';
   import { correctConditionHref } from '$lib/discovery/correct-link';
+  import { googleMapsDirectionsUrl } from '$lib/discovery/directions';
   import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
+  import WheelchairAccessibilityCorrection from '$lib/discovery/WheelchairAccessibilityCorrection.svelte';
   import PhotoCredit from '$lib/discovery/PhotoCredit.svelte';
   import RefreshablePlaceImage from '$lib/discovery/RefreshablePlaceImage.svelte';
   import SharePlaceControl from '$lib/discovery/SharePlaceControl.svelte';
@@ -224,6 +228,10 @@
     // Only the chip panel's editors are this component's to clean up after. The reveal owns focus
     // for the affordances it renders, and it also routes its submissions through here.
     if (flag.targetKind === 'access_condition') focusConditionPending = true;
+    // The accessibility badge's panel is this component's too, on the same terms as the chips'.
+    if (flag.targetKind === 'place_field' && flag.targetField === 'wheelchair_accessibility') {
+      focusMobilityPending = true;
+    }
   }
 
   /**
@@ -243,6 +251,24 @@
     if (!line) return;
     line.focus();
     focusConditionPending = false;
+  });
+
+  /**
+   * The accessibility badge's panel on the same terms: sending removes the editor, so focus moves
+   * to the pending line that replaced it.
+   */
+  const mobilityPending = $derived(hasPendingPlaceField(pending, 'wheelchair_accessibility'));
+  let focusMobilityPending = $state(false);
+  let mobilitySection = $state<HTMLElement>();
+
+  $effect(() => {
+    // `mobilityPending` is read so this re-runs once the panel has swapped in the pending line.
+    void mobilityPending;
+    if (!focusMobilityPending || !mobilitySection) return;
+    const line = mobilitySection.querySelector<HTMLElement>('[data-correction-pending]');
+    if (!line) return;
+    line.focus();
+    focusMobilityPending = false;
   });
 </script>
 
@@ -296,6 +322,27 @@
         onSubmitted={recordSubmitted}
       />
     {/if}
+  {/if}
+{/snippet}
+
+{#snippet mobilityEditor({ announce }: { announce: (message: string) => void })}
+  {#if mobilityPending}
+    <!-- A pending wheelchair Correction proposes the whole fact, so the one affordance the panel
+         holds says pending rather than inviting a second claim beside the first. -->
+    <p class="pending-correction" data-correction-pending tabindex="-1">
+      {copy['inlineCorrection.pending']}
+    </p>
+  {:else}
+    <WheelchairAccessibilityCorrection
+      placeId={place.placeId}
+      placeName={place.name}
+      {lang}
+      {copy}
+      {signedIn}
+      state={profile?.wheelchairAccessibility ?? place.wheelchairAccessibility}
+      {announce}
+      onSubmitted={recordSubmitted}
+    />
   {/if}
 {/snippet}
 
@@ -390,6 +437,32 @@
       {/if}
     {/if}
 
+    <!-- Getting there is the one action every visitor shares, so it stands beside the summary
+         facts instead of waiting behind the practical-details disclosure. The summary already
+         carries the coordinates, so the link works before the profile arrives. -->
+    <p class="directions-row">
+      <!-- eslint-disable svelte/no-navigation-without-resolve -- external Google Maps URL -->
+      <a
+        class="directions-link"
+        href={googleMapsDirectionsUrl({ latitude: place.latitude, longitude: place.longitude })}
+        target="_blank"
+        rel="noreferrer noopener"
+        aria-label={copy['place.directionsLabel'].replace('{name}', place.name)}
+        onclick={() =>
+          postHogAnalytics.capture('directions opened', {
+            place_id: place.placeId,
+            category: place.category,
+            language: lang
+          })}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 17 17 7M9.5 7H17v7.5" />
+        </svg>
+        {copy['place.directions']}
+      </a>
+      <!-- eslint-enable svelte/no-navigation-without-resolve -->
+    </p>
+
     <section
       bind:this={welcomeAnswer}
       class="welcome-answer"
@@ -405,11 +478,17 @@
       />
     </section>
 
-    <section class="mobility-access" aria-labelledby={`mobility-${place.placeId}`}>
+    <section
+      bind:this={mobilitySection}
+      class="mobility-access"
+      aria-labelledby={`mobility-${place.placeId}`}
+    >
       <h3 id={`mobility-${place.placeId}`}>{copy['wheelchairAccessibility.heading']}</h3>
       <WheelchairAccessibilityBadge
         state={profile?.wheelchairAccessibility ?? place.wheelchairAccessibility}
         {copy}
+        expandable
+        editor={mobilityEditor}
       />
     </section>
 
@@ -739,6 +818,49 @@
 
   .member-actions :global(.actions) {
     grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  }
+
+  .directions-row {
+    margin: 0 0 0.55rem;
+  }
+
+  .directions-link {
+    display: inline-flex;
+    min-height: 2.1rem;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.85rem;
+    border: 1px solid var(--hv-color-fjord);
+    border-radius: 999px;
+    color: var(--hv-color-fjord);
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-decoration: none;
+    transition: transform var(--hv-motion-instant) var(--hv-ease-settle);
+  }
+
+  .directions-link:hover {
+    transform: translateY(-1px);
+  }
+
+  .directions-link:active {
+    transform: scale(0.94);
+  }
+
+  .directions-link svg {
+    width: 0.95rem;
+    height: 0.95rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.1;
+  }
+
+  .directions-link:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   .welcome-answer {
