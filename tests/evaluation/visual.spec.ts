@@ -1124,9 +1124,9 @@ test('captures the bilingual weekly roundup states and preferences', async ({ pa
       sparseTitle: 'A short trail this week',
       emptyTitle: 'No new tracks this week',
       language: 'English',
-      emailInterest: 'I would be interested in receiving this roundup by email later',
-      save: 'Save roundup settings',
-      edit: 'Edit roundup settings'
+      emailInterest: 'I would be interested in receiving this recap by email later',
+      save: 'Save recap settings',
+      edit: 'Edit recap settings'
     },
     {
       locale: 'is',

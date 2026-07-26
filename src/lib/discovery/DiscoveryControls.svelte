@@ -96,7 +96,7 @@
   }
 </script>
 
-<section class="discovery-controls" data-motion="tokenized" aria-label={copy['directory.filters']}>
+<section class="discovery-controls" aria-label={copy['directory.filters']}>
   <label class="search-label">
     <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="10.5" cy="10.5" r="6.75" fill="none" stroke-width="2.2" />

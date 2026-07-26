@@ -409,7 +409,8 @@
     border: 0;
     border-radius: var(--hv-radius-control);
     grid-template-columns: 1.2rem 1fr 1.2rem;
-    background: #1877f2;
+    /* Facebook's darker press shade: white on brand #1877f2 is 4.23:1 and fails WCAG 1.4.3. */
+    background: #166fe5;
     color: white;
     font-weight: 800;
     line-height: 1.2;
@@ -492,16 +493,16 @@
     }
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .auth-dialog[open] {
-      animation: dialog-in 180ms ease-out;
-    }
+  /* The dialog is full of text, so its arrival is transform-only: words land at full contrast
+     and move into place (see the fade-family limit in tokens.css). The motion token collapses
+     to zero under reduced motion, so no media wrapper is needed. */
+  .auth-dialog[open] {
+    animation: dialog-in var(--hv-motion-quick) var(--hv-ease-settle);
+  }
 
-    @keyframes dialog-in {
-      from {
-        opacity: 0;
-        transform: translateY(0.4rem) scale(0.985);
-      }
+  @keyframes dialog-in {
+    from {
+      transform: translateY(0.4rem) scale(0.985);
     }
   }
 </style>

@@ -9,6 +9,7 @@
   import { explainAccessCondition } from '$domain/access-explanation';
   import type { AccessSymbolDimension } from '$domain/access-symbols';
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
+  import PawMark from '$lib/member-activity/PawMark.svelte';
   import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
   import { subscribeToDeferredFavouriteRecognition } from '$lib/member-activity/client';
   import type { FavouriteRecognition } from '$lib/member-activity/types';
@@ -381,7 +382,12 @@
     />
 
     {#if loading && !profile}
-      <p class="hv-notice details-status" data-tone="info" role="status">
+      <p class="hv-notice details-status loading-status" data-tone="info" role="status">
+        <span class="paw-trail" data-paw-trail aria-hidden="true">
+          <PawMark />
+          <PawMark />
+          <PawMark />
+        </span>
         {copy['place.loadingDetails']}
       </p>
     {:else if loadFailed && !profile}
@@ -510,7 +516,7 @@
   }
 
   .card-body > * {
-    animation: detail-content-enter 180ms ease-out both;
+    animation: detail-content-enter var(--hv-motion-quick) var(--hv-ease-settle) both;
   }
 
   @keyframes detail-content-enter {
@@ -526,6 +532,54 @@
   .details-status {
     margin: 0.45rem 0 0;
     font-weight: 700;
+  }
+
+  .loading-status {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+  }
+
+  /* A trail of paw prints filling one after another while the details load. The fill rides the
+     fade family, so the trail keeps padding along for Members who prefer reduced motion: colour
+     changes in place, nothing travels. The tilts are static. */
+  .paw-trail {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: 0.25rem;
+    color: var(--hv-color-brand-paw);
+  }
+
+  .paw-trail :global(.paw-mark) {
+    width: 1.05rem;
+    animation: paw-trail-fills calc(var(--hv-fade-considered) * 4) var(--hv-ease-settle) infinite
+      both;
+  }
+
+  .paw-trail :global(.paw-mark:nth-child(1)) {
+    transform: rotate(-10deg);
+  }
+
+  .paw-trail :global(.paw-mark:nth-child(2)) {
+    transform: translateY(0.14rem) rotate(8deg);
+    animation-delay: var(--hv-fade-considered);
+  }
+
+  .paw-trail :global(.paw-mark:nth-child(3)) {
+    transform: rotate(-6deg);
+    animation-delay: calc(var(--hv-fade-considered) * 2);
+  }
+
+  @keyframes paw-trail-fills {
+    0%,
+    70%,
+    100% {
+      fill: transparent;
+    }
+
+    30% {
+      fill: currentColor;
+    }
   }
 
   .pending-correction {
@@ -784,11 +838,5 @@
 
   .details-status p {
     margin-block: 0 0.65rem;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .card-body > * {
-      animation: none;
-    }
   }
 </style>

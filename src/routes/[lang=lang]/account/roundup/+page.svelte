@@ -333,27 +333,25 @@
     justify-self: start;
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .recommendations > :global(*) {
-      animation: card-arrive 420ms ease-out both;
-    }
+  .recommendations > :global(*) {
+    animation: card-arrive var(--hv-motion-celebrate) var(--hv-ease-settle) both;
+  }
 
-    .recommendations > :global(:nth-child(2)) {
-      animation-delay: 70ms;
-    }
+  .recommendations > :global(:nth-child(2)) {
+    animation-delay: var(--hv-motion-stagger);
+  }
 
-    .recommendations > :global(:nth-child(3)) {
-      animation-delay: 120ms;
-    }
+  .recommendations > :global(:nth-child(3)) {
+    animation-delay: calc(var(--hv-motion-stagger) * 2);
+  }
 
-    .recommendations > :global(:nth-child(n + 4)) {
-      animation-delay: 170ms;
-    }
+  .recommendations > :global(:nth-child(n + 4)) {
+    animation-delay: calc(var(--hv-motion-stagger) * 3);
+  }
 
-    @keyframes card-arrive {
-      from {
-        transform: translateY(8px);
-      }
+  @keyframes card-arrive {
+    from {
+      transform: translateY(8px);
     }
   }
 

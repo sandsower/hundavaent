@@ -223,6 +223,12 @@
     color: var(--hv-color-moss);
     padding: 0.58rem;
     place-items: center;
+    /* A small lift when the tile is revisited: the badge perks up without the words moving. */
+    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
+  }
+
+  .achievement:hover .earned-icon {
+    transform: translateY(-0.2rem) rotate(-4deg);
   }
 
   .name-line {
@@ -239,18 +245,16 @@
     text-transform: uppercase;
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .new-badge {
-      animation: new-badge-settle 360ms ease-out 1;
-    }
+  .new-badge {
+    animation: new-badge-settle var(--hv-motion-celebrate) var(--hv-ease-settle) 1;
+  }
 
-    @keyframes new-badge-settle {
-      from {
-        transform: scale(1.18);
-      }
-      to {
-        transform: scale(1);
-      }
+  @keyframes new-badge-settle {
+    from {
+      transform: scale(1.18);
+    }
+    to {
+      transform: scale(1);
     }
   }
 

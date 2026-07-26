@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { page as browserPage } from 'vitest/browser';
 
 import { catalogues } from '$i18n';
@@ -905,15 +905,34 @@ describe('MapListShell synchronization', () => {
     expect(within(selectedPlace).getByRole('link', { name: 'A. Photographer' })).toBeTruthy();
     expect(within(selectedPlace).getByRole('link', { name: 'CC BY 4.0' })).toBeTruthy();
     expect(within(selectedPlace).getByText('Loading every access condition…')).toBeTruthy();
+    // The loading state walks a decorative paw trail alongside the status text; it is
+    // aria-hidden so the live region announces only the words.
+    const pawTrail = selectedPlace.querySelector('[data-paw-trail]');
+    expect(pawTrail?.getAttribute('aria-hidden')).toBe('true');
+    expect(pawTrail?.querySelectorAll('.paw-mark')).toHaveLength(3);
 
     profileRequest.resolve(complexProfile);
     await waitFor(() =>
       expect(within(selectedPlace).queryByText('Loading every access condition…')).toBeNull()
     );
+    expect(selectedPlace.querySelector('[data-paw-trail]')).toBeNull();
   });
 
   it('keeps selected-place text fully opaque throughout the approved entry motion', async () => {
     history.replaceState(null, '', '/en');
+    // The entry animation rides the motion tokens, and this harness never loads app.css, so the
+    // two tokens it needs are injected from motion.ts - the sanctioned script-side copy that the
+    // parity test holds to tokens.css. Without them the unresolved var() would collapse the
+    // animation shorthand and there would be nothing to assert against.
+    document.documentElement.style.setProperty('--hv-motion-quick', `${motionDurationsMs.quick}ms`);
+    document.documentElement.style.setProperty(
+      '--hv-ease-settle',
+      `cubic-bezier(${motionEasings.settle.join(', ')})`
+    );
+    onTestFinished(() => {
+      document.documentElement.style.removeProperty('--hv-motion-quick');
+      document.documentElement.style.removeProperty('--hv-ease-settle');
+    });
     render(MapListShell, {
       places,
       lang: 'en',

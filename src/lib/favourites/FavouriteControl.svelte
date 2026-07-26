@@ -108,7 +108,6 @@
 <div
   class="favourite-action"
   data-ui-mode="place"
-  data-motion="tokenized"
   data-favourite-place={placeId}
   data-state={failed ? 'error' : submitting ? 'busy' : favourite ? 'selected' : 'idle'}
 >

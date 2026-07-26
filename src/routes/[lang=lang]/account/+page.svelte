@@ -7,13 +7,20 @@
   import ImpactPillarIcon from '$lib/impact/ImpactPillarIcon.svelte';
   import WeeklyRhythmTrail from '$lib/member-activity/WeeklyRhythmTrail.svelte';
   import type { WeeklyRhythmHistory } from '$lib/member-activity/types';
-  import RoundupTrailIcon from '$lib/roundup/RoundupTrailIcon.svelte';
 
+  import type { AccountFacts } from './+page.server';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
   let submitting = $state(false);
-  let settingsOpen = $state(false);
+  // A no-JS deletion confirm re-renders the page from scratch; settings must open themselves
+  // then, or the only confirmation notice on the page stays hidden. The user's own toggle
+  // always wins over that default.
+  let settingsToggled = $state<boolean | null>(null);
+  const settingsOpen = $derived(
+    settingsToggled ?? Boolean(form && 'success' in form && form.success === 'deletion_requested')
+  );
+  let deletionArmed = $state(false);
 
   const enhanceAction: SubmitFunction = () => {
     submitting = true;
@@ -25,7 +32,6 @@
 
   const errorCode = $derived(form && 'error' in form ? form.error : data.authStatus);
   const successCode = $derived(form && 'success' in form ? form.success : null);
-  const emailValue = $derived(form && 'email' in form ? form.email : '');
   const weeklyRhythmHistory = $derived(
     (
       data as typeof data & {
@@ -49,6 +55,72 @@
       }
     ).trustedVerificationFeedback ?? ({ status: 'unavailable' } as const)
   );
+  const accountFacts: AccountFacts = $derived(
+    (data as typeof data & { accountFacts?: AccountFacts }).accountFacts ?? {
+      saved: { status: 'unavailable' },
+      visits: { status: 'unavailable' },
+      suggestions: { status: 'unavailable' },
+      achievements: { status: 'unavailable' }
+    }
+  );
+
+  // The door teases only when the nudge is true: one qualifying action away from the nearest
+  // tier, with progress already underway. Everything else keeps the plain label - three rounds
+  // of copy showed that any attempt to surface the mechanics here confuses more than it helps.
+  const achievementsDoorLabel = $derived.by(() => {
+    const fact = accountFacts.achievements;
+    if (
+      fact.status === 'available' &&
+      fact.next &&
+      fact.next.current > 0 &&
+      fact.next.target - fact.next.current === 1
+    ) {
+      return data.copy['account.achievementsClose'];
+    }
+    return data.copy['achievements.nav'];
+  });
+
+  const savedFact = $derived.by(() => {
+    if (accountFacts.saved.status !== 'available') return null;
+    const count = accountFacts.saved.count;
+    if (count === 0) return data.copy['account.savedFactNone'];
+    if (count === 1) return data.copy['account.savedFactOne'];
+    return data.copy['account.savedFact'].replace('{count}', String(count));
+  });
+
+  const visitsFact = $derived.by(() => {
+    if (accountFacts.visits.status !== 'available') return null;
+    if (!accountFacts.visits.lastVisitedAt) return data.copy['account.visitsFactNone'];
+    return data.copy['account.visitsFactLast'].replace(
+      '{date}',
+      formatLocalizedDate(accountFacts.visits.lastVisitedAt, data.lang)
+    );
+  });
+
+  const suggestionFacts = $derived.by(() => {
+    if (accountFacts.suggestions.status !== 'available') return [];
+    const lines: string[] = [];
+    const { needsReply, awaitingReview } = accountFacts.suggestions;
+    if (needsReply === 1) lines.push(data.copy['account.suggestionsFactNeedsReplyOne']);
+    if (needsReply > 1) {
+      lines.push(
+        data.copy['account.suggestionsFactNeedsReply'].replace('{count}', String(needsReply))
+      );
+    }
+    if (awaitingReview === 1) lines.push(data.copy['account.suggestionsFactPendingOne']);
+    if (awaitingReview > 1) {
+      lines.push(
+        data.copy['account.suggestionsFactPending'].replace('{count}', String(awaitingReview))
+      );
+    }
+    return lines;
+  });
+
+  const placesFact = $derived([savedFact, visitsFact].filter(Boolean).join(' · '));
+
+  const deletionRequested = $derived(
+    successCode === 'deletion_requested' || data.member?.deletionStatus === 'requested'
+  );
 
   function providerLabel(provider: string): string {
     if (provider === 'facebook') return data.copy['account.providerFacebook'];
@@ -58,17 +130,13 @@
 </script>
 
 <svelte:head>
-  <title
-    >{data.member ? data.copy['account.signedInTitle'] : data.copy['account.title']} | {data.copy[
-      'site.name'
-    ]}</title
-  >
+  <title>{data.copy['account.signedInTitle']} | {data.copy['site.name']}</title>
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <main class="account-shell hv-page-shell" data-ui-mode="place" data-width="narrow">
   {#if data.member}
-    <section class="account-card signed-in hv-panel hv-stack" aria-labelledby="account-title">
+    <section class="account-card hv-panel hv-stack" aria-labelledby="account-title">
       <header class="hv-page-header">
         <p class="eyebrow hv-eyebrow">{data.copy['site.name']}</p>
         <h1 class="hv-page-title" id="account-title">{data.copy['account.signedInTitle']}</h1>
@@ -83,17 +151,18 @@
         </p>
       {/if}
 
-      {#if successCode === 'deletion_requested' || data.member.deletionStatus === 'requested'}
-        <p class="message success hv-notice" data-tone="success" role="status">
-          {data.copy['account.deletionRequested']}
-        </p>
-      {/if}
+      <WeeklyRhythmTrail
+        history={weeklyRhythmHistory}
+        lang={data.lang}
+        copy={data.copy}
+        achievementsHref={resolve('/[lang=lang]/account/achievements', { lang: data.lang })}
+        achievementsLabel={achievementsDoorLabel}
+      />
 
-      <WeeklyRhythmTrail history={weeklyRhythmHistory} lang={data.lang} copy={data.copy} />
-
-      <div class="account-home hv-grid" data-columns="2">
+      <div class="account-home hv-stack">
         <section
           class="account-destination impact hv-panel hv-list-card"
+          data-linked
           aria-labelledby="impact-heading"
         >
           <span class="impact-icon" aria-hidden="true">
@@ -103,20 +172,15 @@
             <div class="destination-heading">
               <h2 id="impact-heading">{data.copy['account.impactHeading']}</h2>
               {#if trustedVerificationFeedback.status === 'available' && trustedVerificationFeedback.value.hasUnread}
-                <span class="unread-indicator" aria-hidden="true"></span>
+                <span class="hv-status">{data.copy['account.newBadge']}</span>
               {/if}
             </div>
             <p>{data.copy['account.impactIntro']}</p>
             <a
-              class="hv-control"
+              class="hv-control card-link"
               href={resolve('/[lang=lang]/account/impact', { lang: data.lang })}
             >
               {data.copy['account.impactLink']}
-              {#if trustedVerificationFeedback.status === 'available' && trustedVerificationFeedback.value.hasUnread}
-                <span class="visually-hidden">
-                  {data.copy['impact.trustedCelebrationTitle']}
-                </span>
-              {/if}
             </a>
           </div>
         </section>
@@ -124,6 +188,7 @@
         {#if trustedVerification.status === 'available'}
           <section
             class="account-destination trusted-verification hv-panel hv-list-card"
+            data-linked
             aria-labelledby="trusted-verification-heading"
           >
             <span class="trusted-verification-icon" aria-hidden="true">
@@ -135,7 +200,7 @@
               </h2>
               <p>{data.copy['account.trustedVerificationIntro']}</p>
               <a
-                class="hv-control"
+                class="hv-control card-link"
                 href={resolve('/[lang=lang]/account/keep-current', { lang: data.lang })}
               >
                 {data.copy['account.trustedVerificationLink']}
@@ -145,37 +210,20 @@
         {/if}
 
         <section
-          class="account-destination roundup hv-panel hv-list-card"
-          aria-labelledby="roundup-heading"
+          class="account-destination places hv-panel hv-list-card"
+          data-linked
+          aria-labelledby="places-heading"
         >
-          <span class="roundup-icon" aria-hidden="true">
-            <RoundupTrailIcon kind="trail" size="small" />
-          </span>
-          <div>
-            <h2 id="roundup-heading">{data.copy['account.roundupHeading']}</h2>
-            <p>{data.copy['account.roundupIntro']}</p>
-            <a
-              class="hv-control"
-              href={resolve('/[lang=lang]/account/roundup', { lang: data.lang })}
-            >
-              {data.copy['account.roundupLink']}
-            </a>
-          </div>
-        </section>
-
-        <section class="account-destination hv-panel hv-list-card" aria-labelledby="saved-heading">
-          <h2 id="saved-heading">{data.copy['account.savedHeading']}</h2>
-          <p>{data.copy['account.savedIntro']}</p>
-          <a class="hv-control" href={resolve('/[lang=lang]/favorites', { lang: data.lang })}>
-            {data.copy['favourite.savedLink']}
-          </a>
-        </section>
-
-        <section class="account-destination hv-panel hv-list-card" aria-labelledby="visits-heading">
-          <h2 id="visits-heading">{data.copy['account.visitsHeading']}</h2>
-          <p>{data.copy['account.visitsIntro']}</p>
-          <a class="hv-control" href={resolve('/[lang=lang]/history', { lang: data.lang })}>
-            {data.copy['history.navLink']}
+          <h2 id="places-heading">{data.copy['account.placesHeading']}</h2>
+          {#if placesFact}
+            <p class="destination-fact">{placesFact}</p>
+          {/if}
+          <p>{data.copy['account.placesIntro']}</p>
+          <a
+            class="hv-control card-link"
+            href={resolve('/[lang=lang]/history', { lang: data.lang })}
+          >
+            {data.copy['account.placesLink']}
           </a>
         </section>
 
@@ -184,9 +232,16 @@
           aria-labelledby="contributions-heading"
         >
           <h2 id="contributions-heading">{data.copy['account.contributionsHeading']}</h2>
+          {#each suggestionFacts as factLine (factLine)}
+            <p class="destination-fact">{factLine}</p>
+          {/each}
           <p>{data.copy['account.contributionsIntro']}</p>
           <div class="destination-links hv-page-actions">
-            <a class="hv-control" href={resolve('/[lang=lang]/suggest', { lang: data.lang })}>
+            <a
+              class="hv-control"
+              data-intent="primary"
+              href={resolve('/[lang=lang]/suggest', { lang: data.lang })}
+            >
               {data.copy['suggestion.nav']}
             </a>
             <a
@@ -195,29 +250,21 @@
             >
               {data.copy['suggestion.myTitle']}
             </a>
-            <a
-              class="hv-control"
-              href={resolve('/[lang=lang]/account/contributor-status', { lang: data.lang })}
-            >
-              {data.copy['contributor.nav']}
-            </a>
-            <a
-              class="hv-control"
-              href={resolve('/[lang=lang]/account/achievements', { lang: data.lang })}
-            >
-              {data.copy['achievements.nav']}
-            </a>
           </div>
         </section>
 
         {#if data.canModerate}
           <section
             class="account-destination moderation hv-panel hv-list-card"
+            data-linked
             aria-labelledby="moderation-heading"
           >
             <h2 id="moderation-heading">{data.copy['account.moderationHeading']}</h2>
             <p>{data.copy['account.moderationIntro']}</p>
-            <a class="hv-control" href={resolve('/[lang=lang]/moderation', { lang: data.lang })}>
+            <a
+              class="hv-control card-link"
+              href={resolve('/[lang=lang]/moderation', { lang: data.lang })}
+            >
               {data.copy['account.moderationLink']}
             </a>
           </section>
@@ -234,7 +281,7 @@
           type="button"
           class="settings-toggle"
           aria-expanded={settingsOpen}
-          onclick={() => (settingsOpen = !settingsOpen)}
+          onclick={() => (settingsToggled = !settingsOpen)}
         >
           {data.copy['account.settingsHeading']}
         </button>
@@ -268,11 +315,32 @@
             <section class="deletion hv-form-section hv-panel" aria-labelledby="deletion-heading">
               <h2 id="deletion-heading">{data.copy['account.deletionHeading']}</h2>
               <p>{data.copy['account.deletionExplanation']}</p>
-              {#if data.member.deletionStatus !== 'requested'}
+              {#if deletionRequested}
+                <p class="message success hv-notice" data-tone="success" role="status">
+                  {data.copy['account.deletionRequested']}
+                </p>
+              {:else if !deletionArmed}
+                <button
+                  type="button"
+                  class="danger hv-control"
+                  onclick={() => (deletionArmed = true)}
+                >
+                  {data.copy['account.requestDeletion']}
+                </button>
+              {:else}
                 <form method="POST" action="?/requestDeletion" use:enhance={enhanceAction}>
-                  <button class="danger hv-control" type="submit" disabled={submitting}>
-                    {data.copy['account.requestDeletion']}
-                  </button>
+                  <div class="deletion-actions hv-page-actions">
+                    <button class="danger hv-control" type="submit" disabled={submitting}>
+                      {data.copy['account.confirmDeletion']}
+                    </button>
+                    <button
+                      type="button"
+                      class="secondary hv-control"
+                      onclick={() => (deletionArmed = false)}
+                    >
+                      {data.copy['account.keepAccount']}
+                    </button>
+                  </div>
                 </form>
               {/if}
             </section>
@@ -280,158 +348,19 @@
         {/if}
       </div>
     </section>
-  {:else}
-    <section class="account-card hv-panel hv-stack" aria-labelledby="account-title">
-      <header class="hv-page-header">
-        <p class="eyebrow hv-eyebrow">{data.copy['site.name']}</p>
-        <h1 class="hv-page-title" id="account-title">{data.copy['account.title']}</h1>
-        <p class="intro hv-meta">{data.copy['account.intro']}</p>
-      </header>
-
-      {#if errorCode && errorCode !== 'unavailable'}
-        <p class="message error hv-notice" data-tone="error" role="alert">
-          {errorCode === 'email_required'
-            ? data.copy['account.emailRequired']
-            : errorCode === 'email_invalid'
-              ? data.copy['account.emailInvalid']
-              : errorCode === 'denied'
-                ? data.copy['account.consentDenied']
-                : errorCode === 'link_invalid'
-                  ? data.copy['account.linkInvalid']
-                  : errorCode === 'session_expired'
-                    ? data.copy['account.sessionExpired']
-                    : errorCode === 'configuration_conflict'
-                      ? data.copy['account.configurationConflict']
-                      : errorCode === 'provider_failed'
-                        ? data.copy['account.providerFailed']
-                        : data.copy['account.authUnavailable']}
-        </p>
-      {/if}
-
-      {#if successCode === 'link_sent'}
-        <p class="message success hv-notice" data-tone="success" role="status">
-          {data.copy['account.linkSent']}
-        </p>
-      {/if}
-
-      {#if data.providers.facebook}
-        <form method="POST" action="?/facebook">
-          <input type="hidden" name="returnTo" value={form?.returnTo ?? data.returnTo} />
-          <button class="facebook hv-control" type="submit">
-            <span aria-hidden="true">f</span>{data.copy['account.facebook']}
-          </button>
-        </form>
-        <p class="privacy">{data.copy['account.facebookPrivacy']}</p>
-      {/if}
-
-      {#if data.providers.facebook && data.providers.email}
-        <p class="divider"><span>{data.copy['account.orEmail']}</span></p>
-      {/if}
-
-      {#if data.providers.email}
-        <form method="POST" action="?/email" use:enhance={enhanceAction} class="email-form">
-          <label for="member-email">{data.copy['account.emailLabel']}</label>
-          <input
-            id="member-email"
-            name="email"
-            type="email"
-            autocomplete="email"
-            inputmode="email"
-            placeholder={data.copy['account.emailPlaceholder']}
-            value={emailValue}
-            class="hv-field"
-            required
-          />
-          <input type="hidden" name="returnTo" value={form?.returnTo ?? data.returnTo} />
-          <button class="hv-control" data-intent="primary" type="submit" disabled={submitting}>
-            {data.copy['account.sendLink']}
-          </button>
-        </form>
-        <p class="privacy">{data.copy['account.privacy']}</p>
-      {:else if !data.providers.facebook}
-        <p class="quiet-status hv-notice" data-tone="info" role="status">
-          {data.copy['account.authUnavailable']}
-        </p>
-      {/if}
-      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-      <a class="back-link hv-control" href={data.returnTo}>{data.copy['account.backToPlace']}</a>
-    </section>
   {/if}
 </main>
 
 <style>
   .account-shell {
     display: grid;
-    min-height: calc(100vh - 5.5rem);
+    min-height: calc(100dvh - 5.5rem);
     place-items: start center;
   }
 
   .account-card {
-    width: min(100%, 35rem);
-    padding: clamp(1.4rem, 5vw, 2.5rem);
-  }
-
-  .account-card.signed-in {
     width: min(100%, 42rem);
-  }
-
-  .account-destination.roundup {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: auto minmax(0, 1fr);
-    border-color: color-mix(in srgb, var(--hv-color-fjord) 28%, var(--hv-border-subtle));
-    background: color-mix(in srgb, var(--hv-color-fjord) 5%, var(--hv-color-snow-raised));
-  }
-
-  .account-destination.impact {
-    --impact-tone: var(--hv-color-moss);
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: auto minmax(0, 1fr);
-    border-color: color-mix(in srgb, var(--hv-color-moss) 30%, var(--hv-border-subtle));
-    background: linear-gradient(105deg, rgb(79 143 104 / 12%) 0%, var(--hv-color-snow-raised) 38%);
-  }
-
-  .account-destination.trusted-verification {
-    --impact-tone: var(--hv-color-fjord);
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: auto minmax(0, 1fr);
-    border-color: color-mix(in srgb, var(--hv-color-fjord) 24%, var(--hv-border-subtle));
-    background: color-mix(in srgb, var(--hv-color-fjord) 4%, var(--hv-color-snow-raised));
-  }
-
-  .impact-icon,
-  .trusted-verification-icon {
-    display: grid;
-    width: 2.8rem;
-    height: 2.8rem;
-    place-items: center;
-  }
-
-  .destination-heading {
-    display: flex;
-    gap: 0.55rem;
-    align-items: center;
-  }
-
-  .unread-indicator {
-    width: 0.65rem;
-    height: 0.65rem;
-    border: 2px solid var(--hv-color-snow-raised);
-    border-radius: 50%;
-    background: var(--hv-color-brand-paw);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--hv-color-brand-paw) 18%, transparent);
-  }
-
-  .roundup-icon {
-    display: grid;
-    width: 2.8rem;
-    height: 2.8rem;
-    border-radius: 0.95rem;
-    background: color-mix(in srgb, var(--hv-color-fjord) 11%, white);
-    color: var(--hv-color-fjord);
-    place-items: center;
+    padding: clamp(var(--hv-space-context), 5vw, 2.5rem);
   }
 
   .eyebrow {
@@ -439,7 +368,7 @@
   }
 
   h2 {
-    margin: 0 0 0.75rem;
+    margin: 0;
     font-size: 1.2rem;
   }
 
@@ -447,19 +376,13 @@
     max-width: 46ch;
   }
 
-  form,
-  .email-form {
+  form {
     display: grid;
-    gap: 0.6rem;
+    gap: 0.65rem;
   }
 
-  label,
   dt {
     font-weight: 850;
-  }
-
-  input {
-    padding: 0.7rem 0.9rem;
   }
 
   button,
@@ -474,17 +397,6 @@
     opacity: 0.55;
   }
 
-  .facebook {
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    background: #1877f2;
-    color: white;
-  }
-
-  .facebook span {
-    font-size: 1.35rem;
-  }
-
   .secondary,
   .back-link {
     border-color: var(--hv-color-fjord);
@@ -497,46 +409,16 @@
     color: var(--hv-color-danger);
   }
 
-  .divider {
-    display: flex;
-    margin: 1.4rem 0;
-    align-items: center;
-    gap: 0.8rem;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.85rem;
-    text-align: center;
-  }
-
-  .divider::before,
-  .divider::after {
-    height: 1px;
-    flex: 1;
-    background: var(--hv-border-subtle);
-    content: '';
-  }
-
-  .message,
-  .quiet-status {
+  .message {
     margin: 0;
     font-weight: 700;
     line-height: 1.45;
   }
 
-  .quiet-status,
-  .privacy {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.88rem;
-  }
-
-  .privacy {
-    margin: 1rem 0 1.35rem;
-    line-height: 1.4;
-  }
-
   dl {
     display: grid;
     margin: 0;
-    gap: 0.9rem;
+    gap: var(--hv-space-panel);
   }
 
   dl div {
@@ -550,22 +432,14 @@
     overflow-wrap: anywhere;
   }
 
-  .account-home {
-    align-items: stretch;
-  }
-
   .account-destination {
-    display: grid;
-    align-content: start;
-  }
-
-  .account-destination.contributions {
-    grid-column: 1 / -1;
-  }
-
-  .account-destination.moderation {
-    grid-column: 1 / -1;
-    background: var(--hv-color-fjord-soft);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    transition:
+      border-color var(--hv-fade-quick) ease,
+      background-color var(--hv-fade-quick) ease;
   }
 
   .account-destination h2,
@@ -574,14 +448,84 @@
   }
 
   .account-destination p {
-    margin-top: 0.35rem;
+    margin-top: 0.4rem;
     color: var(--hv-color-basalt-muted);
     line-height: 1.45;
   }
 
-  .account-destination > a,
-  .destination-links a {
-    margin-top: 0.8rem;
+  .account-destination .destination-fact {
+    color: var(--hv-color-basalt);
+    font-size: 0.92rem;
+    font-weight: 800;
+  }
+
+  /* Paired cards stretch to the row's tallest sibling; the auto margin pins each card's
+     control to the bottom edge so the pair reads aligned. The preceding paragraph owns the
+     minimum gap, because an auto margin collapses to zero in a content-sized card. */
+  .account-destination .card-link,
+  .destination-links {
+    margin-top: auto;
+  }
+
+  .account-destination p:last-of-type {
+    margin-bottom: var(--hv-space-panel);
+  }
+
+  /* The whole card is one link target: the card's single control stretches an invisible hit
+     area across the panel. Cards with several destinations (contributions) stay button-only,
+     so a card never looks tappable while routing only part of its surface. */
+  .account-destination[data-linked] .card-link::after {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--hv-radius-panel);
+    content: '';
+  }
+
+  .account-destination[data-linked]:focus-within {
+    border-color: color-mix(in srgb, var(--hv-color-fjord) 55%, var(--hv-border-subtle));
+  }
+
+  @media (hover: hover) {
+    .account-destination[data-linked]:hover {
+      border-color: color-mix(in srgb, var(--hv-color-fjord) 55%, var(--hv-border-subtle));
+      background-color: color-mix(in srgb, var(--hv-color-fjord) 4%, var(--hv-color-snow-raised));
+    }
+  }
+
+  /* Impact is the one featured card; every other destination renders as a plain panel so the
+     accent actually directs attention instead of competing with two other tinted cards. */
+  .account-destination.impact {
+    --impact-tone: var(--hv-color-moss);
+
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    border-color: color-mix(in srgb, var(--hv-color-moss) 30%, var(--hv-border-subtle));
+    background: linear-gradient(105deg, rgb(79 143 104 / 12%) 0%, var(--hv-color-snow-raised) 38%);
+  }
+
+  .account-destination.trusted-verification {
+    --impact-tone: var(--hv-color-fjord);
+
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .impact-icon,
+  .trusted-verification-icon {
+    display: grid;
+    width: 2.8rem;
+    height: 2.8rem;
+    place-items: center;
+  }
+
+  .destination-heading {
+    display: flex;
+    gap: 0.65rem;
+    align-items: center;
+  }
+
+  .account-destination.moderation {
+    background: var(--hv-color-fjord-soft);
   }
 
   .discovery-link {
@@ -591,7 +535,7 @@
 
   .settings {
     border-top: 1px solid var(--hv-border-subtle);
-    padding-top: 1rem;
+    padding-top: var(--hv-space-panel);
   }
 
   .settings-toggle {
@@ -613,17 +557,7 @@
   }
 
   .settings-body {
-    margin-top: 0.8rem;
-  }
-
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
+    margin-top: var(--hv-space-panel);
   }
 
   .deletion p {
@@ -633,21 +567,12 @@
 
   @media (max-width: 32rem) {
     .account-card {
-      padding: 1.35rem;
+      padding: var(--hv-space-context);
     }
 
     dl div {
       grid-template-columns: 1fr;
       gap: 0.15rem;
-    }
-
-    .account-destination.contributions {
-      grid-column: auto;
-    }
-
-    .account-destination.moderation,
-    .account-destination.trusted-verification {
-      grid-column: auto;
     }
   }
 </style>

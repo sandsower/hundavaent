@@ -29,9 +29,6 @@
 
   :where([data-ui-mode], [data-ui-mode] *).hv-page-title {
     max-width: 18ch;
-    /* One title per page: during view transitions titles morph across navigations rather
-       than crossfading with the page. Pages without the primitive simply do not take part. */
-    view-transition-name: page-title;
     color: var(--hv-color-basalt);
     font-family: var(--hv-font-display);
     font-size: clamp(2.4rem, 7vw, 4.5rem);

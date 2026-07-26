@@ -112,9 +112,16 @@ test('the impact record is responsive and motion-safe at a representative mobile
     scrollWidth: document.documentElement.scrollWidth
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
-  await expect(page.locator('.hero-mark')).toHaveCSS('animation-name', 'none');
+  // The page rides the token families: reduced motion zeroes every travelling duration while
+  // the hero's fade half keeps appearing at full duration, and the ambient orbits suppress
+  // themselves with animation: none at their use sites. Names stay; durations tell the story.
+  await expect(page.locator('.hero-mark')).toHaveCSS('animation-duration', '0s, 0.26s');
+  for (const orbit of await page.locator('.orbit-one, .orbit-two').all()) {
+    await expect(orbit).toHaveCSS('animation-name', 'none');
+  }
   for (const pillar of await page.locator('[data-impact-pillar]').all()) {
-    await expect(pillar).toHaveCSS('animation-name', 'none');
+    await expect(pillar).toHaveCSS('animation-duration', '0s');
+    await expect(pillar).toHaveCSS('animation-delay', /^0s/);
   }
 
   await page.screenshot({

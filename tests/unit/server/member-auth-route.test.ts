@@ -787,6 +787,157 @@ describe('Member auth routes', () => {
     expect(rpc).toHaveBeenCalledWith('list_current_member_weekly_rhythm');
   });
 
+  it('aggregates private card facts and degrades each one independently', async () => {
+    const tierRow = {
+      enabled: true,
+      achievement_group: 'exploration',
+      collection_description_is: 'Lýsing',
+      collection_description_en: 'Description',
+      name_is: null,
+      name_en: null,
+      description_is: null,
+      description_en: null,
+      is_new: false
+    };
+    const suggestionRow = {
+      name_is: 'Staður',
+      name_en: 'Place',
+      category: 'cafe',
+      locality: 'Reykjavík',
+      member_reason_is: null,
+      member_reason_en: null,
+      candidate_place_id: null,
+      duplicate_place_id: null,
+      submitted_at: '2026-07-20T09:00:00Z',
+      updated_at: '2026-07-20T09:00:00Z'
+    };
+    const rpc = vi.fn(async (name: string) => {
+      if (name === 'get_current_member_account') {
+        return {
+          data: [
+            {
+              created_at: '2026-07-01T12:00:00Z',
+              deletion_status: 'active',
+              deletion_requested_at: null
+            }
+          ],
+          error: null
+        };
+      }
+      if (name === 'has_current_user_role') return { data: false, error: null };
+      if (name === 'list_current_favourite_ids') {
+        return { data: [{ place_id: 'place-1' }, { place_id: 'place-2' }], error: null };
+      }
+      if (name === 'list_personal_check_ins') return { data: [], error: null };
+      if (name === 'list_my_place_suggestions') {
+        return {
+          data: [
+            { ...suggestionRow, suggestion_id: 'suggestion-1', status: 'submitted' },
+            { ...suggestionRow, suggestion_id: 'suggestion-2', status: 'needs_information' },
+            { ...suggestionRow, suggestion_id: 'suggestion-3', status: 'accepted' }
+          ],
+          error: null
+        };
+      }
+      if (name === 'get_my_achievements') {
+        return {
+          data: [
+            {
+              ...tierRow,
+              achievement_key: 'explorer_places_bronze',
+              display_order: 1,
+              collection: 'explorer_places',
+              tier: 'bronze',
+              collection_name_is: 'Landkönnuður',
+              collection_name_en: 'Explorer',
+              earned_at: '2026-07-10T12:00:00Z',
+              entry_kind: 'earned',
+              progress_kind: null,
+              progress_current: null,
+              progress_target: null
+            },
+            {
+              ...tierRow,
+              achievement_key: 'explorer_places_silver',
+              display_order: 2,
+              collection: 'explorer_places',
+              tier: 'silver',
+              collection_name_is: 'Landkönnuður',
+              collection_name_en: 'Explorer',
+              earned_at: null,
+              entry_kind: 'locked',
+              progress_kind: 'credited_places',
+              progress_current: 7,
+              progress_target: 10
+            },
+            {
+              ...tierRow,
+              achievement_key: 'place_categories_bronze',
+              display_order: 3,
+              collection: 'place_categories',
+              tier: 'bronze',
+              collection_name_is: 'Flokkar',
+              collection_name_en: 'Categories',
+              earned_at: null,
+              entry_kind: 'locked',
+              progress_kind: 'credited_categories',
+              progress_current: 1,
+              progress_target: 3
+            }
+          ],
+          error: null
+        };
+      }
+      throw new Error(`Unavailable RPC: ${name}`);
+    });
+    const accountLoad = _createLoad(() => ({
+      status: 'unavailable',
+      reason: 'missing_app_origin'
+    }));
+
+    const loaded = await accountLoad({
+      locals: {
+        requestId: 'request-account-facts',
+        supabase: {
+          auth: {
+            getUser: async () => ({
+              data: {
+                user: {
+                  id: 'member-1',
+                  email: 'member@example.is',
+                  app_metadata: { provider: 'email' }
+                }
+              },
+              error: null
+            })
+          },
+          rpc
+        }
+      },
+      params: { lang: 'en' },
+      url: new URL('http://localhost/en/account?returnTo=%2Fen')
+    } as never);
+    if (!loaded) throw new Error('Expected authenticated account data');
+
+    expect(loaded.accountFacts).toEqual({
+      saved: { status: 'available', count: 2 },
+      visits: { status: 'available', lastVisitedAt: null },
+      suggestions: { status: 'available', awaitingReview: 1, needsReply: 1 },
+      achievements: {
+        status: 'available',
+        next: {
+          kind: 'credited_places',
+          current: 7,
+          target: 10
+        }
+      }
+    });
+    // The rhythm and trusted-verification RPCs rejected above, so the same load must carry
+    // every fact-independent failure as its own 'unavailable' rather than failing the page.
+    expect(loaded.weeklyRhythmHistory).toEqual({ status: 'unavailable' });
+    expect(loaded.trustedVerification).toEqual({ status: 'unavailable' });
+  });
+
   it('returns denied Facebook consent to bilingual Member recovery', async () => {
     await expect(
       facebookCallback({

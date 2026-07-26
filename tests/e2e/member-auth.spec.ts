@@ -60,6 +60,10 @@ test('a Visitor signs in by email, returns to the same Place state, signs out, a
   await page.getByRole('button', { name: 'Start deletion request' }).click();
   await expect(
     page.getByText('Your request is recorded. We will contact you before anything is deleted.')
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Confirm deletion request' }).click();
+  await expect(
+    page.getByText('Your request is recorded. We will contact you before anything is deleted.')
   ).toBeVisible();
 
   await page.getByRole('button', { name: 'Sign out' }).click();

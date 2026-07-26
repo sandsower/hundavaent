@@ -105,7 +105,7 @@ a {
 
 .hundavaent-marker.selected .pin,
 .hundavaent-marker[aria-pressed='true'] .pin {
-  animation: hv-pin-settle var(--hv-motion-quick, 0ms) var(--hv-ease-settle, ease-out);
+  animation: hv-pin-settle var(--hv-motion-quick) var(--hv-ease-settle, ease-out);
 }
 
 @keyframes hv-pin-settle {
@@ -153,7 +153,7 @@ a {
   text-overflow: ellipsis;
   white-space: nowrap;
   transform: translateX(-50%) translateY(-0.25rem);
-  transition: transform var(--hv-motion-quick, 0ms) var(--hv-ease-settle, ease-out);
+  transition: transform var(--hv-motion-quick) var(--hv-ease-settle, ease-out);
 }
 
 .hundavaent-marker:hover,
@@ -190,8 +190,11 @@ a {
 
 /* View transitions. Every group rides the fade scale and the settle curve instead of the UA
    stylesheet's 250ms ease - the UA default is timing the drift test cannot see, so it must
-   never govern a named group. The transition is only ever started for Members without reduced
-   motion (see shouldViewTransition), so no reduce override is needed here. */
+   never govern a group. Only the root crossfade exists today: no element carries a
+   view-transition-name (the title/header morphs were dialed back as over-animation), and any
+   new name is a deliberate decision pinned by view-transition-names.test.ts. The transition is
+   only ever started for Members without reduced motion (see shouldViewTransition), so no
+   reduce override is needed here. */
 ::view-transition-group(*),
 ::view-transition-old(*),
 ::view-transition-new(*) {
@@ -206,33 +209,12 @@ a {
   pointer-events: none;
 }
 
-/* The header and the page title are text. Text never rides an opacity fade (see the fade
-   family's hard limit in tokens.css): their snapshot crossfades are suppressed, so the group
-   animation moves them into place at full contrast - and on navigations where only one side
-   carries the name, the title lands in one frame instead of fading in from nothing. */
-::view-transition-old(site-header),
-::view-transition-new(site-header),
-::view-transition-old(page-title),
-::view-transition-new(page-title) {
-  animation-name: none;
-}
-
-/* Surfaces that have adopted the motion token families declare data-motion="tokenized" and
-   govern their own reduced-motion behaviour through --hv-motion-* and --hv-fade-*, which lets
-   opacity and colour keep their full duration. Everything else still needs the blanket
-   suppression below: without it the decorative orbits on the impact page would keep running
-   indefinitely for Members who asked for less motion. Each phase of the revamp converts more
-   surfaces; the last one deletes this block. */
+/* Every surface rides the motion token families now, so reduced motion is governed entirely by
+   the tokens: --hv-motion-* collapses to zero while --hv-fade-* keeps its full duration, and
+   ambient scenery suppresses itself with animation: none at its use sites. Only smooth
+   scrolling needs a blanket override, because it never rides a token. */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto !important;
-  }
-
-  *:not([data-motion='tokenized'], [data-motion='tokenized'] *),
-  *:not([data-motion='tokenized'], [data-motion='tokenized'] *)::before,
-  *:not([data-motion='tokenized'], [data-motion='tokenized'] *)::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
   }
 }
