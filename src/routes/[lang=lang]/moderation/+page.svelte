@@ -14,7 +14,7 @@
   } from '$lib/moderation/ModerationReasonDialog.svelte';
   import SuggestionDecisionControls from '$lib/moderation/SuggestionDecisionControls.svelte';
   import SuggestionReviewPanel from '$lib/moderation/SuggestionReviewPanel.svelte';
-  import type { ModerationWorkItem } from '$lib/moderation/types';
+  import type { ModerationPendingPhotoEntry, ModerationWorkItem } from '$lib/moderation/types';
   import type { MessageKey } from '$i18n';
   import { formatLocalizedDate } from '$i18n/date';
   import {
@@ -92,6 +92,23 @@
                 ? data.copy['contributor.queueBadge.trusted_contributor']
                 : undefined
           }))
+  );
+  // The link goes to the standalone Place review, which is where the media surface and its
+  // approve/reject controls already live. Nothing new is built to review a photo.
+  const pendingPhotoPlaces = $derived(
+    data.pendingPhotoPlaces.map((place): ModerationPendingPhotoEntry => ({
+      placeId: place.placeId,
+      title:
+        (data.lang === 'is' ? place.nameIs : place.nameEn) ??
+        place.nameEn ??
+        place.nameIs ??
+        place.operatorName,
+      meta: `${data.copy['moderation.workspace.pendingPhotos.count'].replace(
+        '{count}',
+        String(place.pendingPhotoCount)
+      )} · ${formatLocalizedDate(place.newestUploadedAt, data.lang)}`,
+      href: `/${data.lang}/moderation/places/${place.placeId}`
+    }))
   );
   const suggestionReviewSource = $derived(
     conflictAction?.conflictQueue === 'suggestions'
@@ -290,6 +307,7 @@
     cursorTrail={data.workspace.cursorTrail}
     nextCursor={data.nextCursor}
     hasPrevious={data.hasPrevious}
+    {pendingPhotoPlaces}
     {statusMessage}
     errorMessage={data.queueError}
     reviewErrorMessage={conflictAction?.conflictRefreshFailed

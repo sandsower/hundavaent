@@ -1508,6 +1508,104 @@ export function retireLocalDogFriendlinessFixture(): void {
   );
 }
 
+/**
+ * A dedicated published Place for the Member photo journey, isolated from every other fixture
+ * Place: an approved photo changes what public discovery renders, and the visual and a11y suites
+ * that share this local database session photograph those Places.
+ */
+export const localMemberPhotoFixture = {
+  placeId: '9a000000-0000-4000-8000-000000000001',
+  operatorId: '9a100000-0000-4000-8000-000000000001',
+  locationId: '9a200000-0000-4000-8000-000000000001',
+  accessConditionId: '9a300000-0000-4000-8000-000000000001',
+  verificationId: '9a400000-0000-4000-8000-000000000001',
+  evidenceId: '9a500000-0000-4000-8000-000000000001',
+  nameEn: 'Member Photo E2E Cafe',
+  nameIs: 'Myndaframlags E2E kaffihús'
+} as const;
+
+/**
+ * The Member photo policy ships fail-closed: no row means `submit_place_photo` raises 55000 and
+ * the endpoint answers 503. The end-to-end thresholds are deliberately their own, so production
+ * tuning can move without moving this journey.
+ */
+export async function configureLocalMemberPhotoPolicy(): Promise<void> {
+  const status = getLocalSupabaseStatus();
+  const serviceClient = createClient<Database>(status.apiUrl, status.secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  const { error } = await serviceClient.rpc('configure_place_media_member_policy', {
+    requested_pending_per_place: 3,
+    requested_uploads_per_window: 10,
+    requested_submission_window_seconds: 3600,
+    requested_byte_limit: 8388608,
+    requested_enabled: true
+  });
+
+  if (error) {
+    throw new Error(`Could not configure the local Member photo policy: ${error.message}`);
+  }
+}
+
+export function provisionLocalMemberPhotoFixture(): void {
+  const fixture = localMemberPhotoFixture;
+  runLocalDatabaseSql(`
+    insert into private.operators (id, name) values
+      ('${fixture.operatorId}'::uuid, '${fixture.nameEn} operator')
+    on conflict (id) do nothing;
+
+    insert into private.locations (
+      id, address_line, locality, postal_code, municipality, latitude, longitude,
+      geometry_precision, geometry_source
+    ) values
+      ('${fixture.locationId}'::uuid, 'Myndagata 12', 'Reykjavík', '101', 'reykjavik', 64.1466, -21.9426, 'moderator_confirmed_point', 'Reviewed E2E fixture coordinate')
+    on conflict (id) do nothing;
+
+    insert into private.places (
+      id, operator_id, location_id, purpose, lifecycle, category, version, published_at
+    ) values (
+      '${fixture.placeId}'::uuid, '${fixture.operatorId}'::uuid, '${fixture.locationId}'::uuid,
+      'dog_access_destination', 'published', 'cafe', 1, '2026-01-01T00:00:00Z'
+    )
+    on conflict (id) do update set
+      lifecycle = excluded.lifecycle, published_at = excluded.published_at,
+      version = excluded.version;
+
+    insert into private.place_translations (place_id, locale, name, description) values
+      ('${fixture.placeId}'::uuid, 'is', '${fixture.nameIs}', 'Upprunaleg lýsing.'),
+      ('${fixture.placeId}'::uuid, 'en', '${fixture.nameEn}', 'Original description.')
+    on conflict (place_id, locale) do nothing;
+
+    insert into private.access_conditions (
+      id, place_id, access_area, restraint_condition, permission_requirement
+    ) values
+      ('${fixture.accessConditionId}'::uuid, '${fixture.placeId}'::uuid, 'indoors', 'leash_required', 'standing_permission')
+    on conflict (id) do nothing;
+
+    -- Public discovery lists a Place only through a current verified Access Condition, so the
+    -- fixture carries the Evidence and Verification that make it findable at all.
+    insert into private.evidence (id, place_id, kind, source_url, source_label, observed_at) values
+      ('${fixture.evidenceId}'::uuid, '${fixture.placeId}'::uuid, 'official_website', 'https://example.invalid/member-photo-e2e-cafe', 'Official site', '2026-01-01T00:00:00Z')
+    on conflict (id) do nothing;
+
+    insert into private.verifications (id, access_condition_id, status, verified_at, freshness_until) values
+      ('${fixture.verificationId}'::uuid, '${fixture.accessConditionId}'::uuid, 'verified', '2026-01-01T00:00:00Z', '2099-01-01T00:00:00Z')
+    on conflict (id) do nothing;
+
+    insert into private.verification_evidence (verification_id, evidence_id) values
+      ('${fixture.verificationId}'::uuid, '${fixture.evidenceId}'::uuid)
+    on conflict do nothing;
+  `);
+}
+
+// Published so a Member can find it and photograph it, so it is retired afterwards for the same
+// reason every other published fixture Place here is: later captures share this database.
+export function retireLocalMemberPhotoFixture(): void {
+  runLocalDatabaseSql(
+    `update private.places set lifecycle = 'inactive', published_at = null where id = '${localMemberPhotoFixture.placeId}'::uuid;`
+  );
+}
+
 // A dedicated published+verified Place for private-rating-note Private Rating Note journeys, isolated from the
 // correction-and-report (place-flag) and dog-friendliness (dog-friendliness) fixtures so submitted notes, explicit Report
 // creation, and the Moderator disposition workspace never disturb state other specs depend on.

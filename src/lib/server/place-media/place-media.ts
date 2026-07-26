@@ -487,6 +487,71 @@ export async function listMyPlacePhotos(
   }
 }
 
+export interface PlaceWithPendingPhotos {
+  placeId: string;
+  pendingPhotoCount: number;
+  newestUploadedAt: string;
+}
+
+export type PlacesWithPendingPhotosResult =
+  | { status: 'success'; value: PlaceWithPendingPhotos[] }
+  | { status: 'forbidden' | 'infrastructure_error' };
+
+/**
+ * Which Places are holding Member photos, newest submission first. Deliberately says nothing about
+ * the photos themselves: review runs on `get_moderation_place_media`, and this exists so the work
+ * list can find a Place without scanning every Place.
+ *
+ * Rows are validated rather than trusted. This read feeds a list of links a Moderator clicks, so a
+ * row whose identifier is not a Place identifier is a link to nowhere, and a count that is not a
+ * count would be rendered as one.
+ */
+export async function listPlacesWithPendingPhotos(
+  client: RequestSupabaseClient
+): Promise<PlacesWithPendingPhotosResult> {
+  try {
+    const { data, error } = await client.rpc('list_places_with_pending_photos');
+
+    if (error) {
+      return { status: error.code === '42501' ? 'forbidden' : 'infrastructure_error' };
+    }
+    if (!Array.isArray(data) || !data.every(isPendingPhotoPlaceRow)) {
+      return { status: 'infrastructure_error' };
+    }
+
+    return {
+      status: 'success',
+      value: data.map((row) => ({
+        placeId: row.place_id,
+        pendingPhotoCount: row.pending_photo_count,
+        newestUploadedAt: row.newest_uploaded_at
+      }))
+    };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+function isPendingPhotoPlaceRow(value: unknown): value is {
+  place_id: string;
+  pending_photo_count: number;
+  newest_uploaded_at: string;
+} {
+  if (typeof value !== 'object' || value === null) return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.place_id === 'string' &&
+    uuidPattern.test(row.place_id) &&
+    typeof row.pending_photo_count === 'number' &&
+    Number.isSafeInteger(row.pending_photo_count) &&
+    row.pending_photo_count > 0 &&
+    typeof row.newest_uploaded_at === 'string' &&
+    Number.isFinite(Date.parse(row.newest_uploaded_at))
+  );
+}
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function mapMemberPhotoError(
   code: string | undefined
 ): Exclude<MemberPlacePhotoResult<never>['status'], 'success'> {

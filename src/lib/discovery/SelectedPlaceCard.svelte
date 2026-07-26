@@ -5,7 +5,7 @@
   import type { PlaceCategory } from '$domain/place';
   import { formatDogAmenities, formatOpeningHoursRows } from '$i18n/structured-place';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
-  import type { PublishedPlaceProfile } from '$server/discovery/public-places';
+  import type { PublishedPlacePhoto, PublishedPlaceProfile } from '$server/discovery/public-places';
   import { explainAccessCondition } from '$domain/access-explanation';
   import type { AccessSymbolDimension } from '$domain/access-symbols';
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
@@ -26,6 +26,8 @@
     type PendingPlaceFlag
   } from '$lib/contributions/correction';
   import { fetchPendingCorrections } from '$lib/contributions/correction-client';
+  import type { MemberPlacePhoto } from '$lib/contributions/photo';
+  import { fetchMyPlacePhotos } from '$lib/contributions/photo-client';
   import { correctConditionHref } from '$lib/discovery/correct-link';
   import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
   import PhotoCredit from '$lib/discovery/PhotoCredit.svelte';
@@ -170,6 +172,45 @@
   }
 
   /**
+   * The Member's own photos on this Place, on the same terms as their pending Corrections: only
+   * when signed in, only once the profile has named the Place, and never re-requested on the
+   * component's own write.
+   */
+  let memberPhotos = $state<MemberPlacePhoto[]>([]);
+  let photosRequestedFor: string | null = null;
+
+  $effect(() => {
+    if (!signedIn) {
+      memberPhotos = [];
+      photosRequestedFor = null;
+      return;
+    }
+    const loadedPlaceId = profile?.placeId;
+    if (!loadedPlaceId || photosRequestedFor === loadedPlaceId) return;
+    photosRequestedFor = loadedPlaceId;
+    void loadMyPhotos(loadedPlaceId);
+  });
+
+  async function loadMyPhotos(placeId: string): Promise<void> {
+    const result = await fetchMyPlacePhotos(placeId);
+    if (photosRequestedFor !== placeId) return;
+    // A signed-out reader has nothing pending, and a failed read is not something to say out loud
+    // on a surface whose whole point is the photos that did load.
+    if (result.status === 'loaded') memberPhotos = [...result.photos];
+  }
+
+  /**
+   * A photo the Member just sent is theirs to see immediately, so the tile is placed from the
+   * upload's own answer rather than waited for. The refresh that follows replaces it with the
+   * server's copy, which is the one carrying dimensions and a signed URL.
+   */
+  function recordSubmittedPhoto(photo: MemberPlacePhoto): void {
+    memberPhotos = [photo, ...memberPhotos.filter((held) => held.mediaId !== photo.mediaId)];
+    const loadedPlaceId = profile?.placeId;
+    if (loadedPlaceId) void loadMyPhotos(loadedPlaceId);
+  }
+
+  /**
    * The pending markers are the card's own state, so a Correction it just sent belongs in them
    * immediately. Suppression on an Access Condition covers all four of its editors, and the three
    * the Member did not touch have to say pending the moment the fourth is sent: leaving them armed
@@ -258,6 +299,21 @@
   {/if}
 {/snippet}
 
+{#snippet photoSurface(published: PublishedPlacePhoto[])}
+  <PlacePhotos
+    photos={published}
+    placeId={place.placeId}
+    placeName={place.name}
+    {lang}
+    {copy}
+    featured
+    contributable
+    {signedIn}
+    {memberPhotos}
+    onSubmitted={recordSubmittedPhoto}
+  />
+{/snippet}
+
 <aside
   class="hv-panel selected-place"
   aria-label={copy['directory.selectedPlace']}
@@ -299,36 +355,39 @@
   {/if}
 
   <div class="card-body" data-card-scroll-body>
+    <!-- The published photos and the affordance are one surface, so the strip renders whenever the
+         profile has photos. When it has none, the list's own summary photo still stands (it is
+         what a reader saw a moment ago in the results) and the surface renders beside it holding
+         the affordance and whatever the Member has waiting - which is the empty state. Before the
+         profile arrives there is nothing to add to and nothing to hold. -->
     {#if profile?.photos.length}
-      <PlacePhotos
-        photos={profile.photos}
-        placeId={profile.placeId}
-        placeName={place.name}
-        {lang}
-        {copy}
-        featured
-      />
-    {:else if place.primaryPhoto}
-      <figure class="summary-photo" data-summary-photo>
-        <RefreshablePlaceImage
-          placeId={place.placeId}
-          mediaId={place.primaryPhoto.mediaId}
-          url={place.primaryPhoto.url}
-          urlExpiresAt={place.primaryPhoto.urlExpiresAt}
-          alt={lang === 'is' ? place.primaryPhoto.altTextIs : place.primaryPhoto.altTextEn}
-          width={place.primaryPhoto.widthPx}
-          height={place.primaryPhoto.heightPx}
-        />
-        <figcaption>
-          <PhotoCredit
-            attributionText={place.primaryPhoto.attributionText}
-            attributionUrl={place.primaryPhoto.attributionUrl}
-            sourceUrl={place.primaryPhoto.sourceUrl}
-            licenseReference={place.primaryPhoto.licenseReference}
-            licenseUrl={place.primaryPhoto.licenseUrl}
+      {@render photoSurface(profile.photos)}
+    {:else}
+      {#if place.primaryPhoto}
+        <figure class="summary-photo" data-summary-photo>
+          <RefreshablePlaceImage
+            placeId={place.placeId}
+            mediaId={place.primaryPhoto.mediaId}
+            url={place.primaryPhoto.url}
+            urlExpiresAt={place.primaryPhoto.urlExpiresAt}
+            alt={lang === 'is' ? place.primaryPhoto.altTextIs : place.primaryPhoto.altTextEn}
+            width={place.primaryPhoto.widthPx}
+            height={place.primaryPhoto.heightPx}
           />
-        </figcaption>
-      </figure>
+          <figcaption>
+            <PhotoCredit
+              attributionText={place.primaryPhoto.attributionText}
+              attributionUrl={place.primaryPhoto.attributionUrl}
+              sourceUrl={place.primaryPhoto.sourceUrl}
+              licenseReference={place.primaryPhoto.licenseReference}
+              licenseUrl={place.primaryPhoto.licenseUrl}
+            />
+          </figcaption>
+        </figure>
+      {/if}
+      {#if profile}
+        {@render photoSurface([])}
+      {/if}
     {/if}
 
     <section

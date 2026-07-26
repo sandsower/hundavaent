@@ -29,6 +29,18 @@ export interface ModerationWorkItem {
   readonly priorityLabel?: string;
 }
 
+/**
+ * A Place holding Member photos, ready to render as a link into the media surface that already
+ * reviews them. Not a queue item: there is no cursor, no filter and no decision here, only a way
+ * to find the Place.
+ */
+export interface ModerationPendingPhotoEntry {
+  readonly placeId: string;
+  readonly title: string;
+  readonly meta: string;
+  readonly href: string;
+}
+
 export type ModerationReadinessState = 'ready' | 'attention' | 'blocked';
 
 export type ModerationReviewSectionState = 'complete' | 'warning' | 'blocking';
@@ -51,6 +63,7 @@ export interface ModerationWorkspaceProps {
   cursorTrail: readonly (string | null)[];
   nextCursor: string | null;
   hasPrevious: boolean;
+  pendingPhotoPlaces?: readonly ModerationPendingPhotoEntry[];
   statusMessage?: string;
   errorMessage?: string | null;
   reviewErrorMessage?: string | null;

@@ -5,6 +5,7 @@
     buildModerationWorkspaceHref,
     moderationFilterIds,
     type ModerationFilterId,
+    type ModerationPendingPhotoEntry,
     type ModerationQueueId,
     type ModerationWorkItem
   } from './types';
@@ -22,6 +23,12 @@
     cursorTrail: readonly (string | null)[];
     nextCursor: string | null;
     hasPrevious: boolean;
+    /**
+     * Places holding Member photos. Cross-queue by nature - a photo can arrive on any Place - so
+     * it is a section of its own rather than a fourth queue, and it is shown only when there is
+     * something in it.
+     */
+    pendingPhotoPlaces?: readonly ModerationPendingPhotoEntry[];
     errorMessage?: string | null;
   }
 
@@ -38,6 +45,7 @@
     cursorTrail,
     nextCursor,
     hasPrevious,
+    pendingPhotoPlaces = [],
     errorMessage = null
   }: Props = $props();
 
@@ -129,6 +137,25 @@
           </li>
         {/each}
       </ul>
+    {/if}
+
+    {#if pendingPhotoPlaces.length > 0}
+      <section class="pending-photos" data-pending-photos>
+        <h3>{copy['moderation.workspace.pendingPhotos.title']}</h3>
+        <p>{copy['moderation.workspace.pendingPhotos.help']}</p>
+        <ul>
+          {#each pendingPhotoPlaces as place (place.placeId)}
+            <li>
+              <!-- The link's whole text is its accessible name, so the count a Moderator reads is
+                   the count a speech-input user says (WCAG 2.5.3). -->
+              <a href={place.href} data-pending-photo-place={place.placeId}>
+                <strong>{place.title}</strong>
+                <span>{place.meta}</span>
+              </a>
+            </li>
+          {/each}
+        </ul>
+      </section>
     {/if}
   </div>
   {#if !errorMessage && (hasPrevious || nextCursor)}
@@ -331,6 +358,54 @@
     margin-top: 0.7rem;
     color: var(--hv-color-fjord);
     font-weight: 900;
+  }
+  .pending-photos {
+    margin: 1rem;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow);
+    padding: 0.8rem;
+  }
+  .pending-photos h3 {
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .pending-photos p {
+    margin-top: 0.3rem;
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.72rem;
+    line-height: 1.4;
+  }
+  .pending-photos ul {
+    display: grid;
+    gap: 0.3rem;
+    margin-top: 0.6rem;
+  }
+  .pending-photos li + li {
+    border-top: 1px solid var(--hv-border-subtle);
+    padding-top: 0.3rem;
+  }
+  .pending-photos a {
+    display: grid;
+    gap: 0.15rem;
+    border-radius: var(--hv-radius-control);
+    padding: 0.3rem 0.35rem;
+    color: var(--hv-color-basalt);
+    font-size: 0.76rem;
+    text-decoration: none;
+  }
+  .pending-photos a:hover {
+    background: var(--hv-color-signal-soft);
+  }
+  .pending-photos a strong {
+    overflow-wrap: anywhere;
+    text-decoration: underline;
+  }
+  .pending-photos a span {
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.72rem;
   }
   .pagination {
     display: flex;
