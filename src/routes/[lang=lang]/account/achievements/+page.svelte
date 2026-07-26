@@ -9,6 +9,7 @@
   import AchievementBadge from '$lib/achievements/AchievementBadge.svelte';
   import AchievementCelebration from '$lib/achievements/AchievementCelebration.svelte';
   import AchievementCollectionGrid from '$lib/achievements/AchievementCollectionGrid.svelte';
+  import AchievementShare from '$lib/achievements/AchievementShare.svelte';
   import { publishAchievementAcknowledged } from '$lib/achievements/client';
   import type {
     AchievementGroup,
@@ -163,6 +164,19 @@
                     </p>
                     <p class="description">{description(achievement)}</p>
                     <p class="earned">{earnedLine(achievement.earnedAt)}</p>
+                    <AchievementShare
+                      card={{
+                        achievementKey: achievement.key,
+                        collection: null,
+                        group: achievement.group,
+                        tier: null,
+                        name: name(achievement),
+                        description: description(achievement),
+                        brand: data.copy['site.name'],
+                        eyebrow: data.copy['achievements.share.cardEyebrow']
+                      }}
+                      copy={data.copy}
+                    />
                   </div>
                 </li>
               {/each}

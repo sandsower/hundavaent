@@ -6,7 +6,8 @@
     LockedTierAchievement
   } from '$server/achievements/achievements';
   import AchievementBadge from './AchievementBadge.svelte';
-  import { progressLabel, tierLabel } from './tier-copy';
+  import AchievementShare from './AchievementShare.svelte';
+  import { collectionName, progressLabel, tierDisplayName, tierLabel } from './tier-copy';
 
   interface Props {
     entry: EarnedTierAchievement | LockedTierAchievement;
@@ -27,6 +28,16 @@
   // system, and gold must not borrow Signal Yellow, which is reserved for verified access,
   // selection and committed actions.
   const state = $derived(entry.kind === 'earned' ? 'earned' : started ? 'started' : 'locked');
+  const shareCard = $derived({
+    achievementKey: entry.key,
+    collection: entry.collection,
+    group: entry.group,
+    tier: entry.tier,
+    name: tierDisplayName(collectionName(entry, lang), entry.tier, copy),
+    description: lang === 'is' ? entry.collectionDescriptionIs : entry.collectionDescriptionEn,
+    brand: copy['site.name'],
+    eyebrow: copy['achievements.share.cardEyebrow']
+  });
 </script>
 
 <div class="cell" data-achievement-tier={entry.tier} data-tier-state={state}>
@@ -48,6 +59,7 @@
       <p class="detail">
         {copy['achievements.earned'].replace('{date}', formatLocalizedDate(entry.earnedAt, lang))}
       </p>
+      <AchievementShare card={shareCard} {copy} />
     {:else}
       {@const line = progressLabel(
         entry.progress.kind,

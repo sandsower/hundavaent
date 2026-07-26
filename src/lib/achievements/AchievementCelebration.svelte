@@ -6,6 +6,7 @@
   import PawMark from '$lib/member-activity/PawMark.svelte';
   import type { ClaimedAchievement } from '$server/achievements/achievements';
   import AchievementBadge from './AchievementBadge.svelte';
+  import AchievementShare from './AchievementShare.svelte';
   import { collectionName, tierDescription, tierDisplayName } from './tier-copy';
 
   interface Props {
@@ -37,6 +38,16 @@
   const earnedLine = $derived(
     copy['achievements.earned'].replace('{date}', formatLocalizedDate(achievement.earnedAt, lang))
   );
+  const shareCard = $derived({
+    achievementKey: achievement.key,
+    collection: achievement.entry === 'tier' ? achievement.collection : null,
+    group: achievement.group,
+    tier: achievement.entry === 'tier' ? achievement.tier : null,
+    name,
+    description,
+    brand: copy['site.name'],
+    eyebrow: copy['achievements.share.cardEyebrow']
+  });
 
   onMount(() => {
     reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -72,6 +83,7 @@
     <h2>{name}</h2>
     <p class="description">{description}</p>
     <p class="earned">{earnedLine}</p>
+    <AchievementShare card={shareCard} {copy} />
   </div>
 </section>
 

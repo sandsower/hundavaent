@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { page as browserPage } from 'vitest/browser';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -293,6 +293,26 @@ describe('Member Achievements view', () => {
     expect(screen.getByText('First Favourite')).toBeTruthy();
     // A tier never appears in the archive; it belongs to the grid where its gaps are visible.
     expect(screen.queryByText('Recognized for Quality')).toBeNull();
+  });
+
+  it('opens a privacy-first share preview for every earned achievement', async () => {
+    renderPage('en');
+
+    const shareButtons = screen.getAllByRole('button', { name: 'Share' });
+    expect(shareButtons).toHaveLength(2);
+    await fireEvent.click(shareButtons[0]);
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Share your achievement' })).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        'The image includes only the achievement. Your name, activity and account stay private.'
+      )
+    ).toBeTruthy();
+    expect(within(dialog).getByRole('img').getAttribute('src')).toContain('data:image/svg+xml');
+    expect(within(dialog).getByRole('button', { name: 'Share image' })).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Download image' })).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Copy caption' })).toBeTruthy();
   });
 
   it('keeps icons decorative while adjacent text names every collection and progress concept', () => {
