@@ -216,18 +216,15 @@
             <div class="outcome-mark" aria-hidden="true">
               {outcome.state === 'confirmed' ? '✓' : '↺'}
             </div>
-            <div class="outcome-copy">
-              <p class="outcome-kicker">
-                <span
-                  class="hv-status"
-                  data-status={outcome.state === 'confirmed' ? 'verified' : undefined}
-                >
-                  {outcome.state === 'confirmed'
-                    ? data.copy['impact.outcome.confirmed']
-                    : data.copy['impact.outcome.revoked']}
-                </span>
-                <span>{data.copy[contributionKindKey(outcome.kind)]}</span>
-              </p>
+            <div class="outcome-primary">
+              <span
+                class="hv-status"
+                data-status={outcome.state === 'confirmed' ? 'verified' : undefined}
+              >
+                {outcome.state === 'confirmed'
+                  ? data.copy['impact.outcome.confirmed']
+                  : data.copy['impact.outcome.revoked']}
+              </span>
               <h3>{outcomeName(outcome)}</h3>
               <p class="outcome-date">
                 {data.copy[
@@ -239,6 +236,9 @@
                   formatLocalizedDate(outcome.revokedAt ?? outcome.confirmedAt, data.lang)
                 )}
               </p>
+            </div>
+            <div class="outcome-context">
+              <p class="outcome-kind">{data.copy[contributionKindKey(outcome.kind)]}</p>
               <p class="availability">
                 {data.copy[availabilityKey(outcome.availability)]}
               </p>
@@ -1106,19 +1106,22 @@
 
   .outcome-list {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: 1fr;
+    gap: 0.65rem;
   }
 
   .outcome-list > li:first-child {
-    grid-column: 1 / -1;
+    background: color-mix(in srgb, var(--hv-color-moss) 4%, var(--hv-color-snow-raised));
   }
 
   .outcome-card {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.75rem;
-    padding: 1.1rem;
+    grid-template-columns: auto minmax(0, 1.15fr) minmax(14rem, 0.85fr);
+    gap: clamp(0.8rem, 2.5vw, 1.35rem);
+    align-items: start;
+    min-height: 7.15rem;
+    padding: 0.95rem 1.05rem;
   }
 
   .outcome-card[data-outcome-state='revoked'] {
@@ -1141,28 +1144,34 @@
     color: var(--hv-color-basalt-muted);
   }
 
-  .outcome-copy {
+  .outcome-primary,
+  .outcome-context {
     min-width: 0;
   }
 
-  .outcome-copy h3,
-  .outcome-copy p {
+  .outcome-primary h3,
+  .outcome-primary p,
+  .outcome-context p {
     margin: 0;
   }
 
-  .outcome-copy h3 {
+  .outcome-primary h3 {
     margin-top: 0.4rem;
     font-family: var(--hv-font-display);
     font-size: 1.1rem;
   }
 
-  .outcome-kicker {
+  .outcome-context {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-    align-items: center;
+    height: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .outcome-kind {
     color: var(--hv-color-basalt-muted);
     font-size: 0.78rem;
+    font-weight: 750;
   }
 
   .outcome-date,
@@ -1175,7 +1184,8 @@
   .successor-link,
   .successor-note {
     display: inline-block;
-    margin-top: 0.55rem;
+    margin-top: auto;
+    padding-top: 0.55rem;
     font-size: 0.88rem;
     font-weight: 850;
   }
@@ -1259,6 +1269,19 @@
       grid-template-columns: 1fr;
     }
 
+    .outcome-list {
+      grid-auto-rows: auto;
+    }
+
+    .outcome-card {
+      grid-template-columns: auto minmax(0, 1fr);
+      min-height: 0;
+    }
+
+    .outcome-context {
+      grid-column: 2;
+    }
+
     .achievement-groups {
       grid-template-columns: 1fr;
     }
@@ -1313,14 +1336,6 @@
     .metrics.two-up,
     .achievement-strip {
       grid-template-columns: 1fr 1fr;
-    }
-
-    .outcome-list {
-      grid-template-columns: 1fr;
-    }
-
-    .outcome-list > li:first-child {
-      grid-column: auto;
     }
 
     .achievement-strip li {

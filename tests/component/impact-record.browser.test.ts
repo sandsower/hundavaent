@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
+import { page as browserPage } from 'vitest/browser';
 
 import { catalogues } from '$i18n';
 import type { ImpactRecord } from '$server/impact/impact-record';
@@ -149,6 +150,33 @@ describe('private impact record', () => {
     expect(appearsBefore(outcomes, participation)).toBe(true);
     expect(within(summary as HTMLElement).getByText('3')).toBeTruthy();
     expect(within(summary as HTMLElement).getByText('confirmed useful contributions')).toBeTruthy();
+  });
+
+  it('renders recent outcomes as an evenly sized desktop ledger', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    await browserPage.viewport(1280, 900);
+
+    try {
+      renderPage('en');
+
+      const rows = [...document.querySelectorAll<HTMLElement>('.outcome-list > li')];
+      const rectangles = rows.map((row) => row.getBoundingClientRect());
+
+      expect(rows).toHaveLength(3);
+      expect(Math.max(...rectangles.map(({ width }) => width))).toBeCloseTo(
+        Math.min(...rectangles.map(({ width }) => width)),
+        0
+      );
+      expect(Math.max(...rectangles.map(({ height }) => height))).toBeCloseTo(
+        Math.min(...rectangles.map(({ height }) => height)),
+        0
+      );
+      expect(new Set(rectangles.map(({ left }) => Math.round(left))).size).toBe(1);
+      expect(rectangles[0].top).toBeLessThan(rectangles[1].top);
+      expect(rectangles[1].top).toBeLessThan(rectangles[2].top);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
   });
 
   it('uses singular contribution wording for a single confirmed contribution', () => {
