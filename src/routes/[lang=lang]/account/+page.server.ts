@@ -3,6 +3,13 @@ import { env as publicEnv } from '$env/dynamic/public';
 import { fail, redirect } from '@sveltejs/kit';
 
 import { parseLocale } from '$i18n';
+import {
+  getMyAchievements,
+  type AchievementMetric,
+  type AchievementRpcClient,
+  type LockedTierAchievement,
+  type MyAchievement
+} from '$server/achievements/achievements';
 import { clearRequestAuthSession } from '$server/auth/callback';
 import {
   buildMemberCallbackUrl,
@@ -16,7 +23,10 @@ import { resolveConfiguredMemberProviders } from '$server/auth/provider-policy';
 import { hasOptionalRole } from '$server/auth/role-capability';
 import { isValidEmail, normalizeMemberReturnTo } from '$server/auth/return-to';
 import { AuthenticationExpiredError, getMemberSession } from '$server/auth/session';
+import { listFavouriteIds } from '$server/favourites/favourites';
 import { getWeeklyRhythmHistory } from '$server/member-activity/weekly-rhythm';
+import { listPersonalCheckIns } from '$server/personal-history/personal-history';
+import { listMemberSuggestions, type SuggestionRpcClient } from '$server/suggestions/suggestions';
 import {
   getMyTrustedVerificationFeedback,
   listTrustedVerificationTasks,
@@ -27,6 +37,54 @@ import type { Actions, PageServerLoad } from './$types';
 import type { MemberAuthConfigResolution } from '$server/auth/member';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export interface AccountFacts {
+  saved: { status: 'available'; count: number } | { status: 'unavailable' };
+  visits: { status: 'available'; lastVisitedAt: string | null } | { status: 'unavailable' };
+  suggestions:
+    { status: 'available'; awaitingReview: number; needsReply: number } | { status: 'unavailable' };
+  achievements:
+    | {
+        status: 'available';
+        next: {
+          kind: AchievementMetric;
+          current: number;
+          target: number;
+        } | null;
+      }
+    | { status: 'unavailable' };
+}
+
+// The card fact is the single nearest tier across all collections: within a collection the
+// nearest unearned tier is the one with the smallest target, and across collections the member
+// is shown whichever tier they are proportionally closest to earning.
+function nearestUnearnedTier(achievements: MyAchievement[]): LockedTierAchievement | null {
+  const nearestByCollection = new Map<string, LockedTierAchievement>();
+  for (const achievement of achievements) {
+    if (achievement.kind !== 'locked') continue;
+    const nearest = nearestByCollection.get(achievement.collection);
+    if (!nearest || achievement.progress.target < nearest.progress.target) {
+      nearestByCollection.set(achievement.collection, achievement);
+    }
+  }
+
+  let next: LockedTierAchievement | null = null;
+  for (const candidate of nearestByCollection.values()) {
+    if (!next) {
+      next = candidate;
+      continue;
+    }
+    const candidateRatio = candidate.progress.current / candidate.progress.target;
+    const nextRatio = next.progress.current / next.progress.target;
+    if (
+      candidateRatio > nextRatio ||
+      (candidateRatio === nextRatio && candidate.displayOrder < next.displayOrder)
+    ) {
+      next = candidate;
+    }
+  }
+  return next;
+}
 
 function authConfig(): MemberAuthConfigResolution {
   return getMemberAuthConfig({ ...publicEnv, ...privateEnv });
@@ -109,12 +167,64 @@ export function _createLoad(
     }
 
     const trustedClient = locals.supabase as unknown as TrustedVerificationRpcClient;
-    const [canModerate, weeklyRhythmHistory, trustedTasks, trustedFeedback] = await Promise.all([
+    const [
+      canModerate,
+      weeklyRhythmHistory,
+      trustedTasks,
+      trustedFeedback,
+      favouriteIds,
+      latestCheckIns,
+      memberSuggestions,
+      achievements
+    ] = await Promise.all([
       hasOptionalRole(locals.supabase, 'moderator'),
       getWeeklyRhythmHistory(locals.supabase),
       listTrustedVerificationTasks(trustedClient, lang, 1),
-      getMyTrustedVerificationFeedback(trustedClient)
+      getMyTrustedVerificationFeedback(trustedClient),
+      listFavouriteIds(locals.supabase),
+      listPersonalCheckIns(locals.supabase, lang, { limit: 1 }),
+      listMemberSuggestions(locals.supabase as unknown as SuggestionRpcClient, null, 50),
+      getMyAchievements(locals.supabase as unknown as AchievementRpcClient)
     ]);
+
+    const accountFacts: AccountFacts = {
+      saved:
+        favouriteIds.status === 'success'
+          ? { status: 'available', count: favouriteIds.value.length }
+          : { status: 'unavailable' },
+      visits:
+        latestCheckIns.status === 'success'
+          ? { status: 'available', lastVisitedAt: latestCheckIns.value[0]?.checkedInAt ?? null }
+          : { status: 'unavailable' },
+      suggestions:
+        memberSuggestions.status === 'success'
+          ? {
+              status: 'available',
+              awaitingReview: memberSuggestions.value.items.filter(
+                (suggestion) => suggestion.outcome === 'submitted'
+              ).length,
+              needsReply: memberSuggestions.value.items.filter(
+                (suggestion) => suggestion.outcome === 'needs_information'
+              ).length
+            }
+          : { status: 'unavailable' },
+      achievements:
+        achievements.status === 'success' && achievements.value.enabled
+          ? {
+              status: 'available',
+              next: (() => {
+                const nearest = nearestUnearnedTier(achievements.value.achievements);
+                return nearest
+                  ? {
+                      kind: nearest.progress.kind,
+                      current: nearest.progress.current,
+                      target: nearest.progress.target
+                    }
+                  : null;
+              })()
+            }
+          : { status: 'unavailable' }
+    };
 
     return {
       member: {
@@ -127,6 +237,7 @@ export function _createLoad(
       authStatus: null,
       providers,
       canModerate,
+      accountFacts,
       weeklyRhythmHistory,
       trustedVerification:
         trustedTasks.status === 'success'

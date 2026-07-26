@@ -106,11 +106,8 @@ test('earned verification reaches review, permanent impact, feedback, and a safe
   await moderatorContext.close();
 
   await page.goto('/en/account');
-  await expect(
-    page.getByRole('link', {
-      name: 'See my impact A fact you verified was confirmed'
-    })
-  ).toBeVisible();
+  const impactCard = page.getByRole('region', { name: 'Your impact' });
+  await expect(impactCard.getByText('New', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'See my impact' }).click();
   const celebration = page.getByTestId('trusted-verification-celebration');
   await expect(celebration).toBeVisible();
