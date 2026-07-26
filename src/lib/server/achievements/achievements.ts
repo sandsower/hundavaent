@@ -2,7 +2,11 @@ export type AchievementGroup =
   'participation' | 'exploration' | 'contribution_quality' | 'longevity';
 
 export type AchievementMetric =
-  'credited_places' | 'credited_categories' | 'credited_municipalities' | 'confirmed_contributions';
+  | 'credited_places'
+  | 'credited_place_coverage'
+  | 'credited_categories'
+  | 'credited_municipalities'
+  | 'confirmed_contributions';
 
 export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'platinum';
 
@@ -80,6 +84,20 @@ export interface MyAchievementStatus {
   hasUnread: boolean;
 }
 
+export interface AchievementCollectionProgress {
+  collection: string;
+  progressKind: AchievementMetric;
+  current: number;
+  total: number | null;
+  nextMilestone: number | null;
+}
+
+export interface ClaimedAchievementContinuation {
+  collection: 'contributions';
+  milestone: number;
+  reachedAt: string;
+}
+
 export type ClaimedBespokeAchievement = EarnedBespokeAchievement;
 
 export interface ClaimedTierAchievement extends AchievementBase {
@@ -140,6 +158,16 @@ const claimedKeys = [
   'progress_target',
   'earned_at'
 ] as const;
+
+const collectionProgressKeys = [
+  'collection',
+  'progress_kind',
+  'current_value',
+  'total_value',
+  'next_milestone'
+] as const;
+
+const continuationKeys = ['collection', 'milestone', 'reached_at'] as const;
 
 export async function getMyAchievements(
   client: AchievementRpcClient
@@ -218,6 +246,50 @@ export async function claimMyAchievementCelebrations(
     }
 
     return { status: 'success', value: claimed as ClaimedAchievement[] };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+export async function getMyAchievementCollectionProgress(
+  client: AchievementRpcClient
+): Promise<AchievementCommandResult<AchievementCollectionProgress[]>> {
+  try {
+    const { data, error } = await client.rpc('get_my_achievement_collection_progress');
+    if (error) return { status: mapError(error.code) };
+    if (!Array.isArray(data)) return { status: 'infrastructure_error' };
+
+    const progress = data.map(parseCollectionProgressRow);
+    if (
+      progress.some((entry) => entry === null) ||
+      new Set(progress.map((entry) => entry?.collection)).size !== progress.length
+    ) {
+      return { status: 'infrastructure_error' };
+    }
+
+    return { status: 'success', value: progress as AchievementCollectionProgress[] };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+export async function claimMyAchievementContinuations(
+  client: AchievementRpcClient
+): Promise<AchievementCommandResult<ClaimedAchievementContinuation[]>> {
+  try {
+    const { data, error } = await client.rpc('claim_my_achievement_continuations');
+    if (error) return { status: mapError(error.code) };
+    if (!Array.isArray(data)) return { status: 'infrastructure_error' };
+
+    const continuations = data.map(parseContinuationRow);
+    if (
+      continuations.some((entry) => entry === null) ||
+      new Set(continuations.map((entry) => entry?.milestone)).size !== continuations.length
+    ) {
+      return { status: 'infrastructure_error' };
+    }
+
+    return { status: 'success', value: continuations as ClaimedAchievementContinuation[] };
   } catch {
     return { status: 'infrastructure_error' };
   }
@@ -332,6 +404,63 @@ function parseClaimedRow(value: unknown): ClaimedAchievement | null {
   };
 }
 
+function parseCollectionProgressRow(value: unknown): AchievementCollectionProgress | null {
+  if (
+    !isExactRecord(value, collectionProgressKeys) ||
+    typeof value.collection !== 'string' ||
+    !isMetric(value.progress_kind) ||
+    !Number.isInteger(value.current_value) ||
+    (value.current_value as number) < 0 ||
+    (value.total_value !== null &&
+      (!Number.isInteger(value.total_value) ||
+        (value.total_value as number) <= 0 ||
+        (value.current_value as number) > (value.total_value as number))) ||
+    (value.next_milestone !== null &&
+      (!Number.isInteger(value.next_milestone) ||
+        (value.next_milestone as number) <= (value.current_value as number)))
+  ) {
+    return null;
+  }
+
+  if (
+    value.collection === 'contributions'
+      ? value.total_value !== null || value.next_milestone === null
+      : value.total_value === null || value.next_milestone !== null
+  ) {
+    return null;
+  }
+
+  return {
+    collection: value.collection,
+    progressKind: value.progress_kind,
+    current: value.current_value as number,
+    total: value.total_value as number | null,
+    nextMilestone: value.next_milestone as number | null
+  };
+}
+
+function parseContinuationRow(value: unknown): ClaimedAchievementContinuation | null {
+  if (
+    !isExactRecord(value, continuationKeys) ||
+    value.collection !== 'contributions' ||
+    !Number.isInteger(value.milestone) ||
+    (value.milestone as number) < 50 ||
+    (value.milestone !== 50 &&
+      value.milestone !== 100 &&
+      ((value.milestone as number) < 250 || (value.milestone as number) % 250 !== 0)) ||
+    typeof value.reached_at !== 'string' ||
+    !isTimestamp(value.reached_at)
+  ) {
+    return null;
+  }
+
+  return {
+    collection: 'contributions',
+    milestone: value.milestone as number,
+    reachedAt: value.reached_at
+  };
+}
+
 function parseBase(value: Record<string, unknown>): AchievementBase | null {
   if (
     typeof value.achievement_key !== 'string' ||
@@ -424,14 +553,13 @@ function isGroup(value: unknown): value is AchievementGroup {
 }
 
 function isTier(value: unknown): value is AchievementTier {
-  return (
-    value === 'bronze' || value === 'silver' || value === 'gold' || value === 'platinum'
-  );
+  return value === 'bronze' || value === 'silver' || value === 'gold' || value === 'platinum';
 }
 
 function isMetric(value: unknown): value is AchievementMetric {
   return (
     value === 'credited_places' ||
+    value === 'credited_place_coverage' ||
     value === 'credited_categories' ||
     value === 'credited_municipalities' ||
     value === 'confirmed_contributions'
