@@ -45,6 +45,22 @@ test('a Member can see a private bilingual impact record with honest durable out
   await expect(page).toHaveURL('/en/account/impact');
   await expect(page.getByRole('heading', { name: 'Your impact', level: 1 })).toBeVisible();
   await expect(page.locator('[data-impact-pillar]')).toHaveCount(4);
+  await expect(page.locator('[data-impact-back]')).toBeVisible();
+  await expect(page.locator('[data-impact-summary]')).toContainText(
+    '1confirmed useful contribution'
+  );
+  await expect(page.locator('[data-impact-pillar][open]')).toHaveCount(0);
+  expect(
+    await page.evaluate(() => {
+      const outcomes = document.querySelector('[data-impact-outcomes]');
+      const participation = document.querySelector('[data-impact-participation]');
+      return Boolean(
+        outcomes &&
+        participation &&
+        outcomes.compareDocumentPosition(participation) & Node.DOCUMENT_POSITION_FOLLOWING
+      );
+    })
+  ).toBe(true);
   await expect(page.getByText('Only you can see this page.')).toBeVisible();
   await expect(page.getByText('Contribution status fixture')).toBeVisible();
   await expect(page.locator('[data-outcome-state="confirmed"]')).toHaveCount(1);
@@ -107,6 +123,7 @@ test('the impact record is responsive and motion-safe at a representative mobile
 
   await expect(page.getByRole('heading', { name: 'Your impact', level: 1 })).toBeVisible();
   await expect(page.locator('[data-impact-pillar]')).toHaveCount(4);
+  await expect(page.locator('[data-impact-pillar][open]')).toHaveCount(0);
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth

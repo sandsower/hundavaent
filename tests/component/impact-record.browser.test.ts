@@ -130,6 +130,51 @@ describe('private impact record', () => {
     expect(within(revoked as HTMLElement).getByText('Revoked 22 July 2026')).toBeTruthy();
   });
 
+  it('leads with confirmed impact and recent outcomes before participation detail', () => {
+    renderPage('en');
+
+    const backLink = document.querySelector('[data-impact-back]');
+    const hero = document.querySelector('.impact-hero');
+    const summary = document.querySelector('[data-impact-summary]');
+    const outcomes = document.querySelector('[data-impact-outcomes]');
+    const participation = document.querySelector('[data-impact-participation]');
+
+    expect(backLink).toBeTruthy();
+    expect(hero).toBeTruthy();
+    expect(summary).toBeTruthy();
+    expect(outcomes).toBeTruthy();
+    expect(participation).toBeTruthy();
+    expect(appearsBefore(backLink, hero)).toBe(true);
+    expect(appearsBefore(summary, outcomes)).toBe(true);
+    expect(appearsBefore(outcomes, participation)).toBe(true);
+    expect(within(summary as HTMLElement).getByText('3')).toBeTruthy();
+    expect(within(summary as HTMLElement).getByText('confirmed useful contributions')).toBeTruthy();
+  });
+
+  it('uses singular contribution wording for a single confirmed contribution', () => {
+    renderPage('en', true, undefined, {
+      ...impact,
+      confirmedContributions: 1
+    });
+
+    expect(screen.getByText('confirmed useful contribution')).toBeTruthy();
+    expect(screen.queryByText('confirmed useful contributions')).toBeNull();
+  });
+
+  it('keeps participation compact while preserving all four detailed records', () => {
+    renderPage('en');
+
+    const pillars = [...document.querySelectorAll<HTMLElement>('[data-impact-pillar]')];
+
+    expect(pillars).toHaveLength(4);
+    for (const pillar of pillars) {
+      expect(pillar.tagName).toBe('DETAILS');
+      expect((pillar as HTMLDetailsElement).open).toBe(false);
+      expect(pillar.querySelector('summary [data-pillar-snapshot]')).toBeTruthy();
+    }
+    expect(screen.getByRole('heading', { name: 'How you participate', level: 2 })).toBeTruthy();
+  });
+
   // The catalogue read is uncapped, so this strip caps itself. Earned Achievements must keep their
   // place: an unbounded run of locked tiers would otherwise crowd every one of them out.
   it('shows the closest upcoming tiers without crowding out the earned history', () => {
@@ -141,6 +186,21 @@ describe('private impact record', () => {
     expect(screen.getByText('Municipalities - Silver')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'See all Achievements' })).toBeTruthy();
     expect(document.querySelector('form')).toBeNull();
+    expect(
+      within(document.querySelector('[data-achievement-kind="earned"]') as HTMLElement).getByRole(
+        'heading',
+        { name: 'Earned' }
+      )
+    ).toBeTruthy();
+    expect(
+      within(document.querySelector('[data-achievement-kind="upcoming"]') as HTMLElement).getByRole(
+        'heading',
+        { name: 'Next on your trail' }
+      )
+    ).toBeTruthy();
+    expect(document.querySelectorAll('[data-achievement-kind="upcoming"] progress')).toHaveLength(
+      2
+    );
     for (const icon of document.querySelectorAll('[data-impact-icon], [data-achievement-icon]')) {
       expect(icon.getAttribute('aria-hidden')).toBe('true');
     }
@@ -178,6 +238,12 @@ describe('private impact record', () => {
   });
 });
 
+function appearsBefore(earlier: Element | null, later: Element | null): boolean {
+  return Boolean(
+    earlier && later && earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING
+  );
+}
+
 function renderPage(
   lang: 'is' | 'en',
   achievementsEnabled = true,
@@ -191,14 +257,15 @@ function renderPage(
           latestPlaceId: string | null;
         };
       }
-    | { status: 'unavailable' } = { status: 'unavailable' }
+    | { status: 'unavailable' } = { status: 'unavailable' },
+  impactRecord: ImpactRecord = impact
 ) {
   return render(ImpactPage, {
     params: { lang },
     data: {
       lang,
       copy: catalogues[lang],
-      impact,
+      impact: impactRecord,
       rhythm: { status: 'available', weeks: weeklyRhythmWeeks() },
       contributor: {
         status: 'available',
