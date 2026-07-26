@@ -4,7 +4,7 @@ create extension if not exists pgtap with schema extensions;
 
 select plan(45);
 
--- Tiered Achievement collections: four count-based collections of three tiers each, visible when
+-- Tiered Achievement collections: four count-based collections of four tiers each, visible when
 -- locked, plus the six bespoke Achievements that stay absent until earned.
 --
 -- Not covered here, deliberately: the migration's empty-ledger precondition. It raises 55000 when
@@ -51,17 +51,17 @@ select is(
 
 select is(
   (select count(*) from private.achievement_definitions where collection is not null),
-  12::bigint,
-  'Twelve tier definitions exist'
+  16::bigint,
+  'Sixteen tier definitions exist'
 );
 
 select set_eq(
   $$select key from private.achievement_definitions where collection is not null$$,
   $$values
-    ('explorer_places_bronze'), ('explorer_places_silver'), ('explorer_places_gold'),
-    ('place_categories_bronze'), ('place_categories_silver'), ('place_categories_gold'),
-    ('municipalities_bronze'), ('municipalities_silver'), ('municipalities_gold'),
-    ('contributions_bronze'), ('contributions_silver'), ('contributions_gold')$$,
+    ('explorer_places_bronze'), ('explorer_places_silver'), ('explorer_places_gold'), ('explorer_places_platinum'),
+    ('place_categories_bronze'), ('place_categories_silver'), ('place_categories_gold'), ('place_categories_platinum'),
+    ('municipalities_bronze'), ('municipalities_silver'), ('municipalities_gold'), ('municipalities_platinum'),
+    ('contributions_bronze'), ('contributions_silver'), ('contributions_gold'), ('contributions_platinum')$$,
   'Every tier key follows the <collection>_<tier> convention'
 );
 
@@ -71,10 +71,10 @@ select results_eq(
     where definition.collection is not null
     order by definition.collection, (definition.criteria ->> 'threshold')::integer$$,
   $$values
-    ('contributions', 'bronze', 1), ('contributions', 'silver', 3), ('contributions', 'gold', 10),
-    ('explorer_places', 'bronze', 5), ('explorer_places', 'silver', 10), ('explorer_places', 'gold', 15),
-    ('municipalities', 'bronze', 2), ('municipalities', 'silver', 3), ('municipalities', 'gold', 4),
-    ('place_categories', 'bronze', 2), ('place_categories', 'silver', 3), ('place_categories', 'gold', 4)$$,
+    ('contributions', 'bronze', 1), ('contributions', 'silver', 3), ('contributions', 'gold', 10), ('contributions', 'platinum', 25),
+    ('explorer_places', 'bronze', 5), ('explorer_places', 'silver', 10), ('explorer_places', 'gold', 15), ('explorer_places', 'platinum', 100),
+    ('municipalities', 'bronze', 2), ('municipalities', 'silver', 3), ('municipalities', 'gold', 4), ('municipalities', 'platinum', 7),
+    ('place_categories', 'bronze', 2), ('place_categories', 'silver', 3), ('place_categories', 'gold', 4), ('place_categories', 'platinum', 5)$$,
   'Thresholds match the approved catalogue'
 );
 
@@ -142,7 +142,7 @@ select throws_ok(
 select throws_ok(
   $$insert into private.achievement_definitions
       (key, version, achievement_group, display_order, collection, tier, progress_kind, criteria)
-    values ('bad_tier_value', 1, 'exploration', 94, 'explorer_places', 'platinum', 'credited_places', '{"threshold": 1}')$$,
+    values ('bad_tier_value', 1, 'exploration', 94, 'explorer_places', 'diamond', 'credited_places', '{"threshold": 1}')$$,
   '23514',
   null,
   'An unknown tier name is rejected'
@@ -396,13 +396,13 @@ set local role authenticated;
 
 select is(
   (select count(*) from public.get_my_achievements()),
-  12::bigint,
-  'A member with no activity sees all twelve tier slots and nothing else'
+  16::bigint,
+  'A member with no activity sees all sixteen tier slots and nothing else'
 );
 
 select is(
   (select count(*) from public.get_my_achievements() where entry_kind = 'locked'),
-  12::bigint,
+  16::bigint,
   'Every slot for an inactive member is locked'
 );
 
