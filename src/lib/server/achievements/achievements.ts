@@ -4,7 +4,7 @@ export type AchievementGroup =
 export type AchievementMetric =
   'credited_places' | 'credited_categories' | 'credited_municipalities' | 'confirmed_contributions';
 
-export type AchievementTier = 'bronze' | 'silver' | 'gold';
+export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'platinum';
 
 interface RpcError {
   code?: string;
@@ -424,7 +424,9 @@ function isGroup(value: unknown): value is AchievementGroup {
 }
 
 function isTier(value: unknown): value is AchievementTier {
-  return value === 'bronze' || value === 'silver' || value === 'gold';
+  return (
+    value === 'bronze' || value === 'silver' || value === 'gold' || value === 'platinum'
+  );
 }
 
 function isMetric(value: unknown): value is AchievementMetric {

@@ -997,6 +997,7 @@
   "achievements.tier.bronze": "Brons",
   "achievements.tier.silver": "Silfur",
   "achievements.tier.gold": "Gull",
+  "achievements.tier.platinum": "Platína",
   "achievements.tierName": "{collection} - {tier}",
   "achievements.progress.confirmed_contributions": "{current} af {target} framlögum",
   "achievements.tierDescription.credited_places": "Innritaðu þig á {target} mismunandi staði.",

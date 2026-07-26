@@ -34,8 +34,8 @@ const categoryCollection = {
   group: 'exploration'
 } as const;
 
-// One full collection: bronze earned, silver started, gold untouched. The untouched cell is the
-// visible gap the phase exists to show.
+// One full collection: bronze earned, silver started, gold and Platinum untouched. The untouched
+// cells prove every future rung remains visible.
 const tiers: MyAchievement[] = [
   {
     ...categoryCollection,
@@ -65,6 +65,16 @@ const tiers: MyAchievement[] = [
     tier: 'gold',
     earnedAt: null,
     progress: { kind: 'credited_categories', current: 0, target: 4 }
+  },
+  {
+    ...categoryCollection,
+    kind: 'locked',
+    entry: 'tier',
+    key: 'place_categories_platinum',
+    displayOrder: 17,
+    tier: 'platinum',
+    earnedAt: null,
+    progress: { kind: 'credited_categories', current: 0, target: 5 }
   }
 ];
 
@@ -102,6 +112,7 @@ describe('Member Achievements view', () => {
       'Innritanir með stuttu millibili telja sem ein.',
       '2 af 3 flokkum',
       'Brons',
+      'Platína',
       'Þarf 4',
       categoryCollection.collectionDescriptionIs
     ],
@@ -113,6 +124,7 @@ describe('Member Achievements view', () => {
       'Check-ins close together count once.',
       '2 of 3 categories',
       'Bronze',
+      'Platinum',
       'Needs 4',
       categoryCollection.collectionDescriptionEn
     ]
@@ -126,6 +138,7 @@ describe('Member Achievements view', () => {
       spacingNote,
       startedProgress,
       bronzeLabel,
+      platinumLabel,
       goldTarget,
       repeatedDescription
     ) => {
@@ -138,9 +151,10 @@ describe('Member Achievements view', () => {
       expect(screen.queryByText(repeatedDescription)).toBeNull();
       expect(screen.getByText(startedProgress)).toBeTruthy();
       expect(screen.getByText(bronzeLabel)).toBeTruthy();
+      expect(screen.getByText(platinumLabel)).toBeTruthy();
       // The gold tier has no progress at all and is still shown, advertising its threshold.
       expect(screen.getByText(goldTarget)).toBeTruthy();
-      expect(document.querySelectorAll('[data-achievement-tier]')).toHaveLength(3);
+      expect(document.querySelectorAll('[data-achievement-tier]')).toHaveLength(4);
     }
   );
 
@@ -157,7 +171,7 @@ describe('Member Achievements view', () => {
     renderPage('en');
 
     const badges = document.querySelectorAll<HTMLElement>('[data-achievement-badge]');
-    expect(badges).toHaveLength(4);
+    expect(badges).toHaveLength(5);
 
     for (const badge of badges) {
       expect(badge.getAttribute('data-badge-shape')).toBe('woven-rosette');
@@ -174,11 +188,14 @@ describe('Member Achievements view', () => {
     const bronze = document.querySelector('[data-achievement-tier="bronze"]');
     const silver = document.querySelector('[data-achievement-tier="silver"]');
     const gold = document.querySelector('[data-achievement-tier="gold"]');
+    const platinum = document.querySelector('[data-achievement-tier="platinum"]');
 
     expect(bronze?.querySelectorAll('[data-badge-ring]')).toHaveLength(1);
     expect(silver?.querySelectorAll('[data-badge-ring]')).toHaveLength(2);
     expect(gold?.querySelectorAll('[data-badge-ring]')).toHaveLength(2);
+    expect(platinum?.querySelectorAll('[data-badge-ring]')).toHaveLength(3);
     expect(gold?.querySelector('[data-badge-raised-edge]')).toBeTruthy();
+    expect(platinum?.querySelector('[data-badge-raised-edge]')).toBeTruthy();
 
     for (const icon of document.querySelectorAll('[data-achievement-icon]')) {
       expect(icon.closest('[data-achievement-badge]')).toBeTruthy();

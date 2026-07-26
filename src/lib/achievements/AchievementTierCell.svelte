@@ -130,13 +130,17 @@
     color: var(--hv-color-moss);
   }
 
-  /* Weight increases across the row, so the three rungs read as a progression without colour. */
+  /* Weight increases across the row, so the four rungs read as a progression without colour. */
   .cell[data-achievement-tier='silver'] .tier-label {
     letter-spacing: 0.11em;
   }
 
   .cell[data-achievement-tier='gold'] .tier-label {
     letter-spacing: 0.13em;
+  }
+
+  .cell[data-achievement-tier='platinum'] .tier-label {
+    letter-spacing: 0.15em;
   }
 
   .detail {

@@ -23,7 +23,11 @@
   }: Props = $props();
 
   const progressPercent = $derived(Math.round(Math.min(1, Math.max(0, progress)) * 100));
-  const hasSecondRing = $derived(tier === 'silver' || tier === 'gold');
+  const hasSecondRing = $derived(
+    tier === 'silver' || tier === 'gold' || tier === 'platinum'
+  );
+  const hasThirdRing = $derived(tier === 'platinum');
+  const hasRaisedEdge = $derived(tier === 'gold' || tier === 'platinum');
 
   // One broad, eight-lobed outline keeps the rosette calm at compact sizes. The path is static so
   // every state, surface and animation shares exactly the same silhouette.
@@ -42,14 +46,19 @@
   <svg class="rosette" viewBox="0 0 100 100" fill="none" aria-hidden="true">
     <path
       class="shell"
-      class:raised={tier === 'gold'}
-      data-badge-raised-edge={tier === 'gold' ? '' : undefined}
+      class:raised={hasRaisedEdge}
+      data-badge-raised-edge={hasRaisedEdge ? '' : undefined}
       d={rosettePath}
     />
     <g transform="translate(9 9) scale(.82)">
       <path class="face" d={rosettePath} />
     </g>
 
+    {#if hasThirdRing}
+      <g transform="translate(7 7) scale(.86)">
+        <path class="ring tertiary" data-badge-ring d={rosettePath} />
+      </g>
+    {/if}
     {#if hasSecondRing}
       <g transform="translate(10.5 10.5) scale(.79)">
         <path class="ring secondary" data-badge-ring d={rosettePath} />
@@ -138,6 +147,12 @@
     opacity: 0.7;
   }
 
+  .ring.tertiary {
+    stroke-width: 0.9;
+    stroke-dasharray: 1.5 2.2;
+    opacity: 0.85;
+  }
+
   .progress {
     fill: none;
     stroke: var(--hv-color-fjord);
@@ -174,6 +189,14 @@
     --badge-shell-edge: #584128;
     --badge-face: #bf9560;
     --badge-face-edge: #e0c49d;
+  }
+
+  .badge[data-badge-state='earned'][data-badge-tier='platinum'] {
+    --badge-shell: #456d73;
+    --badge-shell-edge: #2f5157;
+    --badge-face: #d6e8e8;
+    --badge-face-edge: #f5ffff;
+    --badge-motif: #315c62;
   }
 
   .badge[data-badge-state='started'] {

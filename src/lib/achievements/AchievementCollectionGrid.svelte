@@ -19,7 +19,7 @@
 
   type TierEntry = EarnedTierAchievement | LockedTierAchievement;
 
-  const tierOrder: AchievementTier[] = ['bronze', 'silver', 'gold'];
+  const tierOrder: AchievementTier[] = ['bronze', 'silver', 'gold', 'platinum'];
 
   // Collections keep the order the RPC returned, which is display_order, so the first appearance of
   // each collection preserves the catalogue's own sequence.
@@ -130,8 +130,14 @@
 
   .tier-row {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.6rem;
+  }
+
+  @media (max-width: 48rem) {
+    .tier-row {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   @media (max-width: 30rem) {

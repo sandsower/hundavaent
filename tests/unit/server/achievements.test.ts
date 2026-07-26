@@ -59,6 +59,15 @@ const lockedTierRow = {
   progress_target: 3
 };
 
+const lockedPlatinumTierRow = {
+  ...lockedTierRow,
+  achievement_key: 'place_categories_platinum',
+  display_order: 17,
+  tier: 'platinum',
+  progress_current: 4,
+  progress_target: 5
+};
+
 const sentinelRow = Object.fromEntries(
   Object.keys(earnedBespokeRow).map((key) => [
     key,
@@ -172,8 +181,8 @@ describe('Achievements RPC adapter', () => {
     });
   });
 
-  it('accepts a full twelve-slot grid rather than rejecting more than two locked entries', async () => {
-    const rows = Array.from({ length: 12 }, (_, index) => ({
+  it('accepts a full sixteen-slot grid rather than rejecting more than two locked entries', async () => {
+    const rows = Array.from({ length: 16 }, (_, index) => ({
       ...lockedTierRow,
       achievement_key: `tier_${index}`,
       display_order: index + 1
@@ -183,7 +192,20 @@ describe('Achievements RPC adapter', () => {
     const result = await getMyAchievements({ rpc } satisfies AchievementRpcClient);
 
     expect(result.status).toBe('success');
-    expect(result.status === 'success' && result.value.achievements).toHaveLength(12);
+    expect(result.status === 'success' && result.value.achievements).toHaveLength(16);
+  });
+
+  it('accepts Platinum as the fourth collection tier', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: [lockedPlatinumTierRow], error: null });
+
+    const result = await getMyAchievements({ rpc } satisfies AchievementRpcClient);
+
+    expect(result.status).toBe('success');
+    expect(result.status === 'success' && result.value.achievements[0]).toMatchObject({
+      key: 'place_categories_platinum',
+      tier: 'platinum',
+      progress: { current: 4, target: 5 }
+    });
   });
 
   it('rejects a row that mixes the tier and bespoke shapes', async () => {

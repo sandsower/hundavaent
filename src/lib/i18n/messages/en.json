@@ -997,6 +997,7 @@
   "achievements.tier.bronze": "Bronze",
   "achievements.tier.silver": "Silver",
   "achievements.tier.gold": "Gold",
+  "achievements.tier.platinum": "Platinum",
   "achievements.tierName": "{collection} - {tier}",
   "achievements.progress.confirmed_contributions": "{current} of {target} contributions",
   "achievements.tierDescription.credited_places": "Check in at {target} distinct places.",
