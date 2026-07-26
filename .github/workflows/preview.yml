@@ -29,6 +29,7 @@ jobs:
       SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PREVIEW_SUPABASE_PROJECT_REF }}
       PUBLIC_SUPABASE_URL: ${{ vars.HUNDAVAENT_PREVIEW_SUPABASE_URL }}
       PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.HUNDAVAENT_PREVIEW_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.HUNDAVAENT_PREVIEW_SUPABASE_SECRET_KEY }}
       PUBLIC_MAP_STYLE_URL: ${{ secrets.HUNDAVAENT_PREVIEW_MAP_STYLE_URL }}
       PUBLIC_APP_URL: https://preview.hundavaent.pages.dev
       PUBLIC_POSTHOG_TOKEN: ${{ vars.HUNDAVAENT_PREVIEW_POSTHOG_TOKEN }}
@@ -64,6 +65,7 @@ jobs:
             SUPABASE_PROJECT_REF
             PUBLIC_SUPABASE_URL
             PUBLIC_SUPABASE_PUBLISHABLE_KEY
+            SUPABASE_SECRET_KEY
             PUBLIC_MAP_STYLE_URL
             PUBLIC_APP_URL
             APP_ENVIRONMENT
@@ -125,6 +127,7 @@ jobs:
           jq -n \
             --arg supabase_url "${PUBLIC_SUPABASE_URL}" \
             --arg supabase_key "${PUBLIC_SUPABASE_PUBLISHABLE_KEY}" \
+            --arg supabase_secret_key "${SUPABASE_SECRET_KEY}" \
             --arg map_style_url "${PUBLIC_MAP_STYLE_URL}" \
             --arg app_url "${PUBLIC_APP_URL}" \
             --arg posthog_token "${PUBLIC_POSTHOG_TOKEN}" \
@@ -134,6 +137,7 @@ jobs:
             '{
               PUBLIC_SUPABASE_URL: $supabase_url,
               PUBLIC_SUPABASE_PUBLISHABLE_KEY: $supabase_key,
+              SUPABASE_SECRET_KEY: $supabase_secret_key,
               PUBLIC_MAP_STYLE_URL: $map_style_url,
               PUBLIC_APP_URL: $app_url,
               PUBLIC_POSTHOG_TOKEN: $posthog_token,

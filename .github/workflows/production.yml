@@ -468,6 +468,28 @@ jobs:
           psql -v ON_ERROR_STOP=1 -v activation_secret="${MEMBER_ACTIVATION_SECRET}" "${db_url}" <<'SQL'
           select public.configure_member_activation_capability(:'activation_secret');
           SQL
+          # The Member photo policy fails closed until it is deliberately set, exactly as the
+          # activation capability does, so it is configured here rather than left for a Member to
+          # discover as a 503. The values are the approved ones: 3 pending per Place, 10 uploads an
+          # hour, 8 MB per file.
+          psql -v ON_ERROR_STOP=1 "${db_url}" <<'SQL'
+          select public.configure_place_media_member_policy(3, 10, 3600, 8388608, true);
+          SQL
+          photo_policy="$(
+            psql -X -qAt -v ON_ERROR_STOP=1 "${db_url}" <<'SQL'
+          select concat_ws(
+            '|',
+            policy.pending_per_place,
+            policy.uploads_per_window,
+            (extract(epoch from policy.submission_window))::integer,
+            policy.byte_limit,
+            policy.enabled
+          )
+          from private.place_media_member_policy as policy
+          where policy.singleton;
+          SQL
+          )"
+          test "${photo_policy}" = "3|10|3600|8388608|t"
           app_fingerprint="$(printf '%s' "${MEMBER_ACTIVATION_SECRET}" | sha256sum | cut -d' ' -f1)"
           db_fingerprint="$(psql -At "${db_url}" -c "select encode(extensions.digest(convert_to(secret, 'UTF8'), 'sha256'), 'hex') from private.member_activation_capabilities where singleton")"
           test "${app_fingerprint}" = "${db_fingerprint}"
@@ -483,6 +505,7 @@ jobs:
             echo "- Commit: ${RELEASE_SHA}"
             echo "- Migrations applied after tested recovery point"
             echo "- Member activation capability fingerprint: ${app_fingerprint}"
+            echo "- Member photo policy: 3 pending per Place, 10 per hour, 8 MB, enabled"
             echo "- Published interface translation keys per locale: ${translation_key_count}"
           } >> "${GITHUB_STEP_SUMMARY}"
 
@@ -525,6 +548,7 @@ jobs:
       AUTH_EMAIL_ENABLED: ${{ vars.HUNDAVAENT_PRODUCTION_AUTH_EMAIL_ENABLED }}
       AUTH_FACEBOOK_ENABLED: ${{ vars.HUNDAVAENT_PRODUCTION_AUTH_FACEBOOK_ENABLED }}
       MEMBER_ACTIVATION_SECRET: ${{ secrets.HUNDAVAENT_PRODUCTION_MEMBER_ACTIVATION_SECRET }}
+      SUPABASE_SECRET_KEY: ${{ secrets.HUNDAVAENT_PRODUCTION_SUPABASE_SECRET_KEY }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -568,6 +592,7 @@ jobs:
             AUTH_EMAIL_ENABLED
             AUTH_FACEBOOK_ENABLED
             MEMBER_ACTIVATION_SECRET
+            SUPABASE_SECRET_KEY
           )
           for name in "${required[@]}"; do
             if [[ -z "${!name:-}" ]]; then
@@ -645,6 +670,7 @@ jobs:
             --arg auth_email_enabled "${AUTH_EMAIL_ENABLED}" \
             --arg auth_facebook_enabled "${AUTH_FACEBOOK_ENABLED}" \
             --arg member_activation_secret "${MEMBER_ACTIVATION_SECRET}" \
+            --arg supabase_secret_key "${SUPABASE_SECRET_KEY}" \
             '{
               PUBLIC_SUPABASE_URL: $supabase_url,
               PUBLIC_SUPABASE_PUBLISHABLE_KEY: $supabase_key,
@@ -660,7 +686,8 @@ jobs:
               TRANSLATION_DATABASE_SECRET: $translation_database_secret,
               AUTH_EMAIL_ENABLED: $auth_email_enabled,
               AUTH_FACEBOOK_ENABLED: $auth_facebook_enabled,
-              MEMBER_ACTIVATION_SECRET: $member_activation_secret
+              MEMBER_ACTIVATION_SECRET: $member_activation_secret,
+              SUPABASE_SECRET_KEY: $supabase_secret_key
             }' > "${secrets_file}"
           chmod 600 "${secrets_file}"
           pnpm exec wrangler pages secret bulk "${secrets_file}" \

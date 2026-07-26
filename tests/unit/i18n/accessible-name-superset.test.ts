@@ -26,7 +26,8 @@ const labelPairs: ReadonlyArray<{ visible: MessageKey; accessible: MessageKey }>
   { visible: 'inlineCorrection.start', accessible: 'inlineCorrection.startLabelPermission' },
   { visible: 'inlineCorrection.start', accessible: 'inlineCorrection.startLabelEligibility' },
   { visible: 'inlineCorrection.start', accessible: 'inlineCorrection.conditionLinkLabel' },
-  { visible: 'inlineCorrection.timingLink', accessible: 'inlineCorrection.timingLinkLabel' }
+  { visible: 'inlineCorrection.timingLink', accessible: 'inlineCorrection.timingLinkLabel' },
+  { visible: 'place.photos.add', accessible: 'place.photos.addLabel' }
 ];
 
 describe('accessible names on the contribution affordances', () => {
