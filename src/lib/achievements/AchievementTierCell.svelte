@@ -5,6 +5,7 @@
     EarnedTierAchievement,
     LockedTierAchievement
   } from '$server/achievements/achievements';
+  import AchievementBadge from './AchievementBadge.svelte';
   import { progressLabel, tierLabel } from './tier-copy';
 
   interface Props {
@@ -29,48 +30,62 @@
 </script>
 
 <div class="cell" data-achievement-tier={entry.tier} data-tier-state={state}>
-  <p class="tier-label">{label}</p>
+  <span class="tier-badge">
+    <AchievementBadge
+      achievementKey={entry.key}
+      collection={entry.collection}
+      group={entry.group}
+      tier={entry.tier}
+      {state}
+      progress={entry.kind === 'locked' ? entry.progress.current / entry.progress.target : 1}
+    />
+  </span>
 
-  {#if entry.kind === 'earned'}
-    <p class="detail">
-      {copy['achievements.earned'].replace('{date}', formatLocalizedDate(entry.earnedAt, lang))}
-    </p>
-  {:else}
-    {@const line = progressLabel(
-      entry.progress.kind,
-      entry.progress.current,
-      entry.progress.target,
-      copy
-    )}
-    {#if started}
-      <div
-        class="track"
-        role="progressbar"
-        aria-label={line}
-        aria-valuemin="0"
-        aria-valuemax={entry.progress.target}
-        aria-valuenow={entry.progress.current}
-      >
-        <span
-          class="fill"
-          style:width={`${Math.round((entry.progress.current / entry.progress.target) * 100)}%`}
-        ></span>
-      </div>
-      <p class="detail">{line}</p>
-    {:else}
-      <p class="detail muted">
-        {copy['achievements.lockedTarget'].replace('{target}', String(entry.progress.target))}
+  <div class="tier-copy">
+    <p class="tier-label">{label}</p>
+
+    {#if entry.kind === 'earned'}
+      <p class="detail">
+        {copy['achievements.earned'].replace('{date}', formatLocalizedDate(entry.earnedAt, lang))}
       </p>
+    {:else}
+      {@const line = progressLabel(
+        entry.progress.kind,
+        entry.progress.current,
+        entry.progress.target,
+        copy
+      )}
+      {#if started}
+        <div
+          class="track"
+          role="progressbar"
+          aria-label={line}
+          aria-valuemin="0"
+          aria-valuemax={entry.progress.target}
+          aria-valuenow={entry.progress.current}
+        >
+          <span
+            class="fill"
+            style:width={`${Math.round((entry.progress.current / entry.progress.target) * 100)}%`}
+          ></span>
+        </div>
+        <p class="detail">{line}</p>
+      {:else}
+        <p class="detail muted">
+          {copy['achievements.lockedTarget'].replace('{target}', String(entry.progress.target))}
+        </p>
+      {/if}
     {/if}
-  {/if}
+  </div>
 </div>
 
 <style>
   .cell {
     display: grid;
-    align-content: start;
-    gap: 0.4rem;
-    min-height: 5.4rem;
+    grid-template-columns: 3.4rem minmax(0, 1fr);
+    gap: 0.75rem;
+    min-height: 6rem;
+    align-items: center;
     border: 1px solid color-mix(in srgb, var(--hv-color-fjord) 22%, transparent);
     border-radius: 0.9rem;
     padding: 0.7rem 0.8rem;
@@ -88,6 +103,18 @@
   .cell[data-tier-state='earned'] {
     border-color: color-mix(in srgb, var(--hv-color-moss) 42%, transparent);
     background: color-mix(in srgb, var(--hv-color-moss) 11%, var(--hv-color-snow-raised));
+  }
+
+  .tier-badge {
+    display: block;
+    width: 3.4rem;
+  }
+
+  .tier-copy {
+    display: grid;
+    min-width: 0;
+    gap: 0.4rem;
+    align-content: center;
   }
 
   .tier-label {

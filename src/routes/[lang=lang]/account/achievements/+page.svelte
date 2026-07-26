@@ -6,9 +6,9 @@
 
   import { formatLocalizedDate } from '$i18n/date';
   import type { MessageKey } from '$i18n';
+  import AchievementBadge from '$lib/achievements/AchievementBadge.svelte';
   import AchievementCelebration from '$lib/achievements/AchievementCelebration.svelte';
   import AchievementCollectionGrid from '$lib/achievements/AchievementCollectionGrid.svelte';
-  import AchievementIcon from '$lib/achievements/AchievementIcon.svelte';
   import { publishAchievementAcknowledged } from '$lib/achievements/client';
   import type {
     AchievementGroup,
@@ -147,8 +147,12 @@
             <ul class="catalogue hv-list">
               {#each items as achievement (achievement.key)}
                 <li class="achievement hv-panel hv-list-card">
-                  <span class="earned-icon" aria-hidden="true">
-                    <AchievementIcon achievementKey={achievement.key} group={achievement.group} />
+                  <span class="earned-badge">
+                    <AchievementBadge
+                      achievementKey={achievement.key}
+                      group={achievement.group}
+                      state="earned"
+                    />
                   </span>
                   <div>
                     <p class="name-line">
@@ -208,26 +212,20 @@
 
   .achievement {
     display: grid;
-    grid-template-columns: 2.8rem minmax(0, 1fr);
+    grid-template-columns: 3.4rem minmax(0, 1fr);
     gap: 0.85rem;
     align-items: start;
     border-inline-start: 0.3rem solid var(--hv-color-moss);
   }
 
-  .earned-icon {
-    display: grid;
-    width: 2.8rem;
-    height: 2.8rem;
-    border-radius: 0.95rem;
-    background: color-mix(in srgb, var(--hv-color-moss) 13%, white);
-    color: var(--hv-color-moss);
-    padding: 0.58rem;
-    place-items: center;
+  .earned-badge {
+    display: block;
+    width: 3.4rem;
     /* A small lift when the tile is revisited: the badge perks up without the words moving. */
     transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
   }
 
-  .achievement:hover .earned-icon {
+  .achievement:hover .earned-badge {
     transform: translateY(-0.2rem) rotate(-4deg);
   }
 

@@ -2,7 +2,7 @@
   import { resolve } from '$app/paths';
   import { formatLocalizedDate } from '$i18n/date';
   import type { MessageKey } from '$i18n';
-  import AchievementIcon from '$lib/achievements/AchievementIcon.svelte';
+  import AchievementBadge from '$lib/achievements/AchievementBadge.svelte';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
@@ -47,9 +47,10 @@
     {#if data.contributor.status === 'trusted_contributor'}
       <aside class="trusted-note" aria-labelledby="trusted-note-heading">
         <span class="trusted-icon">
-          <AchievementIcon
+          <AchievementBadge
             achievementKey="sustained_quality_contributor"
             group="contribution_quality"
+            state="earned"
           />
         </span>
         <span>
@@ -114,11 +115,8 @@
   }
 
   .trusted-icon {
+    display: block;
     width: 2.8rem;
-    color: var(--hv-color-moss);
-    filter: drop-shadow(
-      0 0.25rem 0.45rem color-mix(in srgb, var(--hv-color-moss) 18%, transparent)
-    );
   }
 
   .back-link {
