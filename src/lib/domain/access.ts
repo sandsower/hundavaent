@@ -1,3 +1,15 @@
+/**
+ * Written wherever the Suggestion contract refuses an empty string and the Member stated nothing.
+ * It is the server's own sentence, and it says so: a Moderator reading it knows no one claimed
+ * this, which is the opposite of what a plausible default would tell them.
+ *
+ * It is English, untranslated, and it is not a rule anyone stated, so it must never reach a
+ * visitor. It lives here because two modules have to agree on it exactly: the Suggestion parser
+ * writes it, and the Moderation publication checklist refuses to publish a Place still carrying
+ * it. A drifting copy of this string would silently reopen that hole.
+ */
+export const notStatedByMember = 'Not stated by the member';
+
 export type AccessArea = 'indoors' | 'outdoors' | 'designated_area' | 'other_bounded';
 
 export type RestraintCondition =

@@ -1792,7 +1792,7 @@ describe('MapListShell synchronization', () => {
     expect(window.location.search).not.toContain('category=');
   });
 
-  it('offers a missing-place suggestion only when no place matches', async () => {
+  it('offers the louder missing-place row only when no place matches', async () => {
     history.replaceState(null, '', '/en');
     const { rerender } = render(MapListShell, {
       places,
@@ -1805,7 +1805,9 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     });
 
-    expect(screen.queryByRole('link', { name: 'Suggest a place' })).toBeNull();
+    expect(
+      screen.queryByRole('link', { name: 'Suggest the place you are looking for' })
+    ).toBeNull();
 
     await rerender({
       places: [],
@@ -1818,7 +1820,122 @@ describe('MapListShell synchronization', () => {
       loadPlace: vi.fn(async () => complexProfile)
     } as never);
 
+    // Two distinct entry points, so a Member reading either one is never told the same thing
+    // twice, and neither accessible name contains the other.
+    expect(
+      screen.getByRole('link', { name: 'Suggest the place you are looking for' })
+    ).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Suggest a place' })).toBeTruthy();
+  });
+
+  it('keeps the suggest pill on the map while browsing and takes it away during a selection', async () => {
+    history.replaceState(null, '', '/en');
+    render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter: createDomTestMapAdapter(),
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+
+    const pill = screen.getByRole('link', { name: 'Suggest a place' });
+    expect(pill.getAttribute('href')).toContain('/en/suggest?');
+    expect(pill.getAttribute('href')).toContain('latitude=');
+    expect(pill.getAttribute('href')).toContain('longitude=');
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Published Place' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: 'Suggest a place' })).toBeNull();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Close selected place' }));
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Suggest a place' })).toBeTruthy();
+    });
+  });
+
+  it('quiets the suggest pill during a map gesture and folds it away with the rest of the chrome', async () => {
+    history.replaceState(null, '', '/en');
+    let mountedCallbacks: MapCallbacks | null = null;
+    const adapter: MapAdapter = {
+      mount: vi.fn((_container, callbacks) => {
+        mountedCallbacks = callbacks;
+      }),
+      setPlaces: vi.fn(),
+      setSelectedPlace: vi.fn(),
+      focusPlace: vi.fn(),
+      setCamera: vi.fn(),
+      destroy: vi.fn()
+    };
+    const { container } = render(MapListShell, {
+      places,
+      lang: 'en',
+      copy: catalogues.en,
+      initialState: defaultDiscoveryState,
+      adapter,
+      replaceUrl,
+      pushUrl,
+      loadPlace: vi.fn(async () => complexProfile)
+    });
+    await waitFor(() => expect(adapter.setPlaces).toHaveBeenCalled());
+    const callbacks = mountedCallbacks as unknown as MapCallbacks;
+    const dock = () => container.querySelector<HTMLElement>('[data-suggest-dock]');
+
+    expect(getComputedStyle(dock()!).opacity).toBe('1');
+    callbacks.onMoveStateChange?.(true);
+    await waitFor(() => expect(Number(getComputedStyle(dock()!).opacity)).toBeLessThan(1));
+    callbacks.onMoveStateChange?.(false);
+    await waitFor(() => expect(getComputedStyle(dock()!).opacity).toBe('1'));
+
+    // The sticky fold is an explicit request for a quiet map, and the pill is chrome.
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide controls' }));
+    await waitFor(() => expect(dock()).toBeNull());
+  });
+
+  it('keeps the suggest pill clear of the results list and the filter sheet on a short compact viewport', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+    // A phone held sideways: the shortest compact viewport the shell has to lay out, and the one
+    // where a bottom-anchored pill and a panel measured in dvh first collide.
+    await browserPage.viewport(667, 375);
+    history.replaceState(null, '', '/en');
+
+    try {
+      const { container } = render(MapListShell, {
+        places,
+        lang: 'en',
+        copy: catalogues.en,
+        initialState: defaultDiscoveryState,
+        adapter: createDomTestMapAdapter(),
+        replaceUrl,
+        pushUrl,
+        loadPlace: vi.fn(async () => complexProfile)
+      });
+
+      // The shell is `height: 100%` of whatever page gives it a viewport; the harness has to hand
+      // it the same one the route does, or every dvh below is measured against nothing.
+      container.style.height = '100dvh';
+      const dockRect = () =>
+        container.querySelector<HTMLElement>('[data-suggest-dock] a')!.getBoundingClientRect();
+
+      // The scrolling panel is what the pill can cover; the list inside it is taller than its own
+      // box by design, so the box is what has to stop above the pill.
+      await fireEvent.click(screen.getByRole('button', { name: 'All' }));
+      const results = container.querySelector<HTMLElement>('[data-results-visible="true"]');
+      expect(results).toBeTruthy();
+      await waitFor(() => expect(results!.getBoundingClientRect().height).toBeGreaterThan(0));
+      expect(results!.getBoundingClientRect().bottom).toBeLessThanOrEqual(dockRect().top);
+
+      await fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
+      const sheet = container.querySelector<HTMLElement>('#discovery-filter-sheet');
+      expect(sheet).toBeTruthy();
+      await waitFor(() => expect(sheet!.getBoundingClientRect().height).toBeGreaterThan(0));
+      expect(sheet!.getBoundingClientRect().bottom).toBeLessThanOrEqual(dockRect().top);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
   });
 
   it('keeps filters, results, and the selected Place mutually exclusive', async () => {

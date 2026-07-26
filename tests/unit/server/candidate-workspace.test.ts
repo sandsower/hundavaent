@@ -96,7 +96,8 @@ const review = {
     geometryQuality: true,
     icelandicTranslation: true,
     englishTranslation: true,
-    accessCondition: false
+    accessCondition: false,
+    publishableRestraintNote: true
   },
   ready: false
 };
