@@ -34,6 +34,6 @@ describe('SharePlaceControl', () => {
       copy: catalogues.is
     });
 
-    expect(screen.getByRole('button', { name: 'Deila Staður' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Deila stað: Staður' })).toBeTruthy();
   });
 });

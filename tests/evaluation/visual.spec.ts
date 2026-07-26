@@ -60,13 +60,13 @@ const copy = {
     moderationHub: 'Umsjón',
     candidateQueue: 'Tillögur að stöðum',
     moderationWorkspace: 'Umsjónarborð',
-    moderationQueues: 'Umsjónarraðir',
-    selectedModerationQueue: 'Valin umsjónarröð',
-    selectedModerationItem: 'Valið umsjónaratriði',
+    moderationQueues: 'Yfirferðarlistar',
+    selectedModerationQueue: 'Valinn yfirferðarlisti',
+    selectedModerationItem: 'Valið atriði til yfirferðar',
     suggestionsQueue: 'Tillögur',
     correctionsAndReportsQueue: 'Leiðréttingar og ábendingar',
     candidatePlacesQueue: 'Tillögur að stöðum',
-    decisionControls: 'Ákvörðunarstýringar',
+    decisionControls: 'Ákvörðunarvalkostir',
     visualSuggestion: 'Sjónræn tillaga',
     candidateForm: 'Bæta við tillögu að stað',
     suggestionForm: 'Leggðu til stað',
@@ -90,13 +90,13 @@ const copy = {
     mediaFileLabel: 'Mynd (PNG, JPEG eða WebP, að hámarki 15 MB)',
     mediaSourceUrlLabel: 'Vefslóð heimildar',
     mediaCapturedAtLabel: 'Tökutími',
-    uploadEvidenceAction: 'Hlaða upp sönnunargagni',
+    uploadEvidenceAction: 'Hlaða upp skjáskoti af heimild',
     uploadAndPublishAction: 'Hlaða upp og birta',
     mediaUploaded: 'Myndefni hlaðið upp.',
     optionalPhotoDetails: 'Valfrjálsar ljósmyndaupplýsingar',
     photographerLabel: 'Ljósmyndari eða sá sem hlóð upp',
     licenseDateLabel: 'Dagsetning myndatöku eða heimildar',
-    licenseReferenceLabel: 'Leyfi eða heimild til birtingar',
+    licenseReferenceLabel: 'Tilvísun í leyfi eða birtingarheimild',
     rightsEvidenceLabel: 'Tilvísun í sönnun fyrir afnotarétti',
     attributionTextLabel: 'Sýnileg höfundartilkynning',
     peopleReviewLabel: 'Fólk sem sést á myndinni',
@@ -634,7 +634,7 @@ for (const locale of ['is', 'en'] as const) {
       .getByRole('button', {
         name:
           locale === 'is'
-            ? `Skrá heimsókn hjá ${copy[locale].place}`
+            ? `Skrá heimsókn - ${copy[locale].place}`
             : `Check in at ${copy[locale].place}`
       })
       .click();
@@ -800,7 +800,7 @@ for (const locale of ['is', 'en'] as const) {
       .getByRole('button', {
         name:
           locale === 'is'
-            ? 'Fjarlægja Birtur staður úr uppáhaldi'
+            ? 'Fjarlægja úr uppáhaldi: Birtur staður'
             : 'Remove Published Place from favorites'
       })
       .click();

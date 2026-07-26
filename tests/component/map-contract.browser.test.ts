@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { catalogues } from '$i18n';
 import { createDomTestMapAdapter, type DomTestMapAdapter } from '$lib/map/dom-test-adapter';
@@ -31,6 +31,8 @@ const places = [
 ];
 const camera: MapCamera = { latitude: 64.1466, longitude: -21.9426, zoom: 11 };
 const fallbackCamera: MapCamera = { latitude: 64.1466, longitude: -21.9426, zoom: 15 };
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('shared Map interface', () => {
   it('renders markers, selection, attribution, and marker callbacks', async () => {
@@ -121,6 +123,40 @@ describe('shared Map interface', () => {
     expect(onMarkerMove).toHaveBeenCalledWith(places[0].placeId, point);
   });
 
+  it('shows, moves, and clears the viewer location dot', async () => {
+    const adapter: DomTestMapAdapter = createDomTestMapAdapter();
+    const { container, rerender } = render(MapSurface, {
+      adapter,
+      places,
+      selectedPlaceId: null,
+      camera,
+      copy: catalogues.en,
+      onMarkerSelect: vi.fn(),
+      onCameraChange: vi.fn(),
+      viewerLocation: { latitude: 64.152311, longitude: -21.934822 }
+    });
+
+    await screen.findByRole('button', { name: 'Published Place' });
+    await waitFor(() =>
+      expect(screen.getByRole('region', { name: 'Map' }).getAttribute('data-paint-ready')).toBe(
+        'true'
+      )
+    );
+    const dot = container.querySelector<HTMLElement>('[data-viewer-location]');
+    expect(dot?.dataset.latitude).toBe('64.152311');
+    expect(dot?.dataset.longitude).toBe('-21.934822');
+
+    await rerender({ viewerLocation: { latitude: 64.16, longitude: -21.92 } });
+    await waitFor(() => {
+      const moved = container.querySelector<HTMLElement>('[data-viewer-location]');
+      expect(moved?.dataset.latitude).toBe('64.16');
+      expect(moved?.dataset.longitude).toBe('-21.92');
+    });
+
+    await rerender({ viewerLocation: null });
+    await waitFor(() => expect(container.querySelector('[data-viewer-location]')).toBeNull());
+  });
+
   it('forwards terminal cluster members for an accessible selection fallback', async () => {
     let mountedCallbacks: MapCallbacks | null = null;
     const onClusterSelect = vi.fn();
@@ -152,7 +188,7 @@ describe('shared Map interface', () => {
     expect(onClusterSelect).toHaveBeenCalledWith([places[0].placeId, 'another-place']);
   });
 
-  it('emits no coordinates and asks for the pin until the Location is answered', async () => {
+  it('emits no coordinates until the Location is answered, and demands nothing while it waits', async () => {
     const adapter: DomTestMapAdapter = createDomTestMapAdapter();
     const { container } = render(SuggestionLocationPicker, {
       adapter,
@@ -165,7 +201,9 @@ describe('shared Map interface', () => {
     expect(container.querySelector('input[name="latitude"]')).toBeNull();
     expect(container.querySelector('input[name="longitude"]')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Suggested place' })).toBeNull();
-    expect(screen.getByText('Place the pin where the place is.')).toBeTruthy();
+    // The picker states no demand of its own. Sending is what the unanswered pin blocks, so the
+    // page raises it as an alert at that moment rather than standing under the map from arrival.
+    expect(screen.queryByText('Place the pin where the place is.')).toBeNull();
 
     adapter.simulateMapSelect({ latitude: 64.15, longitude: -21.93 });
     await waitFor(() =>
@@ -217,6 +255,67 @@ describe('shared Map interface', () => {
     await fireEvent.click(useMapCentre);
     expect(latitude.value).toBe('64.17');
     expect(longitude.value).toBe('-21.91');
+  });
+
+  it('searches for an address and places the suggestion pin at the chosen result', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            results: [
+              {
+                id: 'gisco-1',
+                label: 'Laugavegur 30, 101 Reykjavík',
+                addressLine: 'Laugavegur 30',
+                locality: 'Reykjavík',
+                postalCode: '101',
+                municipality: 'reykjavik',
+                latitude: 64.145245,
+                longitude: -21.927444,
+                source: 'EU GISCO Address API'
+              }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+    );
+    const adapter: DomTestMapAdapter = createDomTestMapAdapter();
+    const setCamera = vi.spyOn(adapter, 'setCamera');
+    const { container } = render(SuggestionLocationPicker, {
+      adapter,
+      copy: catalogues.en,
+      fallbackCamera
+    });
+
+    await fireEvent.input(screen.getByLabelText('Find an address or place'), {
+      target: { value: 'Laugavegur 30' }
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await fireEvent.click(
+      await screen.findByRole('button', { name: 'Laugavegur 30, 101 Reykjavík' })
+    );
+
+    expect(container.querySelector<HTMLInputElement>('input[name="latitude"]')?.value).toBe(
+      '64.145245'
+    );
+    expect(container.querySelector<HTMLInputElement>('input[name="longitude"]')?.value).toBe(
+      '-21.927444'
+    );
+    expect(screen.getByRole('status').textContent).toContain(
+      'Location selected at 64.145245, -21.927444'
+    );
+    await waitFor(() =>
+      expect(setCamera).toHaveBeenLastCalledWith(
+        { latitude: 64.145245, longitude: -21.927444, zoom: 17 },
+        expect.objectContaining({ duration: 0 })
+      )
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/locations/search?q=Laugavegur%2030',
+      expect.objectContaining({ headers: { accept: 'application/json' } })
+    );
   });
 
   it('ignores startup camera events until the initial camera is applied', async () => {

@@ -41,6 +41,11 @@
   );
 
   const number = (value: number): string => new Intl.NumberFormat(data.lang).format(value);
+  const primaryConfirmedLabel = $derived(
+    data.impact.confirmedContributions === 1
+      ? data.copy['impact.primaryConfirmedOne']
+      : data.copy['impact.primaryConfirmed']
+  );
   const contributionKindKey = (kind: ImpactContributionKind): MessageKey =>
     `impact.outcome.kind.${kind}` as MessageKey;
   const availabilityKey = (availability: ImpactPlaceAvailability): MessageKey =>
@@ -88,6 +93,17 @@
 
     return [...recentEarned, ...upcoming];
   });
+
+  const earnedAchievements = $derived(
+    visibleAchievements.filter(
+      (achievement): achievement is EarnedAchievement => achievement.kind === 'earned'
+    )
+  );
+  const upcomingAchievements = $derived(
+    visibleAchievements.filter(
+      (achievement): achievement is LockedTierAchievement => achievement.kind === 'locked'
+    )
+  );
 </script>
 
 <svelte:head>
@@ -101,6 +117,15 @@
   data-width="wide"
   data-impact-record
 >
+  <a
+    class="top-back-link"
+    data-impact-back
+    href={resolve('/[lang=lang]/account', { lang: data.lang })}
+  >
+    <span aria-hidden="true">←</span>
+    {data.copy['account.navSignedIn']}
+  </a>
+
   <header class="impact-hero hv-panel" aria-labelledby="impact-title">
     <div class="hero-mark" aria-hidden="true">
       <ImpactPillarIcon kind="recognition" />
@@ -116,12 +141,20 @@
         {data.copy['impact.privateNote']}
       </p>
     </div>
-    <p class="member-since">
-      {data.copy['impact.memberSince'].replace(
-        '{date}',
-        formatLocalizedDate(data.impact.memberSince, data.lang)
-      )}
-    </p>
+    <aside
+      class="impact-summary"
+      data-impact-summary
+      aria-label={`${number(data.impact.confirmedContributions)} ${primaryConfirmedLabel}`}
+    >
+      <strong>{number(data.impact.confirmedContributions)}</strong>
+      <span>{primaryConfirmedLabel}</span>
+      <small>
+        {data.copy['impact.memberSince'].replace(
+          '{date}',
+          formatLocalizedDate(data.impact.memberSince, data.lang)
+        )}
+      </small>
+    </aside>
   </header>
 
   {#if trustedVerificationFeedback.status === 'available' && trustedVerificationFeedback.value.hasUnread && trustedVerificationFeedback.value.latestConfirmedAt}
@@ -166,189 +199,7 @@
     </section>
   {/if}
 
-  <section class="pillar-grid" aria-label={data.copy['impact.pillarsLabel']}>
-    <article class="pillar rhythm hv-panel" data-impact-pillar="rhythm">
-      <header class="pillar-heading">
-        <ImpactPillarIcon kind="rhythm" />
-        <div>
-          <p class="hv-eyebrow">{data.copy['impact.pillar.rhythm.eyebrow']}</p>
-          <h2>{data.copy['impact.pillar.rhythm.title']}</h2>
-        </div>
-      </header>
-      <p class="pillar-intro">{data.copy['impact.pillar.rhythm.body']}</p>
-      <dl class="metrics two-up">
-        <div>
-          <dt>{data.copy['impact.metric.activeWeeks']}</dt>
-          <dd>{number(data.impact.activeWeeks)}</dd>
-        </div>
-        <div>
-          <dt>{data.copy['impact.metric.activeMonths']}</dt>
-          <dd>{number(data.impact.activeMonths)}</dd>
-        </div>
-      </dl>
-      <WeeklyRhythmTrail history={data.rhythm} lang={data.lang} copy={data.copy} />
-    </article>
-
-    <article class="pillar exploration hv-panel" data-impact-pillar="exploration">
-      <header class="pillar-heading">
-        <ImpactPillarIcon kind="exploration" />
-        <div>
-          <p class="hv-eyebrow">{data.copy['impact.pillar.exploration.eyebrow']}</p>
-          <h2>{data.copy['impact.pillar.exploration.title']}</h2>
-        </div>
-      </header>
-      <p class="pillar-intro">{data.copy['impact.pillar.exploration.body']}</p>
-      <dl class="metrics">
-        <div>
-          <dt>{data.copy['impact.metric.places']}</dt>
-          <dd>{number(data.impact.creditedPlaces)}</dd>
-        </div>
-        <div>
-          <dt>{data.copy['impact.metric.categoryGroups']}</dt>
-          <dd>{number(data.impact.creditedCategoryGroups)}</dd>
-        </div>
-        <div>
-          <dt>{data.copy['impact.metric.municipalities']}</dt>
-          <dd>{number(data.impact.creditedMunicipalities)}</dd>
-        </div>
-      </dl>
-      <p class="integrity-note">{data.copy['impact.explorationIntegrity']}</p>
-    </article>
-
-    <article class="pillar knowledge hv-panel" data-impact-pillar="knowledge">
-      <header class="pillar-heading">
-        <ImpactPillarIcon kind="knowledge" />
-        <div>
-          <p class="hv-eyebrow">{data.copy['impact.pillar.knowledge.eyebrow']}</p>
-          <h2>{data.copy['impact.pillar.knowledge.title']}</h2>
-        </div>
-      </header>
-      <p class="pillar-intro">{data.copy['impact.pillar.knowledge.body']}</p>
-      <dl class="metrics two-up">
-        <div>
-          <dt>{data.copy['impact.metric.validRatings']}</dt>
-          <dd>{number(data.impact.validRatings)}</dd>
-        </div>
-        <div>
-          <dt>{data.copy['impact.metric.submissions']}</dt>
-          <dd>{number(data.impact.submissionsTotal)}</dd>
-        </div>
-      </dl>
-      <dl class="outcome-summary">
-        <div>
-          <dt>{data.copy['impact.metric.pending']}</dt>
-          <dd>{number(data.impact.pendingSubmissions)}</dd>
-        </div>
-        <div>
-          <dt>{data.copy['impact.metric.rejected']}</dt>
-          <dd>{number(data.impact.rejectedSubmissions)}</dd>
-        </div>
-        <div>
-          <dt>{data.copy['impact.metric.resolved']}</dt>
-          <dd>{number(data.impact.resolvedWithoutContribution)}</dd>
-        </div>
-      </dl>
-    </article>
-
-    <article class="pillar contribution hv-panel" data-impact-pillar="contribution">
-      <header class="pillar-heading">
-        <ImpactPillarIcon kind="contribution" />
-        <div>
-          <p class="hv-eyebrow">{data.copy['impact.pillar.contribution.eyebrow']}</p>
-          <h2>{data.copy['impact.pillar.contribution.title']}</h2>
-        </div>
-      </header>
-      <p class="pillar-intro">{data.copy['impact.pillar.contribution.body']}</p>
-      <dl class="metrics two-up">
-        <div>
-          <dt>{data.copy['impact.metric.confirmed']}</dt>
-          <dd>{number(data.impact.confirmedContributions)}</dd>
-        </div>
-        <div class="muted-metric">
-          <dt>{data.copy['impact.metric.revoked']}</dt>
-          <dd>{number(data.impact.revokedContributions)}</dd>
-        </div>
-      </dl>
-      {#if data.contributor.status === 'available'}
-        <div class="status-line">
-          <span>{data.copy['impact.currentStatus']}</span>
-          <strong
-            class="hv-status"
-            data-status={data.contributor.value.status === 'trusted_contributor'
-              ? 'verified'
-              : undefined}
-          >
-            {data.copy[contributorKey(data.contributor.value.status)]}
-          </strong>
-        </div>
-      {:else}
-        <p class="integrity-note">{data.copy['impact.statusUnavailable']}</p>
-      {/if}
-      <!-- Outside the availability branch: this is the only navigation entry to the status page,
-           and its own load handles a degraded status fact. -->
-      <a
-        class="hv-control status-detail-link"
-        href={resolve('/[lang=lang]/account/contributor-status', { lang: data.lang })}
-      >
-        {data.copy['contributor.nav']}
-      </a>
-    </article>
-  </section>
-
-  <section class="recognition hv-panel" aria-labelledby="recognition-title">
-    <header class="section-heading">
-      <ImpactPillarIcon kind="recognition" size="small" />
-      <div>
-        <p class="hv-eyebrow">{data.copy['impact.recognitionEyebrow']}</p>
-        <h2 id="recognition-title">{data.copy['impact.recognitionTitle']}</h2>
-        <p>{data.copy['impact.recognitionIntro']}</p>
-      </div>
-    </header>
-
-    {#if visibleAchievements.length > 0}
-      <ul class="achievement-strip hv-list">
-        {#each visibleAchievements as achievement (achievement.key)}
-          <li>
-            <span class="achievement-icon" aria-hidden="true">
-              <AchievementBadge
-                achievementKey={achievement.key}
-                collection={achievement.entry === 'tier' ? achievement.collection : null}
-                group={achievement.group}
-                tier={achievement.entry === 'tier' ? achievement.tier : null}
-                state={achievement.kind === 'earned' ? 'earned' : 'started'}
-                progress={achievement.kind === 'locked'
-                  ? achievement.progress.current / achievement.progress.target
-                  : 1}
-              />
-            </span>
-            <span>
-              <strong>{achievementName(achievement)}</strong>
-              <small>
-                {achievement.kind === 'earned'
-                  ? data.copy['impact.recognitionEarned']
-                  : data.copy['impact.recognitionNext']}
-              </small>
-            </span>
-          </li>
-        {/each}
-      </ul>
-    {:else if data.achievements.status === 'unavailable'}
-      <p class="integrity-note">{data.copy['impact.achievementsUnavailable']}</p>
-    {:else if !data.achievements.value.enabled}
-      <p class="integrity-note">{data.copy['impact.achievementsDisabled']}</p>
-    {:else}
-      <p class="integrity-note">{data.copy['impact.achievementsEmpty']}</p>
-    {/if}
-
-    <a
-      class="hv-control recognition-link"
-      href={resolve('/[lang=lang]/account/achievements', { lang: data.lang })}
-    >
-      {data.copy['impact.achievementsLink']}
-    </a>
-  </section>
-
-  <section class="outcomes hv-stack" aria-labelledby="outcomes-title">
+  <section class="outcomes hv-stack" aria-labelledby="outcomes-title" data-impact-outcomes>
     <header class="section-heading">
       <ImpactPillarIcon kind="outcome" size="small" />
       <div>
@@ -365,18 +216,15 @@
             <div class="outcome-mark" aria-hidden="true">
               {outcome.state === 'confirmed' ? '✓' : '↺'}
             </div>
-            <div class="outcome-copy">
-              <p class="outcome-kicker">
-                <span
-                  class="hv-status"
-                  data-status={outcome.state === 'confirmed' ? 'verified' : undefined}
-                >
-                  {outcome.state === 'confirmed'
-                    ? data.copy['impact.outcome.confirmed']
-                    : data.copy['impact.outcome.revoked']}
-                </span>
-                <span>{data.copy[contributionKindKey(outcome.kind)]}</span>
-              </p>
+            <div class="outcome-primary">
+              <span
+                class="hv-status"
+                data-status={outcome.state === 'confirmed' ? 'verified' : undefined}
+              >
+                {outcome.state === 'confirmed'
+                  ? data.copy['impact.outcome.confirmed']
+                  : data.copy['impact.outcome.revoked']}
+              </span>
               <h3>{outcomeName(outcome)}</h3>
               <p class="outcome-date">
                 {data.copy[
@@ -388,6 +236,9 @@
                   formatLocalizedDate(outcome.revokedAt ?? outcome.confirmedAt, data.lang)
                 )}
               </p>
+            </div>
+            <div class="outcome-context">
+              <p class="outcome-kind">{data.copy[contributionKindKey(outcome.kind)]}</p>
               <p class="availability">
                 {data.copy[availabilityKey(outcome.availability)]}
               </p>
@@ -418,6 +269,268 @@
     {/if}
   </section>
 
+  <section
+    class="participation hv-stack"
+    aria-labelledby="participation-title"
+    data-impact-participation
+  >
+    <header class="section-heading participation-heading">
+      <ImpactPillarIcon kind="rhythm" size="small" />
+      <div>
+        <p class="hv-eyebrow">{data.copy['impact.participationEyebrow']}</p>
+        <h2 id="participation-title">{data.copy['impact.participationTitle']}</h2>
+        <p>{data.copy['impact.participationIntro']}</p>
+      </div>
+    </header>
+
+    <div class="pillar-grid" aria-label={data.copy['impact.pillarsLabel']}>
+      <details class="pillar rhythm hv-panel" data-impact-pillar="rhythm">
+        <summary>
+          <span class="pillar-heading">
+            <ImpactPillarIcon kind="rhythm" />
+            <span>
+              <span class="hv-eyebrow">{data.copy['impact.pillar.rhythm.eyebrow']}</span>
+              <span class="pillar-title" role="heading" aria-level="3">
+                {data.copy['impact.pillar.rhythm.title']}
+              </span>
+            </span>
+          </span>
+          <span class="pillar-snapshot" data-pillar-snapshot>
+            <span>
+              <strong>{number(data.impact.activeWeeks)}</strong>
+              <small>{data.copy['impact.metric.activeWeeks']}</small>
+            </span>
+            <span>
+              <strong>{number(data.impact.activeMonths)}</strong>
+              <small>{data.copy['impact.metric.activeMonths']}</small>
+            </span>
+          </span>
+          <span class="summary-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="pillar-detail">
+          <p class="pillar-intro">{data.copy['impact.pillar.rhythm.body']}</p>
+          <WeeklyRhythmTrail history={data.rhythm} lang={data.lang} copy={data.copy} />
+        </div>
+      </details>
+
+      <details class="pillar exploration hv-panel" data-impact-pillar="exploration">
+        <summary>
+          <span class="pillar-heading">
+            <ImpactPillarIcon kind="exploration" />
+            <span>
+              <span class="hv-eyebrow">{data.copy['impact.pillar.exploration.eyebrow']}</span>
+              <span class="pillar-title" role="heading" aria-level="3">
+                {data.copy['impact.pillar.exploration.title']}
+              </span>
+            </span>
+          </span>
+          <span class="pillar-snapshot" data-pillar-snapshot>
+            <span>
+              <strong>{number(data.impact.creditedPlaces)}</strong>
+              <small>{data.copy['impact.metric.places']}</small>
+            </span>
+          </span>
+          <span class="summary-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="pillar-detail">
+          <p class="pillar-intro">{data.copy['impact.pillar.exploration.body']}</p>
+          <dl class="metrics two-up">
+            <div>
+              <dt>{data.copy['impact.metric.categoryGroups']}</dt>
+              <dd>{number(data.impact.creditedCategoryGroups)}</dd>
+            </div>
+            <div>
+              <dt>{data.copy['impact.metric.municipalities']}</dt>
+              <dd>{number(data.impact.creditedMunicipalities)}</dd>
+            </div>
+          </dl>
+          <p class="integrity-note">{data.copy['impact.explorationIntegrity']}</p>
+        </div>
+      </details>
+
+      <details class="pillar knowledge hv-panel" data-impact-pillar="knowledge">
+        <summary>
+          <span class="pillar-heading">
+            <ImpactPillarIcon kind="knowledge" />
+            <span>
+              <span class="hv-eyebrow">{data.copy['impact.pillar.knowledge.eyebrow']}</span>
+              <span class="pillar-title" role="heading" aria-level="3">
+                {data.copy['impact.pillar.knowledge.title']}
+              </span>
+            </span>
+          </span>
+          <span class="pillar-snapshot" data-pillar-snapshot>
+            <span>
+              <strong>{number(data.impact.validRatings)}</strong>
+              <small>{data.copy['impact.metric.validRatings']}</small>
+            </span>
+          </span>
+          <span class="summary-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="pillar-detail">
+          <p class="pillar-intro">{data.copy['impact.pillar.knowledge.body']}</p>
+          <dl class="metrics">
+            <div>
+              <dt>{data.copy['impact.metric.submissions']}</dt>
+              <dd>{number(data.impact.submissionsTotal)}</dd>
+            </div>
+          </dl>
+          <dl class="outcome-summary">
+            <div>
+              <dt>{data.copy['impact.metric.pending']}</dt>
+              <dd>{number(data.impact.pendingSubmissions)}</dd>
+            </div>
+            <div>
+              <dt>{data.copy['impact.metric.rejected']}</dt>
+              <dd>{number(data.impact.rejectedSubmissions)}</dd>
+            </div>
+            <div>
+              <dt>{data.copy['impact.metric.resolved']}</dt>
+              <dd>{number(data.impact.resolvedWithoutContribution)}</dd>
+            </div>
+          </dl>
+        </div>
+      </details>
+
+      <details class="pillar contribution hv-panel" data-impact-pillar="contribution">
+        <summary>
+          <span class="pillar-heading">
+            <ImpactPillarIcon kind="contribution" />
+            <span>
+              <span class="hv-eyebrow">{data.copy['impact.pillar.contribution.eyebrow']}</span>
+              <span class="pillar-title" role="heading" aria-level="3">
+                {data.copy['impact.pillar.contribution.title']}
+              </span>
+            </span>
+          </span>
+          <span class="pillar-snapshot" data-pillar-snapshot>
+            <span>
+              <strong>{number(data.impact.confirmedContributions)}</strong>
+              <small>{data.copy['impact.metric.confirmed']}</small>
+            </span>
+          </span>
+          <span class="summary-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="pillar-detail">
+          <p class="pillar-intro">{data.copy['impact.pillar.contribution.body']}</p>
+          <dl class="metrics">
+            <div class="muted-metric">
+              <dt>{data.copy['impact.metric.revoked']}</dt>
+              <dd>{number(data.impact.revokedContributions)}</dd>
+            </div>
+          </dl>
+          {#if data.contributor.status === 'available'}
+            <div class="status-line">
+              <span>{data.copy['impact.currentStatus']}</span>
+              <strong
+                class="hv-status"
+                data-status={data.contributor.value.status === 'trusted_contributor'
+                  ? 'verified'
+                  : undefined}
+              >
+                {data.copy[contributorKey(data.contributor.value.status)]}
+              </strong>
+            </div>
+          {:else}
+            <p class="integrity-note">{data.copy['impact.statusUnavailable']}</p>
+          {/if}
+          <!-- Outside the availability branch: this is the only navigation entry to the status
+               page, and its own load handles a degraded status fact. -->
+          <a
+            class="hv-control status-detail-link"
+            href={resolve('/[lang=lang]/account/contributor-status', { lang: data.lang })}
+          >
+            {data.copy['contributor.nav']}
+          </a>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="recognition hv-panel" aria-labelledby="recognition-title">
+    <header class="section-heading">
+      <ImpactPillarIcon kind="recognition" size="small" />
+      <div>
+        <p class="hv-eyebrow">{data.copy['impact.recognitionEyebrow']}</p>
+        <h2 id="recognition-title">{data.copy['impact.recognitionTitle']}</h2>
+        <p>{data.copy['impact.recognitionIntro']}</p>
+      </div>
+    </header>
+
+    {#if visibleAchievements.length > 0}
+      <div class="achievement-groups">
+        {#if earnedAchievements.length > 0}
+          <section class="achievement-group" data-achievement-kind="earned">
+            <h3>{data.copy['impact.recognitionEarned']}</h3>
+            <ul class="achievement-strip hv-list">
+              {#each earnedAchievements as achievement (achievement.key)}
+                <li>
+                  <span class="achievement-icon" aria-hidden="true">
+                    <AchievementBadge
+                      achievementKey={achievement.key}
+                      collection={achievement.entry === 'tier' ? achievement.collection : null}
+                      group={achievement.group}
+                      tier={achievement.entry === 'tier' ? achievement.tier : null}
+                      state="earned"
+                      progress={1}
+                    />
+                  </span>
+                  <strong>{achievementName(achievement)}</strong>
+                </li>
+              {/each}
+            </ul>
+          </section>
+        {/if}
+
+        {#if upcomingAchievements.length > 0}
+          <section class="achievement-group" data-achievement-kind="upcoming">
+            <h3>{data.copy['impact.recognitionNext']}</h3>
+            <ul class="achievement-strip hv-list">
+              {#each upcomingAchievements as achievement (achievement.key)}
+                <li>
+                  <span class="achievement-icon" aria-hidden="true">
+                    <AchievementBadge
+                      achievementKey={achievement.key}
+                      collection={achievement.collection}
+                      group={achievement.group}
+                      tier={achievement.tier}
+                      state="started"
+                      progress={achievement.progress.current / achievement.progress.target}
+                    />
+                  </span>
+                  <span class="achievement-copy">
+                    <strong>{achievementName(achievement)}</strong>
+                    <progress
+                      aria-label={achievementName(achievement)}
+                      max={achievement.progress.target}
+                      value={achievement.progress.current}
+                    ></progress>
+                    <small>
+                      {number(achievement.progress.current)} / {number(achievement.progress.target)}
+                    </small>
+                  </span>
+                </li>
+              {/each}
+            </ul>
+          </section>
+        {/if}
+      </div>
+    {:else if data.achievements.status === 'unavailable'}
+      <p class="integrity-note">{data.copy['impact.achievementsUnavailable']}</p>
+    {:else if !data.achievements.value.enabled}
+      <p class="integrity-note">{data.copy['impact.achievementsDisabled']}</p>
+    {:else}
+      <p class="integrity-note">{data.copy['impact.achievementsEmpty']}</p>
+    {/if}
+
+    <a
+      class="hv-control recognition-link"
+      href={resolve('/[lang=lang]/account/achievements', { lang: data.lang })}
+    >
+      {data.copy['impact.achievementsLink']}
+    </a>
+  </section>
+
   <a class="back-link hv-control" href={resolve('/[lang=lang]/account', { lang: data.lang })}>
     {data.copy['account.navSignedIn']}
   </a>
@@ -430,6 +543,22 @@
     --impact-knowledge: #a0651b;
     --impact-contribution: #8a4e72;
     max-width: 72rem;
+  }
+
+  .top-back-link {
+    display: inline-flex;
+    justify-self: start;
+    gap: 0.45rem;
+    align-items: center;
+    color: var(--hv-color-fjord);
+    font-size: 0.9rem;
+    font-weight: 850;
+    text-decoration: none;
+  }
+
+  .top-back-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
   }
 
   .impact-hero {
@@ -447,6 +576,40 @@
       var(--hv-color-snow-raised) 38%,
       rgb(248 251 246) 100%
     );
+  }
+
+  .impact-summary {
+    display: grid;
+    min-width: 11.5rem;
+    gap: 0.25rem;
+    align-self: stretch;
+    align-content: center;
+    padding-left: clamp(1rem, 2.5vw, 2rem);
+    border-left: 1px solid color-mix(in srgb, var(--hv-color-moss) 25%, transparent);
+  }
+
+  .impact-summary strong {
+    color: var(--hv-color-moss-ink);
+    font-family: var(--hv-font-display);
+    font-size: clamp(3rem, 7vw, 4.75rem);
+    font-weight: 950;
+    line-height: 0.9;
+  }
+
+  .impact-summary span {
+    max-width: 15ch;
+    color: var(--hv-color-moss-ink);
+    font-size: 0.9rem;
+    font-weight: 850;
+    line-height: 1.2;
+  }
+
+  .impact-summary small {
+    max-width: 19ch;
+    margin-top: 0.55rem;
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.76rem;
+    line-height: 1.35;
   }
 
   .trusted-celebration {
@@ -597,8 +760,6 @@
 
   .hero-copy h1,
   .hero-copy p,
-  .pillar-heading p,
-  .pillar-heading h2,
   .section-heading p,
   .section-heading h2 {
     margin: 0;
@@ -631,12 +792,8 @@
     font-size: 0.6rem;
   }
 
-  .member-since {
-    align-self: start;
-    margin: 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.82rem;
-    white-space: nowrap;
+  .participation {
+    --impact-tone: var(--hv-color-fjord);
   }
 
   .pillar-grid {
@@ -646,11 +803,34 @@
   }
 
   .pillar {
-    display: grid;
-    align-content: start;
-    gap: 1rem;
-    padding: clamp(1.2rem, 3vw, 1.75rem);
+    overflow: clip;
+    padding: 0;
     border-top: 0.3rem solid var(--impact-tone);
+  }
+
+  .pillar summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 1rem;
+    align-items: center;
+    padding: clamp(1rem, 2.5vw, 1.35rem);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .pillar summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .pillar summary:focus-visible {
+    border-radius: calc(var(--hv-radius-panel) - 2px);
+    outline: 3px solid color-mix(in srgb, var(--impact-tone) 38%, transparent);
+    outline-offset: -3px;
+  }
+
+  .pillar[open] summary {
+    border-bottom: 1px solid var(--hv-border-subtle);
+    background: color-mix(in srgb, var(--impact-tone) 4%, var(--hv-color-snow-raised));
   }
 
   .pillar.rhythm {
@@ -672,14 +852,74 @@
   .pillar-heading,
   .section-heading {
     display: flex;
+    min-width: 0;
     gap: 0.85rem;
     align-items: center;
   }
 
-  .pillar-heading h2,
   .section-heading h2 {
     font-family: var(--hv-font-display);
     font-size: clamp(1.25rem, 3vw, 1.65rem);
+  }
+
+  .pillar-heading > span:last-child {
+    display: grid;
+    min-width: 0;
+    gap: 0.15rem;
+  }
+
+  .pillar-title {
+    font-family: var(--hv-font-display);
+    font-size: clamp(1.15rem, 2vw, 1.4rem);
+    font-weight: 900;
+    line-height: 1.1;
+  }
+
+  .pillar-snapshot {
+    display: flex;
+    gap: 0.55rem;
+    justify-content: flex-end;
+  }
+
+  .pillar-snapshot > span {
+    display: grid;
+    min-width: 5.25rem;
+    gap: 0.15rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: var(--hv-radius-control);
+    background: color-mix(in srgb, var(--impact-tone) 8%, var(--hv-color-snow-raised));
+  }
+
+  .pillar-snapshot strong {
+    color: color-mix(in srgb, var(--impact-tone) 78%, black);
+    font-family: var(--hv-font-display);
+    font-size: 1.65rem;
+    font-weight: 950;
+    line-height: 0.9;
+  }
+
+  .pillar-snapshot small {
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.7rem;
+    font-weight: 750;
+    line-height: 1.2;
+  }
+
+  .summary-chevron {
+    color: var(--impact-tone);
+    font-size: 1.45rem;
+    font-weight: 900;
+    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
+  }
+
+  .pillar[open] .summary-chevron {
+    transform: rotate(180deg);
+  }
+
+  .pillar-detail {
+    display: grid;
+    gap: 1rem;
+    padding: clamp(1rem, 2.5vw, 1.35rem);
   }
 
   .pillar-intro,
@@ -772,9 +1012,31 @@
     background: color-mix(in srgb, var(--hv-color-moss) 5%, var(--hv-color-snow-raised));
   }
 
+  .achievement-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .achievement-group {
+    display: grid;
+    min-width: 0;
+    gap: 0.65rem;
+    align-content: start;
+  }
+
+  .achievement-group h3 {
+    margin: 0;
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
   .achievement-strip {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.65rem;
   }
 
@@ -798,9 +1060,35 @@
     line-height: 1.2;
   }
 
+  .achievement-copy {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    gap: 0.25rem;
+  }
+
   .achievement-strip small {
-    margin-top: 0.2rem;
     color: var(--hv-color-basalt-muted);
+  }
+
+  .achievement-strip progress {
+    width: 100%;
+    height: 0.45rem;
+    overflow: hidden;
+    border: 0;
+    border-radius: 999px;
+    accent-color: var(--hv-color-moss);
+    background: color-mix(in srgb, var(--hv-color-moss) 14%, white);
+  }
+
+  .achievement-strip progress::-webkit-progress-bar {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--hv-color-moss) 14%, white);
+  }
+
+  .achievement-strip progress::-webkit-progress-value {
+    border-radius: 999px;
+    background: var(--hv-color-moss);
   }
 
   .achievement-icon {
@@ -825,15 +1113,22 @@
 
   .outcome-list {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: 1fr;
+    gap: 0.65rem;
+  }
+
+  .outcome-list > li:first-child {
+    background: color-mix(in srgb, var(--hv-color-moss) 4%, var(--hv-color-snow-raised));
   }
 
   .outcome-card {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.75rem;
-    padding: 1rem;
+    grid-template-columns: auto minmax(0, 1.15fr) minmax(14rem, 0.85fr);
+    gap: clamp(0.8rem, 2.5vw, 1.35rem);
+    align-items: start;
+    min-height: 7.15rem;
+    padding: 0.95rem 1.05rem;
   }
 
   .outcome-card[data-outcome-state='revoked'] {
@@ -856,28 +1151,34 @@
     color: var(--hv-color-basalt-muted);
   }
 
-  .outcome-copy {
+  .outcome-primary,
+  .outcome-context {
     min-width: 0;
   }
 
-  .outcome-copy h3,
-  .outcome-copy p {
+  .outcome-primary h3,
+  .outcome-primary p,
+  .outcome-context p {
     margin: 0;
   }
 
-  .outcome-copy h3 {
+  .outcome-primary h3 {
     margin-top: 0.4rem;
     font-family: var(--hv-font-display);
     font-size: 1.1rem;
   }
 
-  .outcome-kicker {
+  .outcome-context {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-    align-items: center;
+    height: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .outcome-kind {
     color: var(--hv-color-basalt-muted);
     font-size: 0.78rem;
+    font-weight: 750;
   }
 
   .outcome-date,
@@ -890,7 +1191,8 @@
   .successor-link,
   .successor-note {
     display: inline-block;
-    margin-top: 0.55rem;
+    margin-top: auto;
+    padding-top: 0.55rem;
     font-size: 0.88rem;
     font-weight: 850;
   }
@@ -970,15 +1272,24 @@
   }
 
   @media (max-width: 50rem) {
-    .impact-hero {
-      grid-template-columns: auto minmax(0, 1fr);
+    .pillar-grid {
+      grid-template-columns: 1fr;
     }
 
-    .member-since {
+    .outcome-list {
+      grid-auto-rows: auto;
+    }
+
+    .outcome-card {
+      grid-template-columns: auto minmax(0, 1fr);
+      min-height: 0;
+    }
+
+    .outcome-context {
       grid-column: 2;
     }
 
-    .pillar-grid {
+    .achievement-groups {
       grid-template-columns: 1fr;
     }
 
@@ -992,14 +1303,37 @@
       grid-template-columns: 1fr;
     }
 
+    .impact-summary {
+      min-width: 0;
+      padding-top: 1rem;
+      padding-left: 0;
+      border-top: 1px solid color-mix(in srgb, var(--hv-color-moss) 25%, transparent);
+      border-left: 0;
+    }
+
+    .impact-summary span,
+    .impact-summary small {
+      max-width: none;
+    }
+
     .hero-mark {
       width: 4.5rem;
       height: 4.5rem;
     }
 
-    .member-since {
-      grid-column: auto;
-      white-space: normal;
+    .pillar summary {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .pillar-snapshot {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      justify-content: flex-start;
+    }
+
+    .summary-chevron {
+      grid-column: 2;
+      grid-row: 1;
     }
 
     .metrics {
@@ -1009,10 +1343,6 @@
     .metrics.two-up,
     .achievement-strip {
       grid-template-columns: 1fr 1fr;
-    }
-
-    .outcome-list {
-      grid-template-columns: 1fr;
     }
 
     .achievement-strip li {

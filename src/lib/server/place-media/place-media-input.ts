@@ -121,13 +121,22 @@ export function extensionForMimeType(mimeType: PlaceMediaMimeType): string {
 
 // Both buckets are keyed by Place so a Moderator can reason about "everything attached to this
 // Place" from the object path alone; the trailing UUID keeps concurrent uploads collision-free.
+//
+// The optional namespace segment separates objects a Member submitted from objects a Moderator
+// uploaded. Nothing authorizes on it - the uploader column does that - but a Moderator reading a
+// path should be able to tell where the bytes came from without a query.
 export function buildPlaceMediaObjectPath(
   placeId: string,
   objectId: string,
-  mimeType: PlaceMediaMimeType
+  mimeType: PlaceMediaMimeType,
+  namespace?: string
 ): string {
-  return `${placeId}/${objectId}.${extensionForMimeType(mimeType)}`;
+  const segments = namespace ? [placeId, namespace] : [placeId];
+  return `${segments.join('/')}/${objectId}.${extensionForMimeType(mimeType)}`;
 }
+
+// Photos a Member submitted, held for review, live under this segment of the Place's prefix.
+export const memberPlacePhotoNamespace = 'member-uploads';
 
 export function parseRegisterEvidenceFormData(form: FormData): RegisterEvidenceInputResult {
   const value = (key: string): string => String(form.get(key) ?? '').trim();

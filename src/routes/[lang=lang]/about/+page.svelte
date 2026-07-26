@@ -592,9 +592,13 @@
       border-top: 1px solid var(--hv-border-subtle);
     }
 
+    /* Full-bleed: cancel exactly the inset the page shell holds it in by, and pay it back as
+       padding. Naming the shell's own token is what keeps the two in step - a literal copy of it
+       here silently became a 4px horizontal overflow the moment the shell moved to the shared
+       edge inset. */
     .trust-section {
-      margin-inline: -1rem;
-      padding-inline: 1rem;
+      margin-inline: calc(var(--hv-space-edge) * -1);
+      padding-inline: var(--hv-space-edge);
     }
 
     .vision-actions {

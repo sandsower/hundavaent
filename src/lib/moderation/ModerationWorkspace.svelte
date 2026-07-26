@@ -22,6 +22,7 @@
     cursorTrail,
     nextCursor,
     hasPrevious,
+    pendingPhotoPlaces = [],
     statusMessage = '',
     errorMessage = null,
     reviewErrorMessage = null,
@@ -212,6 +213,7 @@
       {cursorTrail}
       {nextCursor}
       {hasPrevious}
+      {pendingPhotoPlaces}
       {errorMessage}
     />
 

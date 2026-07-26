@@ -196,6 +196,9 @@
             aria-describedby="wheelchair-accessibility-help"
           >
             <option value="accessible">{data.copy['wheelchairAccessibility.accessible']}</option>
+            <option value="partially_accessible"
+              >{data.copy['wheelchairAccessibility.partiallyAccessible']}</option
+            >
             <option value="not_accessible"
               >{data.copy['wheelchairAccessibility.notAccessible']}</option
             >

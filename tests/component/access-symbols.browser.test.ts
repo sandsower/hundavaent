@@ -391,7 +391,7 @@ describe('AccessSymbols', () => {
     const tooltip = activeTooltip();
     expect(tooltip.getAttribute('aria-hidden')).toBe('true');
     expect(tooltip.textContent).toContain('Dogs are welcome in the outdoor customer area.');
-    expect(tooltip.textContent).toContain('Area detail: Rear terrace.');
+    expect(tooltip.textContent).toContain('Note: Rear terrace.');
     expect(tooltip.textContent).not.toContain('outdoors');
     await fireEvent.focus(outdoors);
     expect(tooltip.getAttribute('aria-hidden')).toBe('true');
@@ -494,7 +494,7 @@ describe('AccessSymbols', () => {
     await fireEvent.click(permission);
     expect(
       document.getElementById(permission.getAttribute('aria-controls')!)?.textContent
-    ).toContain('Fáðu leyfi áður en komið er með hund.');
+    ).toContain('Fáðu leyfi áður en þú kemur með hund.');
 
     const dogs = container.querySelector<HTMLButtonElement>('button.dogs')!;
     await fireEvent.click(dogs);
