@@ -378,9 +378,7 @@ describe('inline Place field Correction input', () => {
       parseCorrectionInput(placeField({ field: 'wheelchair_accessibility', value: null }))
     ).toBeNull();
     expect(
-      parseCorrectionInput(
-        placeField({ field: 'wheelchair_accessibility', value: ['accessible'] })
-      )
+      parseCorrectionInput(placeField({ field: 'wheelchair_accessibility', value: ['accessible'] }))
     ).toBeNull();
   });
 

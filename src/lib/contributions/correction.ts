@@ -140,12 +140,8 @@ export const memberPlaceFields: readonly MemberPlaceField[] = [
  */
 export type MemberWheelchairAccessibilityChoice = Exclude<WheelchairAccessibility, 'unknown'>;
 
-export const memberWheelchairAccessibilityChoices:
-  readonly MemberWheelchairAccessibilityChoice[] = [
-    'accessible',
-    'partially_accessible',
-    'not_accessible'
-  ];
+export const memberWheelchairAccessibilityChoices: readonly MemberWheelchairAccessibilityChoice[] =
+  ['accessible', 'partially_accessible', 'not_accessible'];
 
 export function isMemberWheelchairAccessibilityChoice(
   value: string
