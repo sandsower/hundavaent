@@ -16,8 +16,8 @@ select is(
     from pg_enum
     where enumtypid = 'private.wheelchair_accessibility'::regtype
   ),
-  array['accessible', 'not_accessible', 'unknown']::text[],
-  'Wheelchair accessibility has exactly the three approved states'
+  array['accessible', 'partially_accessible', 'not_accessible', 'unknown']::text[],
+  'Wheelchair accessibility has exactly the four approved states'
 );
 
 select has_column(

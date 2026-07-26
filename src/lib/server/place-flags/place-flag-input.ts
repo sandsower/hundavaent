@@ -1,10 +1,17 @@
 import type { DogEligibility } from '$domain/access';
+import { isMemberWheelchairAccessibilityChoice } from '$lib/contributions/correction';
 import type { Json } from '$server/db/generated.types';
 
 export type PlaceFlagInputError = 'incomplete' | 'invalid';
 
 export type PlaceField =
-  'name' | 'description' | 'website_url' | 'phone' | 'opening_hours' | 'dog_amenities';
+  | 'name'
+  | 'description'
+  | 'website_url'
+  | 'phone'
+  | 'opening_hours'
+  | 'dog_amenities'
+  | 'wheelchair_accessibility';
 
 export type ReportReason =
   'inaccurate' | 'unsafe' | 'misleading' | 'obsolete' | 'closed' | 'moved' | 'successor_place';
@@ -119,7 +126,8 @@ const placeFields = new Set<PlaceField>([
   'website_url',
   'phone',
   'opening_hours',
-  'dog_amenities'
+  'dog_amenities',
+  'wheelchair_accessibility'
 ]);
 const reportReasons = new Set<ReportReason>([
   'inaccurate',
@@ -347,6 +355,12 @@ function readFieldValue(
         .map((item) => item.trim())
         .filter(Boolean);
       return { value: list };
+    }
+    case 'wheelchair_accessibility': {
+      // The three definite states only, mirroring validate_place_field_value: `unknown` is the
+      // absence of a claim, and the Moderator command keeps the explicit-unknown hatch.
+      const text = value('fieldValueText');
+      return isMemberWheelchairAccessibilityChoice(text) ? { value: text } : null;
     }
   }
 }

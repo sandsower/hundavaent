@@ -1,9 +1,15 @@
 export type PlaceLifecycle = 'candidate' | 'published' | 'inactive';
 
-export type WheelchairAccessibility = 'accessible' | 'not_accessible' | 'unknown';
+export type WheelchairAccessibility =
+  'accessible' | 'partially_accessible' | 'not_accessible' | 'unknown';
 
 export function isWheelchairAccessibility(value: unknown): value is WheelchairAccessibility {
-  return value === 'accessible' || value === 'not_accessible' || value === 'unknown';
+  return (
+    value === 'accessible' ||
+    value === 'partially_accessible' ||
+    value === 'not_accessible' ||
+    value === 'unknown'
+  );
 }
 
 export type PlaceCategory =

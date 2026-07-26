@@ -27,8 +27,9 @@ describe('Place publication eligibility', () => {
 });
 
 describe('Wheelchair accessibility', () => {
-  it('accepts only the three approved factual states', () => {
+  it('accepts only the four approved factual states', () => {
     expect(isWheelchairAccessibility('accessible')).toBe(true);
+    expect(isWheelchairAccessibility('partially_accessible')).toBe(true);
     expect(isWheelchairAccessibility('not_accessible')).toBe(true);
     expect(isWheelchairAccessibility('unknown')).toBe(true);
     expect(isWheelchairAccessibility('partial')).toBe(false);

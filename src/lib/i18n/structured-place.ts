@@ -52,7 +52,8 @@ export const placeFieldMessageKeys: Readonly<Record<string, MessageKey>> = {
   website_url: 'placeField.websiteUrl',
   phone: 'placeField.phone',
   opening_hours: 'placeField.openingHours',
-  dog_amenities: 'placeField.dogAmenities'
+  dog_amenities: 'placeField.dogAmenities',
+  wheelchair_accessibility: 'placeField.wheelchairAccessibility'
 };
 
 export const reportReasonMessageKeys: Readonly<Record<string, MessageKey>> = {
