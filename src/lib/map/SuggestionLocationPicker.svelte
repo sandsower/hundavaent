@@ -18,7 +18,6 @@
     /** The placed pin, or `null` while the question is unanswered. */
     latitude?: number | null;
     longitude?: number | null;
-    requiredHintId?: string;
   }
 
   let {
@@ -26,8 +25,7 @@
     copy,
     fallbackCamera,
     latitude = $bindable(null),
-    longitude = $bindable(null),
-    requiredHintId = 'suggestion-location-required'
+    longitude = $bindable(null)
   }: Props = $props();
   let camera = $state<MapCamera>(
     untrack(() =>
@@ -69,7 +67,7 @@
   }
 </script>
 
-<section class="location-picker hv-panel">
+<section class="location-picker">
   <div class="picker-heading">
     <div>
       <h3>{copy['suggestion.locationPickerTitle']}</h3>
@@ -91,10 +89,6 @@
     onMapSelect={selectPoint}
     compact
   />
-
-  {#if !answered}
-    <p class="pin-required" id={requiredHintId}>{copy['suggestion.locationRequired']}</p>
-  {/if}
 
   <div class="coordinate-alternative hv-meta">
     <span>{copy['suggestion.manualLocationHelp']}</span>
@@ -147,15 +141,17 @@
 </section>
 
 <style>
+  /* Deliberately not a panel. The question this answers is already wrapped in one by the form, and
+     a raised surface inset inside an identical raised surface reads as a mistake rather than as
+     structure. One question, one panel. */
   .location-picker {
     display: grid;
-    gap: 0.85rem;
-    padding: var(--hv-space-panel);
+    gap: var(--hv-space-panel);
   }
 
   .picker-heading {
     display: flex;
-    gap: 1rem;
+    gap: var(--hv-space-panel);
     align-items: start;
     justify-content: space-between;
   }
@@ -178,11 +174,6 @@
     flex: none;
   }
 
-  .pin-required {
-    color: var(--hv-color-basalt);
-    font-weight: 800;
-  }
-
   .coordinate-alternative {
     display: flex;
     flex-wrap: wrap;
@@ -202,7 +193,7 @@
   .coordinates {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
+    gap: var(--hv-space-panel);
   }
 
   label {

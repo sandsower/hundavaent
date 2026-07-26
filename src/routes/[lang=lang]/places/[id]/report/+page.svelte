@@ -89,7 +89,7 @@
 
 <main class="hv-page-shell" data-ui-mode="place" data-width="wide">
   <header class="hv-page-header">
-    <div>
+    <div class="hv-page-heading">
       <p class="hv-eyebrow">{data.place?.name}</p>
       <h1 class="hv-page-title">{data.copy['report.title']}</h1>
       <p class="hv-meta">{data.copy['report.intro']}</p>

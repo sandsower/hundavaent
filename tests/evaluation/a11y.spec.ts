@@ -374,7 +374,7 @@ test('Moderator forms have keyboard focus order and Axe-clean semantics', async 
   await page.keyboard.press('Enter');
   await expect(page.getByRole('status')).toContainText('Location selected at');
   // Three questions, in the order they are asked: the name, then the pin, then the area radios.
-  await page.getByLabel('Place name').focus();
+  await page.getByLabel('Name of the place').focus();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Use map centre' })).toBeFocused();
   const welcomeAreas = page.getByRole('group', { name: 'Where can dogs be?' });

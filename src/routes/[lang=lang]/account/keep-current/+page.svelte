@@ -48,7 +48,7 @@
     <div class="header-icon" aria-hidden="true">
       <ImpactPillarIcon kind="recognition" size="large" />
     </div>
-    <div>
+    <div class="hv-page-heading">
       <p class="hv-eyebrow">{data.copy['trustedVerification.eyebrow']}</p>
       <h1 class="hv-page-title">{data.copy['trustedVerification.title']}</h1>
       <p class="hv-meta">{data.copy['trustedVerification.intro']}</p>
