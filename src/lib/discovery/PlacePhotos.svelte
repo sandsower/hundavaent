@@ -40,8 +40,6 @@
   let announcement = $state('');
   const announce = createLiveAnnouncer((message) => (announcement = message));
 
-  let visiblePhotos = $derived(selectVisiblePhotos(photos, featured));
-
   /**
    * The Member's own tiles, beside the published ones.
    *
@@ -57,10 +55,18 @@
     )
   );
 
+  // The featured treatment is one image filling the card, and a Place with several published
+  // photos still gets it: the card shows the best one. The moment the Member has a tile of their
+  // own beside it, it is a strip again, and a strip has to be able to scroll.
+  const strip = $derived(
+    featured && memberTiles.length > 0 && photos.length + memberTiles.length > 1
+  );
+  // Once it is a strip, every published photo belongs in it. Collapsing to the primary one here
+  // would show the Member's pending tile beside a single published photo while the rest of the
+  // Place's photos went missing from a surface that is scrolling anyway.
+  const visiblePhotos = $derived(selectVisiblePhotos(photos, featured && !strip));
+
   const tileCount = $derived(visiblePhotos.length + memberTiles.length);
-  // The featured treatment is one image filling the card. The moment the Member has a tile of
-  // their own beside it, it is a strip again, and a strip has to be able to scroll.
-  const strip = $derived(featured && tileCount > 1);
 
   function selectVisiblePhotos(
     candidatePhotos: PublishedPlacePhoto[],
@@ -97,7 +103,7 @@
       <div
         class="scroller"
         role={featured && !strip ? undefined : 'region'}
-        aria-labelledby="place-photos-heading"
+        aria-labelledby={featured && !strip ? undefined : 'place-photos-heading'}
         tabindex={featured && !strip ? undefined : 0}
       >
         <ul>

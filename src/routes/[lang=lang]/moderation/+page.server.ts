@@ -75,9 +75,14 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
 
   const state = parseModerationWorkspaceQuery(url.searchParams);
   redirectIfInvalidWorkspaceCursor(url, state);
-  const summaryResult = await listModerationQueueSummary(
-    locals.supabase as unknown as QueueSummaryRpcClient
-  );
+  // Cross-queue, so the pending-photo section is read once for the workspace rather than per
+  // queue, and a failure leaves the section absent rather than taking the queue down with it: a
+  // Moderator can still work. Neither read needs the other's answer, so they go together rather
+  // than adding their two round trips up.
+  const [summaryResult, pendingPhotosResult] = await Promise.all([
+    listModerationQueueSummary(locals.supabase as unknown as QueueSummaryRpcClient),
+    loadModerationPendingPhotoPlaces(locals.supabase)
+  ]);
   if (summaryResult.status !== 'success') {
     error(summaryResult.status === 'forbidden' ? 403 : 503, {
       message: locals.copy['error.unexpectedBody'],
@@ -85,9 +90,6 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
     });
   }
 
-  // Cross-queue, so it is read once for the workspace rather than per queue, and a failure leaves
-  // the section absent rather than taking the queue down with it: a Moderator can still work.
-  const pendingPhotosResult = await loadModerationPendingPhotoPlaces(locals.supabase);
   const pendingPhotoPlaces =
     pendingPhotosResult.status === 'success' ? pendingPhotosResult.value : [];
 

@@ -1,7 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { RequestSupabaseClient } from '$server/db/clients';
-import { loadModerationPendingPhotoPlaces } from '$server/moderation/pending-photo-places';
+import {
+  loadModerationPendingPhotoPlaces,
+  moderationPendingPhotoPlaceLimit
+} from '$server/moderation/pending-photo-places';
 import { listPlacesWithPendingPhotos } from '$server/place-media/place-media';
 
 /**
@@ -57,16 +60,22 @@ function reviewRow(placeId: string, nameEn: string) {
   };
 }
 
+const rpcCalls: { name: string; args?: Record<string, unknown> }[] = [];
+
 function client(handlers: Record<string, () => { data: unknown; error: unknown }>) {
   return {
     rpc: vi.fn(async (name: string, args?: Record<string, unknown>) => {
-      void args;
+      rpcCalls.push({ name, args });
       const handler = handlers[name];
       if (!handler) throw new Error(`Unexpected RPC ${name}`);
       return handler();
     })
   } as unknown as RequestSupabaseClient;
 }
+
+beforeEach(() => {
+  rpcCalls.length = 0;
+});
 
 describe('the Places holding Member photos', () => {
   it('maps the discovery read into identifiers, counts and a newest timestamp', async () => {
@@ -76,7 +85,8 @@ describe('the Places holding Member photos', () => {
           data: [listRow(firstPlaceId, 3, '2026-07-26T10:00:00Z')],
           error: null
         })
-      })
+      }),
+      moderationPendingPhotoPlaceLimit
     );
 
     expect(result).toEqual({
@@ -98,7 +108,8 @@ describe('the Places holding Member photos', () => {
           data: [{ place_id: 'not-a-place', pending_photo_count: 1, newest_uploaded_at: 'now' }],
           error: null
         })
-      })
+      }),
+      moderationPendingPhotoPlaceLimit
     );
 
     expect(result).toEqual({ status: 'infrastructure_error' });
@@ -108,7 +119,8 @@ describe('the Places holding Member photos', () => {
     const result = await listPlacesWithPendingPhotos(
       client({
         list_places_with_pending_photos: () => ({ data: null, error: { code: '42501' } })
-      })
+      }),
+      moderationPendingPhotoPlaceLimit
     );
 
     expect(result).toEqual({ status: 'forbidden' });
@@ -134,6 +146,21 @@ describe('the Places holding Member photos', () => {
     ).toEqual([
       [firstPlaceId, 'Brikk', 2],
       [secondPlaceId, 'Kaffi Lóa', 1]
+    ]);
+  });
+
+  it('asks the database for the section size rather than trimming the answer here', async () => {
+    await loadModerationPendingPhotoPlaces(
+      client({
+        list_places_with_pending_photos: () => ({ data: [], error: null })
+      })
+    );
+
+    expect(rpcCalls).toEqual([
+      {
+        name: 'list_places_with_pending_photos',
+        args: { requested_limit: moderationPendingPhotoPlaceLimit }
+      }
     ]);
   });
 

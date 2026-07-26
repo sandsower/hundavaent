@@ -172,6 +172,17 @@ describe('JPEG metadata removal', () => {
     expect(output[exifAt + 24]).toBe(0x03);
   });
 
+  it('carries no orientation across from an entry that is not a single SHORT', () => {
+    // Type 4 is LONG. Its value occupies all four bytes of the value field rather than the first
+    // two, so reading a SHORT out of it would carry across a number that means nothing.
+    const source = buildJpeg({ orientation: 6, orientationType: 4 });
+    const output = stripped(source, 'image/jpeg');
+
+    expect(containsSequence(output, bytesOf('Exif'))).toBe(false);
+    expect(containsSequence(output, gpsBytes)).toBe(false);
+    expect(inspectImage(output)).toEqual(inspectImage(source));
+  });
+
   it('is a no-op on an image that carries no metadata', () => {
     const clean = buildJpeg({
       withExif: false,
@@ -238,6 +249,25 @@ describe('PNG metadata removal', () => {
   it('parses back with identical dimensions', () => {
     const source = buildPng({ widthPx: 64, heightPx: 48 });
     expect(inspectImage(stripped(source, 'image/png'))).toEqual(inspectImage(source));
+  });
+
+  it('drops an ancillary chunk under a type the allowlist does not know', () => {
+    const source = buildPng({ withUnknownChunk: true });
+    expect(containsSequence(source, bytesOf('prVt'))).toBe(true);
+
+    const output = stripped(source, 'image/png');
+    expect(containsSequence(output, bytesOf('prVt'))).toBe(false);
+    expect(containsSequence(output, gpsBytes)).toBe(false);
+    expect(containsSequence(output, bytesOf('IDAT'))).toBe(true);
+  });
+
+  it('drops the animation control chunk, leaving the first frame', () => {
+    const source = buildPng({ withAnimation: true });
+    expect(containsSequence(source, bytesOf('acTL'))).toBe(true);
+
+    const output = stripped(source, 'image/png');
+    expect(containsSequence(output, bytesOf('acTL'))).toBe(false);
+    expect(inspectImage(output)).toEqual(inspectImage(source));
   });
 
   it('is a no-op on an image that carries no metadata', () => {
@@ -352,6 +382,39 @@ describe('WebP metadata removal', () => {
     broken[16] = 0xff;
     broken[17] = 0xff;
     expect(stripImageMetadata(broken, 'image/webp')).toEqual({ ok: false, error: 'malformed' });
+  });
+
+  it('refuses a chunk whose pad byte is not in the file', () => {
+    // An odd-length chunk owes a pad byte, and RIFF counts it. A file that stops on the odd byte
+    // is one chunk short of what it claims, and reading through it would run past the payload.
+    const littleEndian = (value: number): number[] => [
+      value & 0xff,
+      (value >>> 8) & 0xff,
+      (value >>> 16) & 0xff,
+      (value >>> 24) & 0xff
+    ];
+    const body = [
+      ...bytesOf('WEBP'),
+      ...bytesOf('VP8L'),
+      ...littleEndian(8),
+      0x2f,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x11,
+      0x22,
+      0x33,
+      ...bytesOf('ODDC'),
+      ...littleEndian(3),
+      0x01,
+      0x02,
+      0x03
+    ];
+    const unpadded = Uint8Array.from([...bytesOf('RIFF'), ...littleEndian(body.length), ...body]);
+
+    expect(stripImageMetadata(unpadded, 'image/webp')).toEqual({ ok: false, error: 'malformed' });
+    expect(inspectImage(unpadded)).toEqual({ ok: false, error: 'malformed' });
   });
 
   it('refuses a truncated container', () => {

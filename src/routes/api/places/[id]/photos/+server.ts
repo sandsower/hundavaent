@@ -3,6 +3,7 @@ import { requireMemberResponse } from '$server/auth/require-member-response';
 import { privateJson } from '$server/http/private-json';
 import { memberPlacePhotoNamespace } from '$server/place-media/place-media-input';
 import {
+  getMyPlacePhotoAllowance,
   listMyPlacePhotos,
   removePlaceMediaObject,
   signPlaceMediaUrls,
@@ -16,6 +17,14 @@ import { inspectImage, stripImageMetadata } from '$server/place-media/strip-imag
 import type { RequestHandler } from './$types';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * How much a multipart envelope may add on top of the file itself before the declared length is
+ * read as a request too large to bother with. A boundary, one part header and a file name are
+ * hundreds of bytes; this is generous enough that no honest browser trips it and tight enough that
+ * a caller announcing far more than the cap is refused without the body being read at all.
+ */
+const multipartOverheadSlackBytes = 16 * 1024;
 
 /**
  * A Member submits a photo of a Place, held for review.
@@ -39,6 +48,29 @@ export const POST: RequestHandler = async (event) => {
 
   const authError = await requireMemberResponse(event);
   if (authError) return authError;
+  if (!event.locals.supabase) return privateJson({ error: 'unavailable' }, 503);
+
+  // A declared length past the cap is refused before the body is read, so an oversized upload
+  // costs the connection rather than the transfer. The declared length is a claim, so the measured
+  // size is still checked below; this only saves the obvious case.
+  const declaredLength = Number(event.request.headers.get('content-length') ?? '');
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > maxMemberPhotoBytes + multipartOverheadSlackBytes
+  ) {
+    return privateJson({ error: 'too_large' }, 413);
+  }
+
+  // The caps are enforced inside submit_place_photo, under the actor lock, and that stays the
+  // authority. This is the look ahead: a Member already at their limit is told so here, rather
+  // than after a multipart read, a metadata strip and a Storage write that all have to be undone.
+  const allowance = await getMyPlacePhotoAllowance(event.locals.supabase, event.params.id);
+  if (allowance.status !== 'success') {
+    return privateJson({ error: allowance.status }, memberPhotoErrorStatus(allowance.status));
+  }
+  if (allowance.value.remainingPending <= 0 || allowance.value.remainingWindow <= 0) {
+    return privateJson({ error: 'rate_limited' }, 429);
+  }
 
   let form: FormData;
   try {
@@ -72,6 +104,11 @@ export const POST: RequestHandler = async (event) => {
     return privateJson({ error: 'invalid_request' }, 400);
   }
 
+  // A file whose container will not parse is answered in the same `invalid_request` vocabulary as
+  // a file of the wrong type, and the picker says "Photos have to be JPEG, PNG or WebP." for both.
+  // That is imprecise for a corrupt JPEG, and deliberately left so: a second refusal message would
+  // have to be worded, translated and tested to tell a Member something they can act on no
+  // differently. Choosing another file is the answer either way.
   const stripped = stripImageMetadata(bytes, inspection.value.container);
   if (!stripped.ok) {
     return privateJson({ error: 'invalid_request' }, 400);
@@ -90,7 +127,7 @@ export const POST: RequestHandler = async (event) => {
   }
 
   const storageClient = createPlacePhotoStorageClient();
-  if (!storageClient || !event.locals.supabase) {
+  if (!storageClient) {
     return privateJson({ error: 'unavailable' }, 503);
   }
 
@@ -124,6 +161,13 @@ export const POST: RequestHandler = async (event) => {
   if (result.status !== 'success') {
     await removePlaceMediaObject(storageClient, 'place-photos', upload.objectPath);
     return privateJson({ error: result.status }, memberPhotoErrorStatus(result.status));
+  }
+
+  // A replayed request id returns the row the first attempt created, which points at the object
+  // that attempt wrote. The one this attempt just wrote is referenced by nothing, so it goes -
+  // otherwise every retry of a successful upload leaves a full-sized orphan behind.
+  if (result.value.storageObjectPath !== upload.objectPath) {
+    await removePlaceMediaObject(storageClient, 'place-photos', upload.objectPath);
   }
 
   return privateJson({

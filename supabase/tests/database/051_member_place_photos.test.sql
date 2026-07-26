@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(40);
+select plan(47);
 
 -- Fixtures --------------------------------------------------------------------------------------
 
@@ -241,6 +241,21 @@ select is(
 );
 set local role authenticated;
 
+select is(
+  (
+    select storage_object_path from public.submit_place_photo(
+      jsonb_build_object(
+        'place_id', '98300000-0000-4000-8000-000000000001',
+        'storage_object_path', '98300000-0000-4000-8000-000000000001/member-uploads/a3.jpg',
+        'mime_type', 'image/jpeg', 'byte_size', 2048, 'width_px', 320, 'height_px', 240
+      ),
+      '98900000-0000-4000-8000-000000000010'
+    )
+  ),
+  '98300000-0000-4000-8000-000000000001/member-uploads/a1.jpg',
+  'A replay answers with the path it registered, so the caller can remove the object it just wrote'
+);
+
 select throws_ok(
   $$
     select * from public.submit_place_photo(
@@ -359,6 +374,53 @@ select throws_ok(
   'The window cap counts every Place together, so spreading uploads around does not evade it'
 );
 
+reset role;
+
+-- 2b. The allowance the endpoint reads before it moves a byte -------------------------------------
+--
+-- Advisory, and the counts have to agree with the caps that follow it: a look ahead that says
+-- "room" where submit_place_photo says "full" would turn a cheap refusal into an expensive one,
+-- and a look ahead that says "full" where there is room would refuse a photo nothing was wrong
+-- with.
+
+select set_config('request.jwt.claim.sub', '98000000-0000-4000-8000-000000000001', true);
+set local role authenticated;
+select is(
+  (
+    select remaining_pending || '/' || remaining_window
+    from public.get_my_place_photo_allowance('98300000-0000-4000-8000-000000000001')
+  ),
+  '0/0',
+  'A Member at both caps is told so before anything is uploaded'
+);
+select is(
+  (
+    select remaining_pending
+    from public.get_my_place_photo_allowance('98300000-0000-4000-8000-000000000002')
+  ),
+  1,
+  'The pending allowance is per Place, exactly like the cap it looks ahead at'
+);
+reset role;
+
+select set_config('request.jwt.claim.sub', '98000000-0000-4000-8000-000000000002', true);
+set local role authenticated;
+select is(
+  (
+    select remaining_pending || '/' || remaining_window
+    from public.get_my_place_photo_allowance('98300000-0000-4000-8000-000000000001')
+  ),
+  '2/3',
+  'One Member''s uploads are not counted against another''s allowance'
+);
+reset role;
+
+set local role anon;
+select throws_ok(
+  $$ select * from public.get_my_place_photo_allowance('98300000-0000-4000-8000-000000000001') $$,
+  '42501', null,
+  'An anonymous Visitor cannot read an allowance'
+);
 reset role;
 
 -- Rows the RPC deliberately cannot create: an approved photo, a retired one, and one whose
@@ -556,6 +618,16 @@ select is(
   ),
   2,
   'A pending photo whose uploader is forgotten is still work waiting to be done'
+);
+select is(
+  (select count(*)::integer from public.list_places_with_pending_photos(1)),
+  1,
+  'The section size is applied by the database rather than by trimming the answer afterwards'
+);
+select throws_ok(
+  $$ select * from public.list_places_with_pending_photos(0) $$,
+  '22023', 'A positive work list limit is required',
+  'A limit that could only return nothing is refused rather than emptying the work list'
 );
 reset role;
 

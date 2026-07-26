@@ -663,6 +663,13 @@ export type Database = {
           valid_ratings: number
         }[]
       }
+      get_my_place_photo_allowance: {
+        Args: { requested_place_id: string }
+        Returns: {
+          remaining_pending: number
+          remaining_window: number
+        }[]
+      }
       get_my_trusted_verification_feedback: {
         Args: never
         Returns: {
@@ -1208,7 +1215,7 @@ export type Database = {
         }[]
       }
       list_places_with_pending_photos: {
-        Args: never
+        Args: { requested_limit?: number }
         Returns: {
           newest_uploaded_at: string
           pending_photo_count: number
@@ -1775,6 +1782,7 @@ export type Database = {
         Returns: {
           approval_state: string
           media_id: string
+          storage_object_path: string
           uploaded_at: string
         }[]
       }

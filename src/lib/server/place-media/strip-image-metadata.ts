@@ -6,9 +6,20 @@
  * standing. Moderators review pixels, not byte ranges, so nothing downstream would catch it.
  *
  * Everything here is byte-level container surgery with no dependency, and it is deliberately
- * conservative: segments and chunks are copied through untouched unless they are on a known
- * metadata list, compressed image data is never re-encoded, and anything that does not parse is
+ * conservative: compressed image data is never re-encoded, and anything that does not parse is
  * refused rather than repaired. The pixels that come out are the pixels that went in.
+ *
+ * The posture is uniform across the two chunked containers: PNG and WebP both keep an allowlist of
+ * chunks a decoder needs and drop everything else. A denylist can only remove the metadata someone
+ * thought of, and a registry that grows - or a private chunk under a name nobody has seen - would
+ * be copied straight through into a file served to anonymous readers. JPEG cannot be expressed that
+ * way, because its scan is not a named segment, so it drops the marker range that carries metadata
+ * and keeps the rest.
+ *
+ * Neither container publishes animation. WebP animation is refused outright (the strip requires a
+ * top-level VP8 or VP8L image chunk, which an animated file does not have), and an animated PNG
+ * comes out as its first frame. A Member is offering a photograph of a Place, and a moving image
+ * approved on the strength of one reviewed frame is a surprise nobody signed off on.
  *
  * One value is deliberately carried across rather than dropped: JPEG EXIF Orientation, which is
  * how a browser knows to rotate a portrait phone photo. It is re-emitted as a freshly built
@@ -244,6 +255,11 @@ function readJpegOrientation(bytes: Uint8Array, segments: readonly JpegSegment[]
       const entry = directory + 2 + index * 12;
       if (entry + 12 > segment.end) return null;
       if (short(entry) !== 0x0112) continue;
+      // Orientation is a single SHORT, and the value is only inline because it fits in the
+      // four-byte value field. An entry typed anything else has its value laid out differently -
+      // a LONG occupies all four bytes, an ASCII entry holds an offset - so reading a SHORT out of
+      // it would produce a number that means nothing. There is no orientation here to carry.
+      if (short(entry + 2) !== 3 || long(entry + 4) !== 1) return null;
       const orientation = short(entry + 8);
       return orientation >= 1 && orientation <= 8 ? orientation : null;
     }
@@ -320,14 +336,32 @@ function stripJpegMetadata(bytes: Uint8Array): StripResult {
 
 // --- PNG ----------------------------------------------------------------------------------------
 //
-// A PNG is a signature and a chunk stream. Text chunks (tEXt, zTXt, iTXt) carry arbitrary
-// key/value pairs including XMP, eXIf carries a whole EXIF block, and tIME carries the last
-// modification time. Everything else - the critical chunks and the rendering ancillaries such as
-// pHYs, gAMA, sRGB, iCCP - is what makes the image look right, and is copied through.
+// A PNG is a signature and a chunk stream, and the kept set is an allowlist for the same reason
+// WebP's is: naming the metadata chunks to drop (tEXt, zTXt, iTXt, eXIf, tIME) would copy through
+// every chunk type nobody thought of, including the private ones anyone may define. What is listed
+// here is what a decoder needs to render the image as it was taken: the critical chunks, and the
+// ancillaries that carry colour, resolution and transparency.
+//
+// The animation chunks (acTL, fcTL, fdAT) are deliberately absent. An animated PNG comes out as
+// its first frame, which is the frame a Moderator reviewed; the alternative is approving a still
+// and publishing something that moves.
 //
 // Chunk CRCs are never recomputed because chunks are only ever dropped whole, never edited.
 
-const pngMetadataChunks = new Set(['tEXt', 'zTXt', 'iTXt', 'eXIf', 'tIME']);
+const pngKeptChunks = new Set([
+  'IHDR',
+  'PLTE',
+  'IDAT',
+  'IEND',
+  'tRNS',
+  'pHYs',
+  'gAMA',
+  'sRGB',
+  'iCCP',
+  'cHRM',
+  'sBIT',
+  'bKGD'
+]);
 
 interface PngChunk {
   type: string;
@@ -375,7 +409,7 @@ function stripPngMetadata(bytes: Uint8Array): StripResult {
   if (!chunks) return { ok: false, error: 'malformed' };
   if (chunks[0]?.type !== 'IHDR') return { ok: false, error: 'malformed' };
 
-  const kept = chunks.filter((chunk) => !pngMetadataChunks.has(chunk.type));
+  const kept = chunks.filter((chunk) => pngKeptChunks.has(chunk.type));
   return {
     ok: true,
     bytes: concatRanges(bytes, [
@@ -398,8 +432,14 @@ function stripPngMetadata(bytes: Uint8Array): StripResult {
 // Unknown chunks are dropped rather than copied. The known set is exactly what a decoder needs,
 // so anything outside it is either metadata under a name this list does not know or padding, and
 // neither belongs in a photo about to be published.
+//
+// ANIM and ANMF are not on it. The strip already refuses any file without a top-level VP8 or VP8L
+// chunk, and an animated WebP has neither - its frames live inside ANMF - so no genuine animation
+// ever reaches this filter. Keeping them would only have preserved the animation half of a
+// hand-built hybrid: a still image with animation chunks bolted on, whose frames a Moderator
+// reviewing the still would never see.
 
-const webpKeptChunks = new Set(['VP8 ', 'VP8L', 'VP8X', 'ALPH', 'ANIM', 'ANMF', 'ICCP']);
+const webpKeptChunks = new Set(['VP8 ', 'VP8L', 'VP8X', 'ALPH', 'ICCP']);
 
 // VP8X flag bits, per the extended-format header: ICC 0x20, alpha 0x10, EXIF 0x08, XMP 0x04,
 // animation 0x02.
@@ -431,7 +471,10 @@ function readWebpChunks(bytes: Uint8Array): WebpChunk[] | null {
     const dataLength = readUint32LE(bytes, offset + 4);
     const dataStart = offset + 8;
     const paddedLength = dataLength + (dataLength % 2);
-    if (dataStart + dataLength > limit) return null;
+    // The pad byte counts. A chunk whose payload ends exactly on the limit but whose odd length
+    // demands one more byte is a chunk the file does not actually contain, and copying it would
+    // read past the RIFF payload into whatever follows.
+    if (dataStart + paddedLength > limit) return null;
 
     chunks.push({ fourcc, start: offset, end: dataStart + paddedLength, dataStart, dataLength });
     offset = dataStart + paddedLength;

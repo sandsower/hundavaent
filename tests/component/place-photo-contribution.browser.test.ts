@@ -268,6 +268,43 @@ describe("the Member's own photos on the strip", () => {
     expect(container.querySelector('[data-member-photo]')).toBeNull();
   });
 
+  it('shows every published photo once the featured image has become a strip', () => {
+    const secondPublished: PublishedPlacePhoto = {
+      ...publishedPhoto,
+      mediaId: '50000000-0000-4000-8000-000000000002',
+      url: 'https://example.invalid/signed/second.jpg',
+      altTextEn: 'A second dog at a cafe',
+      isPrimary: false
+    };
+    const { container } = mountStrip({
+      photos: [publishedPhoto, secondPublished],
+      memberPhotos: [memberPhoto()]
+    });
+
+    expect(container.querySelectorAll('li')).toHaveLength(3);
+    expect(screen.getByAltText('A dog at a cafe')).toBeTruthy();
+    expect(screen.getByAltText('A second dog at a cafe')).toBeTruthy();
+    expect(screen.getByAltText('Your photo of Brikk')).toBeTruthy();
+    expect(container.querySelector('.scroller')?.getAttribute('role')).toBe('region');
+  });
+
+  it('keeps the single featured image when the Member has no tile of their own', () => {
+    const secondPublished: PublishedPlacePhoto = {
+      ...publishedPhoto,
+      mediaId: '50000000-0000-4000-8000-000000000002',
+      url: 'https://example.invalid/signed/second.jpg',
+      altTextEn: 'A second dog at a cafe',
+      isPrimary: false
+    };
+    const { container } = mountStrip({ photos: [publishedPhoto, secondPublished] });
+
+    expect(container.querySelectorAll('li')).toHaveLength(1);
+    expect(screen.getByAltText('A dog at a cafe')).toBeTruthy();
+    // A featured image is the card's own picture, not a labelled region a reader tabs into.
+    expect(container.querySelector('.scroller')?.hasAttribute('role')).toBe(false);
+    expect(container.querySelector('.scroller')?.hasAttribute('aria-labelledby')).toBe(false);
+  });
+
   it('renders the tile when the signed URL could not be minted', () => {
     const { container } = mountStrip({ memberPhotos: [memberPhoto({ url: null })] });
 

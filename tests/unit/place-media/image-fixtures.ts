@@ -79,7 +79,7 @@ const jfifPayload = [
  * location. Offsets inside a TIFF block are relative to the byte-order mark, so the description
  * data sits at TIFF offset 38 - payload index 44, six bytes further along.
  */
-function exifWithOrientation(orientation: number): number[] {
+function exifWithOrientation(orientation: number, orientationType = 3): number[] {
   const description = [...bytesOf(gpsMarker), 0x00];
   return [
     ...bytesOf('Exif'),
@@ -94,10 +94,11 @@ function exifWithOrientation(orientation: number): number[] {
     0x00,
     0x02,
     0x00,
-    // Orientation: tag 0x0112, type SHORT, count 1, value inline.
+    // Orientation: tag 0x0112, type SHORT (3) unless a test asks for another, count 1, value
+    // inline. A LONG-typed entry is malformed for this tag and lays its value out differently.
     0x12,
     0x01,
-    0x03,
+    orientationType & 0xff,
     0x00,
     0x01,
     0x00,
@@ -162,6 +163,8 @@ export interface JpegFixtureOptions {
   withXmp?: boolean;
   withTrailingData?: boolean;
   orientation?: number;
+  /** The TIFF type the Orientation entry declares. 3 is SHORT, which is the only correct one. */
+  orientationType?: number;
 }
 
 export function buildJpeg(options: JpegFixtureOptions = {}): Uint8Array {
@@ -173,7 +176,8 @@ export function buildJpeg(options: JpegFixtureOptions = {}): Uint8Array {
     withComment = true,
     withXmp = true,
     withTrailingData = true,
-    orientation
+    orientation,
+    orientationType = 3
   } = options;
 
   const frame = [
@@ -199,7 +203,9 @@ export function buildJpeg(options: JpegFixtureOptions = {}): Uint8Array {
     withExif
       ? jpegSegment(
           0xe1,
-          orientation === undefined ? exifPayload : exifWithOrientation(orientation)
+          orientation === undefined
+            ? exifPayload
+            : exifWithOrientation(orientation, orientationType)
         )
       : [],
     withXmp
@@ -255,6 +261,13 @@ export interface PngFixtureOptions {
   withExif?: boolean;
   withTime?: boolean;
   withPhysical?: boolean;
+  /**
+   * An ancillary chunk under a type no allowlist knows: lower-case first letter, so a decoder is
+   * free to ignore it, and anything at all inside it.
+   */
+  withUnknownChunk?: boolean;
+  /** The animation control chunk that turns a PNG into an APNG. */
+  withAnimation?: boolean;
 }
 
 export function buildPng(options: PngFixtureOptions = {}): Uint8Array {
@@ -264,7 +277,9 @@ export function buildPng(options: PngFixtureOptions = {}): Uint8Array {
     withText = true,
     withExif = true,
     withTime = true,
-    withPhysical = true
+    withPhysical = true,
+    withUnknownChunk = false,
+    withAnimation = false
   } = options;
 
   return concat([
@@ -285,6 +300,8 @@ export function buildPng(options: PngFixtureOptions = {}): Uint8Array {
     withExif ? pngChunk('eXIf', [...bytesOf('II'), 0x2a, 0x00, ...bytesOf(gpsMarker)]) : [],
     withTime ? pngChunk('tIME', [0x07, 0xea, 0x07, 0x19, 0x0c, 0x00, 0x00]) : [],
     withPhysical ? pngChunk('pHYs', [...uint32BE(2835), ...uint32BE(2835), 0x01]) : [],
+    withUnknownChunk ? pngChunk('prVt', bytesOf(gpsMarker)) : [],
+    withAnimation ? pngChunk('acTL', [...uint32BE(2), ...uint32BE(0)]) : [],
     pngChunk('IDAT', pngPixelData),
     pngChunk('IEND', [])
   ]);

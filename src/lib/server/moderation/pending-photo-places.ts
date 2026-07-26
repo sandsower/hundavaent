@@ -28,17 +28,20 @@ export type ModerationPendingPhotoPlacesResult =
  * How many Places the section names at once. The work list is a place to start from, not an
  * inventory, and every entry beyond this one costs a review read on a page that already makes
  * several. A Moderator who clears these sees the next ones on the following load.
+ *
+ * The number travels to the database rather than trimming the answer here, so a backlog of a
+ * thousand waiting Places is never aggregated and returned only to be thrown away.
  */
 export const moderationPendingPhotoPlaceLimit = 6;
 
 export async function loadModerationPendingPhotoPlaces(
   client: RequestSupabaseClient
 ): Promise<ModerationPendingPhotoPlacesResult> {
-  const listed = await listPlacesWithPendingPhotos(client);
+  const listed = await listPlacesWithPendingPhotos(client, moderationPendingPhotoPlaceLimit);
   if (listed.status !== 'success') return { status: listed.status };
 
   const named = await Promise.all(
-    listed.value.slice(0, moderationPendingPhotoPlaceLimit).map(async (place) => {
+    listed.value.map(async (place) => {
       const review = await getCandidatePublicationReview(client, place.placeId);
       if (review.status !== 'success') return null;
       return {

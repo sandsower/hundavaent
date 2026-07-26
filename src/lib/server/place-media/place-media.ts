@@ -402,6 +402,18 @@ export interface SubmittedPlacePhoto {
   mediaId: string;
   approvalState: PlaceMediaApprovalState;
   uploadedAt: string;
+  /**
+   * The path the registered row actually points at. On an idempotent replay it is the path the
+   * first attempt wrote, not the one this attempt just supplied, which is how the caller learns
+   * that its fresh object is referenced by nothing.
+   */
+  storageObjectPath: string;
+}
+
+/** What a Member has left before the two policy caps refuse them. */
+export interface MemberPlacePhotoAllowance {
+  remainingPending: number;
+  remainingWindow: number;
 }
 
 export interface MemberPlaceMediaItem {
@@ -451,7 +463,39 @@ export async function submitPlacePhoto(
       value: {
         mediaId: data[0].media_id,
         approvalState: data[0].approval_state as PlaceMediaApprovalState,
-        uploadedAt: data[0].uploaded_at
+        uploadedAt: data[0].uploaded_at,
+        storageObjectPath: data[0].storage_object_path
+      }
+    };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+/**
+ * What the caller has left before each cap refuses them, read before any byte is moved.
+ *
+ * Advisory on purpose: `submit_place_photo` counts under the actor advisory lock and is the only
+ * authority. This exists so a Member who is already at their limit is told so without an 8 MB
+ * upload, a metadata strip and a Storage write happening first and being undone.
+ */
+export async function getMyPlacePhotoAllowance(
+  client: RequestSupabaseClient,
+  placeId: string
+): Promise<MemberPlacePhotoResult<MemberPlacePhotoAllowance>> {
+  try {
+    const { data, error } = await client.rpc('get_my_place_photo_allowance', {
+      requested_place_id: placeId
+    });
+
+    if (error) return { status: mapMemberPhotoError(error.code) };
+    if (data.length !== 1 || !data[0]) return { status: 'infrastructure_error' };
+
+    return {
+      status: 'success',
+      value: {
+        remainingPending: data[0].remaining_pending,
+        remainingWindow: data[0].remaining_window
       }
     };
   } catch {
@@ -507,10 +551,13 @@ export type PlacesWithPendingPhotosResult =
  * count would be rendered as one.
  */
 export async function listPlacesWithPendingPhotos(
-  client: RequestSupabaseClient
+  client: RequestSupabaseClient,
+  limit: number
 ): Promise<PlacesWithPendingPhotosResult> {
   try {
-    const { data, error } = await client.rpc('list_places_with_pending_photos');
+    const { data, error } = await client.rpc('list_places_with_pending_photos', {
+      requested_limit: limit
+    });
 
     if (error) {
       return { status: error.code === '42501' ? 'forbidden' : 'infrastructure_error' };

@@ -160,9 +160,69 @@ test('a Member photo is held for review, seen only by its uploader, and publishe
   // A JPEG, still: the first two bytes are the start-of-image marker.
   expect([bytes[0], bytes[1]]).toEqual([0xff, 0xd8]);
   expect(bytes.length).toBeGreaterThan(100);
-  expect(bytes.includes(Buffer.from('Exif', 'ascii'))).toBe(false);
+
+  // The privacy assertion, unconditional: the location the file arrived carrying is not in the
+  // bytes the public receives.
   expect(bytes.includes(Buffer.from(gpsMarker, 'ascii'))).toBe(false);
+
+  // "Exif" itself is expected to survive, because the uploaded file carries Orientation 6 and a
+  // browser needs that tag to stand a portrait photo up. Scanning for the string would therefore
+  // have asserted nothing about the strip - it would only have asserted that the fixture had no
+  // orientation. What has to hold is stronger: whatever APP1 is left is the segment this server
+  // built from one integer, byte for byte, and there is exactly one of it.
+  const exifAt = bytes.indexOf(Buffer.from('Exif', 'ascii'));
+  expect(exifAt).toBeGreaterThan(0);
+  expect(bytes.indexOf(Buffer.from('Exif', 'ascii'), exifAt + 1)).toBe(-1);
+  expect([...bytes.subarray(exifAt - 4, exifAt + 32)]).toEqual(reconstructedOrientationSegment(6));
+  // The ImageDescription entry that carried the location did not come with it.
+  expect(bytes.includes(Buffer.from([0x0e, 0x01, 0x02, 0x00]))).toBe(false);
 });
+
+/**
+ * The APP1 the stripper emits: a marker, a length of 34, and 32 bytes holding "Exif\0\0", a
+ * little-endian TIFF header and a single Orientation entry. Nothing else can be in it, which is
+ * the point - it is built from one integer rather than copied.
+ */
+function reconstructedOrientationSegment(orientation: number): number[] {
+  return [
+    0xff,
+    0xe1,
+    0x00,
+    0x22,
+    0x45,
+    0x78,
+    0x69,
+    0x66,
+    0x00,
+    0x00,
+    0x49,
+    0x49,
+    0x2a,
+    0x00,
+    0x08,
+    0x00,
+    0x00,
+    0x00,
+    0x01,
+    0x00,
+    0x12,
+    0x01,
+    0x03,
+    0x00,
+    0x01,
+    0x00,
+    0x00,
+    0x00,
+    orientation,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00
+  ];
+}
 
 /**
  * Encodes a real JPEG in the page, splices a real EXIF block carrying a location into it, and
@@ -196,8 +256,13 @@ async function attachGeneratedJpeg(
       (value >>> 24) & 0xff
     ];
     const description = [...ascii(marker), 0x00];
-    // "Exif\0\0", a little-endian TIFF header, and one ASCII entry whose data sits at TIFF
-    // offset 26, immediately after the single-entry directory.
+    // "Exif\0\0", a little-endian TIFF header, and two entries: Orientation 6, which is what a
+    // phone held in portrait writes and what the stripper has to carry across, and an ASCII
+    // ImageDescription holding the location, which it has to drop. Both halves matter: the first
+    // is what makes the reconstructed segment happen at all, and the second is the leak.
+    //
+    // A two-entry directory runs to TIFF offset 38 (count, 24 bytes of entries, the next-directory
+    // pointer), so the description data begins there.
     const exif = [
       ...ascii('Exif'),
       0x00,
@@ -209,14 +274,28 @@ async function attachGeneratedJpeg(
       0x00,
       0x00,
       0x00,
+      0x02,
+      0x00,
+      // Orientation: tag 0x0112, type SHORT, count 1, the value inline.
+      0x12,
+      0x01,
+      0x03,
+      0x00,
       0x01,
       0x00,
+      0x00,
+      0x00,
+      0x06,
+      0x00,
+      0x00,
+      0x00,
+      // ImageDescription: tag 0x010e, type ASCII, count N, the value at TIFF offset 38.
       0x0e,
       0x01,
       0x02,
       0x00,
       ...uint32LE(description.length),
-      ...uint32LE(26),
+      ...uint32LE(38),
       0x00,
       0x00,
       0x00,

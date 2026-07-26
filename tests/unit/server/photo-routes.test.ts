@@ -22,6 +22,9 @@ const commandId = 'a2000000-0000-4000-8000-000000000001';
 interface RpcOverrides {
   submit?: { data: unknown; error: { code: string } | null };
   list?: { data: unknown; error: { code: string } | null };
+  allowance?: { data: unknown; error: { code: string } | null };
+  /** The path a replayed registration answers with, in place of the one this attempt supplied. */
+  replayedPath?: string;
   signingFails?: boolean;
 }
 
@@ -31,18 +34,27 @@ function memberClient(overrides: RpcOverrides = {}) {
       getUser: vi.fn(async () => ({ data: { user: { id: 'member' } }, error: null }))
     },
     rpc: vi.fn(async (name: string, args?: Record<string, unknown>) => {
-      void args;
       if (name === 'get_current_member_account') {
         return { data: [{ member_id: 'member' }], error: null };
       }
+      if (name === 'get_my_place_photo_allowance') {
+        return (
+          overrides.allowance ?? {
+            data: [{ remaining_pending: 3, remaining_window: 10 }],
+            error: null
+          }
+        );
+      }
       if (name === 'submit_place_photo') {
+        const payload = (args?.command_payload ?? {}) as Record<string, unknown>;
         return (
           overrides.submit ?? {
             data: [
               {
                 media_id: 'media-1',
                 approval_state: 'pending',
-                uploaded_at: '2026-07-26T09:00:00Z'
+                uploaded_at: '2026-07-26T09:00:00Z',
+                storage_object_path: overrides.replayedPath ?? payload.storage_object_path
               }
             ],
             error: null
@@ -134,7 +146,7 @@ function storageClient(uploadError: { message: string } | null = null) {
 function uploadEvent(
   client: unknown,
   file: File | string | null,
-  options: { id?: string; idempotencyKey?: string | null } = {}
+  options: { id?: string; idempotencyKey?: string | null; declaredLength?: number } = {}
 ) {
   const body = new FormData();
   if (file !== null) body.set('file', file);
@@ -142,6 +154,9 @@ function uploadEvent(
   const headers = new Headers();
   const key = options.idempotencyKey === undefined ? commandId : options.idempotencyKey;
   if (key !== null) headers.set('idempotency-key', key);
+  if (options.declaredLength !== undefined) {
+    headers.set('content-length', String(options.declaredLength));
+  }
 
   return {
     cookies: {},
@@ -320,6 +335,98 @@ describe('member photo upload', () => {
     expect(response.status).toBe(413);
     await expect(response.json()).resolves.toEqual({ error: 'too_large' });
     expect((mocks.storageClient as ReturnType<typeof storageClient>).uploaded).toHaveLength(0);
+  });
+
+  it('refuses a declared length past the cap without reading the body at all', async () => {
+    mocks.storageClient = storageClient();
+    const client = memberClient();
+    const event = uploadEvent(client, photoFile(buildJpeg(), 'image/jpeg'), {
+      declaredLength: 9 * 1024 * 1024
+    }) as unknown as { request: Request };
+
+    const response = await POST(event as never);
+
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toEqual({ error: 'too_large' });
+    expect(event.request.bodyUsed).toBe(false);
+    expect((mocks.storageClient as ReturnType<typeof storageClient>).uploaded).toHaveLength(0);
+    expect(client.rpc.mock.calls.some(([name]) => name === 'get_my_place_photo_allowance')).toBe(
+      false
+    );
+  });
+
+  it('lets a declared length within the multipart envelope through', async () => {
+    mocks.storageClient = storageClient();
+    const source = buildJpeg();
+    const response = await POST(
+      uploadEvent(memberClient(), photoFile(source, 'image/jpeg'), {
+        declaredLength: source.byteLength + 512
+      })
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  it('answers 429 at the pending cap without reading the file or writing a byte', async () => {
+    mocks.storageClient = storageClient();
+    const client = memberClient({
+      allowance: { data: [{ remaining_pending: 0, remaining_window: 7 }], error: null }
+    });
+    const event = uploadEvent(client, photoFile(buildJpeg(), 'image/jpeg')) as unknown as {
+      request: Request;
+    };
+
+    const response = await POST(event as never);
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({ error: 'rate_limited' });
+    expect(event.request.bodyUsed).toBe(false);
+    expect((mocks.storageClient as ReturnType<typeof storageClient>).uploaded).toHaveLength(0);
+    expect(client.rpc.mock.calls.some(([name]) => name === 'submit_place_photo')).toBe(false);
+  });
+
+  it('answers 429 at the window cap on the same terms', async () => {
+    mocks.storageClient = storageClient();
+    const client = memberClient({
+      allowance: { data: [{ remaining_pending: 2, remaining_window: 0 }], error: null }
+    });
+
+    const response = await POST(uploadEvent(client, photoFile(buildJpeg(), 'image/jpeg')));
+
+    expect(response.status).toBe(429);
+    expect((mocks.storageClient as ReturnType<typeof storageClient>).uploaded).toHaveLength(0);
+  });
+
+  it('answers 503 when the allowance cannot be read because no policy is configured', async () => {
+    mocks.storageClient = storageClient();
+    const client = memberClient({ allowance: { data: null, error: { code: '55000' } } });
+
+    const response = await POST(uploadEvent(client, photoFile(buildJpeg(), 'image/jpeg')));
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({ error: 'policy_unavailable' });
+    expect((mocks.storageClient as ReturnType<typeof storageClient>).uploaded).toHaveLength(0);
+  });
+
+  it('removes the object it wrote when a replay answers with the first attempt path', async () => {
+    mocks.storageClient = storageClient();
+    const client = memberClient({
+      replayedPath: `${placeId}/member-uploads/the-first-attempt.jpg`
+    });
+
+    const response = await POST(uploadEvent(client, photoFile(buildJpeg(), 'image/jpeg')));
+
+    expect(response.status).toBe(200);
+    const storage = mocks.storageClient as ReturnType<typeof storageClient>;
+    expect(storage.removed).toEqual([storage.uploaded[0]!.path]);
+  });
+
+  it('keeps the object it wrote when the registration is a first submission', async () => {
+    mocks.storageClient = storageClient();
+
+    await POST(uploadEvent(memberClient(), photoFile(buildJpeg(), 'image/jpeg')));
+
+    expect((mocks.storageClient as ReturnType<typeof storageClient>).removed).toEqual([]);
   });
 
   it('answers 429 on a policy cap and removes the object it had already written', async () => {

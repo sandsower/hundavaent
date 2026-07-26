@@ -93,11 +93,20 @@ $$;
 -- and bucket are literals here rather than payload fields, so no payload can register Evidence,
 -- and `approval_state` is left to its pending default rather than named at all.
 
+-- The storage object path comes back out as well as going in, because an idempotent replay returns
+-- the row the *first* call created. The caller has by then already written a second object for the
+-- second attempt, and only the returned path tells it that its fresh object is referenced by
+-- nothing and should be removed.
 create function public.submit_place_photo(
   command_payload jsonb,
   command_request_id uuid
 )
-returns table (media_id uuid, approval_state text, uploaded_at timestamptz)
+returns table (
+  media_id uuid,
+  approval_state text,
+  uploaded_at timestamptz,
+  storage_object_path text
+)
 language plpgsql
 volatile
 security definer
@@ -133,7 +142,9 @@ begin
 
   if found then
     return query
-      select existing_record.id, existing_record.approval_state::text, existing_record.uploaded_at;
+      select
+        existing_record.id, existing_record.approval_state::text, existing_record.uploaded_at,
+        existing_record.storage_object_path;
     return;
   end if;
 
@@ -215,11 +226,70 @@ begin
   ) returning * into created_record;
 
   return query
-    select created_record.id, created_record.approval_state::text, created_record.uploaded_at;
+    select
+      created_record.id, created_record.approval_state::text, created_record.uploaded_at,
+      created_record.storage_object_path;
 end;
 $$;
 
--- 3. The uploader's own view of a photo that is not public yet -------------------------------
+-- 3. The allowance, read before any byte moves ------------------------------------------------
+--
+-- `submit_place_photo` is where the caps are enforced, and it stays that way: it holds the actor
+-- advisory lock, so its counts cannot be raced. But it only runs after the endpoint has read the
+-- multipart body, stripped it and written the object, which means a Member who is already at their
+-- cap pays for a whole upload to be told no and have the bytes deleted again.
+--
+-- This is the cheap look ahead. It is advisory by construction - nothing stops a second submission
+-- landing between this read and the write - and that is fine, because the authoritative refusal is
+-- still one round trip further on. Zero here means "do not bother", never "you are allowed".
+
+create function public.get_my_place_photo_allowance(requested_place_id uuid)
+returns table (remaining_pending integer, remaining_window integer)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  actor_id uuid := security.require_member();
+  policy_record private.place_media_member_policy%rowtype;
+begin
+  select policy.* into policy_record
+  from private.place_media_member_policy policy
+  where policy.singleton and policy.enabled;
+
+  if not found then
+    raise exception using errcode = '55000', message = 'Member photo policy is not configured';
+  end if;
+
+  return query
+    select
+      greatest(
+        0,
+        policy_record.pending_per_place - (
+          select count(*)::integer
+          from private.place_media media
+          where media.uploaded_by = actor_id
+            and media.place_id = requested_place_id
+            and media.kind = 'photo'
+            and media.approval_state = 'pending'
+            and media.retired_at is null
+        )
+      ),
+      greatest(
+        0,
+        policy_record.uploads_per_window - (
+          select count(*)::integer
+          from private.place_media media
+          where media.uploaded_by = actor_id
+            and media.kind = 'photo'
+            and media.uploaded_at > statement_timestamp() - policy_record.submission_window
+        )
+      );
+end;
+$$;
+
+-- 4. The uploader's own view of a photo that is not public yet -------------------------------
 --
 -- `is_approved_photo_object` is the only gateway onto `place-photos` for an ordinary caller, and
 -- by construction it never matches a pending row. A Member who has just submitted a photo would
@@ -261,7 +331,7 @@ create policy "uploader_read_own_photo_objects"
   to authenticated
   using (bucket_id = 'place-photos' and private.is_own_photo_object(name));
 
--- 4. The Member's own photos on one Place ----------------------------------------------------
+-- 5. The Member's own photos on one Place ----------------------------------------------------
 
 create function public.list_my_place_photos(requested_place_id uuid)
 returns table (
@@ -294,13 +364,17 @@ begin
 end;
 $$;
 
--- 5. Moderator discovery ---------------------------------------------------------------------
+-- 6. Moderator discovery ---------------------------------------------------------------------
 --
 -- Which Places are waiting, not what is waiting on them. Review itself already has
 -- get_moderation_place_media; this exists only so the work list can find a Place with Member
 -- photos on it without scanning every Place.
+--
+-- The limit is the caller's, because the caller is the one that turns each row into a further read
+-- to name the Place. Truncating in the application would still have made the database aggregate
+-- every waiting Place first, which is the work this function exists to avoid.
 
-create function public.list_places_with_pending_photos()
+create function public.list_places_with_pending_photos(requested_limit integer default 6)
 returns table (
   place_id uuid,
   pending_photo_count integer,
@@ -314,6 +388,10 @@ as $$
 declare
   actor_id uuid := security.require_moderator();
 begin
+  if requested_limit is null or requested_limit <= 0 then
+    raise exception using errcode = '22023', message = 'A positive work list limit is required';
+  end if;
+
   return query
     select media.place_id, count(*)::integer, max(media.uploaded_at)
     from private.place_media media
@@ -321,7 +399,8 @@ begin
       and media.approval_state = 'pending'
       and media.retired_at is null
     group by media.place_id
-    order by max(media.uploaded_at) desc;
+    order by max(media.uploaded_at) desc
+    limit requested_limit;
 end;
 $$;
 
@@ -333,21 +412,25 @@ create index place_media_uploader_photo_idx
   on private.place_media (uploaded_by, place_id)
   where kind = 'photo' and retired_at is null;
 
--- 6. Grants ----------------------------------------------------------------------------------
+-- 7. Grants ----------------------------------------------------------------------------------
 
 revoke execute on function
   public.configure_place_media_member_policy(integer, integer, integer, integer, boolean)
   from public, anon, authenticated;
 revoke execute on function public.submit_place_photo(jsonb, uuid) from public, anon, service_role;
+revoke execute on function public.get_my_place_photo_allowance(uuid)
+  from public, anon, service_role;
 revoke execute on function public.list_my_place_photos(uuid) from public, anon, service_role;
-revoke execute on function public.list_places_with_pending_photos() from public, anon, service_role;
+revoke execute on function public.list_places_with_pending_photos(integer)
+  from public, anon, service_role;
 
 grant execute on function
   public.configure_place_media_member_policy(integer, integer, integer, integer, boolean)
   to service_role;
 grant execute on function public.submit_place_photo(jsonb, uuid) to authenticated;
+grant execute on function public.get_my_place_photo_allowance(uuid) to authenticated;
 grant execute on function public.list_my_place_photos(uuid) to authenticated;
-grant execute on function public.list_places_with_pending_photos() to authenticated;
+grant execute on function public.list_places_with_pending_photos(integer) to authenticated;
 
 comment on function
   public.configure_place_media_member_policy(integer, integer, integer, integer, boolean) is
@@ -356,10 +439,13 @@ comment on function
 comment on function public.submit_place_photo(jsonb, uuid) is
   'Member registers a Storage object the server has already stripped and written as a pending Photo. Kind and bucket are fixed here, not carried by the payload.';
 
+comment on function public.get_my_place_photo_allowance(uuid) is
+  'Advisory look ahead at the caller''s remaining pending and windowed photo submissions, so an endpoint can refuse before moving bytes. Zero means do not bother; submit_place_photo remains the authority.';
+
 comment on function public.list_my_place_photos(uuid) is
   'The caller''s own non-retired photos on one Place, in every approval state, for the pending strip.';
 
-comment on function public.list_places_with_pending_photos() is
-  'Moderator work list: Places holding pending, non-retired photos, newest submission first.';
+comment on function public.list_places_with_pending_photos(integer) is
+  'Moderator work list: Places holding pending, non-retired photos, newest submission first, capped by the caller''s limit.';
 
 commit;
