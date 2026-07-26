@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   normalizeGiscoAddress,
   normalizeNominatimPlace,
-  searchModerationAddresses
-} from '$server/moderation/address-search';
+  searchAddresses
+} from '$server/locations/address-search';
 
-describe('moderation address search', () => {
+describe('Icelandic address search', () => {
   it('normalizes a supported Icelandic address', () => {
     expect(
       normalizeGiscoAddress({
@@ -58,7 +58,7 @@ describe('moderation address search', () => {
       )
     );
 
-    const results = await searchModerationAddresses('Laugavegur 30', fetcher);
+    const results = await searchAddresses('Laugavegur 30', fetcher);
     expect(results).toHaveLength(1);
     expect(results[0]?.municipality).toBe('reykjavik');
     expect(fetcher).toHaveBeenCalledTimes(1);
@@ -117,7 +117,7 @@ describe('moderation address search', () => {
         )
       );
 
-    const results = await searchModerationAddresses('Harpa', fetcher);
+    const results = await searchAddresses('Harpa', fetcher);
     expect(results).toHaveLength(1);
     expect(results[0]?.label).toBe('Harpa - Austurbakki 2, 101 Reykjavík');
     expect(fetcher).toHaveBeenCalledTimes(2);

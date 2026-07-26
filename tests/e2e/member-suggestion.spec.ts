@@ -32,6 +32,52 @@ test.beforeAll(async () => {
   provisionLocalSuggestionIdentityFixtures();
 });
 
+test('address search places the suggestion pin for a signed-out visitor', async ({ page }) => {
+  await page.route('**/api/locations/search?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        results: [
+          {
+            id: 'gisco-1',
+            label: 'Laugavegur 30, 101 Reykjavík',
+            addressLine: 'Laugavegur 30',
+            locality: 'Reykjavík',
+            postalCode: '101',
+            municipality: 'reykjavik',
+            latitude: 64.145245,
+            longitude: -21.927444,
+            source: 'EU GISCO Address API'
+          }
+        ]
+      })
+    });
+  });
+
+  await page.goto('/en/suggest');
+  await waitForHydration(page);
+  await page.getByLabel('Find an address or place').fill('Laugavegur 30');
+  await page.getByRole('button', { name: 'Search' }).click();
+  await page.getByRole('button', { name: 'Laugavegur 30, 101 Reykjavík' }).click();
+
+  await expect(page.getByRole('status')).toContainText(
+    'Location selected at 64.145245, -21.927444.'
+  );
+  await expect
+    .poll(async () => {
+      const map = await page.locator('.map-surface').boundingBox();
+      const marker = await page.locator('.hundavaent-marker').boundingBox();
+      if (!map || !marker) return Number.POSITIVE_INFINITY;
+      return Math.abs(marker.x + marker.width / 2 - (map.x + map.width / 2));
+    })
+    .toBeLessThan(2);
+  await page.getByRole('button', { name: 'Enter coordinates instead' }).click();
+  await expect(page.getByLabel('Latitude')).toHaveValue('64.145245');
+  await expect(page.getByLabel('Longitude')).toHaveValue('-21.927444');
+  await expect(page.getByText('Place the pin where the place is.')).toHaveCount(0);
+});
+
 test('the map entry point carries its pin to the three questions, and only sending is gated', async ({
   page
 }) => {
