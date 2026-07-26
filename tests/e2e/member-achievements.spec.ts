@@ -74,7 +74,7 @@ test('a real Favourite keeps its unread cue through hover preload and celebrates
   await expect(
     page.getByRole('region', { name: 'New achievement: First Favourite' })
   ).toBeVisible();
-  await expect(page.getByText('Achievement unlocked')).toBeVisible();
+  await expect(page.getByText('Nicely done')).toBeVisible();
   await expect(page.getByText('New', { exact: true })).toBeVisible();
   await expect(page.locator(unreadIndicator)).toHaveCount(0);
   await expect(otherTab.locator(unreadIndicator)).toHaveCount(0);
@@ -107,7 +107,7 @@ test('started exploration shows every tier of every collection, gaps included', 
   await provisionLocalAchievementProgress(email);
 
   await page.goto('/en/account/achievements');
-  await expect(page.getByRole('heading', { name: 'Collections' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Milestones' })).toBeVisible();
 
   // Four collections of three tiers each: nothing is hidden, so the Member can see what is ahead.
   await expect(page.locator('[data-achievement-tier]')).toHaveCount(12);
@@ -124,9 +124,7 @@ test('started exploration shows every tier of every collection, gaps included', 
   await expect(page.locator('[data-tier-state="locked"]').first()).toBeVisible();
 
   // The spacing rule is now explained rather than left to be discovered as an apparent bug.
-  await expect(
-    page.getByText('Places count when your visits are spread through the day.')
-  ).toBeVisible();
+  await expect(page.getByText('Check-ins close together count once.')).toBeVisible();
 
   // Every surprise or trust Achievement remains undiscoverable while locked.
   await expect(page.getByText('First Check-in')).toHaveCount(0);

@@ -50,18 +50,20 @@
   aria-label={regionLabel}
 >
   <div class="art" aria-hidden="true">
-    <span class="halo"></span>
-    <span class="achievement-icon">
-      <AchievementIcon
-        achievementKey={achievement.key}
-        collection={achievement.entry === 'tier' ? achievement.collection : null}
-        group={achievement.group}
-      />
-    </span>
-    <svg class="trail" viewBox="0 0 110 38" fill="none">
-      <path d="M5 29c18 5 19-17 36-12s21 20 35 5c8-9 18-8 29-3" />
-    </svg>
-    <span class="paw"><PawMark active={true} /></span>
+    <div class="scene">
+      <span class="halo"></span>
+      <span class="achievement-icon">
+        <AchievementIcon
+          achievementKey={achievement.key}
+          collection={achievement.entry === 'tier' ? achievement.collection : null}
+          group={achievement.group}
+        />
+      </span>
+      <svg class="trail" viewBox="0 0 240 144" fill="none">
+        <path d="M12 109c28 17 36-10 60-5s40 28 64 9c18-16 43-12 74 12" />
+      </svg>
+      <span class="paw"><PawMark active={true} /></span>
+    </div>
   </div>
   <div class="copy">
     <p class="eyebrow">{copy['achievements.celebrationEyebrow']}</p>
@@ -89,16 +91,25 @@
   }
 
   .art {
-    position: relative;
+    display: grid;
     min-height: 12rem;
+    place-items: center;
+  }
+
+  /* Every decorative layer shares this fixed coordinate system. The card's grid can change shape
+     without separating the trail endpoint from its paw or sliding the path through the badge. */
+  .scene {
+    position: relative;
+    width: min(15rem, calc(100% - 1rem));
+    aspect-ratio: 5 / 3;
   }
 
   .halo {
     position: absolute;
-    top: 1.2rem;
-    left: 50%;
-    width: 7rem;
-    height: 7rem;
+    top: 0.25rem;
+    left: 40%;
+    width: 6rem;
+    height: 6rem;
     border: 1px solid color-mix(in srgb, var(--hv-color-brand-paw) 24%, transparent);
     border-radius: 50%;
     background: color-mix(in srgb, var(--hv-color-signal) 22%, white);
@@ -110,30 +121,30 @@
 
   .achievement-icon {
     position: absolute;
-    top: 2.25rem;
-    left: 50%;
-    width: 4.8rem;
-    height: 4.8rem;
+    top: 1.05rem;
+    left: 40%;
+    width: 4.4rem;
+    height: 4.4rem;
     color: var(--hv-color-brand-paw);
     transform: translateX(-50%);
   }
 
   .trail {
     position: absolute;
-    right: 0.4rem;
-    bottom: 1.35rem;
-    width: 78%;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     color: var(--hv-color-fjord);
     stroke: currentColor;
-    stroke-width: 2;
-    stroke-dasharray: 4 6;
+    stroke-width: 3;
+    stroke-dasharray: 5 7;
     stroke-linecap: round;
   }
 
   .paw {
     position: absolute;
-    right: 0.9rem;
-    bottom: 1.1rem;
+    top: 86.8056%;
+    left: 87.5%;
     display: grid;
     width: 1.8rem;
     height: 1.8rem;
@@ -142,7 +153,8 @@
     color: var(--hv-color-basalt);
     padding: 0.34rem;
     place-items: center;
-    transform: rotate(9deg);
+    transform: translate(-50%, -50%) rotate(9deg);
+    transform-origin: center;
   }
 
   .paw :global(svg) {
@@ -284,10 +296,10 @@
 
   @keyframes achievement-paw-stamps {
     from {
-      transform: scale(1.45) rotate(18deg);
+      transform: translate(-50%, -50%) scale(1.45) rotate(18deg);
     }
     to {
-      transform: scale(1) rotate(9deg);
+      transform: translate(-50%, -50%) scale(1) rotate(9deg);
     }
   }
 
@@ -307,27 +319,6 @@
 
     .art {
       min-height: 9.5rem;
-    }
-
-    .halo {
-      top: 0.9rem;
-      width: 6rem;
-      height: 6rem;
-    }
-
-    .achievement-icon {
-      top: 1.65rem;
-      width: 4.4rem;
-      height: 4.4rem;
-    }
-
-    .trail {
-      bottom: 0.8rem;
-      width: 65%;
-    }
-
-    .paw {
-      bottom: 0.6rem;
     }
 
     .copy {

@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/svelte';
+import { page as browserPage } from 'vitest/browser';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { catalogues } from '$i18n';
@@ -9,6 +10,7 @@ import type {
   MyAchievements
 } from '$server/achievements/achievements';
 import AchievementsPage from '../../src/routes/[lang=lang]/account/achievements/+page.svelte';
+import '../../src/app.css';
 
 const earned: EarnedBespokeAchievement = {
   kind: 'earned',
@@ -92,15 +94,48 @@ afterEach(() => {
 
 describe('Member Achievements view', () => {
   it.each([
-    ['is', 'Afrekin þín', 'Söfn', '2 af 3 flokkum', 'Brons', 'Þarf 4'],
-    ['en', 'Your Achievements', 'Collections', '2 of 3 categories', 'Bronze', 'Needs 4']
+    [
+      'is',
+      'Afrekin þín',
+      'Áfangar',
+      'Takk fyrir að gera Hundavænt betra.',
+      'Innritanir með stuttu millibili telja sem ein.',
+      '2 af 3 flokkum',
+      'Brons',
+      'Þarf 4',
+      categoryCollection.collectionDescriptionIs
+    ],
+    [
+      'en',
+      'Your Achievements',
+      'Milestones',
+      'Thanks for making Hundavænt better.',
+      'Check-ins close together count once.',
+      '2 of 3 categories',
+      'Bronze',
+      'Needs 4',
+      categoryCollection.collectionDescriptionEn
+    ]
   ] as const)(
-    'shows every tier of a collection, including the untouched gap, in %s',
-    (lang, title, collectionsHeading, startedProgress, bronzeLabel, goldTarget) => {
+    'keeps the first-time guidance lean while showing every tier in %s',
+    (
+      lang,
+      title,
+      collectionsHeading,
+      intro,
+      spacingNote,
+      startedProgress,
+      bronzeLabel,
+      goldTarget,
+      repeatedDescription
+    ) => {
       renderPage(lang);
 
       expect(screen.getByRole('heading', { name: title })).toBeTruthy();
       expect(screen.getByRole('heading', { name: collectionsHeading })).toBeTruthy();
+      expect(screen.getByText(intro)).toBeTruthy();
+      expect(screen.getByText(spacingNote)).toBeTruthy();
+      expect(screen.queryByText(repeatedDescription)).toBeNull();
       expect(screen.getByText(startedProgress)).toBeTruthy();
       expect(screen.getByText(bronzeLabel)).toBeTruthy();
       // The gold tier has no progress at all and is still shown, advertising its threshold.
@@ -118,17 +153,56 @@ describe('Member Achievements view', () => {
     expect(document.querySelector('[data-tier-state="earned"]')).toBeTruthy();
   });
 
+  it('gives every collection card the design-system panel inset', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+
+    try {
+      await browserPage.viewport(390, 844);
+      renderPage('en');
+
+      const collection = screen.getByRole('listitem', { name: 'Categories' });
+      const style = getComputedStyle(collection);
+
+      expect(style.paddingBlockStart).toBe('16px');
+      expect(style.paddingBlockEnd).toBe('16px');
+      expect(style.paddingInlineStart).toBe('16px');
+      expect(style.paddingInlineEnd).toBe('16px');
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
+  });
+
   it('renders a claimed tier celebration with copy derived from its collection and threshold', () => {
     renderPage('en', [claimedTier]);
 
     const celebration = screen.getByRole('region', {
       name: 'New achievement: Categories - Bronze'
     });
-    expect(within(celebration).getByText('Achievement unlocked')).toBeTruthy();
+    expect(within(celebration).getByText('Nicely done')).toBeTruthy();
     expect(within(celebration).getByText('Categories - Bronze')).toBeTruthy();
     expect(within(celebration).getByText('Check in at places across 2 categories.')).toBeTruthy();
     expect(celebration.querySelector('[data-achievement-icon]')).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('connects the animated trail to its paw at desktop and mobile widths', async () => {
+    const initialViewport = { width: window.innerWidth, height: window.innerHeight };
+
+    try {
+      await browserPage.viewport(1280, 900);
+      renderPage('en', [claimedTier]);
+      await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+
+      const celebration = screen.getByRole('region', {
+        name: 'New achievement: Categories - Bronze'
+      });
+      expectTrailToMeetPaw(celebration);
+
+      await browserPage.viewport(390, 844);
+      expectTrailToMeetPaw(celebration);
+    } finally {
+      await browserPage.viewport(initialViewport.width, initialViewport.height);
+    }
   });
 
   it('keeps the same celebration content for reduced-motion users', () => {
@@ -155,7 +229,7 @@ describe('Member Achievements view', () => {
     // The CSS reduce contract (travelling halves at zero duration, fade halves at full) is
     // asserted in tests/evaluation/a11y.spec.ts, where emulateMedia drives the real media
     // query; this harness never loads app.css, so computed animation values are meaningless.
-    expect(within(celebration).getByText('Achievement unlocked')).toBeTruthy();
+    expect(within(celebration).getByText('Nicely done')).toBeTruthy();
   });
 
   it('keeps the bespoke archive separate from the collections grid', () => {
@@ -213,4 +287,26 @@ function renderPage(lang: 'is' | 'en', claimed: ClaimedAchievement[] = []) {
       claimed
     }
   } as never);
+}
+
+function expectTrailToMeetPaw(celebration: HTMLElement) {
+  const path = celebration.querySelector<SVGPathElement>('.trail path');
+  const paw = celebration.querySelector<HTMLElement>('.paw');
+
+  expect(path).toBeTruthy();
+  expect(paw).toBeTruthy();
+  if (!path || !paw) return;
+
+  const screenMatrix = path.getScreenCTM();
+  expect(screenMatrix).toBeTruthy();
+  if (!screenMatrix) return;
+
+  const endpoint = path.getPointAtLength(path.getTotalLength()).matrixTransform(screenMatrix);
+  const pawBounds = paw.getBoundingClientRect();
+  const pawCenter = {
+    x: pawBounds.left + pawBounds.width / 2,
+    y: pawBounds.top + pawBounds.height / 2
+  };
+
+  expect(Math.hypot(endpoint.x - pawCenter.x, endpoint.y - pawCenter.y)).toBeLessThan(2);
 }

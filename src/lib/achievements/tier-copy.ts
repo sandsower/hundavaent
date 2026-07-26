@@ -46,10 +46,3 @@ export function collectionName(
 ): string {
   return lang === 'is' ? entry.collectionNameIs : entry.collectionNameEn;
 }
-
-export function collectionDescription(
-  entry: { collectionDescriptionIs: string; collectionDescriptionEn: string },
-  lang: Locale
-): string {
-  return lang === 'is' ? entry.collectionDescriptionIs : entry.collectionDescriptionEn;
-}
