@@ -150,6 +150,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      configure_place_media_member_policy: {
+        Args: {
+          requested_byte_limit: number
+          requested_enabled: boolean
+          requested_pending_per_place: number
+          requested_submission_window_seconds: number
+          requested_uploads_per_window: number
+        }
+        Returns: undefined
+      }
       configure_private_rating_note_policy: {
         Args: {
           requested_enabled: boolean
@@ -1100,6 +1110,18 @@ export type Database = {
           updated_at: string
         }[]
       }
+      list_my_place_photos: {
+        Args: { requested_place_id: string }
+        Returns: {
+          approval_state: string
+          height_px: number
+          media_id: string
+          mime_type: string
+          storage_object_path: string
+          uploaded_at: string
+          width_px: number
+        }[]
+      }
       list_my_place_suggestions: {
         Args: {
           cursor_submitted_at?: string
@@ -1183,6 +1205,14 @@ export type Database = {
           successor_name: string
           successor_place_id: string
           visit_count: number
+        }[]
+      }
+      list_places_with_pending_photos: {
+        Args: never
+        Returns: {
+          newest_uploaded_at: string
+          pending_photo_count: number
+          place_id: string
         }[]
       }
       list_published_place_photos: {
@@ -1738,6 +1768,14 @@ export type Database = {
           qualifying_action_recorded: boolean
           status: string
           submitted_at: string
+        }[]
+      }
+      submit_place_photo: {
+        Args: { command_payload: Json; command_request_id: string }
+        Returns: {
+          approval_state: string
+          media_id: string
+          uploaded_at: string
         }[]
       }
       submit_place_report: {

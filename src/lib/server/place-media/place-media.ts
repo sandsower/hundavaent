@@ -353,16 +353,19 @@ export type PlaceMediaUploadResult =
 
 // Uploads bytes already validated (type, size) by the caller to the bucket implied by `kind`.
 // Storage authorization is enforced by the storage.objects RLS policies from the place-media
-// migration (Moderator-only for both buckets at write time), not by this helper.
+// migration (Moderator-only for both buckets at write time), not by this helper - so a Member
+// submission passes a service-role client, which is what makes the metadata strip mandatory
+// rather than advisory.
 export async function uploadPlaceMediaObject(
   client: RequestSupabaseClient,
   kind: PlaceMediaKind,
   placeId: string,
   file: File,
-  mimeType: PlaceMediaMimeType
+  mimeType: PlaceMediaMimeType,
+  namespace?: string
 ): Promise<PlaceMediaUploadResult> {
   const bucket = kind === 'evidence_screenshot' ? 'place-evidence' : 'place-photos';
-  const objectPath = buildPlaceMediaObjectPath(placeId, crypto.randomUUID(), mimeType);
+  const objectPath = buildPlaceMediaObjectPath(placeId, crypto.randomUUID(), mimeType, namespace);
 
   const { error } = await client.storage.from(bucket).upload(objectPath, file, {
     contentType: mimeType,
@@ -374,6 +377,125 @@ export async function uploadPlaceMediaObject(
   }
 
   return { ok: true, objectPath };
+}
+
+/**
+ * Removes an object whose registration did not happen, so a refused submission does not leave
+ * bytes behind. Registration and the Storage write are two round trips and the second one can
+ * fail on a policy cap, which is the ordinary case rather than an exceptional one: a Member at
+ * their pending limit would otherwise accumulate unreferenced objects on every retry.
+ */
+export async function removePlaceMediaObject(
+  client: RequestSupabaseClient,
+  bucket: 'place-evidence' | 'place-photos',
+  objectPath: string
+): Promise<void> {
+  try {
+    await client.storage.from(bucket).remove([objectPath]);
+  } catch {
+    // An orphan object is unreachable to every role (the photo read policies both require a
+    // matching row), so failing to clean one up is untidy rather than unsafe.
+  }
+}
+
+export interface SubmittedPlacePhoto {
+  mediaId: string;
+  approvalState: PlaceMediaApprovalState;
+  uploadedAt: string;
+}
+
+export interface MemberPlaceMediaItem {
+  mediaId: string;
+  storageObjectPath: string;
+  mimeType: string;
+  approvalState: PlaceMediaApprovalState;
+  widthPx: number;
+  heightPx: number;
+  uploadedAt: string;
+}
+
+/**
+ * The Member photo vocabulary. `policy_unavailable` and `rate_limited` are the two the Moderator
+ * commands never raise, and they are exactly the two a submitting Member can hit, so they cannot
+ * be folded into `infrastructure_error` without turning "you have uploaded enough for now" into
+ * "something is broken".
+ */
+export type MemberPlacePhotoResult<T> =
+  | { status: 'success'; value: T }
+  | { status: 'policy_unavailable' | 'rate_limited' | 'forbidden' | 'invalid' | 'conflict' }
+  | { status: 'infrastructure_error' };
+
+export async function submitPlacePhoto(
+  client: RequestSupabaseClient,
+  command: {
+    place_id: string;
+    storage_object_path: string;
+    mime_type: PlaceMediaMimeType;
+    byte_size: number;
+    width_px: number;
+    height_px: number;
+  },
+  requestId: string
+): Promise<MemberPlacePhotoResult<SubmittedPlacePhoto>> {
+  try {
+    const { data, error } = await client.rpc('submit_place_photo', {
+      command_payload: command as unknown as Json,
+      command_request_id: requestId
+    });
+
+    if (error) return { status: mapMemberPhotoError(error.code) };
+    if (data.length !== 1 || !data[0]) return { status: 'infrastructure_error' };
+
+    return {
+      status: 'success',
+      value: {
+        mediaId: data[0].media_id,
+        approvalState: data[0].approval_state as PlaceMediaApprovalState,
+        uploadedAt: data[0].uploaded_at
+      }
+    };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+export async function listMyPlacePhotos(
+  client: RequestSupabaseClient,
+  placeId: string
+): Promise<MemberPlacePhotoResult<MemberPlaceMediaItem[]>> {
+  try {
+    const { data, error } = await client.rpc('list_my_place_photos', {
+      requested_place_id: placeId
+    });
+
+    if (error) return { status: mapMemberPhotoError(error.code) };
+
+    return {
+      status: 'success',
+      value: data.map((row) => ({
+        mediaId: row.media_id,
+        storageObjectPath: row.storage_object_path,
+        mimeType: row.mime_type,
+        approvalState: row.approval_state as PlaceMediaApprovalState,
+        widthPx: row.width_px,
+        heightPx: row.height_px,
+        uploadedAt: row.uploaded_at
+      }))
+    };
+  } catch {
+    return { status: 'infrastructure_error' };
+  }
+}
+
+function mapMemberPhotoError(
+  code: string | undefined
+): Exclude<MemberPlacePhotoResult<never>['status'], 'success'> {
+  if (code === '55000') return 'policy_unavailable';
+  if (code === '54000') return 'rate_limited';
+  if (code === '42501') return 'forbidden';
+  if (code === '22023' || code === '23502' || code === '23514') return 'invalid';
+  if (code === '23505' || code === '55006' || code === '40001') return 'conflict';
+  return 'infrastructure_error';
 }
 
 // Short-lived signed URLs, minted fresh on every render from the request-scoped (RLS-respecting)
