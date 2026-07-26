@@ -47,7 +47,7 @@ test('a Member can see a private bilingual impact record with honest durable out
   await expect(page.locator('[data-impact-pillar]')).toHaveCount(4);
   await expect(page.locator('[data-impact-back]')).toBeVisible();
   await expect(page.locator('[data-impact-summary]')).toContainText(
-    '1confirmed useful contribution'
+    '1 confirmed useful contribution'
   );
   await expect(page.locator('[data-impact-pillar][open]')).toHaveCount(0);
   expect(
