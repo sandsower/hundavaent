@@ -4,6 +4,7 @@ import type {
   PermissionRequirement,
   RestraintCondition
 } from '$domain/access';
+import type { WheelchairAccessibility } from '$domain/place';
 
 /**
  * The shared contract between the inline affordances and the endpoint that validates them. It
@@ -117,9 +118,11 @@ export type AccessConditionCorrectionInput = AccessConditionCorrectionTarget &
   AccessConditionDimensionChange & { note: string | null };
 
 /**
- * The Place fields a Member edits inline. `description` and `opening_hours` are deliberately
- * absent: the card does not render either, and opening hours have no schema an editor could be
- * built over.
+ * The Place fields a Member edits inline through the reveal's shared text control. `description`
+ * and `opening_hours` are deliberately absent: the card does not render either, and opening hours
+ * have no schema an editor could be built over. `wheelchair_accessibility` is also absent, on
+ * different grounds: it is corrected from the accessibility badge's own panel, where the value is
+ * a choice rather than text.
  */
 export type MemberPlaceField = 'name' | 'website_url' | 'phone' | 'dog_amenities';
 
@@ -131,6 +134,26 @@ export const memberPlaceFields: readonly MemberPlaceField[] = [
 ];
 
 /**
+ * The accessibility states a Member may claim. `unknown` is deliberately absent: it is the
+ * absence of a claim, and a Member who does not know proposes nothing. Only a Moderator can set
+ * the explicit-unknown state, through their own command.
+ */
+export type MemberWheelchairAccessibilityChoice = Exclude<WheelchairAccessibility, 'unknown'>;
+
+export const memberWheelchairAccessibilityChoices:
+  readonly MemberWheelchairAccessibilityChoice[] = [
+    'accessible',
+    'partially_accessible',
+    'not_accessible'
+  ];
+
+export function isMemberWheelchairAccessibilityChoice(
+  value: string
+): value is MemberWheelchairAccessibilityChoice {
+  return memberWheelchairAccessibilityChoices.some((choice) => choice === value);
+}
+
+/**
  * The name arm carries the Member's single-locale text, never a locale map. The endpoint knows the
  * locale from its `lang` parameter and builds the omitted-locale hatch from it, so a client cannot
  * name which language it is writing, let alone write both.
@@ -139,7 +162,8 @@ export type PlaceFieldChange =
   | { field: 'name'; value: string }
   | { field: 'website_url'; value: string | null }
   | { field: 'phone'; value: string | null }
-  | { field: 'dog_amenities'; value: string[] };
+  | { field: 'dog_amenities'; value: string[] }
+  | { field: 'wheelchair_accessibility'; value: MemberWheelchairAccessibilityChoice };
 
 export interface PlaceFieldCorrectionTarget {
   target: 'place_field';
@@ -158,7 +182,8 @@ export type CorrectionInput = AccessConditionCorrectionInput | PlaceFieldCorrect
  * Correction raised on the legacy form still has to reach the reader. The server's `PlaceField`
  * mirrors the same database enum, and a type test holds the two together.
  */
-export type PendingPlaceField = MemberPlaceField | 'description' | 'opening_hours';
+export type PendingPlaceField =
+  MemberPlaceField | 'wheelchair_accessibility' | 'description' | 'opening_hours';
 
 /**
  * One open flag of the caller's on one Place, as the pending read returns it. Only the addressing
@@ -198,7 +223,7 @@ export function isPlaceReportReason(value: string): value is PlaceReportReason {
  * appends it, which is what makes the three sibling editors on the same Condition say "pending"
  * the moment the fourth is sent rather than after a round trip nobody asked for.
  */
-export function submittedPlaceFieldFlag(field: MemberPlaceField): PendingPlaceFlag {
+export function submittedPlaceFieldFlag(field: PlaceFieldChange['field']): PendingPlaceFlag {
   return {
     kind: 'correction',
     targetKind: 'place_field',
@@ -322,6 +347,11 @@ export function parseFieldChange(field: string, value: unknown): PlaceFieldChang
     case 'dog_amenities': {
       const amenities = parseAmenities(value);
       return amenities ? { field: 'dog_amenities', value: amenities } : null;
+    }
+    case 'wheelchair_accessibility': {
+      return typeof value === 'string' && isMemberWheelchairAccessibilityChoice(value)
+        ? { field: 'wheelchair_accessibility', value }
+        : null;
     }
     default:
       return null;

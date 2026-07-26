@@ -22,6 +22,7 @@
   import ContributionReveal from '$lib/discovery/ContributionReveal.svelte';
   import {
     hasPendingAccessCondition,
+    hasPendingPlaceField,
     type AccessConditionDimension,
     type PendingPlaceFlag
   } from '$lib/contributions/correction';
@@ -32,6 +33,7 @@
   import { correctConditionHref } from '$lib/discovery/correct-link';
   import { googleMapsDirectionsUrl } from '$lib/discovery/directions';
   import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
+  import WheelchairAccessibilityCorrection from '$lib/discovery/WheelchairAccessibilityCorrection.svelte';
   import PhotoCredit from '$lib/discovery/PhotoCredit.svelte';
   import RefreshablePlaceImage from '$lib/discovery/RefreshablePlaceImage.svelte';
   import SharePlaceControl from '$lib/discovery/SharePlaceControl.svelte';
@@ -226,6 +228,10 @@
     // Only the chip panel's editors are this component's to clean up after. The reveal owns focus
     // for the affordances it renders, and it also routes its submissions through here.
     if (flag.targetKind === 'access_condition') focusConditionPending = true;
+    // The accessibility badge's panel is this component's too, on the same terms as the chips'.
+    if (flag.targetKind === 'place_field' && flag.targetField === 'wheelchair_accessibility') {
+      focusMobilityPending = true;
+    }
   }
 
   /**
@@ -245,6 +251,24 @@
     if (!line) return;
     line.focus();
     focusConditionPending = false;
+  });
+
+  /**
+   * The accessibility badge's panel on the same terms: sending removes the editor, so focus moves
+   * to the pending line that replaced it.
+   */
+  const mobilityPending = $derived(hasPendingPlaceField(pending, 'wheelchair_accessibility'));
+  let focusMobilityPending = $state(false);
+  let mobilitySection = $state<HTMLElement>();
+
+  $effect(() => {
+    // `mobilityPending` is read so this re-runs once the panel has swapped in the pending line.
+    void mobilityPending;
+    if (!focusMobilityPending || !mobilitySection) return;
+    const line = mobilitySection.querySelector<HTMLElement>('[data-correction-pending]');
+    if (!line) return;
+    line.focus();
+    focusMobilityPending = false;
   });
 </script>
 
@@ -298,6 +322,27 @@
         onSubmitted={recordSubmitted}
       />
     {/if}
+  {/if}
+{/snippet}
+
+{#snippet mobilityEditor({ announce }: { announce: (message: string) => void })}
+  {#if mobilityPending}
+    <!-- A pending wheelchair Correction proposes the whole fact, so the one affordance the panel
+         holds says pending rather than inviting a second claim beside the first. -->
+    <p class="pending-correction" data-correction-pending tabindex="-1">
+      {copy['inlineCorrection.pending']}
+    </p>
+  {:else}
+    <WheelchairAccessibilityCorrection
+      placeId={place.placeId}
+      placeName={place.name}
+      {lang}
+      {copy}
+      {signedIn}
+      state={profile?.wheelchairAccessibility ?? place.wheelchairAccessibility}
+      {announce}
+      onSubmitted={recordSubmitted}
+    />
   {/if}
 {/snippet}
 
@@ -433,11 +478,17 @@
       />
     </section>
 
-    <section class="mobility-access" aria-labelledby={`mobility-${place.placeId}`}>
+    <section
+      bind:this={mobilitySection}
+      class="mobility-access"
+      aria-labelledby={`mobility-${place.placeId}`}
+    >
       <h3 id={`mobility-${place.placeId}`}>{copy['wheelchairAccessibility.heading']}</h3>
       <WheelchairAccessibilityBadge
         state={profile?.wheelchairAccessibility ?? place.wheelchairAccessibility}
         {copy}
+        expandable
+        editor={mobilityEditor}
       />
     </section>
 

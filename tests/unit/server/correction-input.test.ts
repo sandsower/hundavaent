@@ -351,6 +351,39 @@ describe('inline Place field Correction input', () => {
     expect(parseCorrectionInput(placeField({ field: 7 }))).toBeNull();
   });
 
+  it('accepts each definite wheelchair accessibility state', () => {
+    for (const state of ['accessible', 'partially_accessible', 'not_accessible']) {
+      expect(
+        parseCorrectionInput(placeField({ field: 'wheelchair_accessibility', value: state }))
+      ).toEqual({
+        target: 'place_field',
+        field: 'wheelchair_accessibility',
+        value: state,
+        note: null
+      });
+    }
+  });
+
+  it('rejects a wheelchair accessibility claim of unknown, which is the absence of a claim', () => {
+    expect(
+      parseCorrectionInput(placeField({ field: 'wheelchair_accessibility', value: 'unknown' }))
+    ).toBeNull();
+  });
+
+  it('rejects a wheelchair accessibility value outside the vocabulary', () => {
+    expect(
+      parseCorrectionInput(placeField({ field: 'wheelchair_accessibility', value: 'ramp' }))
+    ).toBeNull();
+    expect(
+      parseCorrectionInput(placeField({ field: 'wheelchair_accessibility', value: null }))
+    ).toBeNull();
+    expect(
+      parseCorrectionInput(
+        placeField({ field: 'wheelchair_accessibility', value: ['accessible'] })
+      )
+    ).toBeNull();
+  });
+
   it('carries a note the same way the access-condition arm does', () => {
     expect(parseCorrectionInput(placeField({ note: '  The sign says Taumur.  ' }))?.note).toBe(
       'The sign says Taumur.'

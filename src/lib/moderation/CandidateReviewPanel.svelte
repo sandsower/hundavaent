@@ -463,6 +463,7 @@
   function wheelchairAccessibilityLabel(): string {
     const labels: Record<typeof data.review.wheelchairAccessibility, MessageKey> = {
       accessible: 'wheelchairAccessibility.accessible',
+      partially_accessible: 'wheelchairAccessibility.partiallyAccessible',
       not_accessible: 'wheelchairAccessibility.notAccessible',
       unknown: 'wheelchairAccessibility.unknown'
     };
@@ -888,6 +889,9 @@
             {data.copy['moderation.wheelchairAccessibilityLabel']}
             <select name="wheelchairAccessibility" bind:value={wheelchairAccessibilityValue}>
               <option value="accessible">{data.copy['wheelchairAccessibility.accessible']}</option>
+              <option value="partially_accessible"
+                >{data.copy['wheelchairAccessibility.partiallyAccessible']}</option
+              >
               <option value="not_accessible"
                 >{data.copy['wheelchairAccessibility.notAccessible']}</option
               >

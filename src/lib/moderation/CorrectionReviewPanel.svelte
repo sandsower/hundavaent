@@ -541,6 +541,25 @@
                   bind:value={fieldValueList}
                 /></label
               >
+            {:else if data.flag.targetField === 'wheelchair_accessibility'}
+              <label class="wide"
+                >{data.copy['moderation.wheelchairAccessibilityLabel']}<select
+                  name="fieldValueText"
+                  bind:value={fieldValueText}
+                >
+                  <!-- The apply path accepts the three definite states only; the explicit-unknown
+                       state stays with the Moderator's own wheelchair command. -->
+                  <option value="accessible"
+                    >{data.copy['wheelchairAccessibility.accessible']}</option
+                  >
+                  <option value="partially_accessible"
+                    >{data.copy['wheelchairAccessibility.partiallyAccessible']}</option
+                  >
+                  <option value="not_accessible"
+                    >{data.copy['wheelchairAccessibility.notAccessible']}</option
+                  >
+                </select></label
+              >
             {:else}
               <label class="wide"
                 >{data.copy['flag.newFieldValue']}<input
