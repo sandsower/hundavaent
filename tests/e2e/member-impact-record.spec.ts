@@ -70,8 +70,12 @@ test('a Member can see a private bilingual impact record with honest durable out
     )
   ).toBeVisible();
   await expect(page.getByRole('link', { name: /Unpublished successor/ })).toHaveCount(0);
-  await expect(page.getByText('confirmed useful').locator('..').getByText('1')).toBeVisible();
-  await expect(page.getByText('credited places').locator('..').getByText('3')).toBeVisible();
+  await expect(
+    page.locator('[data-impact-pillar="contribution"] [data-pillar-snapshot] strong')
+  ).toHaveText('1');
+  await expect(
+    page.locator('[data-impact-pillar="exploration"] [data-pillar-snapshot] strong')
+  ).toHaveText('3');
   await expect(page.locator('form')).toHaveCount(0);
 
   const body = await page.locator('body').innerText();
