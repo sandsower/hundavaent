@@ -93,11 +93,21 @@ describe('the proposed value of the remaining fields', () => {
     });
   });
 
+  it('wraps a wheelchair accessibility state in the single-value shape', () => {
+    expect(
+      proposedPlaceFieldValue(
+        { field: 'wheelchair_accessibility', value: 'partially_accessible' },
+        'is'
+      )
+    ).toEqual({ value: 'partially_accessible' });
+  });
+
   it('never names a locale on a field that has none', () => {
     for (const change of [
       { field: 'website_url', value: 'https://example.invalid' },
       { field: 'phone', value: '+354 555 0000' },
-      { field: 'dog_amenities', value: ['shade'] }
+      { field: 'dog_amenities', value: ['shade'] },
+      { field: 'wheelchair_accessibility', value: 'accessible' }
     ] as PlaceFieldChange[]) {
       expect(proposedPlaceFieldValue(change, 'en').needs_review).toBeUndefined();
     }
@@ -153,6 +163,22 @@ describe('the unchanged verdict per Place field', () => {
         value: []
       })
     ).toBe(true);
+  });
+
+  it('compares wheelchair accessibility against the published state', () => {
+    expect(
+      isUnchangedPlaceField(profile({ wheelchairAccessibility: 'partially_accessible' }), {
+        field: 'wheelchair_accessibility',
+        value: 'partially_accessible'
+      })
+    ).toBe(true);
+    // The default profile is unknown, so every definite claim is a change.
+    expect(
+      isUnchangedPlaceField(profile(), {
+        field: 'wheelchair_accessibility',
+        value: 'accessible'
+      })
+    ).toBe(false);
   });
 
   it('judges each field only against its own published value', () => {

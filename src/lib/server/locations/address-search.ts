@@ -1,7 +1,7 @@
 const giscoAddressSearchUrl = 'https://gisco-services.ec.europa.eu/addressapi/search';
 const nominatimSearchUrl = 'https://nominatim.openstreetmap.org/search';
 
-export interface ModerationAddressResult {
+export interface AddressSearchResult {
   id: string;
   label: string;
   addressLine: string;
@@ -66,10 +66,10 @@ const municipalityByOfficialName = new Map([
   ['KJÓS', { id: 'kjosarhreppur', locality: 'Kjósarhreppur' }]
 ]);
 
-export async function searchModerationAddresses(
+export async function searchAddresses(
   query: string,
   fetcher: typeof fetch = fetch
-): Promise<ModerationAddressResult[]> {
+): Promise<AddressSearchResult[]> {
   const normalizedQuery = query.trim().slice(0, 120);
   if (normalizedQuery.length < 3) return [];
 
@@ -91,7 +91,7 @@ export async function searchModerationAddresses(
 async function searchGiscoAddresses(
   query: string,
   fetcher: typeof fetch
-): Promise<ModerationAddressResult[]> {
+): Promise<AddressSearchResult[]> {
   const url = new URL(giscoAddressSearchUrl);
   url.searchParams.set('q', query);
   url.searchParams.set('country', 'IS');
@@ -108,7 +108,7 @@ async function searchGiscoAddresses(
 async function searchNominatimPlaces(
   query: string,
   fetcher: typeof fetch
-): Promise<ModerationAddressResult[]> {
+): Promise<AddressSearchResult[]> {
   const url = new URL(nominatimSearchUrl);
   url.searchParams.set('q', query);
   url.searchParams.set('countrycodes', 'is');
@@ -118,7 +118,7 @@ async function searchNominatimPlaces(
   const response = await fetcher(url, {
     headers: {
       accept: 'application/json',
-      'user-agent': 'Hundavaent moderation location search'
+      'user-agent': 'Hundavaent location search'
     },
     signal: AbortSignal.timeout(5_000)
   });
@@ -129,11 +129,11 @@ async function searchNominatimPlaces(
 
 function collectResults(
   values: unknown,
-  normalize: (value: unknown) => ModerationAddressResult | null
-): ModerationAddressResult[] {
+  normalize: (value: unknown) => AddressSearchResult | null
+): AddressSearchResult[] {
   if (!Array.isArray(values)) return [];
   const seen = new Set<string>();
-  const results: ModerationAddressResult[] = [];
+  const results: AddressSearchResult[] = [];
   for (const candidate of values) {
     const result = normalize(candidate);
     if (!result || seen.has(result.id)) continue;
@@ -144,7 +144,7 @@ function collectResults(
   return results;
 }
 
-export function normalizeGiscoAddress(value: unknown): ModerationAddressResult | null {
+export function normalizeGiscoAddress(value: unknown): AddressSearchResult | null {
   if (!value || typeof value !== 'object') return null;
   const result = value as GiscoAddressResult;
   if (result.L0 !== 'IS' || typeof result.L2 !== 'string') return null;
@@ -182,7 +182,7 @@ export function normalizeGiscoAddress(value: unknown): ModerationAddressResult |
   };
 }
 
-export function normalizeNominatimPlace(value: unknown): ModerationAddressResult | null {
+export function normalizeNominatimPlace(value: unknown): AddressSearchResult | null {
   if (!value || typeof value !== 'object') return null;
   const result = value as NominatimAddressResult;
   if (!result.address || typeof result.address !== 'object') return null;

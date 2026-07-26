@@ -75,7 +75,7 @@ describe('Trusted Verification member surface', () => {
 
     const celebration = screen.getByTestId('trusted-submission-success');
     expect(celebration.getAttribute('aria-live')).toBe('polite');
-    expect(screen.getByText('Þetta gagnlega skref merkti vikuna þína virka.')).toBeTruthy();
+    expect(screen.getByText('Með þessu gagnlega skrefi telst vikan þín nú virk.')).toBeTruthy();
     expect(container.querySelector('.celebration-icon')).toBeTruthy();
   });
 });

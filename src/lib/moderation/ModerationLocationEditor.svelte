@@ -5,7 +5,7 @@
   import MapSurface from '$lib/map/MapSurface.svelte';
   import { createMapLibreAdapter, emptyMapLibreStyle } from '$lib/map/maplibre-adapter';
   import type { MapAdapter, MapCamera, MapPoint } from '$lib/map/types';
-  import type { ModerationAddressResult } from '$server/moderation/address-search';
+  import type { AddressSearchResult } from '$server/locations/address-search';
 
   export interface ModerationLocationValue {
     addressLine: string;
@@ -43,7 +43,7 @@
   let query = $state('');
   let searching = $state(false);
   let searchState = $state<'idle' | 'empty' | 'unavailable'>('idle');
-  let results = $state<ModerationAddressResult[]>([]);
+  let results = $state<AddressSearchResult[]>([]);
   let announcement = $state('');
 
   const places = $derived([
@@ -68,7 +68,7 @@
         { headers: { accept: 'application/json' } }
       );
       if (!response.ok) throw new Error('Address search failed');
-      const payload = (await response.json()) as { results?: ModerationAddressResult[] };
+      const payload = (await response.json()) as { results?: AddressSearchResult[] };
       results = Array.isArray(payload.results) ? payload.results : [];
       searchState = results.length === 0 ? 'empty' : 'idle';
     } catch {
@@ -78,7 +78,7 @@
     }
   }
 
-  function chooseResult(result: ModerationAddressResult): void {
+  function chooseResult(result: AddressSearchResult): void {
     value = {
       addressLine: result.addressLine,
       locality: result.locality,

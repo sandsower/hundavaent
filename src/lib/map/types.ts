@@ -49,5 +49,7 @@ export interface MapAdapter {
   setCamera(camera: MapCamera, options?: MapCameraOptions): void;
   setPadding?(padding: MapPadding, options?: { duration?: number }): void;
   fitToPlaces?(places: readonly MapPlace[]): void;
+  /** Shows the reader's own position as a passive dot; null clears it. */
+  setViewerLocation?(point: MapPoint | null): void;
   destroy(): void;
 }

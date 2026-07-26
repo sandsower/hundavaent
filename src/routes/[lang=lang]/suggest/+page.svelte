@@ -15,7 +15,11 @@
   // The map has to open somewhere before anyone has answered, and the capital region is where.
   // This is a camera, not a pin: it is never submitted and never becomes a Location fact.
   const fallbackCamera = { latitude: 64.1466, longitude: -21.9426, zoom: 15 };
-  const pinRequiredHintId = 'suggestion-location-required';
+  // The pin question carries no standing hint: an unanswered question that has not been sent yet is
+  // not an error, and a permanent red-adjacent line under the map read as one. The message exists
+  // only after a blocked send, as the alert, so the description is wired to it only while it is
+  // rendered - an aria-describedby pointing at nothing describes nothing.
+  const pinRequiredMessageId = 'suggestion-location-required';
   // A pin the map entry point handed over in the query string is a real answer - the member chose
   // that camera or that place before following the link. Anything else has to be placed here.
   let pinLatitude = $state<number | null>(untrack(() => presetCoordinate(data.presetLatitude)));
@@ -86,7 +90,7 @@
 
 <main class="hv-page-shell" data-ui-mode="place" data-width="wide">
   <header class="hv-page-header">
-    <div>
+    <div class="hv-page-heading">
       <p class="hv-eyebrow">{data.copy['suggestion.nav']}</p>
       <h1 class="hv-page-title">{data.copy['suggestion.title']}</h1>
       <p class="hv-meta">{data.copy['suggestion.intro']}</p>
@@ -102,7 +106,7 @@
     <p class="hv-notice" data-tone="error" role="alert">{data.copy['error.unexpectedBody']}</p>
   {:else}
     {#if pinMissing}
-      <p class="hv-notice" data-tone="error" role="alert">
+      <p class="hv-notice" data-tone="error" role="alert" id={pinRequiredMessageId}>
         {data.copy['suggestion.locationRequired']}
       </p>
     {:else if signInRequired}
@@ -136,7 +140,7 @@
           class="hv-form-section hv-panel"
           role="region"
           aria-label={data.copy['suggestion.locationRegion']}
-          aria-describedby={pinAnswered ? undefined : pinRequiredHintId}
+          aria-describedby={pinMissing ? pinRequiredMessageId : undefined}
           tabindex="-1"
           bind:this={locationRegion}
         >
@@ -145,7 +149,6 @@
             adapter={mapAdapter}
             copy={data.copy}
             {fallbackCamera}
-            requiredHintId={pinRequiredHintId}
             bind:latitude={pinLatitude}
             bind:longitude={pinLongitude}
           />
@@ -182,6 +185,12 @@
     margin: 0;
     border: 0;
     padding: 0;
+  }
+
+  /* Sending is not a fourth question, so it stands off from the three rather than queueing behind
+     them at the same interval. */
+  .answer-boundary > button[type='submit'] {
+    margin-block-start: var(--hv-space-panel);
   }
 
   .sign-in-gate {

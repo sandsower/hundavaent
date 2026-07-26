@@ -98,7 +98,8 @@ const placeFieldNames: Record<PlaceField, string> = {
   website_url: 'the website address',
   phone: 'the phone number',
   opening_hours: 'the opening hours',
-  dog_amenities: 'the dog amenities'
+  dog_amenities: 'the dog amenities',
+  wheelchair_accessibility: 'the wheelchair accessibility'
 };
 
 export function buildMemberReportEvidence(input: MemberReportEvidenceInput): FlagEvidence {

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import { catalogues } from '$i18n';
@@ -55,7 +55,19 @@ describe('WheelchairAccessibilityBadge', () => {
     expect(container.querySelector('[data-wheelchair-modifier="not_accessible"]')).toBeTruthy();
   });
 
-  it.each(['accessible', 'not_accessible', 'unknown'] as const)(
+  it('marks the partially accessible state with a half modifier', () => {
+    const { container } = render(WheelchairAccessibilityBadge, {
+      state: 'partially_accessible',
+      copy: catalogues.en
+    });
+
+    expect(screen.getByText('Partially wheelchair accessible')).toBeTruthy();
+    expect(
+      container.querySelector('[data-wheelchair-modifier="partially_accessible"]')?.textContent
+    ).toBe('½');
+  });
+
+  it.each(['accessible', 'partially_accessible', 'not_accessible', 'unknown'] as const)(
     'meets WCAG AA text contrast for %s',
     (state) => {
       const { container } = render(WheelchairAccessibilityBadge, {
@@ -74,4 +86,39 @@ describe('WheelchairAccessibilityBadge', () => {
       ).toBeGreaterThanOrEqual(4.5);
     }
   );
+
+  it('expands into the explanation panel when rendered as a disclosure', async () => {
+    const { container } = render(WheelchairAccessibilityBadge, {
+      state: 'partially_accessible',
+      copy: catalogues.en,
+      expandable: true
+    });
+
+    const chip = screen.getByRole('button', { name: 'Partially wheelchair accessible' });
+    expect(chip.getAttribute('aria-expanded')).toBe('false');
+    expect(container.querySelector('[data-wheelchair-detail]')).toBeNull();
+
+    await fireEvent.click(chip);
+
+    expect(chip.getAttribute('aria-expanded')).toBe('true');
+    const panel = container.querySelector('[data-wheelchair-detail]');
+    expect(panel?.textContent).toContain(
+      catalogues.en['wheelchairAccessibility.partiallyAccessibleDetail']
+    );
+    expect(chip.getAttribute('aria-controls')).toBe(panel?.id);
+
+    await fireEvent.click(chip);
+
+    expect(chip.getAttribute('aria-expanded')).toBe('false');
+    expect(container.querySelector('[data-wheelchair-detail]')).toBeNull();
+  });
+
+  it('stays a static badge when not expandable, exactly as the list card renders it', () => {
+    render(WheelchairAccessibilityBadge, {
+      state: 'partially_accessible',
+      copy: catalogues.en
+    });
+
+    expect(screen.queryByRole('button')).toBeNull();
+  });
 });

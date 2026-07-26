@@ -373,6 +373,41 @@ describe('Compact moderation workspace', () => {
   });
 });
 
+describe('Places holding Member photos', () => {
+  const photoPlaceId = '33333333-3333-4333-8333-333333333333';
+
+  it('names each Place and links into the media surface that already reviews photos', () => {
+    render(ModerationWorkspace, {
+      ...readyProps(),
+      pendingPhotoPlaces: [
+        {
+          placeId: photoPlaceId,
+          title: 'Brikk',
+          meta: 'Photos waiting: 2 · 26 July 2026',
+          href: `/en/moderation/places/${photoPlaceId}`
+        }
+      ]
+    });
+
+    const section = screen
+      .getByRole('heading', { name: 'Member photos waiting' })
+      .closest('section');
+    expect(section).toBeTruthy();
+    const link = within(section as HTMLElement).getByRole('link', { name: /Brikk/ });
+    // The count is inside the link, so the accessible name carries every word a sighted
+    // Moderator reads (WCAG 2.5.3).
+    expect(link.textContent).toContain('Photos waiting: 2');
+    expect(link.getAttribute('href')).toBe(`/en/moderation/places/${photoPlaceId}`);
+  });
+
+  it('stays out of the way when no Place is holding one', () => {
+    const { container } = render(ModerationWorkspace, readyProps());
+
+    expect(container.querySelector('[data-pending-photos]')).toBeNull();
+    expect(screen.queryByText('Member photos waiting')).toBeNull();
+  });
+});
+
 describe('Low-friction review primitives', () => {
   it('derives Candidate decisions from refreshed review status', () => {
     const decide = vi.fn();

@@ -24,6 +24,8 @@ export function isUnchangedPlaceField(
       return (profile.phone ?? null) === change.value;
     case 'dog_amenities':
       return isSameAmenitySet(profile.dogAmenities, change.value);
+    case 'wheelchair_accessibility':
+      return profile.wheelchairAccessibility === change.value;
   }
 }
 
@@ -38,6 +40,8 @@ export function proposedPlaceFieldValue(change: PlaceFieldChange, locale: Locale
     case 'phone':
       return { value: change.value };
     case 'dog_amenities':
+      return { value: change.value };
+    case 'wheelchair_accessibility':
       return { value: change.value };
   }
 }

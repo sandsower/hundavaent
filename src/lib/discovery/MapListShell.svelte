@@ -123,6 +123,13 @@
   let reducedMotion = $state(false);
   let locationOrigin = $state<GeographicPoint | null>(null);
   let locationState = $state<'idle' | 'locating' | 'ready' | 'denied' | 'unavailable'>('idle');
+  // The dot on the map carries the full-precision fix from this visit only. The session copy is
+  // deliberately rounded (~100 m) for privacy, which is fine as a filter origin but would draw
+  // a "you are here" dot up the street from the reader - so the dot never restores from it.
+  let viewerPoint = $state<GeographicPoint | null>(null);
+  // Only the locate control moves the camera; the filter sheet's "use my location" keeps the
+  // reader's current view and just unlocks the distance filter.
+  let locateIntent = false;
   let filteredPlaces = $derived(
     filterPublishedPlaces(places, discoveryState.filters, copy, locationOrigin, favouritePlaceIds)
   );
@@ -838,6 +845,9 @@
   }
 
   function requestLocation(force = false): void {
+    // One reading at a time: overlapping requests would race their callbacks into duplicate
+    // history entries and out-of-order announcements.
+    if (locationState === 'locating') return;
     if (!force && wasLocationDenied(sessionStorage)) {
       captureLocationOutcome('denied');
       locationState = 'denied';
@@ -846,6 +856,10 @@
     if (!navigator.geolocation) {
       captureLocationOutcome('unavailable');
       locationState = 'unavailable';
+      if (locateIntent) {
+        locateIntent = false;
+        announcement = copy['directory.locationUnavailable'];
+      }
       return;
     }
 
@@ -854,9 +868,12 @@
       ({ coords }) => {
         captureLocationOutcome('granted');
         const point = { latitude: coords.latitude, longitude: coords.longitude };
+        viewerPoint = point;
         saveSessionLocation(sessionStorage, point);
         locationOrigin = loadSessionLocation(sessionStorage);
         locationState = 'ready';
+        const cameFromLocateControl = locateIntent;
+        locateIntent = false;
         const filters = {
           ...discoveryState.filters,
           distanceKm: discoveryState.filters.distanceKm ?? (5 as const)
@@ -872,20 +889,37 @@
           {
             ...discoveryState,
             filters,
+            camera: cameFromLocateControl
+              ? {
+                  latitude: point.latitude,
+                  longitude: point.longitude,
+                  zoom: Math.max(discoveryState.camera.zoom, 14)
+                }
+              : discoveryState.camera,
             selectedPlaceId: reconcileSelectedPlace(discoveryState.selectedPlaceId, nextFiltered)
           },
           'push'
         );
         announceResultCount(nextFiltered.length);
+        // The camera move already shows the count changing; what the locate control's own
+        // reader needs to hear is that the location itself worked.
+        if (cameFromLocateControl) announcement = copy['directory.locationReady'];
       },
       (failure) => {
+        const cameFromLocateControl = locateIntent;
+        locateIntent = false;
+        // A dot from an earlier fix must not outlive a refusal: the map would keep asserting
+        // a position the browser just declined to confirm.
+        viewerPoint = null;
         if (failure.code === failure.PERMISSION_DENIED) {
           captureLocationOutcome('denied');
           markLocationDenied(sessionStorage);
           locationState = 'denied';
+          if (cameFromLocateControl) announcement = copy['directory.locationDenied'];
         } else {
           captureLocationOutcome(failure.code === failure.TIMEOUT ? 'timeout' : 'unavailable');
           locationState = 'unavailable';
+          if (cameFromLocateControl) announcement = copy['directory.locationUnavailable'];
         }
       },
       { enableHighAccuracy: false, maximumAge: 300_000, timeout: 10_000 }
@@ -895,6 +929,14 @@
   function retryLocation(): void {
     clearSessionLocation(sessionStorage);
     locationState = 'idle';
+    requestLocation(true);
+  }
+
+  // The locate control is an explicit ask, so it bypasses the session's denial memory the same
+  // way "try location again" does: the browser prompt is the authority on whether it may answer.
+  function locateFromControl(): void {
+    if (locationState === 'locating') return;
+    locateIntent = true;
     requestLocation(true);
   }
 
@@ -1140,7 +1182,29 @@
           motionDurationMs={mapMotionDuration}
           motionEasing={mapMotionEasing}
           {fitPlacesOnMount}
+          viewerLocation={viewerPoint}
         />
+        {#if !mapFailed}
+          <!-- aria-disabled instead of disabled: a disabled element drops keyboard focus to the
+               body mid-interaction, and the click guard below does the actual gating. -->
+          <button
+            type="button"
+            class="locate-control"
+            data-locate-control
+            aria-label={copy['directory.locateMe']}
+            aria-disabled={locationState === 'locating'}
+            onclick={locateFromControl}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4.4" fill="none" />
+              <circle cx="12" cy="12" r="1.3" class="locate-dot" stroke="none" />
+              <line x1="12" y1="3" x2="12" y2="6.4" />
+              <line x1="12" y1="17.6" x2="12" y2="21" />
+              <line x1="3" y1="12" x2="6.4" y2="12" />
+              <line x1="17.6" y1="12" x2="21" y2="12" />
+            </svg>
+          </button>
+        {/if}
       </div>
     </section>
   </div>
@@ -1522,6 +1586,61 @@
     margin-right: var(--floating-card-inset);
   }
 
+  /* The locate control rides directly under the zoom cluster and mirrors its layout moves
+     below: it is shell chrome, not a MapLibre control, so each rule that repositions
+     .maplibregl-ctrl-top-right has a twin here. */
+  .locate-control {
+    position: absolute;
+    z-index: 2;
+    top: calc(var(--chrome-top) + 5.1rem);
+    right: var(--floating-card-inset);
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: 999px;
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
+    color: var(--hv-color-basalt);
+    cursor: pointer;
+    place-items: center;
+    transition: transform var(--hv-motion-instant) var(--hv-ease-settle);
+  }
+
+  .locate-control:not([aria-disabled='true']):hover {
+    transform: translateY(-1px);
+  }
+
+  .locate-control:not([aria-disabled='true']):active {
+    transform: scale(0.94);
+  }
+
+  .locate-control[aria-disabled='true'] {
+    cursor: not-allowed;
+    opacity: 0.62;
+  }
+
+  .locate-control:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
+  }
+
+  .locate-control svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 2;
+  }
+
+  .locate-control .locate-dot {
+    fill: currentColor;
+  }
+
   /* Without JavaScript the map never mounts: the chrome returns to static
      flow so the server-rendered directory below stays fully readable. */
   :global(body:has(.noscript-results)) .map-list-boundary,
@@ -1582,6 +1701,14 @@
       right: calc(var(--detail-safe-right) - var(--floating-card-inset));
       transition: right var(--hv-motion-considered) var(--hv-ease-settle);
     }
+
+    /* The locate control carries no MapLibre margin, so it takes the safe offset whole. */
+    .map-list-shell[data-detail-layout='floating'] .locate-control {
+      right: var(--detail-safe-right);
+      transition:
+        right var(--hv-motion-considered) var(--hv-ease-settle),
+        transform var(--hv-motion-instant) var(--hv-ease-settle);
+    }
   }
 
   @container directory-shell (max-width: 57.999rem) {
@@ -1615,6 +1742,17 @@
 
     .map-list-shell[data-detail-layout='rail'] .map-stage :global(.maplibregl-ctrl-top-right) {
       visibility: hidden;
+    }
+
+    .map-list-shell[data-detail-layout='rail'] .locate-control {
+      visibility: hidden;
+    }
+
+    /* The full-width cluster owns the top strip here, and the zoom controls have already moved
+       to the bottom corner: the locate control stacks directly above them. */
+    .locate-control {
+      top: auto;
+      bottom: 6.8rem;
     }
 
     /* The tab is the way back to the list while the card owns the screen:

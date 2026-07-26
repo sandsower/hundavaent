@@ -67,14 +67,14 @@ const moderationWorkspaceCopy = {
   },
   is: {
     heading: 'Umsjónarborð',
-    queueNavigation: 'Umsjónarraðir',
-    selectedQueue: 'Valin umsjónarröð',
-    selectedItem: 'Valið umsjónaratriði',
+    queueNavigation: 'Yfirferðarlistar',
+    selectedQueue: 'Valinn yfirferðarlisti',
+    selectedItem: 'Valið atriði til yfirferðar',
     suggestions: 'Tillögur',
     candidatePlaces: 'Tillögur að stöðum',
     candidateChecklist: 'Atriði fyrir birtingu',
-    empty: 'Röð lokið',
-    decisionControls: 'Ákvörðunarstýringar',
+    empty: 'Yfirferðarlisti afgreiddur',
+    decisionControls: 'Ákvörðunarvalkostir',
     needsInformation: 'Vantar upplýsingar',
     memberReasonIs: 'Skýring til meðlims á íslensku',
     memberReasonEn: 'Skýring til meðlims á ensku',
@@ -132,13 +132,13 @@ test('About story remains bilingual, responsive, and Axe-clean', async ({ page, 
   const scenarios = [
     {
       path: '/en/about',
-      heading: 'We wanted to bring Miles with us.',
+      heading: 'Going places is better together.',
       photoAlt: 'Vic holding Miles, a long-haired dachshund',
       visitorHiddenTrustTerms: /verified|verification|moderator|sources?|evidence|last checked/i
     },
     {
       path: '/is/about',
-      heading: 'Okkur langaði að taka Miles með.',
+      heading: 'Betra er að fara saman.',
       photoAlt: 'Vic heldur á Miles, síðhærðum dachshundi',
       visitorHiddenTrustTerms: /staðfest|umsjónarfólk|heimildir?|sönnunargögn|síðast yfirfar/i
     }
@@ -374,7 +374,7 @@ test('Moderator forms have keyboard focus order and Axe-clean semantics', async 
   await page.keyboard.press('Enter');
   await expect(page.getByRole('status')).toContainText('Location selected at');
   // Three questions, in the order they are asked: the name, then the pin, then the area radios.
-  await page.getByLabel('Place name').focus();
+  await page.getByLabel('Name of the place').focus();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Use map centre' })).toBeFocused();
   const welcomeAreas = page.getByRole('group', { name: 'Where can dogs be?' });

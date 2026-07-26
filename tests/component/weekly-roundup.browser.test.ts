@@ -61,7 +61,7 @@ describe('Weekly recap', () => {
     expect(screen.getByText('Nýtt í vikunni')).toBeTruthy();
     expect(screen.getAllByText('Uppfært í vikunni')).toHaveLength(2);
     expect(screen.getAllByRole('article')).toHaveLength(3);
-    const placeLink = screen.getByRole('link', { name: 'Skoða Nýja kaffihúsið' });
+    const placeLink = screen.getByRole('link', { name: 'Skoða stað: Nýja kaffihúsið' });
     expect(placeLink.getAttribute('href')).toContain('/is?place=94730000');
     expect(screen.getByRole('link', { name: 'Skoða alla staði' }).getAttribute('href')).toBe('/is');
     expect(container.querySelectorAll('.roundup-icon')).not.toHaveLength(0);

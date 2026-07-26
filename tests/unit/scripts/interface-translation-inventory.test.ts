@@ -2,7 +2,21 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { renderInterfaceTranslationInventorySql } from '../../../scripts/sync-interface-translation-inventory';
+import { renderInterfaceTranslationInventorySql as renderInventorySql } from '../../../scripts/sync-interface-translation-inventory';
+
+const productionBaseline = {
+  schema: 1 as const,
+  revisionNumber: 28,
+  publishedAt: '2026-07-26T22:18:24.630267+00:00',
+  keyCount: 1379,
+  catalogueSha256: '6a88d8b0b13c3dbb2f93451fba4b8d269799115f9871058c0e1cedb9f6e8f9ff'
+};
+
+function renderInterfaceTranslationInventorySql(
+  catalogues: Parameters<typeof renderInventorySql>[0]
+): string {
+  return renderInventorySql(catalogues, productionBaseline);
+}
 
 describe('interface translation inventory release SQL', () => {
   it('renders one environment-safe capability configuration, sync, and verification transaction', () => {
@@ -17,19 +31,53 @@ describe('interface translation inventory release SQL', () => {
     expect(sql).toContain(
       "public.configure_interface_translation_capability(:'translation_database_secret')"
     );
-    expect(sql).toContain('public.sync_interface_translation_inventory(');
+    expect(sql).toContain('public.sync_interface_translation_inventory_from_source(');
+    expect(sql).toContain('\n  28,\n');
     expect(sql).toContain(":'release_sha'");
     expect(sql).toContain('public.get_published_interface_translations');
     expect(sql).toContain('expected_key_count constant integer := 2;');
     expect(sql).toContain('(select count(*)::integer from pg_catalog.jsonb_object_keys(messages))');
+    expect(sql).toContain("icelandic_messages is distinct from expected_catalogues -> 'is'");
+    expect(sql).toContain("english_messages is distinct from expected_catalogues -> 'en'");
     expect(sql).not.toContain('jsonb_object_length');
 
     const payload = sql.match(
-      /\$hundavaent_interface_catalogues_v1\$(.*)\$hundavaent_interface_catalogues_v1\$::jsonb/s
+      /\$hundavaent_interface_catalogues_v1\$(.*?)\$hundavaent_interface_catalogues_v1\$::jsonb/s
     )?.[1];
     expect(payload).toBeDefined();
     expect(JSON.parse(payload ?? '')).toEqual(catalogues);
     expect(sql).not.toContain('translation-database-secret-value');
+  });
+
+  it('accepts the checked-in production synchronization baseline', () => {
+    const baseline = JSON.parse(
+      readFileSync(
+        resolve(import.meta.dirname, '../../../src/lib/i18n/messages/production-baseline.json'),
+        'utf8'
+      )
+    );
+
+    expect(() =>
+      renderInventorySql(
+        {
+          is: { 'site.name': 'Hundavænt' },
+          en: { 'site.name': 'Hundavænt' }
+        },
+        baseline
+      )
+    ).not.toThrow();
+  });
+
+  it('rejects an invalid production synchronization baseline', () => {
+    expect(() =>
+      renderInventorySql(
+        {
+          is: { 'site.name': 'Hundavænt' },
+          en: { 'site.name': 'Hundavænt' }
+        },
+        { ...productionBaseline, revisionNumber: 0 }
+      )
+    ).toThrow('baseline');
   });
 
   it('rejects unequal locale inventories before producing deployment SQL', () => {

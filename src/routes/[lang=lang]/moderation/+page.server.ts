@@ -26,6 +26,7 @@ import {
   type ModerationCorrectionQueueCursorState,
   type ModerationCorrectionReviewData
 } from '$server/moderation/correction-workspace';
+import { loadModerationPendingPhotoPlaces } from '$server/moderation/pending-photo-places';
 import {
   listModerationQueueSummary,
   type QueueSummaryRpcClient
@@ -74,15 +75,23 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
 
   const state = parseModerationWorkspaceQuery(url.searchParams);
   redirectIfInvalidWorkspaceCursor(url, state);
-  const summaryResult = await listModerationQueueSummary(
-    locals.supabase as unknown as QueueSummaryRpcClient
-  );
+  // Cross-queue, so the pending-photo section is read once for the workspace rather than per
+  // queue, and a failure leaves the section absent rather than taking the queue down with it: a
+  // Moderator can still work. Neither read needs the other's answer, so they go together rather
+  // than adding their two round trips up.
+  const [summaryResult, pendingPhotosResult] = await Promise.all([
+    listModerationQueueSummary(locals.supabase as unknown as QueueSummaryRpcClient),
+    loadModerationPendingPhotoPlaces(locals.supabase)
+  ]);
   if (summaryResult.status !== 'success') {
     error(summaryResult.status === 'forbidden' ? 403 : 503, {
       message: locals.copy['error.unexpectedBody'],
       requestId: locals.requestId
     });
   }
+
+  const pendingPhotoPlaces =
+    pendingPhotosResult.status === 'success' ? pendingPhotosResult.value : [];
 
   if (state.queue !== 'suggestions') {
     if (state.queue === 'corrections-and-reports') {
@@ -107,6 +116,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
           hasPrevious: Boolean(state.cursor),
           queueError: locals.copy['error.unexpectedBody'],
           reviewError: null,
+          pendingPhotoPlaces,
           workspaceNotice: takeWorkspaceNotice(cookies, lang),
           fallbackHref: `/${lang}/moderation/corrections-and-reports`
         };
@@ -163,6 +173,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
         hasPrevious: queueResult.value.hasPrevious,
         queueError: null,
         reviewError,
+        pendingPhotoPlaces,
         workspaceNotice: takeWorkspaceNotice(cookies, lang),
         fallbackHref: `/${lang}/moderation/corrections-and-reports`
       };
@@ -187,6 +198,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
         hasPrevious: Boolean(state.cursor),
         queueError: locals.copy['error.unexpectedBody'],
         reviewError: null,
+        pendingPhotoPlaces,
         workspaceNotice: takeWorkspaceNotice(cookies, lang),
         fallbackHref: `/${lang}/moderation/${fallbackPaths[state.queue]}`
       };
@@ -239,6 +251,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
       hasPrevious: candidateQueueResult.value.hasPrevious,
       queueError: null,
       reviewError,
+      pendingPhotoPlaces,
       workspaceNotice: takeWorkspaceNotice(cookies, lang),
       fallbackHref: `/${lang}/moderation/${fallbackPaths[state.queue]}`
     };
@@ -267,6 +280,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
       hasPrevious: Boolean(state.cursor),
       queueError: locals.copy['error.unexpectedBody'],
       reviewError: null,
+      pendingPhotoPlaces,
       workspaceNotice: takeWorkspaceNotice(cookies, lang),
       fallbackHref: `/${lang}/moderation/suggestions`
     };
@@ -332,6 +346,7 @@ export const load: PageServerLoad = async ({ cookies, locals, params, url }) => 
     hasPrevious: queueResult.value.hasPrevious,
     queueError: null,
     reviewError,
+    pendingPhotoPlaces,
     workspaceNotice: takeWorkspaceNotice(cookies, lang),
     fallbackHref: `/${lang}/moderation/suggestions`
   };

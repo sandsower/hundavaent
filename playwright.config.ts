@@ -35,6 +35,10 @@ export default defineConfig({
       env: {
         PUBLIC_SUPABASE_URL: localSupabase.apiUrl,
         PUBLIC_SUPABASE_PUBLISHABLE_KEY: localSupabase.publishableKey,
+        // The one handler that reads it is POST /api/places/[id]/photos, which writes a Member's
+        // stripped bytes into a bucket whose write policies are Moderator-only. Without it that
+        // endpoint answers 503 and the Member photo journey cannot run at all.
+        SUPABASE_SECRET_KEY: localSupabase.secretKey,
         ...getLocalMemberAuthEnvironment(appOrigin)
       },
       url: appOrigin,

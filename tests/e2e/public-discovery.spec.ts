@@ -230,16 +230,16 @@ test.describe('public discovery locale routes', () => {
     await page.goto('/en/about');
 
     await expect(
-      page.getByRole('heading', { name: 'We wanted to bring Miles with us.' })
+      page.getByRole('heading', { name: 'Going places is better together.' })
     ).toBeVisible();
     await expect(page.getByAltText('Vic holding Miles, a long-haired dachshund')).toBeVisible();
     await expect(
       page.getByRole('heading', {
-        name: 'Most of the useful information travels only by word of mouth.'
+        name: "The information is there but it's difficult to find online."
       })
     ).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Dog Access' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Dog-Friendliness' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Visiting with your dog' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Feeling welcome' })).toBeVisible();
     const englishBrowseLinks = page.getByRole('link', { name: 'Browse the map' });
     await expect(englishBrowseLinks).toHaveCount(2);
     await expect(englishBrowseLinks.first()).toHaveAttribute('href', '/en');
@@ -262,9 +262,7 @@ test.describe('public discovery locale routes', () => {
     );
 
     await page.goto('/is/about');
-    await expect(
-      page.getByRole('heading', { name: 'Okkur langaði að taka Miles með.' })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Betra er að fara saman.' })).toBeVisible();
     await expect(page.getByAltText('Vic heldur á Miles, síðhærðum dachshundi')).toBeVisible();
     const icelandicBrowseLinks = page.getByRole('link', { name: 'Skoða kortið' });
     await expect(icelandicBrowseLinks).toHaveCount(2);

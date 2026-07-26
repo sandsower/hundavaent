@@ -289,7 +289,7 @@ describe('Member account', () => {
 
     expect(screen.getByRole('heading', { name: 'Átta vikna slóðin þín' })).toBeTruthy();
     expect(
-      screen.getByText('Slóðin þín er augnablik að hlaðast. Virknin þín er enn örugg.')
+      screen.getByText('Það tekur augnablik að hlaða slóðina þína. Virknin þín er áfram varðveitt.')
     ).toBeTruthy();
   });
 });

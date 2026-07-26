@@ -5,7 +5,7 @@
   import type { PlaceCategory } from '$domain/place';
   import { formatDogAmenities, formatOpeningHoursRows } from '$i18n/structured-place';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
-  import type { PublishedPlaceProfile } from '$server/discovery/public-places';
+  import type { PublishedPlacePhoto, PublishedPlaceProfile } from '$server/discovery/public-places';
   import { explainAccessCondition } from '$domain/access-explanation';
   import type { AccessSymbolDimension } from '$domain/access-symbols';
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
@@ -22,12 +22,18 @@
   import ContributionReveal from '$lib/discovery/ContributionReveal.svelte';
   import {
     hasPendingAccessCondition,
+    hasPendingPlaceField,
     type AccessConditionDimension,
     type PendingPlaceFlag
   } from '$lib/contributions/correction';
   import { fetchPendingCorrections } from '$lib/contributions/correction-client';
+  import type { MemberPlacePhoto } from '$lib/contributions/photo';
+  import { fetchMyPlacePhotos } from '$lib/contributions/photo-client';
+  import { postHogAnalytics } from '$lib/analytics/posthog';
   import { correctConditionHref } from '$lib/discovery/correct-link';
+  import { googleMapsDirectionsUrl } from '$lib/discovery/directions';
   import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
+  import WheelchairAccessibilityCorrection from '$lib/discovery/WheelchairAccessibilityCorrection.svelte';
   import PhotoCredit from '$lib/discovery/PhotoCredit.svelte';
   import RefreshablePlaceImage from '$lib/discovery/RefreshablePlaceImage.svelte';
   import SharePlaceControl from '$lib/discovery/SharePlaceControl.svelte';
@@ -170,6 +176,45 @@
   }
 
   /**
+   * The Member's own photos on this Place, on the same terms as their pending Corrections: only
+   * when signed in, only once the profile has named the Place, and never re-requested on the
+   * component's own write.
+   */
+  let memberPhotos = $state<MemberPlacePhoto[]>([]);
+  let photosRequestedFor: string | null = null;
+
+  $effect(() => {
+    if (!signedIn) {
+      memberPhotos = [];
+      photosRequestedFor = null;
+      return;
+    }
+    const loadedPlaceId = profile?.placeId;
+    if (!loadedPlaceId || photosRequestedFor === loadedPlaceId) return;
+    photosRequestedFor = loadedPlaceId;
+    void loadMyPhotos(loadedPlaceId);
+  });
+
+  async function loadMyPhotos(placeId: string): Promise<void> {
+    const result = await fetchMyPlacePhotos(placeId);
+    if (photosRequestedFor !== placeId) return;
+    // A signed-out reader has nothing pending, and a failed read is not something to say out loud
+    // on a surface whose whole point is the photos that did load.
+    if (result.status === 'loaded') memberPhotos = [...result.photos];
+  }
+
+  /**
+   * A photo the Member just sent is theirs to see immediately, so the tile is placed from the
+   * upload's own answer rather than waited for. The refresh that follows replaces it with the
+   * server's copy, which is the one carrying dimensions and a signed URL.
+   */
+  function recordSubmittedPhoto(photo: MemberPlacePhoto): void {
+    memberPhotos = [photo, ...memberPhotos.filter((held) => held.mediaId !== photo.mediaId)];
+    const loadedPlaceId = profile?.placeId;
+    if (loadedPlaceId) void loadMyPhotos(loadedPlaceId);
+  }
+
+  /**
    * The pending markers are the card's own state, so a Correction it just sent belongs in them
    * immediately. Suppression on an Access Condition covers all four of its editors, and the three
    * the Member did not touch have to say pending the moment the fourth is sent: leaving them armed
@@ -183,6 +228,10 @@
     // Only the chip panel's editors are this component's to clean up after. The reveal owns focus
     // for the affordances it renders, and it also routes its submissions through here.
     if (flag.targetKind === 'access_condition') focusConditionPending = true;
+    // The accessibility badge's panel is this component's too, on the same terms as the chips'.
+    if (flag.targetKind === 'place_field' && flag.targetField === 'wheelchair_accessibility') {
+      focusMobilityPending = true;
+    }
   }
 
   /**
@@ -202,6 +251,24 @@
     if (!line) return;
     line.focus();
     focusConditionPending = false;
+  });
+
+  /**
+   * The accessibility badge's panel on the same terms: sending removes the editor, so focus moves
+   * to the pending line that replaced it.
+   */
+  const mobilityPending = $derived(hasPendingPlaceField(pending, 'wheelchair_accessibility'));
+  let focusMobilityPending = $state(false);
+  let mobilitySection = $state<HTMLElement>();
+
+  $effect(() => {
+    // `mobilityPending` is read so this re-runs once the panel has swapped in the pending line.
+    void mobilityPending;
+    if (!focusMobilityPending || !mobilitySection) return;
+    const line = mobilitySection.querySelector<HTMLElement>('[data-correction-pending]');
+    if (!line) return;
+    line.focus();
+    focusMobilityPending = false;
   });
 </script>
 
@@ -258,6 +325,42 @@
   {/if}
 {/snippet}
 
+{#snippet mobilityEditor({ announce }: { announce: (message: string) => void })}
+  {#if mobilityPending}
+    <!-- A pending wheelchair Correction proposes the whole fact, so the one affordance the panel
+         holds says pending rather than inviting a second claim beside the first. -->
+    <p class="pending-correction" data-correction-pending tabindex="-1">
+      {copy['inlineCorrection.pending']}
+    </p>
+  {:else}
+    <WheelchairAccessibilityCorrection
+      placeId={place.placeId}
+      placeName={place.name}
+      {lang}
+      {copy}
+      {signedIn}
+      state={profile?.wheelchairAccessibility ?? place.wheelchairAccessibility}
+      {announce}
+      onSubmitted={recordSubmitted}
+    />
+  {/if}
+{/snippet}
+
+{#snippet photoSurface(published: PublishedPlacePhoto[])}
+  <PlacePhotos
+    photos={published}
+    placeId={place.placeId}
+    placeName={place.name}
+    {lang}
+    {copy}
+    featured
+    contributable
+    {signedIn}
+    {memberPhotos}
+    onSubmitted={recordSubmittedPhoto}
+  />
+{/snippet}
+
 <aside
   class="hv-panel selected-place"
   aria-label={copy['directory.selectedPlace']}
@@ -299,37 +402,66 @@
   {/if}
 
   <div class="card-body" data-card-scroll-body>
+    <!-- The published photos and the affordance are one surface, so the strip renders whenever the
+         profile has photos. When it has none, the list's own summary photo still stands (it is
+         what a reader saw a moment ago in the results) and the surface renders beside it holding
+         the affordance and whatever the Member has waiting - which is the empty state. Before the
+         profile arrives there is nothing to add to and nothing to hold. -->
     {#if profile?.photos.length}
-      <PlacePhotos
-        photos={profile.photos}
-        placeId={profile.placeId}
-        placeName={place.name}
-        {lang}
-        {copy}
-        featured
-      />
-    {:else if place.primaryPhoto}
-      <figure class="summary-photo" data-summary-photo>
-        <RefreshablePlaceImage
-          placeId={place.placeId}
-          mediaId={place.primaryPhoto.mediaId}
-          url={place.primaryPhoto.url}
-          urlExpiresAt={place.primaryPhoto.urlExpiresAt}
-          alt={lang === 'is' ? place.primaryPhoto.altTextIs : place.primaryPhoto.altTextEn}
-          width={place.primaryPhoto.widthPx}
-          height={place.primaryPhoto.heightPx}
-        />
-        <figcaption>
-          <PhotoCredit
-            attributionText={place.primaryPhoto.attributionText}
-            attributionUrl={place.primaryPhoto.attributionUrl}
-            sourceUrl={place.primaryPhoto.sourceUrl}
-            licenseReference={place.primaryPhoto.licenseReference}
-            licenseUrl={place.primaryPhoto.licenseUrl}
+      {@render photoSurface(profile.photos)}
+    {:else}
+      {#if place.primaryPhoto}
+        <figure class="summary-photo" data-summary-photo>
+          <RefreshablePlaceImage
+            placeId={place.placeId}
+            mediaId={place.primaryPhoto.mediaId}
+            url={place.primaryPhoto.url}
+            urlExpiresAt={place.primaryPhoto.urlExpiresAt}
+            alt={lang === 'is' ? place.primaryPhoto.altTextIs : place.primaryPhoto.altTextEn}
+            width={place.primaryPhoto.widthPx}
+            height={place.primaryPhoto.heightPx}
           />
-        </figcaption>
-      </figure>
+          <figcaption>
+            <PhotoCredit
+              attributionText={place.primaryPhoto.attributionText}
+              attributionUrl={place.primaryPhoto.attributionUrl}
+              sourceUrl={place.primaryPhoto.sourceUrl}
+              licenseReference={place.primaryPhoto.licenseReference}
+              licenseUrl={place.primaryPhoto.licenseUrl}
+            />
+          </figcaption>
+        </figure>
+      {/if}
+      {#if profile}
+        {@render photoSurface([])}
+      {/if}
     {/if}
+
+    <!-- Getting there is the one action every visitor shares, so it stands beside the summary
+         facts instead of waiting behind the practical-details disclosure. The summary already
+         carries the coordinates, so the link works before the profile arrives. -->
+    <p class="directions-row">
+      <!-- eslint-disable svelte/no-navigation-without-resolve -- external Google Maps URL -->
+      <a
+        class="directions-link"
+        href={googleMapsDirectionsUrl({ latitude: place.latitude, longitude: place.longitude })}
+        target="_blank"
+        rel="noreferrer noopener"
+        aria-label={copy['place.directionsLabel'].replace('{name}', place.name)}
+        onclick={() =>
+          postHogAnalytics.capture('directions opened', {
+            place_id: place.placeId,
+            category: place.category,
+            language: lang
+          })}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 17 17 7M9.5 7H17v7.5" />
+        </svg>
+        {copy['place.directions']}
+      </a>
+      <!-- eslint-enable svelte/no-navigation-without-resolve -->
+    </p>
 
     <section
       bind:this={welcomeAnswer}
@@ -346,11 +478,17 @@
       />
     </section>
 
-    <section class="mobility-access" aria-labelledby={`mobility-${place.placeId}`}>
+    <section
+      bind:this={mobilitySection}
+      class="mobility-access"
+      aria-labelledby={`mobility-${place.placeId}`}
+    >
       <h3 id={`mobility-${place.placeId}`}>{copy['wheelchairAccessibility.heading']}</h3>
       <WheelchairAccessibilityBadge
         state={profile?.wheelchairAccessibility ?? place.wheelchairAccessibility}
         {copy}
+        expandable
+        editor={mobilityEditor}
       />
     </section>
 
@@ -680,6 +818,49 @@
 
   .member-actions :global(.actions) {
     grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  }
+
+  .directions-row {
+    margin: 0 0 0.55rem;
+  }
+
+  .directions-link {
+    display: inline-flex;
+    min-height: 2.1rem;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.85rem;
+    border: 1px solid var(--hv-color-fjord);
+    border-radius: 999px;
+    color: var(--hv-color-fjord);
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-decoration: none;
+    transition: transform var(--hv-motion-instant) var(--hv-ease-settle);
+  }
+
+  .directions-link:hover {
+    transform: translateY(-1px);
+  }
+
+  .directions-link:active {
+    transform: scale(0.94);
+  }
+
+  .directions-link svg {
+    width: 0.95rem;
+    height: 0.95rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.1;
+  }
+
+  .directions-link:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   .welcome-answer {

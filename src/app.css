@@ -188,6 +188,51 @@ a {
   box-shadow: 0 0 0 2px var(--hv-focus-offset, #fbfcf9);
 }
 
+/* The reader's own position: a passive dot, never a control. It sits under the place pins
+   (no z-index escalation) because the pins are what a reader can act on. */
+.hundavaent-viewer-location {
+  position: relative;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--hv-color-snow-raised, #fbfcf9);
+  border-radius: 999px;
+  background: var(--hv-color-fjord, #2f6f86);
+  box-shadow: 0 0.15rem 0.45rem rgb(30 45 49 / 35%);
+  pointer-events: none;
+}
+
+/* A breathing halo says "live reading" without demanding attention. It is ambient scenery,
+   so reduced motion removes it entirely rather than slowing it down. */
+.hundavaent-viewer-location::after {
+  position: absolute;
+  inset: -0.45rem;
+  border-radius: 999px;
+  background: var(--hv-color-fjord, #2f6f86);
+  content: '';
+  opacity: 0;
+  animation: hv-viewer-location-breathe calc(var(--hv-motion-ambient) / 8)
+    var(--hv-ease-settle, ease-out) infinite;
+}
+
+@keyframes hv-viewer-location-breathe {
+  0% {
+    opacity: 0.35;
+    transform: scale(0.55);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hundavaent-viewer-location::after {
+    animation: none;
+  }
+}
+
 /* View transitions. Every group rides the fade scale and the settle curve instead of the UA
    stylesheet's 250ms ease - the UA default is timing the drift test cannot see, so it must
    never govern a group. Only the root crossfade exists today: no element carries a

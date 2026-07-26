@@ -172,7 +172,10 @@ describe('Member Suggestion workflow', () => {
     expect(areas.querySelector('input[type="radio"]:checked')).toBeNull();
 
     const form = screen.getByRole('button', { name: submitLabel }).closest('form')!;
-    expect(form.querySelectorAll('input:not([type="hidden"]), select, textarea').length).toBe(4);
+    expect(form.querySelectorAll('input:not([type="hidden"]), select, textarea').length).toBe(5);
+    expect(
+      screen.getByLabelText(catalogues[lang]['suggestion.locationSearchLabel']).getAttribute('name')
+    ).toBeNull();
     expect(new FormData(form).get('submissionProfile')).toBe('minimal-v1');
     expect(form.querySelector('select')).toBeNull();
     expect(form.querySelector('textarea')).toBeNull();
@@ -195,7 +198,7 @@ describe('Member Suggestion workflow', () => {
     } as never);
 
     const form = screen.getByRole('button', { name: 'Send suggestion' }).closest('form')!;
-    await fireEvent.input(screen.getByLabelText('Place name'), {
+    await fireEvent.input(screen.getByLabelText('Name of the place'), {
       target: { value: 'Unplaced pin cafe' }
     });
     await fireEvent.click(screen.getByRole('radio', { name: 'Outdoors' }));
@@ -203,7 +206,9 @@ describe('Member Suggestion workflow', () => {
     // Two of three answers given: the map has a camera on it, but nobody has stated a Location.
     expect(new FormData(form).get('latitude')).toBeNull();
     expect(new FormData(form).get('longitude')).toBeNull();
-    expect(screen.getByText('Place the pin where the place is.')).toBeTruthy();
+    // An unanswered question that nobody has tried to send yet is not an error, so nothing is said
+    // about it. The demand appears when it becomes one.
+    expect(screen.queryByText('Place the pin where the place is.')).toBeNull();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Send suggestion' }));
     expect(screen.getByRole('alert').textContent).toContain('Place the pin where the place is.');
@@ -256,7 +261,7 @@ describe('Member Suggestion workflow', () => {
     const signIn = screen.getByRole('link', { name: 'Sign in' });
     expect(signIn.getAttribute('href')).toBe('/en/account?returnTo=%2Fen%2Fsuggest');
     // The questions stay readable behind the gate: signing in is the next step, not a dead end.
-    expect(screen.getByLabelText('Place name')).toBeTruthy();
+    expect(screen.getByLabelText('Name of the place')).toBeTruthy();
     expect(
       (screen.getByRole('button', { name: 'Send suggestion' }) as HTMLButtonElement).disabled
     ).toBe(false);
@@ -276,7 +281,7 @@ describe('Member Suggestion workflow', () => {
     expect(
       (screen.getByRole('button', { name: 'Send suggestion' }) as HTMLButtonElement).disabled
     ).toBe(true);
-    expect(screen.getByLabelText('Place name').matches(':disabled')).toBe(true);
+    expect(screen.getByLabelText('Name of the place').matches(':disabled')).toBe(true);
   });
 
   it('shows a private rejected outcome and its Member-safe reason', () => {

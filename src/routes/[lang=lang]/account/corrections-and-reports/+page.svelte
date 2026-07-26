@@ -136,11 +136,6 @@
 </main>
 
 <style>
-  .hv-page-header + .hv-notice,
-  .hv-page-header + .outcome-list {
-    margin-top: calc(var(--hv-space-context) * 1.5);
-  }
-
   .outcome-list {
     margin-block: calc(var(--hv-space-context) * 1.5);
   }
