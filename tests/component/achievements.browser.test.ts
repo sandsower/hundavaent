@@ -99,8 +99,8 @@ describe('Member Achievements view', () => {
       'Afrekin þín',
       'Áfangar',
       'Takk fyrir að gera Hundavænt betra.',
-      'Innritanir með stuttu millibili telja sem ein.',
-      '2 af 3 flokkum',
+      'Skráðar heimsóknir með stuttu millibili teljast ein heimsókn.',
+      'Flokkar: 2/3',
       'Brons',
       'Þarf 4',
       categoryCollection.collectionDescriptionIs

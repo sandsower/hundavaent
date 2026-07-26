@@ -66,7 +66,7 @@ describe('FavouriteControl', () => {
 
   it.each([
     ['en', catalogues.en, 'Sign in to add Published Place to favorites'],
-    ['is', catalogues.is, 'Skrá inn til að bæta Published Place í uppáhald']
+    ['is', catalogues.is, 'Skrá inn til að bæta í uppáhald: Published Place']
   ] as const)('offers a private signed-out invitation in %s', async (_, copy, label) => {
     const receiveRequest = vi.fn();
     window.addEventListener(authRequestEventName, receiveRequest);

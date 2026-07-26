@@ -43,7 +43,7 @@ function recognition(recognized: boolean, activatedCurrentWeek: boolean) {
 describe('CheckInControl', () => {
   it.each([
     ['en', catalogues.en, 'Sign in to check in at Published Place'],
-    ['is', catalogues.is, 'Skráðu þig inn til að skrá heimsókn hjá Published Place']
+    ['is', catalogues.is, 'Skráðu þig inn til að skrá heimsókn: Published Place']
   ] as const)('offers a private signed-out invitation in %s', (_, copy, label) => {
     render(CheckInControl, {
       placeId,
@@ -63,7 +63,7 @@ describe('CheckInControl', () => {
 
   it.each([
     ['en', catalogues.en, 'This records that you visited right now', 'Check-ins are private.'],
-    ['is', catalogues.is, 'Þetta er skráð sem heimsókn núna', 'Innritanir eru einkamál.']
+    ['is', catalogues.is, 'Þetta er skráð sem heimsókn núna', 'Skráðar heimsóknir eru einkamál.']
   ] as const)(
     'shows time and privacy explanations before acting, in %s',
     (lang, copy, time, privacy) => {

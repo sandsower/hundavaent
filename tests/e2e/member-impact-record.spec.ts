@@ -66,7 +66,7 @@ test('a Member can see a private bilingual impact record with honest durable out
   await expect(page.getByText('Aðeins þú getur séð þessa síðu.')).toBeVisible();
   await expect(page.getByText('Framlagsstaða prófun')).toBeVisible();
   await expect(
-    page.getByText('Heldur áfram sem Óbirtur eftirmaður, sem er ekki tiltækur í leit núna.')
+    page.getByText('Framhald: Óbirtur eftirmaður. Staðurinn er ekki tiltækur í leit núna.')
   ).toBeVisible();
   await expect(page.locator('[data-impact-pillar]').last()).toHaveCSS('opacity', '1');
 

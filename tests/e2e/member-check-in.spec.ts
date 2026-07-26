@@ -131,14 +131,14 @@ test('checking in again shows the already-checked-in copy in Icelandic', async (
   await waitForHydration(page);
 
   // The Icelandic Place Profile renders the fixture's Icelandic name.
-  const checkInButton = page.getByRole('button', { name: 'Skrá heimsókn hjá Birtur staður' });
+  const checkInButton = page.getByRole('button', { name: 'Skrá heimsókn - Birtur staður' });
   await checkInButton.click();
-  await expect(page.getByRole('status').filter({ hasText: 'Þú ert skráð(ur)' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Heimsókn skráð:' })).toBeVisible();
 
   await page.reload();
   await waitForHydration(page);
   await expect(
-    page.getByRole('status').filter({ hasText: 'Þú ert þegar skráð(ur) hér í dag.' })
+    page.getByRole('status').filter({ hasText: 'Þú hefur þegar skráð heimsókn hér í dag.' })
   ).toBeVisible();
 });
 
