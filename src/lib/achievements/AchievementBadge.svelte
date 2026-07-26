@@ -23,9 +23,7 @@
   }: Props = $props();
 
   const progressPercent = $derived(Math.round(Math.min(1, Math.max(0, progress)) * 100));
-  const hasSecondRing = $derived(
-    tier === 'silver' || tier === 'gold' || tier === 'platinum'
-  );
+  const hasSecondRing = $derived(tier === 'silver' || tier === 'gold' || tier === 'platinum');
   const hasThirdRing = $derived(tier === 'platinum');
   const hasRaisedEdge = $derived(tier === 'gold' || tier === 'platinum');
 

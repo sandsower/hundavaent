@@ -1249,10 +1249,10 @@ test('the private achievements route is keyboard-operable and Axe-clean in both 
       await waitForHydration(page);
 
       await expect(page.getByRole('heading', { name: scenario.title })).toBeVisible();
-      // Twelve tiers are visible, but only each collection's nearest unearned tier is an active
+      // Sixteen tiers are visible, but only each collection's nearest unearned tier is an active
       // target, so a screen reader hears one progress figure per started collection. The
       // Contributions collection has no progress here, so its bronze tier reports none.
-      await expect(page.locator('[data-achievement-tier]')).toHaveCount(12);
+      await expect(page.locator('[data-achievement-tier]')).toHaveCount(16);
       await expect(page.getByRole('progressbar')).toHaveCount(3);
       const celebration = page.getByRole('region', { name: scenario.celebration });
       await expect(celebration).toHaveAttribute('data-reduced-motion', 'true');

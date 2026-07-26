@@ -114,7 +114,7 @@ describe('Member Achievements view', () => {
       '2 af 3 flokkum',
       'Brons',
       'Platína',
-      'Þarf 4',
+      '4 flokkar',
       categoryCollection.collectionDescriptionIs
     ],
     [
@@ -126,7 +126,7 @@ describe('Member Achievements view', () => {
       '2 of 3 categories',
       'Bronze',
       'Platinum',
-      'Needs 4',
+      '4 categories',
       categoryCollection.collectionDescriptionEn
     ]
   ] as const)(

@@ -7,7 +7,13 @@
   } from '$server/achievements/achievements';
   import AchievementBadge from './AchievementBadge.svelte';
   import AchievementShare from './AchievementShare.svelte';
-  import { collectionName, progressLabel, tierDisplayName, tierLabel } from './tier-copy';
+  import {
+    collectionName,
+    progressLabel,
+    targetLabel,
+    tierDisplayName,
+    tierLabel
+  } from './tier-copy';
 
   interface Props {
     entry: EarnedTierAchievement | LockedTierAchievement;
@@ -83,9 +89,7 @@
         </div>
         <p class="detail">{line}</p>
       {:else}
-        <p class="detail muted">
-          {copy['achievements.lockedTarget'].replace('{target}', String(entry.progress.target))}
-        </p>
+        <p class="detail muted">{targetLabel(entry.progress.kind, entry.progress.target, copy)}</p>
       {/if}
     {/if}
   </div>
