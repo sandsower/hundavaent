@@ -48,6 +48,7 @@ The remaining launch work is operational rather than foundational:
 - A unified workbench for candidate places, suggestions, corrections, and reports.
 - Evidence-backed publication, access-condition editing, place lifecycle management, and audit trails.
 - A private translation workspace with draft, review, publication, history, and rollback flows.
+- JSON-owned interface catalogues synchronized through the [interface translation runbook](docs/interface-translation-runbook.md).
 
 ### Delivery and operations
 

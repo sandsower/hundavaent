@@ -1836,6 +1836,18 @@ export type Database = {
           revision_number: number
         }[]
       }
+      sync_interface_translation_inventory_from_source: {
+        Args: {
+          command_request_id: string
+          expected_workspace_revision: number
+          requested_catalogues: Json
+        }
+        Returns: {
+          change_count: number
+          published_at: string
+          revision_number: number
+        }[]
+      }
       transition_place_identity: {
         Args: { command_payload: Json; command_request_id: string }
         Returns: {
