@@ -432,7 +432,7 @@
   /* The featured surface is edge-to-edge for its image only. The affordance below it is a
      control, and a control pressed against the panel border reads as clipped. */
   .featured :global([data-photo-contribution]) {
-    margin: 0.4rem 0.65rem 0.65rem;
+    margin: 0.65rem;
   }
 
   /* The empty state carries no image, so the featured treatment's edge-to-edge padding would
