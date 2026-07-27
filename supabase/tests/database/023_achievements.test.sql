@@ -128,7 +128,7 @@ values
 
 insert into auth.users (id)
 values
-  ('95000000-0000-4000-8000-000000000001'), -- M1: earns the full catalogue
+  ('95000000-0000-4000-8000-000000000001'), -- M1: earns the fixture's broadest set of Achievements
   ('95000000-0000-4000-8000-000000000002'), -- BX: 9 distinct Places (explorer boundary)
   ('95000000-0000-4000-8000-000000000003'), -- BCAT: 3 of 5 category groups (category boundary)
   ('95000000-0000-4000-8000-000000000004'), -- BMUNI: 2 municipalities (municipality boundary)
@@ -869,8 +869,8 @@ select set_config('request.jwt.claim.sub', '95000000-0000-4000-8000-000000000001
 set local role authenticated;
 select is(
   (select count(*) from public.get_my_achievements() where earned_at is not null),
-  16::bigint,
-  'M1 sees exactly the sixteen Achievements earned so far in their own catalogue read'
+  17::bigint,
+  'M1 sees exactly the seventeen Achievements earned so far in their own catalogue read'
 );
 reset role;
 
@@ -886,7 +886,7 @@ select is(
 -- so every row is a locked tier at zero with no earned entry and no bespoke definition.
 select ok(
   (
-    select count(*) = 12
+    select count(*) = 16
       and bool_and(entry_kind = 'locked')
       and bool_and(collection is not null)
       and bool_and(progress_current = 0)
@@ -1068,7 +1068,7 @@ select extensions.dblink_disconnect('achievement_race_b');
 
 select is(
   (select private.detach_member_achievements('95000000-0000-4000-8000-000000000001'::uuid)),
-  16::bigint,
+  17::bigint,
   'The account-deletion cleanup seam hard-deletes every unlock row for the member'
 );
 select is(

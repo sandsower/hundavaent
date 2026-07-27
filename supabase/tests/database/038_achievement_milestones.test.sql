@@ -251,7 +251,7 @@ set local role authenticated;
 
 select ok(
   (
-    select count(*) = 12
+    select count(*) = 16
       and bool_and(enabled)
       and bool_and(entry_kind = 'locked')
       and bool_and(progress_current = 0)
@@ -299,6 +299,7 @@ select is(
     select max(progress_current)
     from public.get_my_achievements()
     where entry_kind = 'locked'
+      and progress_kind <> 'credited_place_coverage'
   ),
   1,
   'Post-activation activity starts tier progress at one without historical credit'
@@ -324,14 +325,14 @@ select set_config(
 set local role authenticated;
 
 -- This Member has two credited Places across two category groups and two municipalities, which
--- closes both bronze tiers whose threshold is two and leaves the other ten tiers visibly open.
+-- closes both bronze tiers whose threshold is two and leaves the other fourteen tiers visibly open.
 select is(
   (
     select count(*)
     from public.get_my_achievements()
     where entry_kind = 'locked'
   ),
-  10::bigint,
+  14::bigint,
   'Every unearned tier stays visible, so the Member can see the shape of what is ahead'
 );
 select set_eq(
@@ -569,7 +570,7 @@ set local role authenticated;
 
 select ok(
   (
-    select count(*) = 12
+    select count(*) = 16
       and bool_and(enabled)
       and bool_and(entry_kind = 'locked')
       and bool_and(earned_at is null)
