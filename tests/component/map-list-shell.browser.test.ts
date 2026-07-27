@@ -795,7 +795,8 @@ describe('MapListShell synchronization', () => {
     );
     expect(directions.getAttribute('target')).toBe('_blank');
     expect(directions.getAttribute('rel')).toContain('noreferrer');
-    expect(directions.textContent).toContain('Directions');
+    // The control stands in the card heading beside Share, not in the scrolling body.
+    expect(directions.closest('.heading-actions')).not.toBeNull();
   });
 
   it('arrives on a quiet map and floats a matching-width detail card over it on desktop', async () => {

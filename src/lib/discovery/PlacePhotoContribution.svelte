@@ -42,6 +42,7 @@
   let sending = $state(false);
   let outcome = $state<'too_large' | 'wrong_type' | 'rate_limited' | 'failed' | null>(null);
   let attempt = $state(0);
+  let confirmed = $state(false);
 
   const megabyteCap = Math.floor(maxMemberPhotoBytes / (1024 * 1024));
   const outcomeMessage = $derived(
@@ -65,6 +66,7 @@
       return;
     }
     outcome = null;
+    confirmed = false;
     picker?.click();
   }
 
@@ -90,6 +92,7 @@
     sending = false;
 
     if (result.status === 'submitted') {
+      confirmed = true;
       announce(copy['place.photos.sent']);
       // Width, height and the signed URL belong to the server's copy of the file; the strip fills
       // them in from its own refresh. This is the tile appearing the moment the photo is accepted.
@@ -140,6 +143,12 @@
     aria-label={copy['place.photos.addLabel'].replace('{name}', placeName)}
     onclick={choose}
   >
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"
+      />
+      <circle cx="12" cy="13" r="3" />
+    </svg>
     {sending ? copy['place.photos.sending'] : copy['place.photos.add']}
   </button>
   <input
@@ -154,6 +163,10 @@
   />
   {#if outcomeMessage}
     <p class="outcome" data-photo-outcome>{outcomeMessage}</p>
+  {:else if confirmed}
+    <!-- The live region already told a screen reader; this is the same sentence for eyes, so a
+         successful send is not answered by silence next to the button that did it. -->
+    <p class="confirmation" data-photo-confirmation>{copy['place.photos.sent']}</p>
   {/if}
 </div>
 
@@ -164,28 +177,48 @@
     gap: 0.25rem;
   }
 
-  /* The same quiet underlined trigger the inline correction affordances use, at the same
-     1.5rem minimum height that clears the WCAG 2.5.8 24px target. */
+  /* A photo is an additive gift, not a defect report, so its trigger is a real button in the
+     card's pill family rather than the corrections' quiet underlined link. */
   .start {
     display: inline-flex;
-    min-height: 1.5rem;
+    min-height: 2.1rem;
     align-items: center;
-    padding: 0.15rem 0.4rem;
-    border: 0;
-    border-radius: var(--hv-radius-control);
+    gap: 0.4rem;
+    padding: 0.3rem 0.85rem;
+    border: 1px solid var(--hv-color-fjord);
+    border-radius: 999px;
     background: transparent;
     color: var(--hv-color-fjord);
     font: inherit;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     font-weight: 800;
-    text-decoration: underline;
     cursor: pointer;
+    transition: transform var(--hv-motion-instant) var(--hv-ease-settle);
+  }
+
+  .start:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .start:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  .start svg {
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
   }
 
   .start:disabled {
+    border-color: var(--hv-border-subtle);
     color: var(--hv-color-basalt-muted);
     cursor: progress;
-    text-decoration: none;
   }
 
   .start:focus-visible {
@@ -208,10 +241,21 @@
     white-space: nowrap;
   }
 
+  /* Every outcome here is a refusal, and a refusal in the muted ink reads as a caption. It
+     wears the danger ink the notices use instead. */
   .outcome {
     margin: 0;
-    color: var(--hv-color-basalt-muted);
+    color: var(--hv-color-danger);
     font-size: 0.75rem;
+    font-weight: 750;
+    line-height: 1.35;
+  }
+
+  .confirmation {
+    margin: 0;
+    color: var(--hv-color-basalt);
+    font-size: 0.75rem;
+    font-weight: 750;
     line-height: 1.35;
   }
 </style>

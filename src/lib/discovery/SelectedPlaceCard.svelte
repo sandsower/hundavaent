@@ -382,6 +382,29 @@
         onChange={onFavouriteChange}
         onRecognized={acknowledgeFavourite}
       />
+      <!-- Getting there is the one action every visitor shares, so it stands in the heading
+           beside Share rather than waiting in the body. The summary already carries the
+           coordinates, so the link works before the profile arrives. -->
+      <!-- eslint-disable svelte/no-navigation-without-resolve -- external Google Maps URL -->
+      <a
+        class="icon-action directions"
+        data-directions
+        href={googleMapsDirectionsUrl({ latitude: place.latitude, longitude: place.longitude })}
+        target="_blank"
+        rel="noreferrer noopener"
+        aria-label={copy['place.directionsLabel'].replace('{name}', place.name)}
+        onclick={() =>
+          postHogAnalytics.capture('directions opened', {
+            place_id: place.placeId,
+            category: place.category,
+            language: lang
+          })}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m3 11 19-9-9 19-2-8-8-2z" />
+        </svg>
+      </a>
+      <!-- eslint-enable svelte/no-navigation-without-resolve -->
       <SharePlaceControl placeId={place.placeId} placeName={place.name} {lang} {copy} />
       <button
         data-selected-place-close
@@ -436,32 +459,6 @@
         {@render photoSurface([])}
       {/if}
     {/if}
-
-    <!-- Getting there is the one action every visitor shares, so it stands beside the summary
-         facts instead of waiting behind the practical-details disclosure. The summary already
-         carries the coordinates, so the link works before the profile arrives. -->
-    <p class="directions-row">
-      <!-- eslint-disable svelte/no-navigation-without-resolve -- external Google Maps URL -->
-      <a
-        class="directions-link"
-        href={googleMapsDirectionsUrl({ latitude: place.latitude, longitude: place.longitude })}
-        target="_blank"
-        rel="noreferrer noopener"
-        aria-label={copy['place.directionsLabel'].replace('{name}', place.name)}
-        onclick={() =>
-          postHogAnalytics.capture('directions opened', {
-            place_id: place.placeId,
-            category: place.category,
-            language: lang
-          })}
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M7 17 17 7M9.5 7H17v7.5" />
-        </svg>
-        {copy['place.directions']}
-      </a>
-      <!-- eslint-enable svelte/no-navigation-without-resolve -->
-    </p>
 
     <section
       bind:this={welcomeAnswer}
@@ -535,7 +532,12 @@
       </div>
     {:else if profile}
       <details class="hv-disclosure" bind:this={completeDetails}>
-        <summary>{copy['place.showPracticalDetails']}</summary>
+        <summary>
+          <span>{copy['place.showPracticalDetails']}</span>
+          <svg class="summary-chevron" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </summary>
         <div class="complete-details">
           <section aria-labelledby={`access-${place.placeId}`}>
             <h3 id={`access-${place.placeId}`}>{copy['place.accessHeading']}</h3>
@@ -591,24 +593,26 @@
                 : copy['place.amenitiesUnknown']}
             </p>
           </section>
-          <p class="place-address">
-            {profile.location.addressLine}, {profile.location.postalCode}
-            {profile.location.locality}
-          </p>
-          {#if profile.websiteUrl || profile.phone}
-            <nav class="place-links" aria-label={copy['place.usefulLinks']}>
-              {#if profile.websiteUrl}
-                <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external place URL -->
-                <a href={profile.websiteUrl} rel="noreferrer">{copy['place.website']}</a>
-              {/if}
-              {#if profile.phone}
-                <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external tel URL -->
-                <a href={`tel:${profile.phone.replaceAll(' ', '')}`}>
-                  {copy['place.phone']} · {profile.phone}
-                </a>
-              {/if}
-            </nav>
-          {/if}
+          <div class="place-contact">
+            <p class="place-address">
+              {profile.location.addressLine}, {profile.location.postalCode}
+              {profile.location.locality}
+            </p>
+            {#if profile.websiteUrl || profile.phone}
+              <nav class="place-links" aria-label={copy['place.usefulLinks']}>
+                {#if profile.websiteUrl}
+                  <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external place URL -->
+                  <a href={profile.websiteUrl} rel="noreferrer">{copy['place.website']}</a>
+                {/if}
+                {#if profile.phone}
+                  <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external tel URL -->
+                  <a href={`tel:${profile.phone.replaceAll(' ', '')}`}>
+                    {copy['place.phone']} · {profile.phone}
+                  </a>
+                {/if}
+              </nav>
+            {/if}
+          </div>
 
           <!-- One quiet line, and nothing else, until a Member asks. The practical details are
                what a reader came for, so the affordances stay behind a disclosure rather than
@@ -820,47 +824,41 @@
     grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   }
 
-  .directions-row {
-    margin: 0 0 0.55rem;
-  }
-
-  .directions-link {
-    display: inline-flex;
-    min-height: 2.1rem;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.85rem;
-    border: 1px solid var(--hv-color-fjord);
+  /* The same round icon control the Share button draws, so the heading's actions read as one
+     family. An anchor rather than a button: it navigates. */
+  .icon-action {
+    display: inline-grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--hv-border-subtle);
     border-radius: 999px;
-    color: var(--hv-color-fjord);
-    font-size: 0.82rem;
-    font-weight: 800;
-    text-decoration: none;
+    background: var(--hv-color-snow-raised);
+    color: var(--hv-color-basalt);
+    place-items: center;
     transition: transform var(--hv-motion-instant) var(--hv-ease-settle);
   }
 
-  .directions-link:hover {
+  .icon-action:hover {
     transform: translateY(-1px);
   }
 
-  .directions-link:active {
+  .icon-action:active {
     transform: scale(0.94);
   }
 
-  .directions-link svg {
-    width: 0.95rem;
-    height: 0.95rem;
+  .icon-action svg {
+    width: 1.15rem;
+    height: 1.15rem;
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;
     stroke-linejoin: round;
-    stroke-width: 2.1;
+    stroke-width: 1.8;
   }
 
-  .directions-link:focus-visible {
+  .icon-action:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
+    outline-offset: 2px;
   }
 
   .welcome-answer {
@@ -882,22 +880,64 @@
     margin-top: 0.75rem;
   }
 
+  /* The default disclosure marker is the browser's, not the card's. The summary lays out as a
+     full-width row with its own chevron, so the whole line reads and presses as one control. */
   summary {
-    padding: 0.85rem 0 0.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.85rem 0;
+    list-style: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .summary-chevron {
+    width: 1.05rem;
+    height: 1.05rem;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.1;
+    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
+  }
+
+  details[open] > summary .summary-chevron {
+    transform: rotate(180deg);
   }
 
   .complete-details {
     display: grid;
     gap: 0.8rem;
-    padding: 0.6rem 0 0.2rem;
+    padding: 0.2rem 0 0.2rem;
   }
 
+  /* The details sections carry the same quiet uppercase labels as the card's own sections
+     (the welcome answer, the mobility badge), so the disclosure reads as more of the card
+     rather than a different document. */
   .complete-details h3 {
     margin: 0;
     color: var(--hv-color-basalt);
-    font-family: var(--hv-font-display);
-    font-size: 1.05rem;
-    font-weight: 650;
+    font-size: 0.78rem;
+    font-weight: 850;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .complete-details > section + section,
+  .place-contact {
+    border-top: 1px solid var(--hv-border-subtle);
+    padding-top: 0.8rem;
+  }
+
+  .place-contact {
+    display: grid;
+    gap: 0.45rem;
   }
 
   .conditions {
@@ -937,7 +977,7 @@
 
   .place-address {
     margin: 0;
-    color: var(--hv-color-basalt-muted);
+    color: var(--hv-color-basalt);
     font-size: 0.85rem;
     font-weight: 700;
   }

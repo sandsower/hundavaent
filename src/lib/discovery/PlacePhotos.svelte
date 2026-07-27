@@ -178,7 +178,20 @@
       </div>
     {/if}
 
-    {#if contributable}
+    {#if contributable && tileCount === 0}
+      <!-- With no tile to stand beside, the affordance alone reads as a control that lost its
+           subject. The dashed frame says what belongs here and invites the first one. -->
+      <div class="empty-invite" data-photo-empty-invite>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"
+          />
+          <circle cx="12" cy="13" r="3" />
+        </svg>
+        <p>{copy['place.photos.emptyInvite']}</p>
+        <PlacePhotoContribution {placeId} {placeName} {copy} {signedIn} {announce} {onSubmitted} />
+      </div>
+    {:else if contributable}
       <PlacePhotoContribution {placeId} {placeName} {copy} {signedIn} {announce} {onSubmitted} />
     {/if}
   </section>
@@ -320,6 +333,42 @@
     margin-top: 0.5rem;
   }
 
+  /* One tight row: on the compact answer card this surface sits above the map, so the invite
+     cannot afford the height of a stacked empty state. */
+  .empty-invite {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.6rem;
+    padding: 0.55rem 0.75rem;
+    border: 1.5px dashed var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+  }
+
+  .empty-invite > svg {
+    width: 1.3rem;
+    height: 1.3rem;
+    flex: none;
+    color: var(--hv-color-basalt-muted);
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.6;
+  }
+
+  .empty-invite > p {
+    flex: 1 1 8rem;
+    margin: 0;
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .empty-invite :global([data-photo-contribution]) {
+    margin-top: 0;
+  }
+
   .featured {
     margin: 0;
     padding: 0;
@@ -380,17 +429,20 @@
     aspect-ratio: 4 / 3;
   }
 
+  /* The featured surface is edge-to-edge for its image only. The affordance below it is a
+     control, and a control pressed against the panel border reads as clipped. */
   .featured :global([data-photo-contribution]) {
-    margin-top: 0.4rem;
+    margin: 0.4rem 0.65rem 0.65rem;
   }
 
   /* The empty state carries no image, so the featured treatment's edge-to-edge padding would
-     leave the affordance touching the frame the card draws around this surface. */
+     leave the invite touching the frame the card draws around this surface. */
   .featured.tileless {
-    padding: 0.5rem 0.65rem;
+    padding: 0.65rem;
   }
 
+  /* Inside the invite frame the row's own gap does the spacing. */
   .featured.tileless :global([data-photo-contribution]) {
-    margin-top: 0;
+    margin: 0;
   }
 </style>
