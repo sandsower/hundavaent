@@ -9,10 +9,13 @@
   import AchievementBadge from '$lib/achievements/AchievementBadge.svelte';
   import AchievementCelebration from '$lib/achievements/AchievementCelebration.svelte';
   import AchievementCollectionGrid from '$lib/achievements/AchievementCollectionGrid.svelte';
+  import AchievementContinuationCelebration from '$lib/achievements/AchievementContinuationCelebration.svelte';
+  import AchievementShare from '$lib/achievements/AchievementShare.svelte';
   import { publishAchievementAcknowledged } from '$lib/achievements/client';
   import type {
     AchievementGroup,
     ClaimedAchievement,
+    ClaimedAchievementContinuation,
     EarnedBespokeAchievement
   } from '$server/achievements/achievements';
   import type { PageProps } from './$types';
@@ -20,9 +23,13 @@
   let { data, form }: PageProps = $props();
   let claimForm = $state<HTMLFormElement>();
   let claimed = $state<ClaimedAchievement[]>([]);
+  let continuations = $state<ClaimedAchievementContinuation[]>([]);
 
   $effect.pre(() => {
-    if (hasClaimResult(form)) claimed = form.claimed as ClaimedAchievement[];
+    if (hasClaimResult(form)) {
+      claimed = form.claimed as ClaimedAchievement[];
+      continuations = form.continuations as ClaimedAchievementContinuation[];
+    }
   });
 
   const groupKey = (group: AchievementGroup): MessageKey =>
@@ -73,6 +80,9 @@
       }
 
       claimed = result.data.claimed as ClaimedAchievement[];
+      continuations = Array.isArray(result.data.continuations)
+        ? (result.data.continuations as ClaimedAchievementContinuation[])
+        : [];
       publishAchievementAcknowledged();
     };
   };
@@ -86,13 +96,16 @@
   function hasClaimResult(value: PageProps['form']): value is NonNullable<PageProps['form']> & {
     action: 'claimAchievements';
     claimed: ClaimedAchievement[];
+    continuations: ClaimedAchievementContinuation[];
   } {
     return (
       value !== null &&
       'action' in value &&
       value.action === 'claimAchievements' &&
       'claimed' in value &&
-      Array.isArray(value.claimed)
+      Array.isArray(value.claimed) &&
+      'continuations' in value &&
+      Array.isArray(value.continuations)
     );
   }
 </script>
@@ -122,16 +135,20 @@
       aria-hidden="true"
     ></form>
 
-    {#if claimed.length > 0}
+    {#if claimed.length > 0 || continuations.length > 0}
       <section class="celebrations hv-stack" aria-live="polite">
         {#each claimed as achievement (achievement.key)}
           <AchievementCelebration {achievement} lang={data.lang} copy={data.copy} />
+        {/each}
+        {#each continuations as continuation (`${continuation.collection}-${continuation.milestone}`)}
+          <AchievementContinuationCelebration {continuation} copy={data.copy} />
         {/each}
       </section>
     {/if}
 
     <AchievementCollectionGrid
       achievements={data.achievements.achievements}
+      progress={data.collectionProgress}
       lang={data.lang}
       copy={data.copy}
     />
@@ -163,6 +180,19 @@
                     </p>
                     <p class="description">{description(achievement)}</p>
                     <p class="earned">{earnedLine(achievement.earnedAt)}</p>
+                    <AchievementShare
+                      card={{
+                        achievementKey: achievement.key,
+                        collection: null,
+                        group: achievement.group,
+                        tier: null,
+                        name: name(achievement),
+                        description: description(achievement),
+                        brand: data.copy['site.name'],
+                        eyebrow: data.copy['achievements.share.cardEyebrow']
+                      }}
+                      copy={data.copy}
+                    />
                   </div>
                 </li>
               {/each}

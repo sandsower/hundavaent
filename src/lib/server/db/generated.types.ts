@@ -70,6 +70,14 @@ export type Database = {
           tier: string
         }[]
       }
+      claim_my_achievement_continuations: {
+        Args: never
+        Returns: {
+          collection: string
+          milestone: number
+          reached_at: string
+        }[]
+      }
       clear_member_conduct_flag: {
         Args: {
           command_request_id: string
@@ -587,6 +595,16 @@ export type Database = {
           superseded_by_submission_id: string
           task_id: string
           task_kind: string
+        }[]
+      }
+      get_my_achievement_collection_progress: {
+        Args: never
+        Returns: {
+          collection: string
+          current_value: number
+          next_milestone: number | null
+          progress_kind: string
+          total_value: number | null
         }[]
       }
       get_my_achievement_status: {

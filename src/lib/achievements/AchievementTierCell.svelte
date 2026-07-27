@@ -6,7 +6,14 @@
     LockedTierAchievement
   } from '$server/achievements/achievements';
   import AchievementBadge from './AchievementBadge.svelte';
-  import { progressLabel, tierLabel } from './tier-copy';
+  import AchievementShare from './AchievementShare.svelte';
+  import {
+    collectionName,
+    progressLabel,
+    targetLabel,
+    tierDisplayName,
+    tierLabel
+  } from './tier-copy';
 
   interface Props {
     entry: EarnedTierAchievement | LockedTierAchievement;
@@ -27,6 +34,16 @@
   // system, and gold must not borrow Signal Yellow, which is reserved for verified access,
   // selection and committed actions.
   const state = $derived(entry.kind === 'earned' ? 'earned' : started ? 'started' : 'locked');
+  const shareCard = $derived({
+    achievementKey: entry.key,
+    collection: entry.collection,
+    group: entry.group,
+    tier: entry.tier,
+    name: tierDisplayName(collectionName(entry, lang), entry.tier, copy),
+    description: lang === 'is' ? entry.collectionDescriptionIs : entry.collectionDescriptionEn,
+    brand: copy['site.name'],
+    eyebrow: copy['achievements.share.cardEyebrow']
+  });
 </script>
 
 <div class="cell" data-achievement-tier={entry.tier} data-tier-state={state}>
@@ -48,6 +65,7 @@
       <p class="detail">
         {copy['achievements.earned'].replace('{date}', formatLocalizedDate(entry.earnedAt, lang))}
       </p>
+      <AchievementShare card={shareCard} {copy} />
     {:else}
       {@const line = progressLabel(
         entry.progress.kind,
@@ -71,9 +89,7 @@
         </div>
         <p class="detail">{line}</p>
       {:else}
-        <p class="detail muted">
-          {copy['achievements.lockedTarget'].replace('{target}', String(entry.progress.target))}
-        </p>
+        <p class="detail muted">{targetLabel(entry.progress.kind, entry.progress.target, copy)}</p>
       {/if}
     {/if}
   </div>
@@ -130,13 +146,17 @@
     color: var(--hv-color-moss);
   }
 
-  /* Weight increases across the row, so the three rungs read as a progression without colour. */
+  /* Weight increases across the row, so the four rungs read as a progression without colour. */
   .cell[data-achievement-tier='silver'] .tier-label {
     letter-spacing: 0.11em;
   }
 
   .cell[data-achievement-tier='gold'] .tier-label {
     letter-spacing: 0.13em;
+  }
+
+  .cell[data-achievement-tier='platinum'] .tier-label {
+    letter-spacing: 0.15em;
   }
 
   .detail {

@@ -704,6 +704,8 @@ for (const locale of ['is', 'en'] as const) {
     const achievementsTitle = locale === 'is' ? 'Afrekin þín' : 'Your Achievements';
     const celebrationName =
       locale === 'is' ? 'Nýtt afrek: Fyrsta innritunin' : 'New achievement: First Check-in';
+    const shareAction = locale === 'is' ? 'Deila' : 'Share';
+    const shareTitle = locale === 'is' ? 'Deildu afrekinu' : 'Share your achievement';
     const provisionCelebrationEvidence = async (): Promise<void> => {
       await retireLocalMemberAchievements(evaluationModerator.email);
       await provisionLocalAchievementUnlock(
@@ -720,16 +722,16 @@ for (const locale of ['is', 'en'] as const) {
       );
     };
 
-    // A Member with nothing earned sees the full grid of open tiers, not an empty page: the twelve
+    // A Member with nothing earned sees the full grid of open tiers, not an empty page: the sixteen
     // visible gaps are what tell them what is ahead.
     await page.goto(`/${locale}/account/achievements`);
     await expect(page.getByRole('heading', { name: achievementsTitle })).toBeVisible();
-    await expect(page.locator('[data-achievement-tier]')).toHaveCount(12);
+    await expect(page.locator('[data-achievement-tier]')).toHaveCount(16);
     await capture(page, evidence, `achievements-untouched-${locale}-desktop.png`);
 
     await provisionLocalAchievementProgress(evaluationModerator.email);
     await page.goto(`/${locale}/account/achievements`);
-    await expect(page.locator('[data-achievement-tier]')).toHaveCount(12);
+    await expect(page.locator('[data-achievement-tier]')).toHaveCount(16);
     await expect(page.locator('[data-tier-state="started"]')).toHaveCount(3);
     await capture(page, evidence, `achievements-collections-${locale}-desktop.png`);
 
@@ -745,6 +747,13 @@ for (const locale of ['is', 'en'] as const) {
     await page.reload();
     await expect(page.getByRole('region', { name: celebrationName })).toHaveCount(0);
     await capture(page, evidence, `achievements-earned-${locale}-desktop.png`);
+
+    await page.getByRole('button', { name: shareAction, exact: true }).first().click();
+    await expect(page.getByRole('heading', { name: shareTitle })).toBeVisible();
+    await capture(page, evidence, `achievements-share-${locale}-desktop.png`);
+    await page
+      .getByRole('button', { name: locale === 'is' ? 'Loka forskoðun' : 'Close share preview' })
+      .click();
 
     await provisionCelebrationEvidence();
     await page.setViewportSize({ width: 390, height: 844 });

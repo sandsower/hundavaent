@@ -31,9 +31,9 @@ test('a real Favourite keeps its unread cue through hover preload and celebrates
 
   await page.goto('/en/account/achievements');
   await expect(page.getByRole('heading', { name: 'Your Achievements' })).toBeVisible();
-  // A Member with nothing earned is no longer shown an empty page. The twelve open tiers are the
+  // A Member with nothing earned is no longer shown an empty page. The sixteen open tiers are the
   // answer to "what is ahead", so there is no empty state left to render.
-  await expect(page.locator('[data-achievement-tier]')).toHaveCount(12);
+  await expect(page.locator('[data-achievement-tier]')).toHaveCount(16);
   await expect(page.getByRole('progressbar')).toHaveCount(0);
   await expect(page.getByText('First Favourite')).toHaveCount(0);
   await expect(page.locator(unreadIndicator)).toHaveCount(0);
@@ -109,10 +109,12 @@ test('started exploration shows every tier of every collection, gaps included', 
   await page.goto('/en/account/achievements');
   await expect(page.getByRole('heading', { name: 'Milestones' })).toBeVisible();
 
-  // Four collections of three tiers each: nothing is hidden, so the Member can see what is ahead.
-  await expect(page.locator('[data-achievement-tier]')).toHaveCount(12);
-  await expect(page.getByRole('heading', { name: 'Places', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Municipalities', exact: true })).toBeVisible();
+  // Four collections of four tiers each: nothing is hidden, so the Member can see what is ahead.
+  await expect(page.locator('[data-achievement-tier]')).toHaveCount(16);
+  await expect(page.getByRole('heading', { name: 'Going Places', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mixing It Up', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Covering Ground', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lending a Paw', exact: true })).toBeVisible();
 
   // Three credited Places across two category groups and one municipality.
   await expect(page.getByText('3 of 5 places')).toBeVisible();
@@ -154,8 +156,10 @@ test('unauthenticated callers cannot reach or discover private Achievement state
 
   for (const functionName of [
     'get_my_achievements',
+    'get_my_achievement_collection_progress',
     'get_my_achievement_status',
-    'claim_my_achievement_celebrations'
+    'claim_my_achievement_celebrations',
+    'claim_my_achievement_continuations'
   ]) {
     const response = await request.post(`${status.apiUrl}/rest/v1/rpc/${functionName}`, {
       headers: anonHeaders,

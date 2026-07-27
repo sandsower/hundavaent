@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  claimMyAchievementContinuations,
   claimMyAchievementCelebrations,
+  getMyAchievementCollectionProgress,
   getMyAchievements,
   getMyAchievementStatus,
   type AchievementRpcClient
@@ -57,6 +59,15 @@ const lockedTierRow = {
   progress_kind: 'credited_categories',
   progress_current: 2,
   progress_target: 3
+};
+
+const lockedPlatinumTierRow = {
+  ...lockedTierRow,
+  achievement_key: 'place_categories_platinum',
+  display_order: 17,
+  tier: 'platinum',
+  progress_current: 4,
+  progress_target: 5
 };
 
 const sentinelRow = Object.fromEntries(
@@ -172,8 +183,8 @@ describe('Achievements RPC adapter', () => {
     });
   });
 
-  it('accepts a full twelve-slot grid rather than rejecting more than two locked entries', async () => {
-    const rows = Array.from({ length: 12 }, (_, index) => ({
+  it('accepts a full sixteen-slot grid rather than rejecting more than two locked entries', async () => {
+    const rows = Array.from({ length: 16 }, (_, index) => ({
       ...lockedTierRow,
       achievement_key: `tier_${index}`,
       display_order: index + 1
@@ -183,7 +194,20 @@ describe('Achievements RPC adapter', () => {
     const result = await getMyAchievements({ rpc } satisfies AchievementRpcClient);
 
     expect(result.status).toBe('success');
-    expect(result.status === 'success' && result.value.achievements).toHaveLength(12);
+    expect(result.status === 'success' && result.value.achievements).toHaveLength(16);
+  });
+
+  it('accepts Platinum as the fourth collection tier', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: [lockedPlatinumTierRow], error: null });
+
+    const result = await getMyAchievements({ rpc } satisfies AchievementRpcClient);
+
+    expect(result.status).toBe('success');
+    expect(result.status === 'success' && result.value.achievements[0]).toMatchObject({
+      key: 'place_categories_platinum',
+      tier: 'platinum',
+      progress: { current: 4, target: 5 }
+    });
   });
 
   it('rejects a row that mixes the tier and bespoke shapes', async () => {
@@ -314,6 +338,95 @@ describe('Achievements RPC adapter', () => {
 
     expect(await claimMyAchievementCelebrations({ rpc } satisfies AchievementRpcClient)).toEqual({
       status: 'infrastructure_error'
+    });
+  });
+
+  it('reads live collection progress and the next contribution milestone', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          collection: 'explorer_places',
+          progress_kind: 'credited_place_coverage',
+          current_value: 12,
+          total_value: 16,
+          next_milestone: null
+        },
+        {
+          collection: 'contributions',
+          progress_kind: 'confirmed_contributions',
+          current_value: 61,
+          total_value: null,
+          next_milestone: 100
+        }
+      ],
+      error: null
+    });
+
+    expect(
+      await getMyAchievementCollectionProgress({ rpc } satisfies AchievementRpcClient)
+    ).toEqual({
+      status: 'success',
+      value: [
+        {
+          collection: 'explorer_places',
+          progressKind: 'credited_place_coverage',
+          current: 12,
+          total: 16,
+          nextMilestone: null
+        },
+        {
+          collection: 'contributions',
+          progressKind: 'confirmed_contributions',
+          current: 61,
+          total: null,
+          nextMilestone: 100
+        }
+      ]
+    });
+  });
+
+  it('rejects contradictory collection progress shapes', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          collection: 'contributions',
+          progress_kind: 'confirmed_contributions',
+          current_value: 61,
+          total_value: 100,
+          next_milestone: 100
+        }
+      ],
+      error: null
+    });
+
+    expect(
+      await getMyAchievementCollectionProgress({ rpc } satisfies AchievementRpcClient)
+    ).toEqual({
+      status: 'infrastructure_error'
+    });
+  });
+
+  it('claims post-Platinum contribution milestones', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          collection: 'contributions',
+          milestone: 100,
+          reached_at: '2026-07-01T12:00:00Z'
+        }
+      ],
+      error: null
+    });
+
+    expect(await claimMyAchievementContinuations({ rpc } satisfies AchievementRpcClient)).toEqual({
+      status: 'success',
+      value: [
+        {
+          collection: 'contributions',
+          milestone: 100,
+          reachedAt: '2026-07-01T12:00:00Z'
+        }
+      ]
     });
   });
 });

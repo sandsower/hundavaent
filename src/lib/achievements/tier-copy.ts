@@ -40,6 +40,10 @@ export function progressLabel(
     .replace('{target}', String(target));
 }
 
+export function targetLabel(metric: AchievementMetric, target: number, copy: Catalogue): string {
+  return copy[`achievements.target.${metric}` as MessageKey].replace('{target}', String(target));
+}
+
 export function collectionName(
   entry: { collectionNameIs: string; collectionNameEn: string },
   lang: Locale

@@ -2,7 +2,9 @@ import { error, fail, redirect } from '@sveltejs/kit';
 
 import { parseLocale } from '$i18n';
 import {
+  claimMyAchievementContinuations,
   claimMyAchievementCelebrations,
+  getMyAchievementCollectionProgress,
   getMyAchievements,
   type AchievementRpcClient
 } from '$server/achievements/achievements';
@@ -35,9 +37,13 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     throw cause;
   }
 
-  const result = await getMyAchievements(locals.supabase as unknown as AchievementRpcClient);
-  if (result.status !== 'success') {
-    if (result.status === 'forbidden') {
+  const client = locals.supabase as unknown as AchievementRpcClient;
+  const [result, progress] = await Promise.all([
+    getMyAchievements(client),
+    getMyAchievementCollectionProgress(client)
+  ]);
+  if (result.status !== 'success' || progress.status !== 'success') {
+    if (result.status === 'forbidden' || progress.status === 'forbidden') {
       error(403, {
         message: locals.copy['error.unexpectedBody'],
         requestId: locals.requestId
@@ -49,7 +55,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     });
   }
 
-  return { achievements: result.value };
+  return { achievements: result.value, collectionProgress: progress.value };
 };
 
 export const actions: Actions = {
@@ -70,17 +76,24 @@ export const actions: Actions = {
       throw cause;
     }
 
-    const result = await claimMyAchievementCelebrations(
-      locals.supabase as unknown as AchievementRpcClient
-    );
-    if (result.status !== 'success') {
-      return fail(result.status === 'forbidden' ? 403 : 503, {
+    const client = locals.supabase as unknown as AchievementRpcClient;
+    const [result, continuations] = await Promise.all([
+      claimMyAchievementCelebrations(client),
+      claimMyAchievementContinuations(client)
+    ]);
+    if (result.status !== 'success' || continuations.status !== 'success') {
+      const forbidden = result.status === 'forbidden' || continuations.status === 'forbidden';
+      return fail(forbidden ? 403 : 503, {
         action: 'claimAchievements',
-        error: result.status === 'forbidden' ? 'forbidden' : 'unavailable'
+        error: forbidden ? 'forbidden' : 'unavailable'
       });
     }
 
-    return { action: 'claimAchievements', claimed: result.value };
+    return {
+      action: 'claimAchievements',
+      claimed: result.value,
+      continuations: continuations.value
+    };
   }
 };
 
