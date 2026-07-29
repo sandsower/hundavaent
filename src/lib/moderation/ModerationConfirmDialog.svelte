@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { Dialog } from '@hundavaent/design-system';
+
   interface Props {
     open: boolean;
     title: string;
@@ -12,7 +14,7 @@
 
   let {
     open,
-    title,
+    title: titleText,
     description,
     confirmLabel,
     cancelLabel,
@@ -20,80 +22,22 @@
     onconfirm,
     oncancel
   }: Props = $props();
-  const titleId = $props.id();
-  let dialogElement = $state<HTMLDialogElement>();
-  let returnFocusElement: HTMLElement | null = null;
-
-  function handleCancel(event: Event): void {
-    event.preventDefault();
-    oncancel();
-  }
-
-  function restoreFocus(): void {
-    const target = returnFocusElement;
-    returnFocusElement = null;
-    queueMicrotask(() => {
-      if (target?.isConnected) target.focus();
-    });
-  }
-
-  $effect(() => {
-    const dialog = dialogElement;
-    if (!dialog) return;
-
-    if (open && !dialog.open) {
-      returnFocusElement =
-        document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      dialog.showModal();
-    }
-    if (!open && dialog.open) dialog.close();
-
-    return () => {
-      if (dialog.open) dialog.close();
-      restoreFocus();
-    };
-  });
 </script>
 
-{#if open}
-  <dialog
-    class="confirm-dialog"
-    aria-labelledby={titleId}
-    bind:this={dialogElement}
-    oncancel={handleCancel}
-  >
-    <h2 id={titleId}>{title}</h2>
-    <p>{description}</p>
-    <div class="actions">
-      <button type="button" class="cancel" onclick={oncancel}>{cancelLabel}</button>
-      <button type="button" class:danger={tone === 'danger'} onclick={onconfirm}>
-        {confirmLabel}
-      </button>
-    </div>
-  </dialog>
-{/if}
+<Dialog {open} size="compact" class="grid gap-[0.75rem]" {oncancel}>
+  {#snippet title()}
+    <h2>{titleText}</h2>
+  {/snippet}
+  <p>{description}</p>
+  <div class="actions">
+    <button type="button" class="cancel" onclick={oncancel}>{cancelLabel}</button>
+    <button type="button" class:danger={tone === 'danger'} onclick={onconfirm}>
+      {confirmLabel}
+    </button>
+  </div>
+</Dialog>
 
 <style>
-  .confirm-dialog {
-    position: fixed;
-    z-index: 30;
-    inset: 50% auto auto 50%;
-    display: grid;
-    width: min(calc(100% - 2rem), 30rem);
-    max-height: calc(100dvh - 2rem);
-    translate: -50% -50%;
-    gap: 0.75rem;
-    overflow-y: auto;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-shell);
-    background: var(--hv-color-snow-raised);
-    padding: 1.1rem;
-    color: var(--hv-color-basalt);
-    box-shadow: var(--hv-shadow-raised);
-  }
-  .confirm-dialog::backdrop {
-    background: rgb(20 37 41 / 55%);
-  }
   h2,
   p {
     margin: 0;

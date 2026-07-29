@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Button, Dialog } from '@hundavaent/design-system';
   import type { Catalogue } from '$i18n';
   import {
     createAchievementShareSvg,
@@ -12,18 +13,23 @@
   }
 
   let { card, copy }: Props = $props();
-  let dialog = $state<HTMLDialogElement>();
+  let open = $state(false);
   let busy = $state(false);
   let feedback = $state('');
+
+  // This dialog's head row holds an eyebrow + h2 next to a close button, so it owns the h2
+  // itself and points Dialog's labelledby path at it (Dialog.svelte's TitleProps comment) -
+  // the accessible name becomes the share title rather than the eyebrow above it.
+  const titleId = $props.id();
 
   const preview = $derived(
     `data:image/svg+xml;charset=utf-8,${encodeURIComponent(createAchievementShareSvg(card))}`
   );
   const caption = $derived(`${card.name}\n${card.description}\n#Hundavaent`);
 
-  function open(): void {
+  function openDialog(): void {
     feedback = '';
-    dialog?.showModal();
+    open = true;
   }
 
   async function share(): Promise<void> {
@@ -81,67 +87,65 @@
   }
 </script>
 
-<button class="share-trigger hv-control" type="button" onclick={open}>
-  {copy['achievements.share.action']}
-</button>
+<div class="share">
+  <Button class="share-trigger" onclick={openDialog}>
+    {copy['achievements.share.action']}
+  </Button>
 
-<dialog class="share-dialog" bind:this={dialog} onclose={() => (feedback = '')}>
-  <div class="dialog-body">
-    <div class="dialog-head">
-      <div>
-        <p class="eyebrow">{copy['achievements.share.eyebrow']}</p>
-        <h2>{copy['achievements.share.title']}</h2>
+  <Dialog bind:open size="wide" unpadded labelledby={titleId} onclose={() => (feedback = '')}>
+    <div class="dialog-body">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">{copy['achievements.share.eyebrow']}</p>
+          <h2 id={titleId}>{copy['achievements.share.title']}</h2>
+        </div>
+        <Button
+          class="share-close"
+          aria-label={copy['achievements.share.close']}
+          onclick={() => (open = false)}>×</Button
+        >
       </div>
-      <button
-        class="close hv-control"
-        type="button"
-        aria-label={copy['achievements.share.close']}
-        onclick={() => dialog?.close()}>×</button
-      >
+
+      <img class="preview" src={preview} alt={copy['achievements.share.previewAlt']} />
+      <p class="privacy">{copy['achievements.share.privacy']}</p>
+
+      <div class="actions">
+        <Button intent="primary" disabled={busy} onclick={share}>
+          {copy['achievements.share.share']}
+        </Button>
+        <Button disabled={busy} onclick={download}>
+          {copy['achievements.share.download']}
+        </Button>
+        <Button disabled={busy} onclick={copyCaption}>
+          {copy['achievements.share.copy']}
+        </Button>
+      </div>
+
+      {#if feedback}
+        <p class="feedback" aria-live="polite">{feedback}</p>
+      {/if}
     </div>
-
-    <img class="preview" src={preview} alt={copy['achievements.share.previewAlt']} />
-    <p class="privacy">{copy['achievements.share.privacy']}</p>
-
-    <div class="actions">
-      <button class="primary hv-control" type="button" disabled={busy} onclick={share}>
-        {copy['achievements.share.share']}
-      </button>
-      <button class="hv-control" type="button" disabled={busy} onclick={download}>
-        {copy['achievements.share.download']}
-      </button>
-      <button class="hv-control" type="button" disabled={busy} onclick={copyCaption}>
-        {copy['achievements.share.copy']}
-      </button>
-    </div>
-
-    {#if feedback}
-      <p class="feedback" aria-live="polite">{feedback}</p>
-    {/if}
-  </div>
-</dialog>
+  </Dialog>
+</div>
 
 <style>
-  .share-trigger {
+  /* Button renders its own <button> inside a child component, so this component's scoped CSS
+     cannot reach it directly - reachable only through this ancestor anchor with the actual
+     target selector wrapped in :global(), the same pattern FavouriteControl.svelte uses for
+     .favourite-toggle. The trigger and close classes are guaranteed to land on Button's rendered
+     element because we pass them through Button's class prop ourselves. The anchor is
+     display: contents so it stays a selector-only wrapper: the pre-migration root was the bare
+     trigger button itself, and a block box here would wrap the inline-flex Button in a line box,
+     nudging the three grid-track call sites (celebration/tier-cell/continuation) a few pixels. */
+  .share {
+    display: contents;
+  }
+
+  .share :global(.share-trigger) {
     width: fit-content;
     min-height: 2rem;
     padding: 0.3rem 0.55rem;
     font-size: 0.76rem;
-  }
-
-  .share-dialog {
-    width: min(42rem, calc(100vw - 2rem));
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: 1.25rem;
-    padding: 0;
-    color: var(--hv-color-basalt);
-    background: var(--hv-color-snow-raised);
-    box-shadow: 0 1.5rem 4rem rgb(30 45 49 / 24%);
-  }
-
-  .share-dialog::backdrop {
-    background: rgb(24 38 34 / 58%);
-    backdrop-filter: blur(0.2rem);
   }
 
   .dialog-body {
@@ -178,7 +182,7 @@
     font-size: clamp(1.35rem, 4vw, 1.8rem);
   }
 
-  .close {
+  .share :global(.share-close) {
     width: 2.25rem;
     min-width: 2.25rem;
     padding: 0;
@@ -204,11 +208,5 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.6rem;
-  }
-
-  .primary {
-    color: var(--hv-color-snow-raised);
-    border-color: var(--hv-color-moss);
-    background: var(--hv-color-moss);
   }
 </style>

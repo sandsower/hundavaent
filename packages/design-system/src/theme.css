@@ -46,6 +46,7 @@
   --color-danger-soft: var(--hv-color-danger-soft);
   --color-success: var(--hv-color-success);
   --color-success-soft: var(--hv-color-success-soft);
+  --color-scrim: var(--hv-color-scrim);
 
   --color-access-area: var(--hv-access-area);
   --color-access-restraint: var(--hv-access-restraint);

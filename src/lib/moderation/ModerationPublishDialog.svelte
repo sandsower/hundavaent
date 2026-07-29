@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { Dialog } from '@hundavaent/design-system';
+
   interface Props {
     open: boolean;
     title: string;
@@ -13,7 +15,7 @@
 
   let {
     open,
-    title,
+    title: titleText,
     description,
     reasonLabel,
     reasonHelp,
@@ -23,93 +25,41 @@
     oncancel
   }: Props = $props();
   const id = $props.id();
-  const titleId = `${id}-title`;
   const helpId = `${id}-help`;
   let reason = $state('');
-  let dialogElement = $state<HTMLDialogElement>();
-  let returnFocusElement: HTMLElement | null = null;
 
   function submit(event: SubmitEvent): void {
     event.preventDefault();
     onconfirm(reason);
   }
 
-  function handleCancel(event: Event): void {
-    event.preventDefault();
-    oncancel();
-  }
-
-  function restoreFocus(): void {
-    const target = returnFocusElement;
-    returnFocusElement = null;
-    queueMicrotask(() => {
-      if (target?.isConnected) target.focus();
-    });
-  }
-
+  // Mirrors the pre-migration effect's reset behaviour: this dialog stays mounted with `open`
+  // toggling (see CandidateReviewPanel.svelte / +page.svelte call sites), so the reason field
+  // needs an explicit clear on every closed -> open transition rather than relying on remount.
   $effect(() => {
-    const dialog = dialogElement;
-    if (!dialog) return;
-
-    if (open && !dialog.open) {
-      reason = '';
-      returnFocusElement =
-        document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      dialog.showModal();
-    }
-    if (!open && dialog.open) dialog.close();
-
-    return () => {
-      if (dialog.open) dialog.close();
-      restoreFocus();
-    };
+    if (open) reason = '';
   });
 </script>
 
-{#if open}
-  <dialog
-    class="publish-dialog"
-    aria-labelledby={titleId}
-    bind:this={dialogElement}
-    oncancel={handleCancel}
-  >
-    <h2 id={titleId}>{title}</h2>
-    <p>{description}</p>
-    <form onsubmit={submit}>
-      <label>
-        {reasonLabel}
-        <textarea bind:value={reason} rows="3" required aria-describedby={helpId}></textarea>
-      </label>
-      <small id={helpId}>{reasonHelp}</small>
-      <div class="actions">
-        <button type="button" class="cancel" onclick={oncancel}>{cancelLabel}</button>
-        <button type="submit">{confirmLabel}</button>
-      </div>
-    </form>
-  </dialog>
-{/if}
+<Dialog {open} size="standard" class="grid gap-[0.7rem]" {oncancel}>
+  {#snippet title()}
+    <h2>{titleText}</h2>
+  {/snippet}
+  <p>{description}</p>
+  <form onsubmit={submit}>
+    <label>
+      {reasonLabel}
+      <textarea bind:value={reason} rows="3" required aria-describedby={helpId}></textarea>
+    </label>
+    <small id={helpId}>{reasonHelp}</small>
+    <div class="actions">
+      <button type="button" class="cancel" onclick={oncancel}>{cancelLabel}</button>
+      <button type="submit">{confirmLabel}</button>
+    </div>
+  </form>
+</Dialog>
 
 <style>
-  .publish-dialog {
-    position: fixed;
-    z-index: 40;
-    inset: 50% auto auto 50%;
-    display: grid;
-    width: min(calc(100% - 2rem), 34rem);
-    max-height: calc(100dvh - 2rem);
-    translate: -50% -50%;
-    gap: 0.7rem;
-    overflow-y: auto;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-shell);
-    background: var(--hv-color-snow-raised);
-    padding: 1rem;
-    color: var(--hv-color-basalt);
-    box-shadow: var(--hv-shadow-raised);
-  }
-  .publish-dialog::backdrop {
-    background: rgb(20 37 41 / 55%);
-  }
   h2,
   p {
     margin: 0;

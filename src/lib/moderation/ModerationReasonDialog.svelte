@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Dialog } from '@hundavaent/design-system';
   import type { Snippet } from 'svelte';
 
   export interface ModerationReasonValue {
@@ -28,7 +29,7 @@
 
   let {
     open,
-    title,
+    title: titleText,
     description,
     confirmLabel,
     cancelLabel,
@@ -44,108 +45,53 @@
     onconfirm,
     oncancel
   }: Props = $props();
-  const titleId = $props.id();
   let memberReasonIs = $state('');
   let memberReasonEn = $state('');
   let privateNote = $state('');
-  let dialogElement = $state<HTMLDialogElement>();
-  let returnFocusElement: HTMLElement | null = null;
 
   function submit(event: SubmitEvent): void {
     event.preventDefault();
     onconfirm({ memberReasonIs, memberReasonEn, privateNote });
   }
-
-  function handleCancel(event: Event): void {
-    event.preventDefault();
-    oncancel();
-  }
-
-  function restoreFocus(): void {
-    const target = returnFocusElement;
-    returnFocusElement = null;
-    queueMicrotask(() => {
-      if (target?.isConnected) target.focus();
-    });
-  }
-
-  $effect(() => {
-    const dialog = dialogElement;
-    if (!dialog) return;
-
-    if (open && !dialog.open) {
-      returnFocusElement =
-        document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      dialog.showModal();
-    }
-    if (!open && dialog.open) dialog.close();
-
-    return () => {
-      if (dialog.open) dialog.close();
-      restoreFocus();
-    };
-  });
 </script>
 
-{#if open}
-  <dialog
-    class="reason-dialog"
-    aria-labelledby={titleId}
-    bind:this={dialogElement}
-    oncancel={handleCancel}
-  >
-    <h2 id={titleId}>{title}</h2>
-    <p>{description}</p>
-    <form onsubmit={submit}>
-      {@render children?.()}
-      <div class="reasons">
-        <label>
-          {reasonIsLabel}
-          <textarea bind:value={memberReasonIs} rows="3" required={reasonsRequired}></textarea>
-        </label>
-        <label>
-          {reasonEnLabel}
-          <textarea bind:value={memberReasonEn} rows="3" required={reasonsRequired}></textarea>
-        </label>
-      </div>
-      {#if previousPrivateNote}
-        <p class="previous-note">
-          <strong>{previousPrivateNoteLabel}</strong>
-          {previousPrivateNote}
-        </p>
-      {/if}
+<Dialog {open} size="roomy" class="grid gap-[0.7rem]" {oncancel}>
+  {#snippet title()}
+    <h2>{titleText}</h2>
+  {/snippet}
+  <p>{description}</p>
+  <form class="reason-form" onsubmit={submit}>
+    {@render children?.()}
+    <div class="reasons">
       <label>
-        {privateNoteLabel}
-        <textarea bind:value={privateNote} rows="2"></textarea>
+        {reasonIsLabel}
+        <textarea bind:value={memberReasonIs} rows="3" required={reasonsRequired}></textarea>
       </label>
-      <div class="actions">
-        <button type="button" class="cancel" onclick={oncancel}>{cancelLabel}</button>
-        <button type="submit" class:danger={tone === 'danger'} disabled={submitting}>
-          {confirmLabel}
-        </button>
-      </div>
-    </form>
-  </dialog>
-{/if}
+      <label>
+        {reasonEnLabel}
+        <textarea bind:value={memberReasonEn} rows="3" required={reasonsRequired}></textarea>
+      </label>
+    </div>
+    {#if previousPrivateNote}
+      <p class="previous-note">
+        <strong>{previousPrivateNoteLabel}</strong>
+        {previousPrivateNote}
+      </p>
+    {/if}
+    <label>
+      {privateNoteLabel}
+      <textarea bind:value={privateNote} rows="2"></textarea>
+    </label>
+    <div class="actions">
+      <button type="button" class="cancel" onclick={oncancel}>{cancelLabel}</button>
+      <button type="submit" class:danger={tone === 'danger'} disabled={submitting}>
+        {confirmLabel}
+      </button>
+    </div>
+  </form>
+</Dialog>
 
 <style>
-  .reason-dialog {
-    position: fixed;
-    z-index: 40;
-    inset: 50% auto auto 50%;
-    display: grid;
-    width: min(calc(100% - 2rem), 38rem);
-    max-height: calc(100dvh - 2rem);
-    translate: -50% -50%;
-    gap: 0.7rem;
-    overflow-y: auto;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-shell);
-    background: var(--hv-color-snow-raised);
-    padding: 1rem;
-    color: var(--hv-color-basalt);
-    box-shadow: var(--hv-shadow-raised);
-  }
   h2,
   p {
     margin: 0;
@@ -158,13 +104,13 @@
     color: var(--hv-color-basalt-muted);
     line-height: 1.4;
   }
-  form,
+  .reason-form,
   label,
   .reasons {
     display: grid;
     gap: 0.45rem;
   }
-  form {
+  .reason-form {
     gap: 0.7rem;
   }
   .reasons {
@@ -176,7 +122,7 @@
     font-weight: 800;
   }
   textarea,
-  .reason-dialog :global(select) {
+  .reason-form :global(select) {
     width: 100%;
     box-sizing: border-box;
     border: 1px solid var(--hv-color-basalt);
