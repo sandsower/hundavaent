@@ -1,0 +1,23 @@
+/* This file mirrors the app's src/app.css so components render in Storybook exactly as they do
+   in the real app - same font loading, same token layer, same base resets. It should stay in
+   sync with app.css's import chain and :root block until the design tokens and primitives
+   themselves move into this package in a later phase, at which point this file can import from
+   within the package instead of reaching back into src/. */
+
+@layer hundavaent.tokens, hundavaent.primitives, theme, base, components, utilities;
+
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/source-serif-4';
+@import '../../../src/lib/design-system/tokens.css';
+@import '../src/theme.css';
+
+:root {
+  color-scheme: light;
+  --font-sans: 'Inter Variable', Inter, ui-rounded, 'Avenir Next Rounded', system-ui, sans-serif;
+  font-family: var(--font-sans);
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
