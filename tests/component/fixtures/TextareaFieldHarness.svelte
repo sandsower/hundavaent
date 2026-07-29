@@ -9,7 +9,7 @@
     hint?: string;
     error?: string | null;
     fieldClass?: string;
-    textareaProps?: HTMLTextareaAttributes;
+    textareaProps?: Omit<HTMLTextareaAttributes, 'class'>;
   }
 
   let { label, hint, error, fieldClass, textareaProps = {} }: Props = $props();

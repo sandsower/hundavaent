@@ -4,6 +4,15 @@
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
   import {
+    Button,
+    Choice,
+    Field,
+    FormSection,
+    Input,
+    Select,
+    Textarea
+  } from '@hundavaent/design-system';
+  import {
     localizeAccessArea,
     localizePlaceField,
     localizeRestraint
@@ -95,11 +104,9 @@
       <p class="hv-meta">{data.copy['report.intro']}</p>
     </div>
     <div class="hv-page-actions">
-      <a
-        class="hv-control"
-        href={resolve('/[lang=lang]/account/corrections-and-reports', { lang: data.lang })}
-        >{data.copy['flag.myTitle']}</a
-      >
+      <Button href={resolve('/[lang=lang]/account/corrections-and-reports', { lang: data.lang })}>
+        {data.copy['flag.myTitle']}
+      </Button>
     </div>
   </header>
 
@@ -115,50 +122,44 @@
     <form class="hv-stack" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
       <input type="hidden" name="commandId" value={data.commandId} />
       <fieldset class="availability-boundary hv-stack" disabled={submissionUnavailable}>
-        <fieldset class="hv-form-section hv-panel">
-          <legend>{data.copy['correction.targetKind']}</legend>
-          <label class="hv-stack">
-            {data.copy['correction.targetKind']}
-            <select class="hv-field" name="targetKind" bind:value={targetKind}>
+        <FormSection legend={data.copy['correction.targetKind']}>
+          <Field label={data.copy['correction.targetKind']}>
+            <Select name="targetKind" bind:value={targetKind}>
               <option value="place">{data.copy['correction.targetWholePlace']}</option>
               <option value="place_field">{data.copy['correction.targetPlaceField']}</option>
               <option value="access_condition"
                 >{data.copy['correction.targetAccessCondition']}</option
               >
-            </select>
-          </label>
+            </Select>
+          </Field>
 
           <!-- The whole Place carries neither a field nor a Condition, and the validator rejects
                it paired with either, so neither selector is offered while it is chosen. -->
           {#if targetKind === 'place_field'}
-            <label class="hv-stack">
-              {data.copy['correction.targetField']}
-              <select class="hv-field" name="targetField" bind:value={targetField}>
+            <Field label={data.copy['correction.targetField']}>
+              <Select name="targetField" bind:value={targetField}>
                 {#each placeFields as field (field)}
                   <option value={field}>{localizePlaceField(field, data.copy)}</option>
                 {/each}
-              </select>
-            </label>
+              </Select>
+            </Field>
           {:else if targetKind === 'access_condition'}
-            <label class="hv-stack">
-              {data.copy['correction.targetCondition']}
-              <select class="hv-field" name="accessConditionId" bind:value={accessConditionId}>
+            <Field label={data.copy['correction.targetCondition']}>
+              <Select name="accessConditionId" bind:value={accessConditionId}>
                 {#each data.place.accessConditions as condition (condition.id)}
                   <option value={condition.id}>
                     {localizeAccessArea(condition.accessArea, data.copy)} ·
                     {localizeRestraint(condition.restraintCondition, data.copy)}
                   </option>
                 {/each}
-              </select>
-            </label>
+              </Select>
+            </Field>
           {/if}
-        </fieldset>
+        </FormSection>
 
-        <fieldset class="hv-form-section hv-panel">
-          <legend>{data.copy['report.reason']}</legend>
-          <label class="hv-stack">
-            {data.copy['report.reason']}
-            <select class="hv-field" name="reportReason" bind:value={reportReason}>
+        <FormSection legend={data.copy['report.reason']}>
+          <Field label={data.copy['report.reason']}>
+            <Select name="reportReason" bind:value={reportReason}>
               {#each reportReasons as reason (reason)}
                 <option value={reason}
                   >{data.copy[
@@ -166,39 +167,30 @@
                   ]}</option
                 >
               {/each}
-            </select>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" name="isSafetyConcern" />
+            </Select>
+          </Field>
+          <Choice type="checkbox" name="isSafetyConcern">
             {data.copy['report.safetyConcern']}
-          </label>
+          </Choice>
           {#if reportReason === 'successor_place'}
-            <label class="hv-stack">
-              {data.copy['report.successorPlaceId']}
-              <input class="hv-field" name="successorPlaceId" />
-            </label>
+            <Field label={data.copy['report.successorPlaceId']}>
+              <Input name="successorPlaceId" />
+            </Field>
           {/if}
-        </fieldset>
+        </FormSection>
 
         <!-- No Evidence fieldset: the server synthesizes the Member report record the database
              requires, so a Member is never asked to fill in the Moderator's worksheet. -->
-        <fieldset class="hv-form-section hv-panel">
-          <legend>{data.copy['report.explanation']}</legend>
-          <label class="hv-stack">
-            {data.copy['report.explanation']}
-            <textarea class="hv-field" name="explanation" rows="3" required></textarea>
-          </label>
+        <FormSection legend={data.copy['report.explanation']}>
+          <Field label={data.copy['report.explanation']}>
+            <Textarea name="explanation" required></Textarea>
+          </Field>
           <p class="hv-meta">{data.copy['report.dataUseNotice']}</p>
-        </fieldset>
+        </FormSection>
 
-        <button
-          class="hv-control"
-          data-intent="primary"
-          type="submit"
-          disabled={submitting || submissionUnavailable}
-        >
+        <Button intent="primary" type="submit" disabled={submitting || submissionUnavailable}>
           {submitting ? data.copy['report.sending'] : data.copy['report.submit']}
-        </button>
+        </Button>
       </fieldset>
     </form>
   {/if}
@@ -210,15 +202,5 @@
     margin: 0;
     border: 0;
     padding: 0;
-  }
-  label.checkbox {
-    display: flex;
-    flex-direction: row-reverse;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.6rem;
-  }
-  label.checkbox input {
-    width: auto;
   }
 </style>

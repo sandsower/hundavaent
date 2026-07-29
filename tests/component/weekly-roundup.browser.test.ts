@@ -149,6 +149,40 @@ describe('Weekly recap', () => {
     expect(screen.getByRole('button', { name: 'Save recap settings' })).toBeTruthy();
   });
 
+  it('wires every municipality and category checkbox to its group hint via aria-describedby', () => {
+    renderRoundup({
+      lang: 'en',
+      roundup: {
+        status: 'unconfigured',
+        preferences: {
+          configured: false,
+          municipalities: [],
+          categories: [],
+          roundupLocale: 'is',
+          emailInterest: false,
+          emailInterestChangedAt: null,
+          updatedAt: null
+        },
+        week: { startsOn: '2026-07-13', endsOn: '2026-07-19' },
+        recommendations: []
+      }
+    });
+
+    const reykjavik = screen.getByRole('checkbox', { name: 'Reykjavík' });
+    const municipalityDescribedby = reykjavik.getAttribute('aria-describedby');
+    expect(municipalityDescribedby).not.toBeNull();
+    expect(document.getElementById(municipalityDescribedby ?? '')?.textContent).toBe(
+      'Choose at least one.'
+    );
+
+    const cafe = screen.getByRole('checkbox', { name: 'Café' });
+    const categoryDescribedby = cafe.getAttribute('aria-describedby');
+    expect(categoryDescribedby).not.toBeNull();
+    expect(document.getElementById(categoryDescribedby ?? '')?.textContent).toBe(
+      'Optional. Leave all unchecked to include every place type.'
+    );
+  });
+
   it('opens populated settings with current email interest visible and withdrawable', async () => {
     renderRoundup({
       lang: 'en',

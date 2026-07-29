@@ -11,7 +11,7 @@
     hint?: string;
     error?: string | null;
     fieldClass?: string;
-    selectProps?: HTMLSelectAttributes;
+    selectProps?: Omit<HTMLSelectAttributes, 'class' | 'children'>;
   }
 
   let { label, hint, error, fieldClass, selectProps = {} }: Props = $props();

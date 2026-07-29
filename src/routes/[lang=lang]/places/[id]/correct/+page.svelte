@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
+  import { Button, Field, FormSection, Input, Select, Textarea } from '@hundavaent/design-system';
   import {
     localizeAccessArea,
     localizePermission,
@@ -101,11 +102,9 @@
       <p class="hv-meta">{data.copy['correction.intro']}</p>
     </div>
     <div class="hv-page-actions">
-      <a
-        class="hv-control"
-        href={resolve('/[lang=lang]/account/corrections-and-reports', { lang: data.lang })}
-        >{data.copy['flag.myTitle']}</a
-      >
+      <Button href={resolve('/[lang=lang]/account/corrections-and-reports', { lang: data.lang })}>
+        {data.copy['flag.myTitle']}
+      </Button>
     </div>
   </header>
 
@@ -119,45 +118,40 @@
     <form class="hv-stack" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
       <input type="hidden" name="commandId" value={data.commandId} />
       <fieldset class="availability-boundary hv-stack" disabled={submissionUnavailable}>
-        <fieldset class="hv-form-section hv-panel">
-          <legend>{data.copy['correction.targetKind']}</legend>
-          <label class="hv-stack">
-            {data.copy['correction.targetKind']}
-            <select class="hv-field" name="targetKind" bind:value={targetKind}>
+        <FormSection legend={data.copy['correction.targetKind']}>
+          <Field label={data.copy['correction.targetKind']}>
+            <Select name="targetKind" bind:value={targetKind}>
               <option value="place_field">{data.copy['correction.targetPlaceField']}</option>
               <option value="access_condition"
                 >{data.copy['correction.targetAccessCondition']}</option
               >
-            </select>
-          </label>
+            </Select>
+          </Field>
 
           {#if targetKind === 'place_field'}
-            <label class="hv-stack">
-              {data.copy['correction.targetField']}
-              <select class="hv-field" name="targetField" bind:value={targetField}>
+            <Field label={data.copy['correction.targetField']}>
+              <Select name="targetField" bind:value={targetField}>
                 {#each placeFields as field (field)}
                   <option value={field}>{localizePlaceField(field, data.copy)}</option>
                 {/each}
-              </select>
-            </label>
+              </Select>
+            </Field>
           {:else}
-            <label class="hv-stack">
-              {data.copy['correction.targetCondition']}
-              <select class="hv-field" name="accessConditionId" bind:value={accessConditionId}>
+            <Field label={data.copy['correction.targetCondition']}>
+              <Select name="accessConditionId" bind:value={accessConditionId}>
                 {#each data.place.accessConditions as condition (condition.id)}
                   <option value={condition.id}>
                     {localizeAccessArea(condition.accessArea, data.copy)} ·
                     {localizeRestraint(condition.restraintCondition, data.copy)}
                   </option>
                 {/each}
-              </select>
-            </label>
+              </Select>
+            </Field>
           {/if}
-        </fieldset>
+        </FormSection>
 
         {#if targetKind === 'place_field'}
-          <fieldset class="hv-form-section hv-panel">
-            <legend>{data.copy['correction.currentValue']}</legend>
+          <FormSection legend={data.copy['correction.currentValue']}>
             {#if targetField === 'name'}
               <p>{data.place.name}</p>
             {:else if targetField === 'description'}
@@ -171,45 +165,40 @@
             {:else if targetField === 'dog_amenities'}
               <p>{data.place.dogAmenities.join(', ') || data.copy['common.notAvailable']}</p>
             {/if}
-          </fieldset>
+          </FormSection>
 
-          <fieldset class="hv-form-section hv-panel">
-            <legend>{data.copy['correction.proposedValue']}</legend>
+          <FormSection legend={data.copy['correction.proposedValue']}>
             {#if targetField === 'name' || targetField === 'description'}
               <div class="hv-grid" data-columns="2">
-                <label class="hv-stack">
-                  {data.copy['correction.nameIs']}
-                  <input class="hv-field" name="fieldValueIs" />
-                </label>
-                <label class="hv-stack">
-                  {data.copy['correction.nameEn']}
-                  <input class="hv-field" name="fieldValueEn" />
-                </label>
+                <Field label={data.copy['correction.nameIs']}>
+                  <Input name="fieldValueIs" />
+                </Field>
+                <Field label={data.copy['correction.nameEn']}>
+                  <Input name="fieldValueEn" />
+                </Field>
               </div>
               <!-- Neither box is required on its own, because asking a Member for a language they
                    may not speak is what left description Corrections with no honest way to send.
-                   The blank one is named for review and a Moderator fills it before it applies. -->
+                   The blank one is named for review and a Moderator fills it before it applies.
+                   This hint sits below the pair rather than inside one Field's hint, exactly as
+                   it did before migration: it is not about either box alone. -->
               <p class="hv-meta">{data.copy['correction.localeOptional']}</p>
             {:else if targetField === 'opening_hours'}
-              <label class="hv-stack">
-                {data.copy['correction.openingHoursJson']}
-                <textarea class="hv-field" name="fieldValueJson" rows="4"></textarea>
-              </label>
+              <Field label={data.copy['correction.openingHoursJson']}>
+                <Textarea name="fieldValueJson"></Textarea>
+              </Field>
             {:else if targetField === 'dog_amenities'}
-              <label class="hv-stack">
-                {data.copy['correction.dogAmenitiesList']}
-                <input class="hv-field" name="fieldValueList" />
-              </label>
+              <Field label={data.copy['correction.dogAmenitiesList']}>
+                <Input name="fieldValueList" />
+              </Field>
             {:else}
-              <label class="hv-stack">
-                {data.copy['correction.textValue']}
-                <input class="hv-field" name="fieldValueText" />
-              </label>
+              <Field label={data.copy['correction.textValue']}>
+                <Input name="fieldValueText" />
+              </Field>
             {/if}
-          </fieldset>
+          </FormSection>
         {:else if selectedCondition}
-          <fieldset class="hv-form-section hv-panel">
-            <legend>{data.copy['correction.currentValue']}</legend>
+          <FormSection legend={data.copy['correction.currentValue']}>
             <dl>
               <div>
                 <dt>{data.copy['correction.accessArea']}</dt>
@@ -224,122 +213,99 @@
                 <dd>{localizePermission(selectedCondition.permissionRequirement, data.copy)}</dd>
               </div>
             </dl>
-          </fieldset>
+          </FormSection>
 
-          <fieldset class="hv-form-section hv-panel">
-            <legend>{data.copy['correction.proposedValue']}</legend>
+          <FormSection legend={data.copy['correction.proposedValue']}>
             <div class="hv-grid" data-columns="3">
-              <label class="hv-stack">
-                {data.copy['correction.accessArea']}
-                <select class="hv-field" name="accessArea" bind:value={accessArea}>
+              <Field label={data.copy['correction.accessArea']}>
+                <Select name="accessArea" bind:value={accessArea}>
                   {#each accessAreas as area (area)}
                     <option value={area}>{localizeAccessArea(area, data.copy)}</option>
                   {/each}
-                </select>
-              </label>
-              <label class="hv-stack">
-                {data.copy['correction.restraint']}
-                <select class="hv-field" name="restraintCondition" bind:value={restraintCondition}>
+                </Select>
+              </Field>
+              <Field label={data.copy['correction.restraint']}>
+                <Select name="restraintCondition" bind:value={restraintCondition}>
                   {#each restraints as restraint (restraint)}
                     <option value={restraint}>{localizeRestraint(restraint, data.copy)}</option>
                   {/each}
-                </select>
-              </label>
-              <label class="hv-stack">
-                {data.copy['correction.permission']}
-                <select
-                  class="hv-field"
+                </Select>
+              </Field>
+              <Field label={data.copy['correction.permission']}>
+                <Select
                   name="permissionRequirement"
                   value={selectedCondition.permissionRequirement}
                 >
                   {#each permissions as permission (permission)}
                     <option value={permission}>{localizePermission(permission, data.copy)}</option>
                   {/each}
-                </select>
-              </label>
+                </Select>
+              </Field>
             </div>
             {#if accessArea === 'other_bounded'}
-              <label class="hv-stack">
-                {data.copy['correction.accessAreaNote']}
-                <input
-                  class="hv-field"
+              <Field label={data.copy['correction.accessAreaNote']}>
+                <Input
                   name="accessAreaNote"
                   value={selectedCondition.accessAreaNote ?? ''}
                   required
                 />
-              </label>
+              </Field>
             {/if}
             {#if restraintCondition === 'other_sourced'}
-              <label class="hv-stack">
-                {data.copy['correction.restraintNote']}
-                <input
-                  class="hv-field"
+              <Field label={data.copy['correction.restraintNote']}>
+                <Input
                   name="restraintNote"
                   value={selectedCondition.restraintNote ?? ''}
                   required
                 />
-              </label>
+              </Field>
             {/if}
-            <label class="hv-stack">
-              {data.copy['moderation.availabilityStateLabel']}
-              <select class="hv-field" name="availabilityState" bind:value={availabilityState}>
+            <Field label={data.copy['moderation.availabilityStateLabel']}>
+              <Select name="availabilityState" bind:value={availabilityState}>
                 <option value="not_stated">{data.copy['accessSymbols.notStated']}</option>
                 <option value="whenever_open">{data.copy['accessSymbols.wheneverOpen']}</option>
                 <option value="limited">{data.copy['accessSymbols.limited']}</option>
-              </select>
-            </label>
+              </Select>
+            </Field>
             {#if availabilityState === 'limited'}
               <div class="hv-grid" data-columns="2">
-                <label class="hv-stack">
-                  {data.copy['correction.availabilityStarts']}
-                  <input
-                    class="hv-field"
+                <Field label={data.copy['correction.availabilityStarts']}>
+                  <Input
                     name="availabilityStartsAt"
                     type="time"
                     value={selectedCondition.availabilityWindow.startsAt ?? ''}
                   />
-                </label>
-                <label class="hv-stack">
-                  {data.copy['correction.availabilityEnds']}
-                  <input
-                    class="hv-field"
+                </Field>
+                <Field label={data.copy['correction.availabilityEnds']}>
+                  <Input
                     name="availabilityEndsAt"
                     type="time"
                     value={selectedCondition.availabilityWindow.endsAt ?? ''}
                   />
-                </label>
+                </Field>
               </div>
-              <label class="hv-stack">
-                {data.copy['correction.availabilityDays']}
-                <input
-                  class="hv-field"
+              <Field label={data.copy['correction.availabilityDays']}>
+                <Input
                   name="availabilityDays"
                   value={(selectedCondition.availabilityWindow.days ?? []).join(',')}
                 />
-              </label>
+              </Field>
             {/if}
-          </fieldset>
+          </FormSection>
         {/if}
 
         <!-- No Evidence fieldset: the server synthesizes the Member report record the database
              requires, so a Member is never asked to fill in the Moderator's worksheet. -->
-        <fieldset class="hv-form-section hv-panel">
-          <legend>{data.copy['correction.explanation']}</legend>
-          <label class="hv-stack">
-            {data.copy['correction.explanation']}
-            <textarea class="hv-field" name="explanation" rows="3" required></textarea>
-          </label>
+        <FormSection legend={data.copy['correction.explanation']}>
+          <Field label={data.copy['correction.explanation']}>
+            <Textarea name="explanation" required></Textarea>
+          </Field>
           <p class="hv-meta">{data.copy['correction.dataUseNotice']}</p>
-        </fieldset>
+        </FormSection>
 
-        <button
-          class="hv-control"
-          data-intent="primary"
-          type="submit"
-          disabled={submitting || submissionUnavailable}
-        >
+        <Button intent="primary" type="submit" disabled={submitting || submissionUnavailable}>
           {submitting ? data.copy['correction.sending'] : data.copy['correction.submit']}
-        </button>
+        </Button>
       </fieldset>
     </form>
   {/if}

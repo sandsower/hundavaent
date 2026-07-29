@@ -5,6 +5,7 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { tick } from 'svelte';
 
+  import { Button, Field, Input } from '@hundavaent/design-system';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
@@ -45,16 +46,11 @@
     {/if}
 
     <form method="POST" use:enhance={enhanceGate} aria-busy={submitting}>
-      <label for="gate-password">Lykilorð</label>
-      <input
-        id="gate-password"
-        name="password"
-        type="password"
-        autocomplete="current-password"
-        required
-      />
+      <Field label="Lykilorð">
+        <Input name="password" type="password" autocomplete="current-password" required />
+      </Field>
       <input type="hidden" name="redirectTo" value={form?.redirectTo ?? data.redirectTo} />
-      <button type="submit" disabled={submitting}>Opna</button>
+      <Button intent="primary" type="submit" class="mt-[0.4rem]" disabled={submitting}>Opna</Button>
     </form>
   </section>
 </main>
@@ -111,43 +107,17 @@
     gap: 0.65rem;
   }
 
-  label {
+  /* Field renders its own <label>, crossing this component's scoping boundary; :global() reaches
+     it purely on the literal element. Weight 800 is the one thing not approved to change in this
+     migration. */
+  form :global(label) {
     font-weight: 800;
   }
 
-  input[type='password'] {
-    min-height: var(--hv-control-height);
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    color: inherit;
-    font: inherit;
-  }
-
-  input[type='password']:focus-visible,
-  button:focus-visible,
   .message:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
     box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
-  button {
-    min-height: var(--hv-control-height);
-    margin-top: 0.4rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-basalt);
-    color: var(--hv-color-snow-raised);
-    font: inherit;
-    font-weight: 850;
-    cursor: pointer;
-  }
-
-  button:disabled {
-    cursor: wait;
-    opacity: 0.7;
   }
 
   .message {

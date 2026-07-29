@@ -9,7 +9,9 @@
     hint?: string;
     error?: string | null;
     fieldClass?: string;
-    inputProps?: HTMLInputAttributes;
+    // class is omitted: Input's own class prop is the narrower hooks-only string, and spreading
+    // the full native attribute map (whose class is ClassValue | null) fails to satisfy it.
+    inputProps?: Omit<HTMLInputAttributes, 'class'>;
   }
 
   let { label, hint, error, fieldClass, inputProps = {} }: Props = $props();
