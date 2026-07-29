@@ -1,7 +1,13 @@
+/* Declared before anything loads so the order is set by intent, not import accident: Tailwind
+   utilities must beat the hv-* primitives for the whole migration window, or a migrated
+   component sitting inside an unmigrated shell resolves its styles by source-order luck. */
+@layer hundavaent.base, hundavaent.tokens, hundavaent.primitives, theme, base, components, utilities;
+
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/source-serif-4';
 @import '$lib/design-system/tokens.css';
 @import '$lib/design-system/primitives.css';
+@import '@hundavaent/design-system/theme.css';
 
 :root {
   color-scheme: light;
@@ -34,11 +40,17 @@ body:has(header[data-ui-mode='place']) {
   color: var(--hv-color-basalt, #1e2d31);
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
+/* Layered, and first in the layer order, so it normalises form elements without outranking
+   anything that declares a font on purpose. Unlayered, this reset silently beat every layered
+   rule - .hv-control's font-weight: 800 never reached a single <button>, only anchors, and the
+   same control rendered two weights depending on its element. */
+@layer hundavaent.base {
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
 }
 
 a {
@@ -50,6 +62,13 @@ a {
   color: var(--hv-color-basalt, #1e2d31);
 }
 
+/* Unlayered on purpose, which means it beats every layered rule including the design-system
+   Button's own focus-visible:* Tailwind utilities (Button.svelte, near the `base` class string) -
+   the two currently carry identical values, so this shadowing is invisible in the app today.
+   Storybook's preview.css deliberately does not repeat this rule, so Button's own utilities are
+   what render its focus ring there. This double ownership is known and deferred, not a bug: it
+   gets settled (one side retired) in the primitives retirement phase of the design-system
+   migration, not before. */
 :focus-visible {
   outline: 3px solid var(--hv-focus-ring, #2f6f86);
   outline-offset: 3px;

@@ -657,10 +657,9 @@ for (const locale of ['is', 'en'] as const) {
       await expect(selectedFavourite).toHaveAttribute('data-state', 'selected');
       await expect(selectedFavourite.getByRole('button')).toHaveAttribute('aria-pressed', 'true');
       await expect(selectedFavourite.getByRole('button')).toHaveAttribute('data-state', 'selected');
-      await expect(selectedFavourite.getByRole('button')).toHaveAttribute(
-        'data-intent',
-        'selected'
-      );
+      // The design-system Button owns the selected look via aria-pressed (asserted above);
+      // the retired data-intent vocabulary must not reappear on migrated surfaces.
+      await expect(selectedFavourite.getByRole('button')).not.toHaveAttribute('data-intent');
       const committedCheckIn = selectedMemberProfile.locator('section[data-state="committed"]');
       await expect(committedCheckIn).toBeVisible();
       await expect(committedCheckIn.getByRole('status')).toHaveAttribute('data-status', 'success');

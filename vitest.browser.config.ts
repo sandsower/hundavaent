@@ -1,6 +1,7 @@
 import { realpathSync } from 'node:fs';
 
 import { playwright } from '@vitest/browser-playwright';
+import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { searchForWorkspaceRoot } from 'vite';
@@ -23,7 +24,7 @@ function allowedFilesystemRoots(): string[] {
 }
 
 export default defineConfig({
-  plugins: [sveltekit(), svelteTesting()],
+  plugins: [tailwindcss(), sveltekit(), svelteTesting()],
   server: {
     fs: { allow: allowedFilesystemRoots() }
   },

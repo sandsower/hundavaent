@@ -1,0 +1,35 @@
+{
+  "name": "@hundavaent/design-system",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "svelte": "./src/lib/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/lib/index.ts",
+      "svelte": "./src/lib/index.ts"
+    },
+    "./theme.css": "./src/theme.css"
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0"
+  },
+  "scripts": {
+    "storybook": "storybook dev -p 6006",
+    "storybook:build": "storybook build",
+    "check": "svelte-check --tsconfig ./tsconfig.json"
+  },
+  "devDependencies": {
+    "@fontsource-variable/inter": "5.2.8",
+    "@fontsource-variable/source-serif-4": "5.2.8",
+    "@storybook/addon-svelte-csf": "5.1.2",
+    "@storybook/svelte-vite": "10.5.5",
+    "@sveltejs/vite-plugin-svelte": "7.2.0",
+    "@tailwindcss/vite": "4.3.2",
+    "storybook": "10.5.5",
+    "svelte": "5.56.4",
+    "tailwindcss": "4.3.2",
+    "typescript": "6.0.3",
+    "vite": "8.1.3"
+  }
+}

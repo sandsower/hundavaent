@@ -751,7 +751,9 @@ test('private Favourite actions and the saved view are keyboard-operable and Axe
   await expect(favouriteAction).toHaveAttribute('data-state', 'selected');
   await expect(remove).toHaveAttribute('aria-pressed', 'true');
   await expect(remove).toHaveAttribute('data-state', 'selected');
-  await expect(remove).toHaveAttribute('data-intent', 'selected');
+  // The design-system Button owns the selected look via aria-pressed (asserted above);
+  // the retired data-intent vocabulary must not reappear on migrated surfaces.
+  await expect(remove).not.toHaveAttribute('data-intent');
   await remove.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'No favorites yet' })).toBeFocused();
