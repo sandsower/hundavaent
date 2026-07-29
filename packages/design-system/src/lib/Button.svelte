@@ -12,15 +12,25 @@
     type?: HTMLButtonAttributes['type'];
     class?: string;
     children: Snippet;
+    // Declared here, rather than left to the intersection below, because HTMLAnchorAttributes and
+    // HTMLButtonAttributes each carry their own onclick signature with a different `currentTarget`
+    // element type. Intersecting two functions with incompatible parameter types collapses them
+    // into unusable overloads - a caller whose handler accepts the union of both elements (as every
+    // interactive Story's `args.onclick` does) fails to satisfy either overload. Naming onclick here
+    // with a single signature over the *union* element type sidesteps that: it is `Omit`-ted out of
+    // the intersection below, so this is the only onclick signature Props exposes, and it is
+    // satisfied both by handlers written for the union and by handlers written for one element that
+    // narrow via a cast - see FavouriteControl.svelte's `event.currentTarget as HTMLButtonElement`.
+    onclick?: (
+      event: MouseEvent & { currentTarget: EventTarget & (HTMLAnchorElement | HTMLButtonElement) }
+    ) => void;
   }
 
   // href decides the rendered element, so the two native attribute sets are intersected rather
   // than kept as a discriminated union: callers pass one Button and let the markup pick <a> or
-  // <button>, and every prop not owned above (aria-*, data-*, disabled, onclick, ...) spreads
-  // through untouched regardless of which element it lands on. Order matters here: TypeScript
-  // resolves a handler prop like onclick, shared by both native attribute sets with a different
-  // `currentTarget`, to the *last* intersected member's signature - Button second is what lets a
-  // button-mode caller narrow `event.currentTarget as HTMLButtonElement` without a type error.
+  // <button>, and every prop not owned above (aria-*, data-*, disabled, ...) spreads through
+  // untouched regardless of which element it lands on. onclick is the one native handler pulled
+  // out into ButtonOwnProps above rather than left to this intersection - see the comment there.
   type Props = ButtonOwnProps &
     Omit<HTMLAnchorAttributes & HTMLButtonAttributes, keyof ButtonOwnProps>;
 
