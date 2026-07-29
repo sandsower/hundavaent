@@ -43,8 +43,19 @@
   // shorthand also resets font-weight, and its resolution order against a separate weight utility
   // is not something Tailwind's generated stylesheet order guarantees - naming family/size/line-height
   // directly leaves font-weight solely owned by font-extrabold.
+  // The standard hover/active/cursor treatment, owned here rather than duplicated per call site.
+  // This is the exact codification of the idiom surveyed from CheckInControl.svelte (.hv-control),
+  // FavouriteControl.svelte (.favourite-toggle), and SuggestPlacePill.svelte (.suggest-pill):
+  // pointer cursor while enabled, a -1px hover lift gated on not-disabled AND not-aria-pressed
+  // (the settled/selected state stays put, per FavouriteControl's comment "The outline state
+  // invites; the saved state is already settled"), and a 0.97 active squish gated on not-disabled
+  // - the standard control squish; smaller round pills using a stronger squish is deliberate
+  // call-site character, not a deviation to fix. The transition rides --hv-motion-instant, the
+  // same control tempo, so reduced motion and operations mode retune it exactly as they do at
+  // every surveyed call site. Anchors carry no :disabled attribute, so not-disabled resolves true
+  // there, which is the correct outcome - a link-mode Button still gets the lift.
   const base =
-    'inline-flex min-h-control items-center justify-center border border-border-strong rounded-control px-[0.8rem] py-[0.55rem] [font-family:inherit] [font-size:inherit] [line-height:inherit] font-extrabold no-underline focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]';
+    'inline-flex min-h-control items-center justify-center border border-border-strong rounded-control px-[0.8rem] py-[0.55rem] [font-family:inherit] [font-size:inherit] [line-height:inherit] font-extrabold no-underline cursor-pointer transition-transform duration-[var(--hv-motion-instant)] ease-settle not-disabled:not-aria-pressed:hover:-translate-y-px not-disabled:active:scale-[0.97] focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]';
 
   // Each intent is a complete background/text pair, not an override layered on the base classes:
   // Tailwind resolves two same-specificity utility classes (say bg-snow-raised and bg-basalt) by

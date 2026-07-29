@@ -174,15 +174,12 @@
     min-height: 2.5rem;
     padding: 0;
     border-radius: 999px;
-    cursor: pointer;
     place-items: center;
+    /* Button now owns cursor: pointer and the hover lift (gated the same way: not disabled, not
+       the already-settled aria-pressed='true' state). The quick tempo below, and the stronger
+       active squish that follows, are deliberate heart-specific character: unlayered scoped
+       styles that override Button's layered utility defaults on purpose. */
     transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
-  }
-
-  /* The outline state invites; the saved state is already settled, so it stays put. The
-     signed-out anchor carries no aria-pressed and is treated as unsaved. */
-  .favourite-action :global(.favourite-toggle:not([aria-pressed='true']):hover) {
-    transform: translateY(-1px);
   }
 
   .favourite-action :global(.favourite-toggle:active) {

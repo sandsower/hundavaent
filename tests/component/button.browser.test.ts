@@ -45,6 +45,15 @@ function resolvedBackground(token: string): string {
   return value;
 }
 
+function resolvedEaseSettle(): string {
+  const probe = document.createElement('div');
+  probe.style.transitionTimingFunction = 'var(--hv-ease-settle)';
+  document.body.append(probe);
+  const value = getComputedStyle(probe).transitionTimingFunction;
+  probe.remove();
+  return value;
+}
+
 describe('Button', () => {
   it('renders a button with type="button" by default', () => {
     render(Button, { children: label('Save place') });
@@ -160,5 +169,45 @@ describe('Button', () => {
     render(Button, { intent, children: label(intent) });
     const style = getComputedStyle(screen.getByRole('button', { name: intent }));
     expect(style.backgroundColor).toBe(resolvedBackground(token));
+  });
+
+  // The standard hover/active/cursor treatment Button now owns, codified from the idiom surveyed
+  // at CheckInControl, FavouriteControl, and SuggestPlacePill call sites (see the `base` comment
+  // in Button.svelte). Real :hover is not exercised here: synthetic pointer events do not drive
+  // the browser's own :hover pseudo-class, so the hover/active gating below is asserted
+  // structurally, against the exact generated utility classes, rather than by attempting a live
+  // hover and reading a post-hover computed style.
+  it('carries a pointer cursor while enabled', () => {
+    render(Button, { children: label('Pointer') });
+    const style = getComputedStyle(screen.getByRole('button', { name: 'Pointer' }));
+    expect(style.cursor).toBe('pointer');
+  });
+
+  it('transitions the transform-family properties on the control tempo token', () => {
+    render(Button, { children: label('Tempo') });
+    const style = getComputedStyle(screen.getByRole('button', { name: 'Tempo' }));
+    expect(style.transitionProperty).toContain('transform');
+    expect(style.transitionTimingFunction).toBe(resolvedEaseSettle());
+  });
+
+  it('carries the hover-lift utility gated on not-disabled and not-aria-pressed', () => {
+    render(Button, { children: label('Lift') });
+    const classes = screen.getByRole('button', { name: 'Lift' }).className;
+    expect(classes).toContain('not-disabled:not-aria-pressed:hover:-translate-y-px');
+  });
+
+  it('carries the active-squish utility gated on not-disabled', () => {
+    render(Button, { children: label('Squish') });
+    const classes = screen.getByRole('button', { name: 'Squish' }).className;
+    expect(classes).toContain('not-disabled:active:scale-[0.97]');
+  });
+
+  it('carries the same hover/active/cursor utilities on the anchor render path', () => {
+    render(Button, { href: '/place/1', children: label('Anchor treatment') });
+    const link = screen.getByRole('link', { name: 'Anchor treatment' });
+    const style = getComputedStyle(link);
+    expect(style.cursor).toBe('pointer');
+    expect(link.className).toContain('not-disabled:not-aria-pressed:hover:-translate-y-px');
+    expect(link.className).toContain('not-disabled:active:scale-[0.97]');
   });
 });
