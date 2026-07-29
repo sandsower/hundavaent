@@ -67,6 +67,44 @@ describe('AuthDialog', () => {
     });
   });
 
+  // Pins the dialog-shell unification (old subtle-border/1.25rem shell -> design-system panel
+  // tokens) as an accepted owner decision: the border and corner radius that used to be
+  // AuthDialog's own literal values now come from Dialog's `border-border-strong rounded-panel`
+  // classes (packages/design-system/src/theme.css), which resolve --hv-border-strong and
+  // --hv-radius-panel. Resolved from a probe element rather than hardcoded, following the
+  // token-resolution technique in tests/component/button.browser.test.ts, so this pins parity
+  // with the token rather than a literal that would drift the moment tokens.css changes.
+  it('pins the dialog shell border and corner radius to the panel tokens', async () => {
+    render(AuthDialog, {
+      lang: 'en',
+      copy: catalogues.en,
+      providers: { email: true, facebook: true }
+    });
+
+    requestAuthentication({
+      origin: 'favourite',
+      intent: { action: 'favourite', placeId: 'place-1', placeName: 'Brikk' }
+    });
+
+    const dialog = await screen.findByRole('dialog');
+    const dialogStyles = getComputedStyle(dialog);
+
+    const borderProbe = document.createElement('div');
+    borderProbe.style.borderTopColor = 'var(--hv-border-strong)';
+    document.body.append(borderProbe);
+    const resolvedBorderTopColor = getComputedStyle(borderProbe).borderTopColor;
+    borderProbe.remove();
+
+    const radiusProbe = document.createElement('div');
+    radiusProbe.style.borderTopLeftRadius = 'var(--hv-radius-panel)';
+    document.body.append(radiusProbe);
+    const resolvedBorderTopLeftRadius = getComputedStyle(radiusProbe).borderTopLeftRadius;
+    radiusProbe.remove();
+
+    expect(dialogStyles.borderTopColor).toBe(resolvedBorderTopColor);
+    expect(dialogStyles.borderTopLeftRadius).toBe(resolvedBorderTopLeftRadius);
+  });
+
   it('replaces the form with a concise sent state and preserves the pending intent', async () => {
     let submitted: FormData | null = null;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
@@ -108,6 +146,51 @@ describe('AuthDialog', () => {
       overallRating: '2'
     });
     expect(await screen.findByRole('button', { name: 'Send again in 60s' })).toBeDisabled();
+  });
+
+  // Pins the bind:this focus path (AuthDialog.svelte's emailInput binding) that replaced the old
+  // dialog.querySelector lookup after Dialog stopped exposing its element to consumers.
+  // useDifferentEmail's queueMicrotask still runs after Svelte's own state-driven DOM update, so
+  // awaiting a microtask turn here (rather than a specific waitFor condition) mirrors that timing
+  // directly instead of asserting through it.
+  it('returns focus to the email input after choosing to use a different email', async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(JSON.stringify({ status: 'link_sent', resendAfterSeconds: 60 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(AuthDialog, {
+      lang: 'en',
+      copy: catalogues.en,
+      providers: { email: true, facebook: true }
+    });
+
+    requestAuthentication({
+      origin: 'rating',
+      intent: {
+        action: 'rating',
+        placeId: 'place-1',
+        placeName: 'Brikk',
+        overallRating: 2
+      }
+    });
+    await fireEvent.input(await screen.findByLabelText('Email address'), {
+      target: { value: 'friend@example.is' }
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Send me a sign-in link' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Check your email' })).toBeTruthy()
+    );
+
+    await fireEvent.click(
+      screen.getByRole('button', { name: catalogues.en['auth.differentEmail'] })
+    );
+    await new Promise((resolve) => setTimeout(resolve));
+
+    expect(document.activeElement).toBe(await screen.findByLabelText('Email address'));
   });
 
   it('preserves a server-normalized Favorite intent after the anchor fallback navigates', async () => {

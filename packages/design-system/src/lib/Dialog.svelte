@@ -21,10 +21,17 @@
     /** Padded (the default) uses the standard panel padding; unpadded strips it to 0 for
         consumers with their own sectioned layout that pads internally. */
     unpadded?: boolean;
+    /** Call-site hooks and non-conflicting layout utilities only. Overriding a size/padding/shell
+        utility through this is unsupported - Tailwind resolves same-specificity utilities by
+        stylesheet order, not class-attribute order, so "later in the attribute" does not win. */
     class?: string;
-    /** Fires exactly once on every open -> false transition, regardless of close path (Escape,
-        programmatic, parent teardown). State-driven, not wired to the native `close` event, so
-        it fires deterministically no matter which path got there. */
+    /** Fires exactly once on every open -> false transition while the component is alive
+        (Escape via the no-oncancel branch, or a programmatic flip from the caller). State-driven,
+        not wired to the native `close` event, so it fires deterministically no matter which of
+        those paths got there. Deliberately NOT fired when the parent unmounts Dialog while open:
+        a destroyed consumer's callbacks must not run against torn-down surroundings (AuthDialog's
+        onclose does router work), and native <dialog> removal fires nothing either - cleanup that
+        must survive destruction belongs in the consumer's own teardown, not here. */
     onclose?: () => void;
     /** Escape is always intercepted (preventDefault runs unconditionally). Supplying oncancel
         hands the decision to the caller: it is called and nothing else happens here - every
@@ -38,7 +45,11 @@
   // boolean attribute - showModal()/close() drive the element, not the `open` attribute directly.
   // `title` is Omit'd because HTMLAttributes' native tooltip `title: string` is shadowed by this
   // component's own Snippet-typed `title`, the same deliberate-shadow idiom as Button's onclick.
-  type Props = DialogOwnProps & Omit<HTMLDialogAttributes, keyof DialogOwnProps>;
+  // aria-labelledby and aria-label are Omit'd too: labelling is exclusively the title-XOR-
+  // labelledby contract above, and letting either through the spread would be silently discarded
+  // (aria-labelledby) or silently outranked by it per the accname spec (aria-label).
+  type Props = DialogOwnProps &
+    Omit<HTMLDialogAttributes, keyof DialogOwnProps | 'aria-labelledby' | 'aria-label'>;
 
   let {
     open = $bindable(),
@@ -72,12 +83,11 @@
 
   // Mount/teardown, not an open-watching effect: the {#if open} block below is what mounts and
   // unmounts the <dialog> element, so this effect's own setup/teardown run exactly once per open
-  // transition - showModal() when the element appears, dialog.close() before it is torn down so
-  // native cleanup (autofocus return, top-layer removal) runs before the element leaves the DOM.
-  // onclose fires from the teardown itself rather than from a `close` event listener, which is
-  // what makes it state-driven: it runs on every path that removes this element - Escape via the
-  // no-oncancel branch above, a programmatic `open = false` from the caller, or the caller
-  // unmounting Dialog outright - without depending on native event ordering.
+  // transition. NOTE Svelte detaches the element BEFORE this teardown runs (destroy_effect removes
+  // the branch DOM first, then executes effect teardowns), so dialog.close() here operates on an
+  // already-orphaned node and the browser's own focus restoration never fires - the manual
+  // returnFocusElement restore below is therefore LOAD-BEARING, not belt-and-braces; the close()
+  // call is kept only as a defensive no-op for any future ordering change.
   $effect(() => {
     const dialog = dialogElement;
     if (!dialog) return;
@@ -93,8 +103,25 @@
       queueMicrotask(() => {
         if (target?.isConnected) target.focus();
       });
-      onclose?.();
     };
+  });
+
+  // onclose announcement, separate from the mount effect above so it is state-driven without
+  // being destruction-driven: effects re-run on open's transitions while the component lives but
+  // never on parent teardown, which is exactly the contract - Escape's self-close and a caller's
+  // programmatic flip both announce; unmounting an open Dialog does not (see the onclose prop
+  // comment). wasOpen is deliberately a plain variable, not $state: it is bookkeeping read and
+  // written only inside this effect, and the effect's only dependency is `open` itself.
+  let wasOpen = false;
+  $effect(() => {
+    if (open) {
+      wasOpen = true;
+      return;
+    }
+    if (wasOpen) {
+      wasOpen = false;
+      onclose?.();
+    }
   });
 
   // Each size is a complete inline-size expression, not an override layered on a shared base -

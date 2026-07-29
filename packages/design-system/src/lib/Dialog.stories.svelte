@@ -8,9 +8,12 @@
     title: 'Design System/Dialog',
     component: Dialog,
     tags: ['autodocs'],
+    // No meta-level oncancel: supplying one would route Escape to the spy and swallow it in
+    // every story (Dialog only self-closes when oncancel is absent). The static stories rely on
+    // exactly that self-close as their only close affordance; the interactive story below is the
+    // one place consumer-owned cancel is demonstrated, and it declares its own.
     args: {
-      onclose: fn(),
-      oncancel: fn()
+      onclose: fn()
     }
   });
 </script>
@@ -90,12 +93,20 @@
      closes it, exactly the shape every real call site takes - Dialog owns no close chrome of its
      own (no built-in X button), so the body always supplies its own affordance. bind:open keeps
      the story's local state and Dialog's internal state in sync in both directions, the same
-     controlled-open contract every consumer uses. -->
+     controlled-open contract every consumer uses. This is also the one story demonstrating
+     consumer-owned cancel: its own oncancel routes Escape to the same state flip the Cancel
+     button uses, exactly like the moderation call sites - the static stories above deliberately
+     omit oncancel so they exercise Dialog's self-close branch instead. -->
 <Story name="Interactive Open/Close" args={{}}>
   {#snippet template(args)}
     {@const { children: _ignored, labelledby: _ignoredLabelledby, ...rest } = args}
     <button type="button" onclick={() => (interactiveOpen = true)}>Open dialog</button>
-    <Dialog {...rest} bind:open={interactiveOpen} onclose={() => args.onclose?.()}>
+    <Dialog
+      {...rest}
+      bind:open={interactiveOpen}
+      onclose={() => args.onclose?.()}
+      oncancel={() => (interactiveOpen = false)}
+    >
       {#snippet title()}
         Delete this place?
       {/snippet}

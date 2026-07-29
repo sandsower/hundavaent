@@ -6,6 +6,9 @@
 
   interface StatusOwnProps {
     tone?: Tone;
+    /** Call-site hooks and non-conflicting utilities only - overriding a tone's background/text
+        through this is unsupported (Tailwind resolves same-specificity utilities by stylesheet
+        order, not class-attribute order); extend the tone map instead. */
     class?: string;
     children: Snippet;
   }

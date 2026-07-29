@@ -133,7 +133,14 @@
      cannot reach it directly - reachable only through this ancestor anchor with the actual
      target selector wrapped in :global(), the same pattern FavouriteControl.svelte uses for
      .favourite-toggle. The trigger and close classes are guaranteed to land on Button's rendered
-     element because we pass them through Button's class prop ourselves. */
+     element because we pass them through Button's class prop ourselves. The anchor is
+     display: contents so it stays a selector-only wrapper: the pre-migration root was the bare
+     trigger button itself, and a block box here would wrap the inline-flex Button in a line box,
+     nudging the three grid-track call sites (celebration/tier-cell/continuation) a few pixels. */
+  .share {
+    display: contents;
+  }
+
   .share :global(.share-trigger) {
     width: fit-content;
     min-height: 2rem;

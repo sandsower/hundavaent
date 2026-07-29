@@ -10,6 +10,9 @@
         keeps that call-site choice rather than fixing one element, unlike Status below (always a
         chip, always a span). */
     as?: string;
+    /** Call-site hooks and non-conflicting utilities only - overriding a tone's border/background
+        through this is unsupported (Tailwind resolves same-specificity utilities by stylesheet
+        order, not class-attribute order); extend the tone map instead. */
     class?: string;
     children: Snippet;
   }

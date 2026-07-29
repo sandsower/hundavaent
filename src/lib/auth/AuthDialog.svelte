@@ -255,7 +255,7 @@
       <p class="benefits">{copy['auth.benefits']}</p>
 
       {#if error}
-        <Notice tone="error" as="p" role="alert" class="error">{error}</Notice>
+        <Notice tone="error" as="p" role="alert">{error}</Notice>
       {/if}
 
       {#if providers.facebook}
