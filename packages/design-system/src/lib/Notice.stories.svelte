@@ -26,9 +26,7 @@
   Some fields could not be validated before publishing.
 </Story>
 
-<Story name="Error" args={{ tone: 'error' }}>
-  Something went wrong. Please try again.
-</Story>
+<Story name="Error" args={{ tone: 'error' }}>Something went wrong. Please try again.</Story>
 
 <Story name="Success" args={{ tone: 'success' }}>Your changes were saved.</Story>
 
@@ -36,9 +34,7 @@
      depending on context (a status paragraph, a disclosure section, a list row). -->
 <Story name="As Paragraph" args={{ as: 'p', tone: 'info' }}>Rendered as a paragraph.</Story>
 
-<Story name="As Section" args={{ as: 'section', tone: 'attention' }}>
-  Rendered as a section.
-</Story>
+<Story name="As Section" args={{ as: 'section', tone: 'attention' }}>Rendered as a section.</Story>
 
 <Story name="As List Item" args={{ as: 'li', tone: 'success' }}>Rendered as a list item.</Story>
 

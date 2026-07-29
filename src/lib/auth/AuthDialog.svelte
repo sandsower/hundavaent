@@ -4,6 +4,7 @@
   import { page } from '$app/state';
   import { onMount } from 'svelte';
 
+  import { Dialog, Button, Notice } from '@hundavaent/design-system';
   import type { Catalogue, Locale } from '$i18n';
   import { postHogAnalytics } from '$lib/analytics/posthog';
   import { passwordlessResendCooldownSeconds } from '$lib/auth/resend';
@@ -17,7 +18,11 @@
   }
 
   let { lang, copy, providers, initialRequest = null }: Props = $props();
-  let dialog: HTMLDialogElement;
+  let dialogOpen = $state(false);
+  // Bound directly rather than queried off a dialog element reference (Dialog no longer exposes
+  // one to its consumer) - useDifferentEmail's queueMicrotask still runs after Svelte's own state-
+  // driven DOM update, the same timing the old dialog.querySelector relied on.
+  let emailInput = $state<HTMLInputElement>();
   let request = $state<AuthRequest>({ origin: 'header' });
   let email = $state('');
   let sent = $state(false);
@@ -56,7 +61,7 @@
   });
 
   function openFromCurrentUrl(): void {
-    if (typeof window === 'undefined' || !dialog || dialog.open) return;
+    if (typeof window === 'undefined' || dialogOpen) return;
     const url = new URL(window.location.href);
     if (url.searchParams.get('auth') !== 'open') return;
 
@@ -73,11 +78,13 @@
     sent = false;
     error = null;
     postHogAnalytics.capture('auth modal opened', { origin: nextRequest.origin });
-    if (!dialog.open) dialog.showModal();
+    // Guarded exactly like the old dialog.open check: calling open() while already open must not
+    // re-mount (and so not re-animate) the dialog - only the state above resets unconditionally.
+    if (!dialogOpen) dialogOpen = true;
   }
 
   function close(): void {
-    dialog.close();
+    dialogOpen = false;
   }
 
   function handleClosed(): void {
@@ -194,7 +201,7 @@
     sent = false;
     error = null;
     stopResendTimer();
-    queueMicrotask(() => dialog.querySelector<HTMLInputElement>('input[type="email"]')?.focus());
+    queueMicrotask(() => emailInput?.focus());
   }
 
   function fallbackRequest(url: URL): AuthRequest | null {
@@ -205,11 +212,13 @@
   }
 </script>
 
-<dialog
-  bind:this={dialog}
+<Dialog
+  bind:open={dialogOpen}
+  labelledby="auth-dialog-title"
   class="auth-dialog"
   data-ui-mode="place"
-  aria-labelledby="auth-dialog-title"
+  size="compact"
+  unpadded
   onclose={handleClosed}
 >
   <button class="close" type="button" aria-label={copy['auth.close']} onclick={close}>
@@ -246,18 +255,18 @@
       <p class="benefits">{copy['auth.benefits']}</p>
 
       {#if error}
-        <p class="error hv-notice" data-tone="error" role="alert">{error}</p>
+        <Notice tone="error" as="p" role="alert" class="error">{error}</Notice>
       {/if}
 
       {#if providers.facebook}
-        <button
-          class="facebook hv-control"
+        <Button
+          class="facebook"
           type="button"
           disabled={submitting}
           onclick={() => continueWith('facebook')}
         >
           <span aria-hidden="true">f</span>{copy['account.facebook']}
-        </button>
+        </Button>
       {/if}
 
       {#if providers.facebook && providers.email}
@@ -277,19 +286,20 @@
             class="hv-field"
             type="email"
             bind:value={email}
+            bind:this={emailInput}
             autocomplete="email"
             inputmode="email"
             required
           />
           <p class="passwordless">{copy['auth.noPassword']}</p>
-          <button class="hv-control" data-intent="primary" type="submit" disabled={submitting}>
+          <Button intent="primary" type="submit" disabled={submitting}>
             {copy['auth.sendLink']}
-          </button>
+          </Button>
         </form>
       {/if}
 
       {#if !providers.email && !providers.facebook}
-        <p class="hv-notice" data-tone="info">{copy['account.authUnavailable']}</p>
+        <Notice tone="info" as="p">{copy['account.authUnavailable']}</Notice>
       {/if}
 
       <p class="legal">
@@ -300,26 +310,14 @@
       </p>
     </div>
   {/if}
-</dialog>
+</Dialog>
 
 <style>
-  .auth-dialog {
-    width: min(calc(100% - 2rem), 29rem);
-    max-height: min(44rem, calc(100dvh - 2rem));
-    margin: auto;
-    padding: 0;
-    overflow: auto;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: 1.25rem;
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-    box-shadow: var(--hv-shadow-raised);
-  }
-
-  .auth-dialog::backdrop {
-    background: rgb(20 25 24 / 42%);
-    backdrop-filter: blur(2px);
-  }
+  /* Dialog owns the panel shell now (width/margin/padding, border, radius, background, shadow,
+     ::backdrop, the [open] arrival animation, and the mobile bottom-sheet geometry) - see
+     packages/design-system/src/lib/Dialog.svelte, whose own mobile-sheet rule reproduces the
+     block that used to live here. Everything below styles .dialog-content and inward, which
+     Dialog does not own and which tests/component/auth-dialog.browser.test.ts:147 pins. */
 
   .dialog-content {
     display: grid;
@@ -329,6 +327,15 @@
 
   h2,
   p {
+    margin: 0;
+  }
+
+  /* Notice (error/info) renders its own <p> in a separate component, so it never carries this
+     component's scoped attribute and the plain `p { margin: 0 }` rule above cannot reach it -
+     without preflight (theme.css) the browser's default 1em block margin would otherwise land on
+     it and double up against .dialog-content's own 1rem grid gap. :global() reaches across that
+     component boundary the same way the Button migration below does. */
+  .dialog-content :global(p) {
     margin: 0;
   }
 
@@ -401,7 +408,17 @@
     padding: 0.75rem 0.85rem;
   }
 
-  .facebook {
+  /* Button renders its own <button> in a separate component, so Svelte's scoped CSS cannot reach
+     it directly. Unlike .dialog-content below, .auth-dialog is not a locally-authored element -
+     it is a class string handed to Dialog as a prop and landing on the <dialog> Dialog itself
+     renders - so a partially-scoped ".auth-dialog :global(.facebook)" selector would require the
+     scope hash Svelte adds to .auth-dialog, which that foreign <dialog> element never carries.
+     The whole selector is wrapped in :global() instead, matching purely on the literal DOM
+     classes (the pattern FavouriteControl.svelte's .favourite-toggle established, adapted for an
+     ancestor that itself crosses a component boundary). Button's own hover lift / active squish
+     now apply here too - the approved standard treatment - so no hover rule is restated on top of
+     it. */
+  :global(.auth-dialog .facebook) {
     display: grid;
     width: 100%;
     min-height: var(--hv-control-height);
@@ -417,7 +434,7 @@
     cursor: pointer;
   }
 
-  .facebook span {
+  :global(.auth-dialog .facebook span) {
     font-size: 1.3rem;
   }
 
@@ -477,32 +494,8 @@
   }
 
   @media (max-width: 42rem) {
-    .auth-dialog {
-      right: 1rem;
-      left: 1rem;
-      width: auto;
-      max-width: none;
-      max-height: min(88dvh, 44rem);
-      margin: auto 0 max(1rem, env(safe-area-inset-bottom));
-      border-width: 1px;
-      border-radius: 1.25rem;
-    }
-
     .dialog-content {
       padding: 1rem 1rem max(1rem, env(safe-area-inset-bottom));
-    }
-  }
-
-  /* The dialog is full of text, so its arrival is transform-only: words land at full contrast
-     and move into place (see the fade-family limit in tokens.css). The motion token collapses
-     to zero under reduced motion, so no media wrapper is needed. */
-  .auth-dialog[open] {
-    animation: dialog-in var(--hv-motion-quick) var(--hv-ease-settle);
-  }
-
-  @keyframes dialog-in {
-    from {
-      transform: translateY(0.4rem) scale(0.985);
     }
   }
 </style>

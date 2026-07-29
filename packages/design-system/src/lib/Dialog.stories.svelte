@@ -29,8 +29,8 @@
       {#snippet title()}
         Compact dialog
       {/snippet}
-      A dialog sized for a short confirmation - the narrowest of the four sizes, min(calc(100% -
-      2rem), 30rem).
+      A dialog sized for a short confirmation - the narrowest of the four sizes, min(calc(100% - 2rem),
+      30rem).
     </Dialog>
   {/snippet}
 </Story>

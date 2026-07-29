@@ -132,16 +132,15 @@ describe('Notice', () => {
     expect(style.backgroundColor).toBe(resolvedBackground(bgToken));
   });
 
-  it.each([
-    ['attention' as const],
-    ['error' as const],
-    ['success' as const]
-  ])('resolves the %s tone text color', (tone) => {
-    const token = tone === 'success' ? '--hv-color-success' : '--hv-color-danger';
-    render(Notice, { tone, children: label(`Text ${tone}`) });
-    const style = getComputedStyle(screen.getByText(`Text ${tone}`));
-    expect(style.color).toBe(resolvedTextColor(token));
-  });
+  it.each([['attention' as const], ['error' as const], ['success' as const]])(
+    'resolves the %s tone text color',
+    (tone) => {
+      const token = tone === 'success' ? '--hv-color-success' : '--hv-color-danger';
+      render(Notice, { tone, children: label(`Text ${tone}`) });
+      const style = getComputedStyle(screen.getByText(`Text ${tone}`));
+      expect(style.color).toBe(resolvedTextColor(token));
+    }
+  );
 
   it('renders attention and error identically', () => {
     const { unmount: unmountAttention } = render(Notice, {
@@ -168,14 +167,13 @@ describe('Notice', () => {
     expect(screen.getByText('Default element').tagName).toBe('DIV');
   });
 
-  it.each([
-    ['p' as const],
-    ['section' as const],
-    ['li' as const]
-  ])('renders as the given %s element', (as) => {
-    render(Notice, { as, children: label(`As ${as}`) });
-    expect(screen.getByText(`As ${as}`).tagName).toBe(as.toUpperCase());
-  });
+  it.each([['p' as const], ['section' as const], ['li' as const]])(
+    'renders as the given %s element',
+    (as) => {
+      render(Notice, { as, children: label(`As ${as}`) });
+      expect(screen.getByText(`As ${as}`).tagName).toBe(as.toUpperCase());
+    }
+  );
 
   it('does not default a role, leaving it caller-owned', () => {
     render(Notice, { children: label('No role') });
@@ -271,7 +269,10 @@ describe('Status', () => {
       children: label('Verified status')
     });
     const verifiedStyle = getComputedStyle(screen.getByText('Verified status'));
-    const verifiedSnapshot = { background: verifiedStyle.backgroundColor, color: verifiedStyle.color };
+    const verifiedSnapshot = {
+      background: verifiedStyle.backgroundColor,
+      color: verifiedStyle.color
+    };
     unmountVerified();
 
     render(Status, { tone: 'selected', children: label('Selected status') });

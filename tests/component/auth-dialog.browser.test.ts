@@ -50,6 +50,11 @@ describe('AuthDialog', () => {
     expect(facebookStyles.borderTopStyle).toBe('none');
     expect(facebookStyles.borderRadius).toBe('999px');
     expect(facebookStyles.fontWeight).toBe('800');
+    // Button owns the intent look itself now; it never renders data-intent (retired vocabulary).
+    expect(facebook.getAttribute('data-intent')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Send me a sign-in link' }).getAttribute('data-intent')
+    ).toBeNull();
     expect(getComputedStyle(dialogContent).paddingInlineStart).toBe('16px');
     expect(getComputedStyle(dialogContent).paddingInlineEnd).toBe('16px');
     expect(screen.getByText("No password needed. We'll email you a sign-in link.")).toBeTruthy();
