@@ -1,4 +1,3 @@
-import tailwindcss from '@tailwindcss/vite';
 import { mergeConfig } from 'vite';
 
 import type { StorybookConfig } from '@storybook/svelte-vite';
@@ -10,13 +9,14 @@ const config: StorybookConfig = {
     name: '@storybook/svelte-vite',
     options: {}
   },
+  // The svelte and tailwind plugins live in ../vite.config.ts, which the framework adopts as its
+  // base - that ordering puts the svelte transform ahead of Storybook's docgen plugin, where a
+  // viteFinal injection cannot reach.
   viteFinal: async (viteConfig) => {
-    // @storybook/svelte-vite already wires @sveltejs/vite-plugin-svelte into the dev and build
-    // pipeline, so the only plugin missing here is Tailwind v4's Vite plugin - without it,
-    // ../src/theme.css (and the tokens.css it builds on, imported in preview.css) never gets
-    // processed and every Tailwind utility class renders as nothing.
     return mergeConfig(viteConfig, {
-      plugins: [tailwindcss()]
+      // The app is browsed on 127.0.0.1 (magic-link cookies demand it), so Storybook answers on
+      // the same host instead of insisting on the literal "localhost".
+      server: { allowedHosts: ['127.0.0.1', 'localhost'] }
     });
   }
 };
