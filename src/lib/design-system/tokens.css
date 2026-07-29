@@ -22,6 +22,9 @@
     --hv-color-danger-soft: #f6e1dc;
     --hv-color-success: #356246;
     --hv-color-success-soft: #e2eee5;
+    /* The one dialog backdrop. Every modal surface dims the page with this exact veil so stacked
+       contexts read as a single system; individual dialogs must not restate their own. */
+    --hv-color-scrim: rgb(20 25 24 / 42%);
     --hv-access-area: #dce7e1;
     --hv-access-restraint: #f7dd9a;
     --hv-access-permission: #cfe5ed;
