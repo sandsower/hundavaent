@@ -107,9 +107,7 @@ describe('Button', () => {
 
   it('passes disabled through to the native button', () => {
     render(Button, { disabled: true, children: label('Unavailable') });
-    expect(screen.getByRole('button', { name: 'Unavailable' }).hasAttribute('disabled')).toBe(
-      true
-    );
+    expect(screen.getByRole('button', { name: 'Unavailable' }).hasAttribute('disabled')).toBe(true);
   });
 
   it('merges a caller class alongside its own generated classes, appended last', () => {

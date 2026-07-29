@@ -65,8 +65,10 @@
 </script>
 
 {#if href}
+  <!-- No aria-pressed here: a link cannot be a toggle, and role link rejects the attribute. The
+       pressed prop still drives the selected look for the rare anchor that wants it. -->
   <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Button is a generic primitive; href arrives pre-resolved (or intentionally external) from whichever caller supplied it. -->
-  <a {href} class={classes} {...rest} aria-pressed={pressed}>
+  <a {href} class={classes} {...rest}>
     {@render children()}
   </a>
 {:else}
