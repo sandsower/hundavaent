@@ -61,7 +61,8 @@ describe('FavouriteControl', () => {
     });
     const controlRoot = button.closest('[data-favourite-place]');
     expect(controlRoot?.getAttribute('data-ui-mode')).toBe('place');
-    expect(button.getAttribute('data-intent')).toBe('selected');
+    // Button owns the pressed look itself now; it never renders data-intent.
+    expect(button.getAttribute('data-intent')).toBeNull();
   });
 
   it.each([
@@ -82,8 +83,9 @@ describe('FavouriteControl', () => {
     const link = screen.getByRole('link', { name: label });
     expect(link.getAttribute('href')).not.toContain('favourite');
     expect(link.getAttribute('href')).toContain(`place%3D${placeId}`);
-    expect(link.classList.contains('hv-control')).toBe(true);
-    expect(link.getAttribute('data-intent')).toBe('secondary');
+    expect(link.classList.contains('favourite-toggle')).toBe(true);
+    // Button owns the control look itself now; it never renders data-intent.
+    expect(link.getAttribute('data-intent')).toBeNull();
     await fireEvent.click(link);
     expect(receiveRequest).toHaveBeenCalledOnce();
     expect((receiveRequest.mock.calls[0][0] as CustomEvent).detail).toEqual({
@@ -94,11 +96,11 @@ describe('FavouriteControl', () => {
   });
 
   it.each([
-    [false, 'Add Published Place to favorites', 'secondary', 'idle'],
-    [true, 'Remove Published Place from favorites', 'selected', 'selected']
+    [false, 'Add Published Place to favorites', 'idle'],
+    [true, 'Remove Published Place from favorites', 'selected']
   ] as const)(
     'exposes the saved state semantically when favourite is %s',
-    (favourite, label, intent, state) => {
+    (favourite, label, state) => {
       render(FavouriteControl, {
         placeId,
         placeName,
@@ -109,9 +111,11 @@ describe('FavouriteControl', () => {
       });
 
       const button = screen.getByRole('button', { name: label });
-      expect(button.classList.contains('hv-control')).toBe(true);
+      expect(button.classList.contains('favourite-toggle')).toBe(true);
       expect(button.getAttribute('aria-pressed')).toBe(String(favourite));
-      expect(button.getAttribute('data-intent')).toBe(intent);
+      // Button owns the pressed look itself now; it never renders data-intent, and
+      // aria-pressed above already carries the semantic this used to stand in for.
+      expect(button.getAttribute('data-intent')).toBeNull();
       expect(button.getAttribute('data-state')).toBe(state);
     }
   );
