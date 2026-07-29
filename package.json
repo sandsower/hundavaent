@@ -42,6 +42,7 @@
   "dependencies": {
     "@fontsource-variable/inter": "5.2.8",
     "@fontsource-variable/source-serif-4": "5.2.8",
+    "@hundavaent/design-system": "workspace:*",
     "@supabase/ssr": "0.12.0",
     "@supabase/supabase-js": "2.110.1",
     "maplibre-gl": "5.24.0",

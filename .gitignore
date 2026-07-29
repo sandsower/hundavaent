@@ -12,6 +12,7 @@ coverage/
 playwright-report/
 test-results/
 .vitest-attachments/
+storybook-static/
 .beislid/reports/
 tests/component/__screenshots__/
 tests/evaluation/screenshots/
