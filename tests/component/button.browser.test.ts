@@ -155,6 +155,60 @@ describe('Button', () => {
     expect(style.borderRadius).toBe(resolvedBorderRadius());
   });
 
+  // Regression test for the R1 finding: theme.css's mappings must be `@theme inline`, not plain
+  // `@theme`. Plain @theme emits its mappings as :root custom properties, which resolve their own
+  // var() references exactly once, at :root - so a utility like rounded-control would silently
+  // freeze to whatever --hv-radius-control was at :root and never see the
+  // [data-ui-mode='operations'] retune (tokens.css:99-116), no matter which element it styled.
+  // `@theme inline` instead inlines the var(--hv-*) REFERENCE into the generated utility, so
+  // resolution happens at the styled element and follows its own [data-ui-mode] ancestor - exactly
+  // like the two probe elements below, which resolve the same tokens directly via var() inside the
+  // same operations wrapper Button renders into. Same probe-element pattern as
+  // resolvedMinHeight/resolvedBorderRadius above, just anchored to an operations-mode wrapper
+  // instead of document.body.
+  it('resolves min-height and border-radius to the operations-mode control tokens', () => {
+    const operationsWrapper = document.createElement('div');
+    operationsWrapper.setAttribute('data-ui-mode', 'operations');
+    document.body.append(operationsWrapper);
+
+    try {
+      const { unmount } = render(
+        Button,
+        { children: label('Operations sized') },
+        { baseElement: operationsWrapper }
+      );
+
+      const button = screen.getByRole('button', { name: 'Operations sized' });
+      const style = getComputedStyle(button);
+
+      const heightProbe = document.createElement('div');
+      heightProbe.style.minHeight = 'var(--hv-control-height)';
+      operationsWrapper.append(heightProbe);
+
+      const radiusProbe = document.createElement('div');
+      radiusProbe.style.borderRadius = 'var(--hv-radius-control)';
+      operationsWrapper.append(radiusProbe);
+
+      const probeMinHeight = getComputedStyle(heightProbe).minHeight;
+      const probeBorderRadius = getComputedStyle(radiusProbe).borderRadius;
+
+      // The concrete operations-mode values (tokens.css:102-103), not just parity with the
+      // probes: this pins the regression to the actual numbers rather than to a probe that could
+      // drift in the same wrong direction as the utility it is meant to catch.
+      expect(probeMinHeight).toBe('40px');
+      expect(probeBorderRadius).toBe('4.8px');
+
+      expect(style.minHeight).toBe(probeMinHeight);
+      expect(style.borderRadius).toBe(probeBorderRadius);
+
+      heightProbe.remove();
+      radiusProbe.remove();
+      unmount();
+    } finally {
+      operationsWrapper.remove();
+    }
+  });
+
   it('resolves font-weight to 800, matching .hv-control', () => {
     render(Button, { children: label('Weighted') });
     const style = getComputedStyle(screen.getByRole('button', { name: 'Weighted' }));

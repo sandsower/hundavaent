@@ -62,6 +62,13 @@ a {
   color: var(--hv-color-basalt, #1e2d31);
 }
 
+/* Unlayered on purpose, which means it beats every layered rule including the design-system
+   Button's own focus-visible:* Tailwind utilities (Button.svelte, near the `base` class string) -
+   the two currently carry identical values, so this shadowing is invisible in the app today.
+   Storybook's preview.css deliberately does not repeat this rule, so Button's own utilities are
+   what render its focus ring there. This double ownership is known and deferred, not a bug: it
+   gets settled (one side retired) in the primitives retirement phase of the design-system
+   migration, not before. */
 :focus-visible {
   outline: 3px solid var(--hv-focus-ring, #2f6f86);
   outline-offset: 3px;

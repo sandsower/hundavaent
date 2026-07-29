@@ -21,6 +21,16 @@
     // the intersection below, so this is the only onclick signature Props exposes, and it is
     // satisfied both by handlers written for the union and by handlers written for one element that
     // narrow via a cast - see FavouriteControl.svelte's `event.currentTarget as HTMLButtonElement`.
+    //
+    // The same intersected-overload wall applies to every other element-specific-typed handler
+    // still left to the Omit<HTMLAnchorAttributes & HTMLButtonAttributes, ...> intersection below
+    // - onkeydown, onfocus, onblur, and the rest each carry a currentTarget typed to their own
+    // element in HTMLAnchorAttributes vs HTMLButtonAttributes, and intersecting them collapses to
+    // unusable overloads exactly like onclick did. None of those are pulled out here because
+    // nothing in this codebase currently needs one on Button; if a call site does, the fix is the
+    // same as onclick's: either type the handler with the union currentTarget (HTMLAnchorElement |
+    // HTMLButtonElement) so it satisfies the intersection's narrowed member, or write an inline
+    // closure at the call site and narrow via a cast, the way FavouriteControl does for onclick.
     onclick?: (
       event: MouseEvent & { currentTarget: EventTarget & (HTMLAnchorElement | HTMLButtonElement) }
     ) => void;
@@ -64,6 +74,15 @@
   // same control tempo, so reduced motion and operations mode retune it exactly as they do at
   // every surveyed call site. Anchors carry no :disabled attribute, so not-disabled resolves true
   // there, which is the correct outcome - a link-mode Button still gets the lift.
+  //
+  // The trailing focus-visible:* utilities below currently have no visible effect in the app: src/app.css
+  // carries an unlayered global `:focus-visible` rule (outline, offset, and the same offset box-shadow)
+  // that beats these layered Tailwind utilities wherever both apply, and today the two happen to be
+  // set to identical values, so nothing looks wrong. In Storybook, preview.css does not repeat that
+  // global rule, so these utilities are the only thing rendering Button's focus ring there. This
+  // double ownership is a known/deferred inconsistency, not a bug to fix now - see the matching
+  // comment at app.css's :focus-visible rule. Settling it (retiring one side) is planned for the
+  // primitives retirement phase of this migration, not before.
   const base =
     'inline-flex min-h-control items-center justify-center border border-border-strong rounded-control px-[0.8rem] py-[0.55rem] [font-family:inherit] [font-size:inherit] [line-height:inherit] font-extrabold no-underline cursor-pointer transition-transform duration-[var(--hv-motion-instant)] ease-settle not-disabled:not-aria-pressed:hover:-translate-y-px not-disabled:active:scale-[0.97] focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]';
 
@@ -88,6 +107,13 @@
 {#if href}
   <!-- No aria-pressed here: a link cannot be a toggle, and role link rejects the attribute. The
        pressed prop still drives the selected look for the rare anchor that wants it. -->
+  <!-- `disabled` has no effect on an anchor: it is not a recognised HTML attribute there, so it
+       renders as an inert data-less attribute (disabled="") and the link stays fully operable -
+       clickable, focusable, reachable by keyboard - regardless of its value. There is no browser-level
+       equivalent of a disabled link. A call site that maps a busy/unavailable state onto a Button
+       rendered as an anchor (href set) must gate that itself - e.g. by omitting href, by intercepting
+       the click and no-op'ing, or by routing to a non-interactive element instead - rather than
+       relying on passing `disabled` through here. -->
   <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Button is a generic primitive; href arrives pre-resolved (or intentionally external) from whichever caller supplied it. -->
   <a {href} class={classes} {...rest}>
     {@render children()}

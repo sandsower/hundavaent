@@ -5,10 +5,17 @@
 
    Every mapping references the live --hv-* custom property rather than restating its value, so
    there is exactly one source of truth and, just as load-bearing: [data-ui-mode='operations']
-   re-tunes control height, radii, spacing, and tempo for Moderators. A utility like
-   rounded-control resolves var(--hv-radius-control) at the element it styles, so the operations
-   values flow through mode boundaries exactly as the primitive classes do today. Inlining values
-   here would silently freeze every utility to Member mode. */
+   re-tunes control height, radii, spacing, and tempo for Moderators. This is why the block below
+   is `@theme inline` rather than plain `@theme`: plain @theme emits every mapping as a :root
+   custom property, and :root resolves its own var() references exactly once, at :root - so
+   rounded-control's border-radius would freeze to whatever --hv-radius-control was at :root and
+   never see the [data-ui-mode='operations'] retune, no matter which element the utility is
+   applied to. `@theme inline` instead inlines the var(--hv-*) REFERENCE (never the value) into
+   each generated utility, so resolution happens at the styled element itself and follows that
+   element's own [data-ui-mode] ancestor. A utility like rounded-control resolves
+   var(--hv-radius-control) at the element it styles, so the operations values flow through mode
+   boundaries exactly as the primitive classes do today. Inlining literal values here (as opposed
+   to inlining the reference) would silently freeze every utility to Member mode. */
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 
@@ -16,7 +23,7 @@
    sources sitting next to it (they resolve under node_modules, which scanning ignores). */
 @source './';
 
-@theme {
+@theme inline {
   /* No colour exists outside the hundavaent palette: erasing the defaults keeps bg-red-500 a
      build-time unknown instead of an off-brand escape hatch. */
   --color-*: initial;
@@ -46,6 +53,8 @@
   --color-access-eligibility: var(--hv-access-eligibility);
   --color-access-timing: var(--hv-access-timing);
   --color-access-special: var(--hv-access-special);
+  --color-access-unknown: var(--hv-access-unknown);
+  --color-access-unknown-foreground: var(--hv-access-unknown-foreground);
   --color-access-symbol-border: var(--hv-access-symbol-border);
   --color-access-detail-accent: var(--hv-access-detail-accent);
 

@@ -178,12 +178,34 @@
     /* Button now owns cursor: pointer and the hover lift (gated the same way: not disabled, not
        the already-settled aria-pressed='true' state). The quick tempo below, and the stronger
        active squish that follows, are deliberate heart-specific character: unlayered scoped
-       styles that override Button's layered utility defaults on purpose. */
-    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
+       styles that override Button's layered utility defaults on purpose.
+
+       Tailwind v4 emits Button's hover lift and active squish through the INDEPENDENT translate
+       and scale CSS properties (not the transform shorthand), because that is how its
+       -translate-y-px and scale-[0.97] utilities compile. A call-site override must therefore use
+       that same property vocabulary to win: unlayered beats layered only when both sides are
+       setting the same property. A transform override here does not "replace" Button's
+       translate/scale at all - it is a third, independent property that stacks on top of them, so
+       the effective motion compounds (Button's 0.97 scale x this override's own transform-based
+       scale) instead of overriding it, and a transition: transform shorthand limits
+       transition-property to transform alone, leaving Button's translate/scale changes untransitioned
+       (they snap). The transition list below matches the property list Button's own
+       transition-transform utility covers, so every property either side might set rides the same
+       tempo. */
+    transition:
+      translate var(--hv-motion-quick) var(--hv-ease-settle),
+      scale var(--hv-motion-quick) var(--hv-ease-settle),
+      rotate var(--hv-motion-quick) var(--hv-ease-settle),
+      transform var(--hv-motion-quick) var(--hv-ease-settle);
   }
 
   .favourite-action :global(.favourite-toggle:active) {
-    transform: scale(0.92);
+    /* Independent `scale`, not `transform: scale(...)`: see the comment above the transition
+       rule. This is the same property Button's own scale-[0.97] utility sets, so it wins
+       call-site-over-primitive the way unlayered-beats-layered is supposed to, and it composes
+       (rather than compounds) with Button's translate-based hover lift, which lives on a
+       different property entirely. */
+    scale: 0.92;
   }
 
   .favourite-action :global(svg) {
@@ -223,6 +245,19 @@
       bloom-fade var(--hv-fade-considered) var(--hv-ease-exit);
   }
 
+  /* Verified this does not multiply against the button's own scale (Button's active
+     scale-[0.97], or the :active override above, both `scale: 0.92`): a keyframe animation
+     replaces the value of the property it animates for the element it targets, and this one
+     targets the svg CHILD, not the .favourite-toggle button it is nested inside. The two never
+     land on the same property of the same element. What does happen is ordinary CSS transform
+     nesting - the button's own scale sets the coordinate space the svg renders within, so a
+     mid-click heart-punch is rendered slightly smaller if the button is also :active - and that
+     nesting is unchanged from main, which had this exact same button-scales/child-svg-animates
+     relationship before the Button migration (see .hv-control:active / .hv-control.just-saved svg
+     in git history). Nothing here compounds; the only thing this migration changed is that
+     Button's own hover (translate) and active (scale) now compose on the SAME element instead of
+     one overriding the other, because they moved from one shared `transform` property to two
+     independent ones - that is Button's own intentional lift-and-squish, not this override. */
   .favourite-action :global(.favourite-toggle.just-saved svg) {
     animation: heart-punch var(--hv-motion-quick) var(--hv-ease-overshoot);
   }
