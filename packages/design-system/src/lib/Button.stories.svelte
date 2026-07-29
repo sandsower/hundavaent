@@ -64,7 +64,7 @@
 
 <Story name="Icon Only Interactive" args={{ 'aria-label': 'Add to favorites' }}>
   {#snippet template(args)}
-    {@const { children: _ignored, ...rest } = args}
+    {@const { children, ...rest } = args}
     <Button
       {...rest}
       pressed={iconOnlyPressed}
@@ -89,7 +89,7 @@
      deliberately not duplicated here. -->
 <Story name="Icon Toggle (Favourite)" args={{ pressed: false, 'aria-label': 'Save to favourites' }}>
   {#snippet template(args)}
-    {@const { children: _ignored, ...rest } = args}
+    {@const { children, ...rest } = args}
     <Button
       {...rest}
       pressed={favouritePressed}
@@ -145,7 +145,7 @@
 
 <Story name="Neutral Interactive" args={{ intent: 'neutral' }}>
   {#snippet template(args)}
-    {@const { children: _ignored, ...rest } = args}
+    {@const { children, ...rest } = args}
     <Button
       {...rest}
       onclick={(event) => {
@@ -160,7 +160,7 @@
 
 <Story name="Primary Interactive" args={{ intent: 'primary' }}>
   {#snippet template(args)}
-    {@const { children: _ignored, ...rest } = args}
+    {@const { children, ...rest } = args}
     <Button
       {...rest}
       onclick={(event) => {
@@ -175,7 +175,7 @@
 
 <Story name="Committed Interactive" args={{ intent: 'committed' }}>
   {#snippet template(args)}
-    {@const { children: _ignored, ...rest } = args}
+    {@const { children, ...rest } = args}
     <Button
       {...rest}
       onclick={(event) => {
@@ -190,7 +190,7 @@
 
 <Story name="Pressed Interactive" args={{ pressed: false }}>
   {#snippet template(args)}
-    {@const { children: _ignored, ...rest } = args}
+    {@const { children, ...rest } = args}
     <Button
       {...rest}
       pressed={pressedOn}
