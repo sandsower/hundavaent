@@ -3,6 +3,7 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { tick } from 'svelte';
 
+  import { Button, Field, Input, Notice, Select, Textarea } from '@hundavaent/design-system';
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import {
     formatDogAmenities,
@@ -364,22 +365,26 @@
   {/if}
 
   {#if form?.error}
-    <p class="message error" role="alert">
+    <Notice as="p" tone="error" role="alert">
       {form.error === 'conflict'
         ? data.copy['suggestion.outcomeConflict']
         : form.error === 'forbidden'
           ? data.copy['moderation.unauthorized']
           : data.copy['suggestion.invalid']}
-    </p>
+    </Notice>
   {/if}
-  {#if data.resolved}<p class="message success" role="status">
+  {#if data.resolved}<Notice as="p" tone="success" role="status">
       {data.copy['suggestion.resolved']}
-    </p>{/if}
+    </Notice>{/if}
   {#if data.contributionConfirmed}
-    <p class="message success" role="status">{data.copy['suggestion.contributionConfirmed']}</p>
+    <Notice as="p" tone="success" role="status"
+      >{data.copy['suggestion.contributionConfirmed']}</Notice
+    >
   {/if}
   {#if data.contributionRevoked}
-    <p class="message success" role="status">{data.copy['contributor.moderation.revoked']}</p>
+    <Notice as="p" tone="success" role="status"
+      >{data.copy['contributor.moderation.revoked']}</Notice
+    >
   {/if}
 
   <h2 class="readiness-title">{data.copy['suggestion.reviewSummary']}</h2>
@@ -425,14 +430,11 @@
           use:enhance={enhanceSection('identity')}
         >
           {@render sectionInputs('identity', identityPayload)}
-          <label
-            >{data.copy['suggestion.operator']}<input
-              required
-              bind:value={identityOperatorName}
-            /></label
-          >
-          <label
-            >{data.copy['suggestion.category']}<select required bind:value={identityCategory}>
+          <Field label={data.copy['suggestion.operator']} class="compact-field">
+            <Input required bind:value={identityOperatorName} />
+          </Field>
+          <Field label={data.copy['suggestion.category']} class="compact-field">
+            <Select required bind:value={identityCategory}>
               {#each ['restaurant', 'cafe', 'bar', 'shop', 'shopping_centre', 'accommodation', 'park', 'recreation', 'culture', 'service', 'other'] as category (category)}
                 <option value={category}
                   >{data.copy[
@@ -440,8 +442,8 @@
                   ]}</option
                 >
               {/each}
-            </select></label
-          >
+            </Select>
+          </Field>
           {@render sectionActions('identity')}
         </form>
       {:else}
@@ -515,30 +517,22 @@
         >
           {@render sectionInputs('translations', translationsPayload)}
           <fieldset>
-            <legend>{data.copy['suggestion.translationIs']}</legend><label
-              >{data.copy['suggestion.name']}<input
-                required
-                bind:value={translationNameIs}
-              /></label
-            ><label
-              >{data.copy['suggestion.description']}<textarea
-                required
-                rows="3"
-                bind:value={translationDescriptionIs}></textarea></label
-            >
+            <legend>{data.copy['suggestion.translationIs']}</legend>
+            <Field label={data.copy['suggestion.name']} class="compact-field">
+              <Input required bind:value={translationNameIs} />
+            </Field>
+            <Field label={data.copy['suggestion.description']} class="compact-field">
+              <Textarea required rows={3} bind:value={translationDescriptionIs} />
+            </Field>
           </fieldset>
           <fieldset>
-            <legend>{data.copy['suggestion.translationEn']}</legend><label
-              >{data.copy['suggestion.name']}<input
-                required
-                bind:value={translationNameEn}
-              /></label
-            ><label
-              >{data.copy['suggestion.description']}<textarea
-                required
-                rows="3"
-                bind:value={translationDescriptionEn}></textarea></label
-            >
+            <legend>{data.copy['suggestion.translationEn']}</legend>
+            <Field label={data.copy['suggestion.name']} class="compact-field">
+              <Input required bind:value={translationNameEn} />
+            </Field>
+            <Field label={data.copy['suggestion.description']} class="compact-field">
+              <Textarea required rows={3} bind:value={translationDescriptionEn} />
+            </Field>
           </fieldset>
           {@render sectionActions('translations')}
         </form>
@@ -574,15 +568,12 @@
           use:enhance={enhanceSection('hours-and-amenities')}
         >
           {@render sectionInputs('hours-and-amenities', detailsPayload)}
-          <label
-            >{data.copy['suggestion.website']}<input
-              type="url"
-              bind:value={detailsWebsiteUrl}
-            /></label
-          >
-          <label
-            >{data.copy['suggestion.phone']}<input type="tel" bind:value={detailsPhone} /></label
-          >
+          <Field label={data.copy['suggestion.website']} class="compact-field">
+            <Input type="url" bind:value={detailsWebsiteUrl} />
+          </Field>
+          <Field label={data.copy['suggestion.phone']} class="compact-field">
+            <Input type="tel" bind:value={detailsPhone} />
+          </Field>
           <div class="wide editor-group">
             <h3>{data.copy['suggestion.openingHours']}</h3>
             <OpeningHoursEditor copy={data.copy} bind:value={detailsOpeningHours} />
@@ -590,19 +581,19 @@
           <fieldset class="wide">
             <legend>{data.copy['suggestion.amenities']}</legend>
             {#each detailsDogAmenities as amenity, index (index)}<div class="repeated-row">
-                <input
+                <Input
                   aria-label={data.copy['moderation.amenityLabel'].replace(
                     '{number}',
                     String(index + 1)
                   )}
                   value={amenity}
                   oninput={(event) => (detailsDogAmenities[index] = event.currentTarget.value)}
-                /><button type="button" class="quiet" onclick={() => removeAmenity(index)}
-                  >{data.copy['moderation.removeAmenity']}</button
+                /><Button type="button" intent="neutral" onclick={() => removeAmenity(index)}
+                  >{data.copy['moderation.removeAmenity']}</Button
                 >
               </div>{/each}
-            <button type="button" class="quiet" onclick={() => detailsDogAmenities.push('')}
-              >{data.copy['moderation.addAmenity']}</button
+            <Button type="button" intent="neutral" onclick={() => detailsDogAmenities.push('')}
+              >{data.copy['moderation.addAmenity']}</Button
             >
           </fieldset>
           {@render sectionActions('hours-and-amenities')}
@@ -732,25 +723,27 @@
             </li>{/each}
         </ul>{/if}
       <fieldset class="identity-decisions">
-        <legend>{data.copy['suggestion.identityDecisions']}</legend><label
-          >{data.copy['suggestion.operatorIdentity']}<select bind:value={operatorIdentityPlaceId}
+        <legend>{data.copy['suggestion.identityDecisions']}</legend>
+        <Field label={data.copy['suggestion.operatorIdentity']} class="compact-field">
+          <Select bind:value={operatorIdentityPlaceId}
             ><option value="new">{data.copy['suggestion.newOperatorIdentity']}</option
             >{#each data.matches as match (match.placeId)}<option value={match.placeId}
                 >{data.copy['suggestion.reuseFrom']}
                 {match.operatorName} · {data.copy[lifecycleKey(match.lifecycle)]}</option
-              >{/each}</select
-          ></label
-        ><label
-          >{data.copy['suggestion.locationIdentity']}<select bind:value={locationIdentityPlaceId}
+              >{/each}</Select
+          >
+        </Field>
+        <Field label={data.copy['suggestion.locationIdentity']} class="compact-field">
+          <Select bind:value={locationIdentityPlaceId}
             ><option value="new">{data.copy['suggestion.newLocationIdentity']}</option
             >{#each data.matches as match (match.placeId)}<option value={match.placeId}
                 >{data.copy['suggestion.reuseFrom']}
                 {match.addressLine}, {match.locality} · {data.copy[
                   lifecycleKey(match.lifecycle)
                 ]}</option
-              >{/each}</select
-          ></label
-        >
+              >{/each}</Select
+          >
+        </Field>
       </fieldset>
     </ModerationReviewSection>
 
@@ -774,26 +767,26 @@
             >
               {#if item.contributionId}<span
                   >{data.copy['contributor.moderation.evidenceContribution']} · {item.confirmedAt}</span
-                >{#if !item.revokedAt}<button
+                >{#if !item.revokedAt}<Button
                     type="button"
-                    class="quiet"
+                    intent="neutral"
                     onclick={() => {
                       contributionToRevoke = item.contributionId ?? '';
                       contributorAction = 'revoke';
-                    }}>{data.copy['contributor.moderation.revoke']}</button
+                    }}>{data.copy['contributor.moderation.revoke']}</Button
                   >{/if}{:else}<span
                   >{data.copy[flagKindKey(item.flagKind ?? '')]} · {item.flagReason}</span
                 >{/if}
             </li>{/each}
         </ul>{/if}
       <div class="context-actions">
-        <button type="button" class="quiet" onclick={() => (contributorAction = 'record')}
-          >{data.copy['contributor.moderation.flagMember']}</button
-        >{#if activeEvidenceFlagId}<button
+        <Button type="button" intent="neutral" onclick={() => (contributorAction = 'record')}
+          >{data.copy['contributor.moderation.flagMember']}</Button
+        >{#if activeEvidenceFlagId}<Button
             type="button"
-            class="quiet"
+            intent="neutral"
             onclick={() => (contributorAction = 'clear')}
-            >{data.copy['contributor.moderation.clearFlag']}</button
+            >{data.copy['contributor.moderation.clearFlag']}</Button
           >{/if}
       </div>
       {#if contributorAction === 'revoke'}<form
@@ -806,12 +799,11 @@
             type="hidden"
             name="contributionId"
             value={contributionToRevoke}
-          /><label
-            >{data.copy['contributor.moderation.revokeReason']}<input
-              name="revokeReason"
-              required
-            /></label
-          >{@render compactActions()}
+          />
+          <Field label={data.copy['contributor.moderation.revokeReason']} class="compact-field">
+            <Input name="revokeReason" required />
+          </Field>
+          {@render compactActions()}
         </form>{:else if contributorAction === 'record'}<form
           class="compact-form"
           method="POST"
@@ -822,18 +814,20 @@
             type="hidden"
             name="memberId"
             value={data.suggestion.memberId}
-          /><label
-            >{data.copy['contributor.moderation.flagKind']}<select name="flagKind"
+          />
+          <Field label={data.copy['contributor.moderation.flagKind']} class="compact-field">
+            <Select name="flagKind"
               ><option value="fraud">{data.copy['contributor.moderation.flagKind.fraud']}</option
               ><option value="abuse">{data.copy['contributor.moderation.flagKind.abuse']}</option
               ><option value="policy_violation"
                 >{data.copy['contributor.moderation.flagKind.policy_violation']}</option
-              ></select
-            ></label
-          ><label
-            >{data.copy['contributor.moderation.flagReason']}<textarea name="flagReason" required
-            ></textarea></label
-          >{@render compactActions()}
+              ></Select
+            >
+          </Field>
+          <Field label={data.copy['contributor.moderation.flagReason']} class="compact-field">
+            <Textarea name="flagReason" required />
+          </Field>
+          {@render compactActions()}
         </form>{:else if contributorAction === 'clear' && activeEvidenceFlagId}<form
           class="compact-form"
           method="POST"
@@ -844,12 +838,11 @@
             type="hidden"
             name="flagId"
             value={activeEvidenceFlagId}
-          /><label
-            >{data.copy['contributor.moderation.clearReason']}<input
-              name="clearReason"
-              required
-            /></label
-          >{@render compactActions()}
+          />
+          <Field label={data.copy['contributor.moderation.clearReason']} class="compact-field">
+            <Input name="clearReason" required />
+          </Field>
+          {@render compactActions()}
         </form>{/if}
     </ModerationReviewSection>
   </div>
@@ -911,28 +904,32 @@
       oncancel={cancelDecision}
     >
       {#if pendingDecision === 'duplicate'}
-        <label
-          >{data.copy['suggestion.duplicatePlace']}<select bind:value={duplicatePlaceId} required
+        <Field label={data.copy['suggestion.duplicatePlace']} class="compact-field">
+          <Select bind:value={duplicatePlaceId} required
             ><option value=""></option>{#each data.matches as match (match.placeId)}<option
                 value={match.placeId}>{match.operatorName} · {match.addressLine}</option
-              >{/each}</select
-          ></label
-        >
+              >{/each}</Select
+          >
+        </Field>
       {/if}
     </ModerationReasonDialog>
   {/if}
 
   {#if data.suggestion.outcome === 'accepted'}
-    {#if data.suggestion.contributionId && !data.contributionConfirmed}<p class="message success">
+    {#if data.suggestion.contributionId && !data.contributionConfirmed}<Notice
+        as="p"
+        tone="success"
+      >
         {data.copy['suggestion.contributionAlreadyConfirmed']}
-      </p>{:else if !data.suggestion.contributionId}<form
+      </Notice>{:else if !data.suggestion.contributionId}<form
         method="POST"
         action="?/confirmUseful"
         use:enhance={enhanceForm}
       >
-        <input type="hidden" name="suggestionId" value={data.suggestion.suggestionId} /><button
+        <input type="hidden" name="suggestionId" value={data.suggestion.suggestionId} /><Button
           type="submit"
-          disabled={submitting}>{data.copy['suggestion.confirmUseful']}</button
+          intent="committed"
+          disabled={submitting}>{data.copy['suggestion.confirmUseful']}</Button
         >
       </form>{/if}
   {/if}
@@ -948,26 +945,29 @@
 
 {#snippet sectionActions(sectionId: EditableSectionId)}
   <div class="section-form-actions">
-    <button type="button" class="quiet" onclick={() => (editingSection = null)}
-      >{data.copy['common.cancel']}</button
-    ><button type="submit" disabled={savingSection === sectionId}>{saveLabel(sectionId)}</button>
+    <Button type="button" intent="neutral" onclick={() => (editingSection = null)}
+      >{data.copy['common.cancel']}</Button
+    ><Button type="submit" intent="committed" disabled={savingSection === sectionId}
+      >{saveLabel(sectionId)}</Button
+    >
   </div>
 {/snippet}
 
 {#snippet editButton(sectionId: EditableSectionId, title: string)}
-  <button
+  <Button
     type="button"
+    intent="neutral"
     class="edit-section"
     aria-label={editLabel(title)}
-    onclick={() => beginEditing(sectionId)}>{editLabel(title)}</button
+    onclick={() => beginEditing(sectionId)}>{editLabel(title)}</Button
   >
 {/snippet}
 
 {#snippet compactActions()}
   <div class="section-form-actions">
-    <button type="button" class="quiet" onclick={() => (contributorAction = null)}
-      >{data.copy['common.cancel']}</button
-    ><button type="submit">{data.copy['common.save']}</button>
+    <Button type="button" intent="neutral" onclick={() => (contributorAction = null)}
+      >{data.copy['common.cancel']}</Button
+    ><Button type="submit" intent="committed">{data.copy['common.save']}</Button>
   </div>
 {/snippet}
 
@@ -985,8 +985,7 @@
   .review-sections,
   .section-view,
   .section-form,
-  .compact-form,
-  label {
+  .compact-form {
     display: grid;
     gap: 0.55rem;
   }
@@ -1004,7 +1003,7 @@
   .eyebrow {
     color: var(--hv-color-fjord);
     font-size: 0.72rem;
-    font-weight: 950;
+    font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -1028,27 +1027,18 @@
   .wide-form > :global(*) {
     grid-column: 1 / -1;
   }
-  label {
-    min-width: 0;
+  /* Field renders its own label/control stack inside a child component, so scoped CSS cannot
+     reach the label directly - the whole remaining chain after .compact-field is wrapped in one
+     :global() (the SelectedPlaceCard ".card-body :global(.details-status p)" precedent), rather
+     than just the class, because a bare `label` tag selector after a partial :global() would
+     still be scope-hashed and fail to match. This preserves the original muted/reduced-size
+     label treatment Field's own docs invite a call site to keep via a scoped hook; Input/Select/
+     Textarea now own the field's border/radius/surface/focus ring, and Button now owns the
+     button look/weight/min-height (the old bespoke 2.55rem/900 pair is retired). */
+  .review-panel :global(.compact-field label) {
     color: var(--hv-color-basalt-muted);
     font-size: 0.78rem;
     font-weight: 800;
-  }
-  input,
-  select,
-  textarea {
-    width: 100%;
-    min-height: 2.5rem;
-    box-sizing: border-box;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    padding: 0.5rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
-  }
-  textarea {
-    resize: vertical;
   }
   fieldset {
     min-width: 0;
@@ -1058,7 +1048,7 @@
     padding: 0.65rem;
   }
   legend {
-    font-weight: 850;
+    font-weight: 800;
   }
   dl {
     display: grid;
@@ -1071,7 +1061,7 @@
     gap: 0.6rem;
   }
   dt {
-    font-weight: 850;
+    font-weight: 800;
   }
   dd {
     min-width: 0;
@@ -1081,7 +1071,11 @@
   .translations {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .translations .edit-section {
+  /* Button renders its own <button> inside a child component, so scoped CSS cannot reach it
+     directly - .edit-section is guaranteed to land on that rendered element because we pass it
+     through Button's class prop ourselves (the FavouriteControl precedent). Button's neutral
+     intent now owns the background; only the leftover grid placement survives here. */
+  .translations :global(.edit-section) {
     grid-column: 1 / -1;
   }
   article {
@@ -1096,22 +1090,7 @@
     gap: 0.5rem;
     justify-content: flex-end;
   }
-  button {
-    min-height: 2.55rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-signal);
-    padding: 0.5rem 0.75rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
-    font-weight: 900;
-  }
-  button.quiet,
-  .edit-section {
-    width: fit-content;
-    background: var(--hv-color-snow-raised);
-  }
-  .edit-section {
+  .review-panel :global(.edit-section) {
     justify-self: end;
   }
   .repeated-row {
@@ -1146,16 +1125,6 @@
   .signal-note {
     color: var(--hv-color-basalt-muted);
   }
-  .message {
-    border: 1px solid var(--hv-color-success);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-success-soft);
-    padding: 0.65rem;
-  }
-  .message.error {
-    border-color: var(--hv-color-danger);
-    background: var(--hv-color-danger-soft);
-  }
   .decision-form {
     display: none;
   }
@@ -1173,7 +1142,7 @@
     .section-form > fieldset,
     .section-form-actions,
     .wide-form > :global(*),
-    .translations .edit-section,
+    .translations :global(.edit-section),
     .identity-decisions legend {
       grid-column: auto;
     }

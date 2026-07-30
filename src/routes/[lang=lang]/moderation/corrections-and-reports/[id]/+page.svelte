@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Notice } from '@hundavaent/design-system';
   import CorrectionReviewPanel from '$lib/moderation/CorrectionReviewPanel.svelte';
   import type { PageProps } from './$types';
 
@@ -22,7 +23,9 @@
 
 <main data-ui-mode="operations">
   {#if data.draftSaved}
-    <p class="notice" role="status">{data.copy['moderation.workbench.draftSaved']}</p>
+    <Notice tone="success" role="status" class="mb-[0.75rem] font-extrabold"
+      >{data.copy['moderation.workbench.draftSaved']}</Notice
+    >
   {/if}
   <fieldset data-route-review disabled={Boolean(conflictAction?.conflictRefreshFailed)}>
     <CorrectionReviewPanel data={reviewData} {form} standalone />
@@ -35,13 +38,5 @@
     margin: 0;
     border: 0;
     padding: 0;
-  }
-  .notice {
-    margin: 0 0 0.75rem;
-    border-left: 0.3rem solid var(--hv-color-success);
-    background: var(--hv-color-success-soft);
-    padding: 0.7rem 0.85rem;
-    color: var(--hv-color-basalt);
-    font-weight: 800;
   }
 </style>

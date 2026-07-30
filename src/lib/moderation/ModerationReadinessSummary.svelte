@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { Status } from '@hundavaent/design-system';
+
   import type { ModerationReadinessState, ModerationReviewIssue } from './types';
 
   interface Props {
@@ -11,6 +13,18 @@
 
   let { label, state, stateLabel, summary, issues = [] }: Props = $props();
 
+  // Status has no signal-toned tone, so 'attention' borrows the signal-family 'verified' tone
+  // (solid signal background) as the nearest look-based fit - the readiness state itself stays
+  // fully legible via data-readiness-state's left-border tint and the stateLabel copy.
+  const stateTones: Record<ModerationReadinessState, 'success' | 'verified' | 'error'> = {
+    ready: 'success',
+    attention: 'verified',
+    blocked: 'error'
+  };
+
+  // This handler, and the #sectionId anchors below, depend on ModerationReviewSection rendering
+  // a literal <details id="..."> per section - a deliberate phase-6 decision (see the comment on
+  // ModerationReviewSection.svelte) that keeps that component off the package Disclosure.
   function revealSection(event: MouseEvent, sectionId: string): void {
     const target = document.getElementById(sectionId);
     if (!(target instanceof HTMLDetailsElement)) return;
@@ -24,7 +38,7 @@
 
 <section class="readiness" aria-label={label} data-readiness-state={state}>
   <div class="readiness-head">
-    <span class="state">{stateLabel}</span>
+    <Status tone={stateTones[state]} class="state">{stateLabel}</Status>
     <p>{summary}</p>
   </div>
   {#if issues.length > 0}
@@ -63,23 +77,15 @@
     display: grid;
     gap: 0.2rem;
   }
-  .state {
+  /* Status renders its span inside a child component, so Svelte's scoped CSS cannot reach it
+     directly - the .state class is guaranteed to land on that rendered element because we pass
+     it through Status's class prop ourselves (the FavouriteControl precedent). Only the
+     non-conflicting layout/typography left over from the old bespoke pill (letter-spacing,
+     uppercase) lives here; background/text/radius/padding now come from Status's tone. */
+  .readiness-head :global(.state) {
     width: fit-content;
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-success-soft);
-    padding: 0.18rem 0.48rem;
-    color: var(--hv-color-basalt);
-    font-size: 0.7rem;
-    font-weight: 950;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-  }
-  [data-readiness-state='attention'] .state {
-    background: var(--hv-color-signal-soft);
-  }
-  [data-readiness-state='blocked'] .state {
-    background: var(--hv-color-danger-soft);
-    color: var(--hv-color-danger);
   }
   p,
   ul {
@@ -101,7 +107,7 @@
     background: var(--hv-color-signal-soft);
     padding: 0.45rem 0.55rem;
     font-size: 0.8rem;
-    font-weight: 850;
+    font-weight: 800;
   }
   li[data-severity='blocking'] {
     background: var(--hv-color-danger-soft);

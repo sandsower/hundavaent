@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
 
+  import { Button, Field, Input, Select } from '@hundavaent/design-system';
   import type { Catalogue } from '$i18n';
   import type { CandidatePublicationReview } from '$server/moderation/place-moderation';
 
@@ -161,108 +162,95 @@
   }
 </script>
 
-<input type="hidden" name="sectionPayload" value={sectionPayload} />
+<div class="access-conditions-editor">
+  <input type="hidden" name="sectionPayload" value={sectionPayload} />
 
-<div class="condition-list">
-  {#each items as condition, index (condition.key)}
-    <fieldset class="condition-card">
-      <legend>{copy['place.conditionLabel'].replace('{number}', String(index + 1))}</legend>
-      <div class="field-grid">
-        <label>
-          {copy['place.accessArea']}
-          <select required bind:value={condition.accessArea}>
-            <option value="indoors">{copy['access.indoor']}</option>
-            <option value="outdoors">{copy['access.outdoor']}</option>
-            <option value="designated_area">{copy['access.designated']}</option>
-            <option value="other_bounded">{copy['access.otherBounded']}</option>
-          </select>
-        </label>
-        <label>
-          {copy['moderation.areaNoteLabel']}
-          <input bind:value={condition.accessAreaNote} />
-        </label>
-        <label>
-          {copy['place.restraint']}
-          <select required bind:value={condition.restraintCondition}>
-            <option value="leash_required">{copy['access.leashRequired']}</option>
-            <option value="off_leash_permitted">{copy['access.offLeash']}</option>
-            <option value="carrier_required">{copy['access.carrierRequired']}</option>
-            <option value="other_sourced">{copy['access.otherSourced']}</option>
-          </select>
-        </label>
-        <label>
-          {copy['moderation.restraintNoteLabel']}
-          <input bind:value={condition.restraintNote} />
-        </label>
-        <label>
-          {copy['moderation.maximumWeightLabel']}
-          <input type="number" min="0.1" step="0.1" bind:value={condition.maximumWeightKg} />
-        </label>
-        <label>
-          {copy['moderation.maximumDogsLabel']}
-          <input type="number" min="1" step="1" bind:value={condition.maximumDogs} />
-        </label>
-        <label class="wide">
-          {copy['moderation.eligibilityNoteLabel']}
-          <input bind:value={condition.eligibilityNotes} />
-        </label>
-        <label>
-          {copy['moderation.availabilityStateLabel']}
-          <select required bind:value={condition.availabilityState}>
-            <option value="not_stated">{copy['accessSymbols.notStated']}</option>
-            <option value="whenever_open">{copy['accessSymbols.wheneverOpen']}</option>
-            <option value="limited">{copy['accessSymbols.limited']}</option>
-          </select>
-        </label>
-        <label>
-          {copy['place.permission']}
-          <select required bind:value={condition.permissionRequirement}>
-            <option value="standing_permission">{copy['access.standingPermission']}</option>
-            <option value="ask_on_arrival">{copy['access.askOnArrival']}</option>
-            <option value="advance_approval">{copy['access.advanceApproval']}</option>
-          </select>
-        </label>
-        {#if condition.availabilityState === 'limited'}
-          <label>
-            {copy['moderation.weekdaysLabel']}
-            <input
-              placeholder="1,2,3"
-              pattern="[1-7](,[1-7])*"
-              bind:value={condition.availabilityDays}
-            />
-          </label>
-          <label>
-            {copy['moderation.startsAtLabel']}
-            <input type="time" bind:value={condition.availabilityStartsAt} />
-          </label>
-          <label>
-            {copy['moderation.endsAtLabel']}
-            <input type="time" bind:value={condition.availabilityEndsAt} />
-          </label>
-          <label>
-            {copy['moderation.startsOnLabel']}
-            <input type="date" bind:value={condition.availabilityStartsOn} />
-          </label>
-          <label>
-            {copy['moderation.endsOnLabel']}
-            <input type="date" bind:value={condition.availabilityEndsOn} />
-          </label>
-          <label class="wide">
-            {copy['moderation.availabilityNotesLabel']}
-            <input bind:value={condition.availabilityNotes} />
-          </label>
-        {/if}
-      </div>
-      <button type="button" class="quiet remove" onclick={() => removeCondition(index)}>
-        {copy['moderation.removeCondition']}
-      </button>
-    </fieldset>
-  {/each}
+  <div class="condition-list">
+    {#each items as condition, index (condition.key)}
+      <fieldset class="condition-card">
+        <legend>{copy['place.conditionLabel'].replace('{number}', String(index + 1))}</legend>
+        <div class="field-grid">
+          <Field label={copy['place.accessArea']} class="mod-field">
+            <Select required bind:value={condition.accessArea}>
+              <option value="indoors">{copy['access.indoor']}</option>
+              <option value="outdoors">{copy['access.outdoor']}</option>
+              <option value="designated_area">{copy['access.designated']}</option>
+              <option value="other_bounded">{copy['access.otherBounded']}</option>
+            </Select>
+          </Field>
+          <Field label={copy['moderation.areaNoteLabel']} class="mod-field">
+            <Input bind:value={condition.accessAreaNote} />
+          </Field>
+          <Field label={copy['place.restraint']} class="mod-field">
+            <Select required bind:value={condition.restraintCondition}>
+              <option value="leash_required">{copy['access.leashRequired']}</option>
+              <option value="off_leash_permitted">{copy['access.offLeash']}</option>
+              <option value="carrier_required">{copy['access.carrierRequired']}</option>
+              <option value="other_sourced">{copy['access.otherSourced']}</option>
+            </Select>
+          </Field>
+          <Field label={copy['moderation.restraintNoteLabel']} class="mod-field">
+            <Input bind:value={condition.restraintNote} />
+          </Field>
+          <Field label={copy['moderation.maximumWeightLabel']} class="mod-field">
+            <Input type="number" min="0.1" step="0.1" bind:value={condition.maximumWeightKg} />
+          </Field>
+          <Field label={copy['moderation.maximumDogsLabel']} class="mod-field">
+            <Input type="number" min="1" step="1" bind:value={condition.maximumDogs} />
+          </Field>
+          <Field label={copy['moderation.eligibilityNoteLabel']} class="mod-field wide">
+            <Input bind:value={condition.eligibilityNotes} />
+          </Field>
+          <Field label={copy['moderation.availabilityStateLabel']} class="mod-field">
+            <Select required bind:value={condition.availabilityState}>
+              <option value="not_stated">{copy['accessSymbols.notStated']}</option>
+              <option value="whenever_open">{copy['accessSymbols.wheneverOpen']}</option>
+              <option value="limited">{copy['accessSymbols.limited']}</option>
+            </Select>
+          </Field>
+          <Field label={copy['place.permission']} class="mod-field">
+            <Select required bind:value={condition.permissionRequirement}>
+              <option value="standing_permission">{copy['access.standingPermission']}</option>
+              <option value="ask_on_arrival">{copy['access.askOnArrival']}</option>
+              <option value="advance_approval">{copy['access.advanceApproval']}</option>
+            </Select>
+          </Field>
+          {#if condition.availabilityState === 'limited'}
+            <Field label={copy['moderation.weekdaysLabel']} class="mod-field">
+              <Input
+                placeholder="1,2,3"
+                pattern="[1-7](,[1-7])*"
+                bind:value={condition.availabilityDays}
+              />
+            </Field>
+            <Field label={copy['moderation.startsAtLabel']} class="mod-field">
+              <Input type="time" bind:value={condition.availabilityStartsAt} />
+            </Field>
+            <Field label={copy['moderation.endsAtLabel']} class="mod-field">
+              <Input type="time" bind:value={condition.availabilityEndsAt} />
+            </Field>
+            <Field label={copy['moderation.startsOnLabel']} class="mod-field">
+              <Input type="date" bind:value={condition.availabilityStartsOn} />
+            </Field>
+            <Field label={copy['moderation.endsOnLabel']} class="mod-field">
+              <Input type="date" bind:value={condition.availabilityEndsOn} />
+            </Field>
+            <Field label={copy['moderation.availabilityNotesLabel']} class="mod-field wide">
+              <Input bind:value={condition.availabilityNotes} />
+            </Field>
+          {/if}
+        </div>
+        <Button intent="neutral" class="remove" onclick={() => removeCondition(index)}>
+          {copy['moderation.removeCondition']}
+        </Button>
+      </fieldset>
+    {/each}
+  </div>
+
+  <Button intent="neutral" class="add" onclick={addCondition}>
+    {copy['moderation.addAnotherCondition']}
+  </Button>
 </div>
-
-<button type="button" class="quiet add" onclick={addCondition}>
-  {copy['moderation.addAnotherCondition']}
-</button>
 
 <style>
   .condition-list {
@@ -291,42 +279,25 @@
     gap: 0.55rem;
   }
 
-  label {
-    display: grid;
-    gap: 0.25rem;
+  /* Field's own label carries no weight/size utility (baseline-first); this file's labels were
+     always the reduced 0.78rem/750 treatment, so it is re-anchored here via an ancestor-scoped
+     :global() targeting Field's rendered label through the .mod-field hook, never a bare
+     :global(label) that would leak past this component. */
+  .access-conditions-editor :global(.mod-field label) {
     color: var(--hv-color-basalt-muted);
     font-size: 0.78rem;
     font-weight: 750;
   }
 
-  input,
-  select {
-    width: 100%;
-    min-height: 2.5rem;
-    box-sizing: border-box;
-    padding: 0.5rem 0.6rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-    font: inherit;
-  }
-
-  .wide {
+  .field-grid :global(.wide) {
     grid-column: 1 / -1;
   }
 
-  .quiet {
-    width: fit-content;
-    min-height: 2.4rem;
-    background: var(--hv-color-snow-raised);
-  }
-
-  .remove {
+  .condition-card :global(.remove) {
     justify-self: end;
   }
 
-  .add {
+  .access-conditions-editor > :global(.add) {
     margin-top: 0.65rem;
   }
 
@@ -335,7 +306,7 @@
       grid-template-columns: 1fr;
     }
 
-    .wide {
+    .field-grid :global(.wide) {
       grid-column: auto;
     }
   }

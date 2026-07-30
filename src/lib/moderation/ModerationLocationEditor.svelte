@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
 
+  import { Button, Field, Input, Select } from '@hundavaent/design-system';
   import type { Catalogue } from '$i18n';
   import MapSurface from '$lib/map/MapSurface.svelte';
   import { createMapLibreAdapter, emptyMapLibreStyle } from '$lib/map/maplibre-adapter';
@@ -132,12 +133,11 @@
 
 <div class="location-editor">
   <div class="address-search" role="search">
-    <label>
-      {copy['moderation.location.searchLabel']}
+    <Field label={copy['moderation.location.searchLabel']} class="mod-field">
       <span class="search-row">
-        <input
+        <Input
           bind:value={query}
-          minlength="3"
+          minlength={3}
           autocomplete="street-address"
           onkeydown={(event) => {
             if (event.key !== 'Enter') return;
@@ -145,17 +145,17 @@
             void search();
           }}
         />
-        <button
-          type="button"
+        <Button
+          intent="neutral"
           disabled={searching || query.trim().length < 3}
           onclick={() => void search()}
         >
           {searching
             ? copy['moderation.location.searching']
             : copy['moderation.location.searchAction']}
-        </button>
+        </Button>
       </span>
-    </label>
+    </Field>
     <small>{copy['moderation.location.searchHelp']}</small>
   </div>
 
@@ -173,9 +173,9 @@
 
   <div class="map-heading">
     <p>{copy['moderation.location.mapHelp']}</p>
-    <button type="button" class="quiet" onclick={useMapCenter}>
+    <Button intent="neutral" onclick={useMapCenter}>
       {copy['moderation.location.useMapCenter']}
-    </button>
+    </Button>
   </div>
   <MapSurface
     adapter={mapAdapter}
@@ -193,34 +193,30 @@
   <details class="manual-details">
     <summary>{copy['moderation.location.editDetails']}</summary>
     <div class="field-grid">
-      <label class="wide">
-        {copy['moderation.addressLabel']}
-        <input
+      <Field label={copy['moderation.addressLabel']} class="mod-field wide">
+        <Input
           required
           value={value.addressLine}
           oninput={(event) => updateField('addressLine', event.currentTarget.value)}
         />
-      </label>
-      <label>
-        {copy['moderation.localityLabel']}
-        <input
+      </Field>
+      <Field label={copy['moderation.localityLabel']} class="mod-field">
+        <Input
           required
           value={value.locality}
           oninput={(event) => updateField('locality', event.currentTarget.value)}
         />
-      </label>
-      <label>
-        {copy['moderation.postalCodeLabel']}
-        <input
+      </Field>
+      <Field label={copy['moderation.postalCodeLabel']} class="mod-field">
+        <Input
           required
           pattern="[0-9][0-9][0-9]"
           value={value.postalCode}
           oninput={(event) => updateField('postalCode', event.currentTarget.value)}
         />
-      </label>
-      <label>
-        {copy['moderation.municipalityLabel']}
-        <select
+      </Field>
+      <Field label={copy['moderation.municipalityLabel']} class="mod-field">
+        <Select
           required
           aria-label={copy['moderation.municipalityLabel']}
           value={value.municipality}
@@ -233,11 +229,10 @@
           <option value="hafnarfjordur">Hafnarfjörður</option>
           <option value="mosfellsbaer">Mosfellsbær</option>
           <option value="kjosarhreppur">Kjósarhreppur</option>
-        </select>
-      </label>
-      <label>
-        {copy['moderation.latitudeLabel']}
-        <input
+        </Select>
+      </Field>
+      <Field label={copy['moderation.latitudeLabel']} class="mod-field">
+        <Input
           required
           type="number"
           inputmode="decimal"
@@ -247,10 +242,9 @@
           value={value.latitude}
           oninput={(event) => updateField('latitude', Number(event.currentTarget.value))}
         />
-      </label>
-      <label>
-        {copy['moderation.longitudeLabel']}
-        <input
+      </Field>
+      <Field label={copy['moderation.longitudeLabel']} class="mod-field">
+        <Input
           required
           type="number"
           inputmode="decimal"
@@ -260,10 +254,9 @@
           value={value.longitude}
           oninput={(event) => updateField('longitude', Number(event.currentTarget.value))}
         />
-      </label>
-      <label>
-        {copy['moderation.geometryPrecisionLabel']}
-        <select
+      </Field>
+      <Field label={copy['moderation.geometryPrecisionLabel']} class="mod-field">
+        <Select
           required
           aria-label={copy['moderation.geometryPrecisionLabel']}
           value={value.geometryPrecision}
@@ -281,16 +274,15 @@
           <option value="municipality_anchor_pending_geocode">
             {copy['moderation.geometryPrecision.pending']}
           </option>
-        </select>
-      </label>
-      <label class="wide">
-        {copy['moderation.geometrySourceLabel']}
-        <input
+        </Select>
+      </Field>
+      <Field label={copy['moderation.geometrySourceLabel']} class="mod-field wide">
+        <Input
           required
           value={value.geometrySource}
           oninput={(event) => updateField('geometrySource', event.currentTarget.value)}
         />
-      </label>
+      </Field>
     </div>
   </details>
 
@@ -312,8 +304,7 @@
     min-width: 0;
   }
 
-  .address-search,
-  .address-search label {
+  .address-search {
     display: grid;
     gap: 0.35rem;
   }
@@ -384,12 +375,7 @@
     margin-top: 0.75rem;
   }
 
-  .field-grid label {
-    display: grid;
-    gap: 0.3rem;
-  }
-
-  .field-grid .wide {
+  .field-grid :global(.wide) {
     grid-column: 1 / -1;
   }
 
@@ -408,7 +394,7 @@
       grid-template-columns: 1fr;
     }
 
-    .field-grid .wide {
+    .field-grid :global(.wide) {
       grid-column: auto;
     }
   }

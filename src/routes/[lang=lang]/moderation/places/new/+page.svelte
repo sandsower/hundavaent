@@ -4,6 +4,15 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { tick, untrack } from 'svelte';
 
+  import {
+    Button,
+    Field,
+    FormSection,
+    Input,
+    Notice,
+    Select,
+    Textarea
+  } from '@hundavaent/design-system';
   import ModerationLocationEditor, {
     type ModerationLocationValue
   } from '$lib/moderation/ModerationLocationEditor.svelte';
@@ -134,22 +143,28 @@
   </header>
 
   {#if errorMessage}
-    <p class="message error" role="alert" tabindex="-1" bind:this={errorElement}>
+    <p
+      class="border rounded-panel p-panel border-danger bg-danger-soft text-danger font-extrabold focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+      role="alert"
+      tabindex="-1"
+      bind:this={errorElement}
+    >
       {errorMessage}
     </p>
   {/if}
 
   {#if succeeded}
-    <section class="message success" role="status">
+    <Notice as="section" tone="success" role="status" class="font-extrabold">
       <strong>{data.copy['moderation.candidateCreated']}</strong>
-      <p>{data.copy['moderation.candidateCreatedDetails']}</p>
+      <p class="mb-0">{data.copy['moderation.candidateCreatedDetails']}</p>
       {#if form && 'placeId' in form && form.placeId}
-        <p>
+        <p class="mb-0">
           {data.copy['moderation.candidateId']}:
           <output aria-label={data.copy['moderation.candidateId']}>{form.placeId}</output>
         </p>
-        <p>
+        <p class="mb-0">
           <a
+            class="text-fjord font-extrabold focus-visible:rounded-control focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
             href={resolve('/[lang=lang]/moderation/places/[id]', {
               lang: data.lang,
               id: form.placeId
@@ -159,20 +174,17 @@
           </a>
         </p>
       {/if}
-    </section>
+    </Notice>
   {/if}
 
   <form method="POST" use:enhance={enhanceCandidate} aria-busy={submitting}>
-    <fieldset>
-      <legend>{data.copy['moderation.identityHeading']}</legend>
+    <FormSection legend={data.copy['moderation.identityHeading']}>
       <div class="field-grid">
-        <label>
-          {data.copy['moderation.operatorLabel']}
-          <input name="operatorName" required bind:value={values.operatorName} />
-        </label>
-        <label>
-          {data.copy['place.category']}
-          <select name="category" required bind:value={values.category}>
+        <Field label={data.copy['moderation.operatorLabel']}>
+          <Input name="operatorName" required bind:value={values.operatorName} />
+        </Field>
+        <Field label={data.copy['place.category']}>
+          <Select name="category" required bind:value={values.category}>
             <option value="restaurant">{data.copy['category.restaurant']}</option>
             <option value="cafe">{data.copy['category.cafe']}</option>
             <option value="bar">{data.copy['category.bar']}</option>
@@ -184,16 +196,16 @@
             <option value="culture">{data.copy['category.culture']}</option>
             <option value="service">{data.copy['category.service']}</option>
             <option value="other">{data.copy['category.other']}</option>
-          </select>
-        </label>
-        <label>
-          {data.copy['moderation.wheelchairAccessibilityLabel']}
-          <select
+          </Select>
+        </Field>
+        <Field
+          label={data.copy['moderation.wheelchairAccessibilityLabel']}
+          hint={data.copy['moderation.wheelchairAccessibilityHelp']}
+        >
+          <Select
             name="wheelchairAccessibility"
             required
             bind:value={values.wheelchairAccessibility}
-            aria-label={data.copy['moderation.wheelchairAccessibilityLabel']}
-            aria-describedby="wheelchair-accessibility-help"
           >
             <option value="accessible">{data.copy['wheelchairAccessibility.accessible']}</option>
             <option value="partially_accessible"
@@ -203,51 +215,39 @@
               >{data.copy['wheelchairAccessibility.notAccessible']}</option
             >
             <option value="unknown">{data.copy['wheelchairAccessibility.unknown']}</option>
-          </select>
-          <small id="wheelchair-accessibility-help"
-            >{data.copy['moderation.wheelchairAccessibilityHelp']}</small
-          >
-        </label>
-        <label>
-          {data.copy['moderation.websiteLabel']}
-          <input name="websiteUrl" type="url" bind:value={values.websiteUrl} />
-        </label>
-        <label>
-          {data.copy['moderation.phoneLabel']}
-          <input name="phone" type="tel" bind:value={values.phone} />
-        </label>
-        <label class="wide">
-          {data.copy['place.amenities']}
-          <input
-            name="dogAmenities"
-            bind:value={values.dogAmenities}
-            aria-describedby="amenities-help"
-          />
-          <small id="amenities-help">{data.copy['moderation.amenitiesHelp']}</small>
-        </label>
-        <label>
-          {data.copy['moderation.nameIsLabel']}
-          <input name="nameIs" required lang="is" bind:value={values.nameIs} />
-        </label>
-        <label>
-          {data.copy['moderation.nameEnLabel']}
-          <input name="nameEn" required lang="en" bind:value={values.nameEn} />
-        </label>
-        <label class="wide">
-          {data.copy['moderation.descriptionIsLabel']}
-          <textarea name="descriptionIs" required lang="is" bind:value={values.descriptionIs}
-          ></textarea>
-        </label>
-        <label class="wide">
-          {data.copy['moderation.descriptionEnLabel']}
-          <textarea name="descriptionEn" required lang="en" bind:value={values.descriptionEn}
-          ></textarea>
-        </label>
+          </Select>
+        </Field>
+        <Field label={data.copy['moderation.websiteLabel']}>
+          <Input name="websiteUrl" type="url" bind:value={values.websiteUrl} />
+        </Field>
+        <Field label={data.copy['moderation.phoneLabel']}>
+          <Input name="phone" type="tel" bind:value={values.phone} />
+        </Field>
+        <Field
+          label={data.copy['place.amenities']}
+          hint={data.copy['moderation.amenitiesHelp']}
+          class="wide"
+        >
+          <Input name="dogAmenities" bind:value={values.dogAmenities} />
+        </Field>
+        <Field label={data.copy['moderation.nameIsLabel']}>
+          <Input name="nameIs" required lang="is" bind:value={values.nameIs} />
+        </Field>
+        <Field label={data.copy['moderation.nameEnLabel']}>
+          <Input name="nameEn" required lang="en" bind:value={values.nameEn} />
+        </Field>
+        <Field label={data.copy['moderation.descriptionIsLabel']} class="wide">
+          <Textarea name="descriptionIs" required lang="is" bind:value={values.descriptionIs}
+          ></Textarea>
+        </Field>
+        <Field label={data.copy['moderation.descriptionEnLabel']} class="wide">
+          <Textarea name="descriptionEn" required lang="en" bind:value={values.descriptionEn}
+          ></Textarea>
+        </Field>
       </div>
-    </fieldset>
+    </FormSection>
 
-    <fieldset>
-      <legend>{data.copy['moderation.locationHeading']}</legend>
+    <FormSection legend={data.copy['moderation.locationHeading']}>
       <ModerationLocationEditor
         copy={data.copy}
         bind:value={locationValue}
@@ -257,10 +257,9 @@
           data.copy['moderation.locationHeading']}
         mapStyleUrl={data.mapStyleUrl}
       />
-    </fieldset>
+    </FormSection>
 
-    <fieldset>
-      <legend>{data.copy['moderation.evidenceHeading']}</legend>
+    <FormSection legend={data.copy['moderation.evidenceHeading']}>
       <div class="evidence-list">
         {#each evidenceRecords as evidence, index (index)}
           <section class="condition-card" aria-labelledby={`evidence-${index}`}>
@@ -270,15 +269,14 @@
                 {index + 1}
               </h2>
               {#if evidenceRecords.length > 1}
-                <button class="secondary" type="button" onclick={() => removeEvidence(index)}>
+                <Button type="button" onclick={() => removeEvidence(index)}>
                   {data.copy['moderation.removeEvidence']}
-                </button>
+                </Button>
               {/if}
             </div>
             <div class="field-grid">
-              <label>
-                {data.copy['moderation.evidenceKindLabel']}
-                <select name="evidenceKind" required bind:value={evidence.kind}>
+              <Field label={data.copy['moderation.evidenceKindLabel']}>
+                <Select name="evidenceKind" required bind:value={evidence.kind}>
                   <option value="official_website">{data.copy['evidence.officialWebsite']}</option>
                   <option value="venue_representative"
                     >{data.copy['evidence.venueRepresentative']}</option
@@ -289,40 +287,35 @@
                   >
                   <option value="public_record">{data.copy['evidence.publicRecord']}</option>
                   <option value="other">{data.copy['evidence.other']}</option>
-                </select>
-              </label>
-              <label class="wide">
-                {data.copy['moderation.evidenceUrlLabel']}
-                <input name="evidenceUrl" type="url" bind:value={evidence.sourceUrl} />
-              </label>
-              <label class="wide">
-                {data.copy['moderation.evidenceCitationLabel']}
-                <input name="evidenceCitation" bind:value={evidence.sourceCitation} />
-              </label>
-              <label>
-                {data.copy['moderation.evidenceSourceLabel']}
-                <input name="evidenceSourceLabel" required bind:value={evidence.sourceLabel} />
-              </label>
-              <label>
-                {data.copy['moderation.evidenceObservedAtLabel']}
-                <input
+                </Select>
+              </Field>
+              <Field label={data.copy['moderation.evidenceUrlLabel']} class="wide">
+                <Input name="evidenceUrl" type="url" bind:value={evidence.sourceUrl} />
+              </Field>
+              <Field label={data.copy['moderation.evidenceCitationLabel']} class="wide">
+                <Input name="evidenceCitation" bind:value={evidence.sourceCitation} />
+              </Field>
+              <Field label={data.copy['moderation.evidenceSourceLabel']}>
+                <Input name="evidenceSourceLabel" required bind:value={evidence.sourceLabel} />
+              </Field>
+              <Field label={data.copy['moderation.evidenceObservedAtLabel']}>
+                <Input
                   name="evidenceObservedAt"
                   type="datetime-local"
                   required
                   bind:value={evidence.observedAt}
                 />
-              </label>
+              </Field>
             </div>
           </section>
         {/each}
       </div>
-      <button class="secondary add-condition" type="button" onclick={addEvidence}>
+      <Button type="button" class="mt-4" onclick={addEvidence}>
         {data.copy['moderation.addAnotherEvidence']}
-      </button>
-    </fieldset>
+      </Button>
+    </FormSection>
 
-    <fieldset>
-      <legend>{data.copy['moderation.accessHeading']}</legend>
+    <FormSection legend={data.copy['moderation.accessHeading']}>
       <div class="condition-list">
         {#each conditions as condition, index (index)}
           <section class="condition-card" aria-labelledby={`condition-${index}`}>
@@ -331,28 +324,25 @@
                 {data.copy['place.conditionLabel'].replace('{number}', String(index + 1))}
               </h2>
               {#if conditions.length > 1}
-                <button class="secondary" type="button" onclick={() => removeCondition(index)}>
+                <Button type="button" onclick={() => removeCondition(index)}>
                   {data.copy['moderation.removeCondition']}
-                </button>
+                </Button>
               {/if}
             </div>
             <div class="field-grid">
-              <label>
-                {data.copy['place.accessArea']}
-                <select name="accessArea" required bind:value={condition.accessArea}>
+              <Field label={data.copy['place.accessArea']}>
+                <Select name="accessArea" required bind:value={condition.accessArea}>
                   <option value="indoors">{data.copy['access.indoor']}</option>
                   <option value="outdoors">{data.copy['access.outdoor']}</option>
                   <option value="designated_area">{data.copy['access.designated']}</option>
                   <option value="other_bounded">{data.copy['access.otherBounded']}</option>
-                </select>
-              </label>
-              <label>
-                {data.copy['moderation.areaNoteLabel']}
-                <input name="accessAreaNote" bind:value={condition.accessAreaNote} />
-              </label>
-              <label>
-                {data.copy['place.restraint']}
-                <select
+                </Select>
+              </Field>
+              <Field label={data.copy['moderation.areaNoteLabel']}>
+                <Input name="accessAreaNote" bind:value={condition.accessAreaNote} />
+              </Field>
+              <Field label={data.copy['place.restraint']}>
+                <Select
                   name="restraintCondition"
                   required
                   bind:value={condition.restraintCondition}
@@ -361,88 +351,77 @@
                   <option value="off_leash_permitted">{data.copy['access.offLeash']}</option>
                   <option value="carrier_required">{data.copy['access.carrierRequired']}</option>
                   <option value="other_sourced">{data.copy['access.otherSourced']}</option>
-                </select>
-              </label>
-              <label>
-                {data.copy['moderation.restraintNoteLabel']}
-                <input name="restraintNote" bind:value={condition.restraintNote} />
-              </label>
-              <label>
-                {data.copy['moderation.maximumWeightLabel']}
-                <input
+                </Select>
+              </Field>
+              <Field label={data.copy['moderation.restraintNoteLabel']}>
+                <Input name="restraintNote" bind:value={condition.restraintNote} />
+              </Field>
+              <Field label={data.copy['moderation.maximumWeightLabel']}>
+                <Input
                   name="maximumWeightKg"
                   type="number"
                   min="0.1"
                   step="0.1"
                   bind:value={condition.maximumWeightKg}
                 />
-              </label>
-              <label>
-                {data.copy['moderation.maximumDogsLabel']}
-                <input
+              </Field>
+              <Field label={data.copy['moderation.maximumDogsLabel']}>
+                <Input
                   name="maximumDogs"
                   type="number"
                   min="1"
                   step="1"
                   bind:value={condition.maximumDogs}
                 />
-              </label>
-              <label class="wide">
-                {data.copy['moderation.eligibilityNoteLabel']}
-                <input name="eligibilityNotes" bind:value={condition.eligibilityNotes} />
-              </label>
-              <label>
-                {data.copy['moderation.availabilityStateLabel']}
-                <select name="availabilityState" required bind:value={condition.availabilityState}>
+              </Field>
+              <Field label={data.copy['moderation.eligibilityNoteLabel']} class="wide">
+                <Input name="eligibilityNotes" bind:value={condition.eligibilityNotes} />
+              </Field>
+              <Field label={data.copy['moderation.availabilityStateLabel']}>
+                <Select name="availabilityState" required bind:value={condition.availabilityState}>
                   <option value="not_stated">{data.copy['accessSymbols.notStated']}</option>
                   <option value="whenever_open">{data.copy['accessSymbols.wheneverOpen']}</option>
                   <option value="limited">{data.copy['accessSymbols.limited']}</option>
-                </select>
-              </label>
-              <label>
-                {data.copy['moderation.weekdaysLabel']}
-                <input
+                </Select>
+              </Field>
+              <Field label={data.copy['moderation.weekdaysLabel']}>
+                <Input
                   name="availabilityDays"
                   placeholder="1,2,3"
                   pattern="[1-7](,[1-7])*"
                   bind:value={condition.availabilityDays}
                 />
-              </label>
-              <label>
-                {data.copy['moderation.startsAtLabel']}
-                <input
+              </Field>
+              <Field label={data.copy['moderation.startsAtLabel']}>
+                <Input
                   name="availabilityStartsAt"
                   type="time"
                   bind:value={condition.availabilityStartsAt}
                 />
-              </label>
-              <label>
-                {data.copy['moderation.endsAtLabel']}
-                <input
+              </Field>
+              <Field label={data.copy['moderation.endsAtLabel']}>
+                <Input
                   name="availabilityEndsAt"
                   type="time"
                   bind:value={condition.availabilityEndsAt}
                 />
-              </label>
-              <label>
-                {data.copy['moderation.startsOnLabel']}
-                <input
+              </Field>
+              <Field label={data.copy['moderation.startsOnLabel']}>
+                <Input
                   name="availabilityStartsOn"
                   type="date"
                   bind:value={condition.availabilityStartsOn}
                 />
-              </label>
-              <label>
-                {data.copy['moderation.endsOnLabel']}
-                <input
+              </Field>
+              <Field label={data.copy['moderation.endsOnLabel']}>
+                <Input
                   name="availabilityEndsOn"
                   type="date"
                   bind:value={condition.availabilityEndsOn}
                 />
-              </label>
-              <label>
-                {data.copy['place.permission']}
-                <select
+              </Field>
+              <Field label={data.copy['place.permission']}>
+                <Select
                   name="permissionRequirement"
                   required
                   bind:value={condition.permissionRequirement}
@@ -452,20 +431,20 @@
                   >
                   <option value="ask_on_arrival">{data.copy['access.askOnArrival']}</option>
                   <option value="advance_approval">{data.copy['access.advanceApproval']}</option>
-                </select>
-              </label>
+                </Select>
+              </Field>
             </div>
           </section>
         {/each}
       </div>
-      <button class="secondary add-condition" type="button" onclick={addCondition}>
+      <Button type="button" class="mt-4" onclick={addCondition}>
         {data.copy['moderation.addAnotherCondition']}
-      </button>
-    </fieldset>
+      </Button>
+    </FormSection>
 
-    <button type="submit" disabled={submitting}>
+    <Button type="submit" intent="primary" class="justify-self-start" disabled={submitting}>
       {submitting ? data.copy['common.loading'] : data.copy['moderation.createCandidate']}
-    </button>
+    </Button>
   </form>
 </main>
 
@@ -503,20 +482,21 @@
     gap: 1.25rem;
   }
 
-  fieldset {
-    margin: 0;
-    padding: clamp(1rem, 3vw, 2rem);
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-raised);
+  /* Field renders its own <label>, crossing this component's scoping boundary; :global() reaches
+     it purely on the literal element, ancestor-scoped to .field-grid (not the whole form) so this
+     never leaks into ModerationLocationEditor's own unrelated <label> elements, which sit inside
+     the same <form> but outside every .field-grid this page renders. Weight is the one thing not
+     approved to simplify away in this migration - Field intentionally carries no opinion on it,
+     the same reach-through sign-in/+page.svelte's `form :global(label)` documents. */
+  .field-grid :global(label) {
+    font-weight: 800;
   }
 
-  legend {
+  form :global(fieldset > legend) {
     padding: 0 0.5rem;
     color: var(--hv-color-fjord);
     font-size: 1.1rem;
-    font-weight: 900;
+    font-weight: 800;
   }
 
   .field-grid {
@@ -551,99 +531,14 @@
     font-size: 1rem;
   }
 
-  .secondary {
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-  }
-
-  .add-condition {
-    margin-top: 1rem;
-  }
-
-  label {
-    display: grid;
-    gap: 0.4rem;
-    font-weight: 750;
-  }
-
-  .wide {
+  /* Field forwards this class onto the div it renders itself, so the literal string "wide" never
+     appears on an element written directly in this template - Svelte's scoped-CSS analysis can't
+     see that connection and would otherwise prune `.wide` as unused. Ancestor-scoped to
+     .field-grid (real, local, hashed) reaching through to :global(.wide) (Field's div, unhashed
+     from here) fixes that without a bare :global(.wide) that would leak into any unrelated "wide"
+     class elsewhere in the app. */
+  .field-grid :global(.wide) {
     grid-column: 1 / -1;
-  }
-
-  input,
-  select,
-  textarea {
-    width: 100%;
-    min-height: 3rem;
-    box-sizing: border-box;
-    padding: 0.65rem 0.8rem;
-    border: 1px solid var(--hv-border-strong);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    color: inherit;
-    font: inherit;
-  }
-
-  textarea {
-    min-height: 6rem;
-    resize: vertical;
-  }
-
-  input:focus-visible,
-  select:focus-visible,
-  textarea:focus-visible,
-  button:focus-visible,
-  .message:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
-  button {
-    justify-self: start;
-    min-height: 3.2rem;
-    padding: 0.7rem 1.5rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-basalt);
-    color: var(--hv-color-snow-raised);
-    font: inherit;
-    font-weight: 850;
-    box-shadow: none;
-  }
-
-  .message {
-    padding: 1rem 1.2rem;
-    border: 1px solid;
-    border-radius: var(--hv-radius-panel);
-  }
-
-  .message p {
-    margin-bottom: 0;
-  }
-
-  .error {
-    border-color: var(--hv-color-danger);
-    background: var(--hv-color-danger-soft);
-    color: var(--hv-color-danger);
-  }
-
-  .success {
-    border-color: var(--hv-color-success);
-    background: var(--hv-color-success-soft);
-    color: var(--hv-color-success);
-  }
-
-  a {
-    color: var(--hv-color-fjord);
-    font-weight: 850;
-  }
-
-  a:focus-visible {
-    border-radius: var(--hv-radius-control);
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   @media (max-width: 42rem) {
@@ -655,12 +550,8 @@
       grid-template-columns: 1fr;
     }
 
-    .wide {
+    .field-grid :global(.wide) {
       grid-column: auto;
-    }
-
-    button {
-      width: 100%;
     }
   }
 </style>

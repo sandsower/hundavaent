@@ -6,12 +6,15 @@
   import { applyWeeklyRhythmRecognition } from '$lib/member-activity/client';
   import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
   import {
+    Button,
     Eyebrow,
     Meta,
+    Notice,
     PageHeader,
     PageShell,
     PageTitle,
-    Panel
+    Panel,
+    Status
   } from '@hundavaent/design-system';
 
   import type { PageProps } from './$types';
@@ -22,7 +25,9 @@
     return `flag.status.${status}` as MessageKey;
   }
 
-  function statusTone(status: string): string | undefined {
+  // Narrowed to Status's own Tone union (not exported from the design-system package, so named
+  // literally here) rather than left as `string` - Status's tone prop rejects a bare string.
+  function statusTone(status: string): 'success' | 'attention' | 'error' | undefined {
     if (status === 'applied' || status === 'confirmed_useful') return 'success';
     if (status === 'rejected') return 'error';
     if (
@@ -82,10 +87,8 @@
     <PageTitle id="flags-title">{data.copy['flag.myTitle']}</PageTitle>
     <Meta>{data.copy['flag.myIntro']}</Meta>
     <div class="flex flex-wrap items-center gap-actions">
-      <a
-        class="hv-control"
-        data-intent="primary"
-        href={resolve('/[lang=lang]', { lang: data.lang })}>{data.copy['flag.newCorrection']}</a
+      <Button intent="primary" href={resolve('/[lang=lang]', { lang: data.lang })}
+        >{data.copy['flag.newCorrection']}</Button
       >
     </div>
   </PageHeader>
@@ -93,13 +96,13 @@
   {#if data.recognition?.recognized}
     <WeeklyRhythmAcknowledgement recognition={data.recognition} copy={data.copy} />
   {:else if data.submitted}
-    <p class="hv-notice" data-tone="success" role="status">
+    <Notice tone="success" as="p" role="status">
       {data.copy['flag.acknowledged']}
-    </p>
+    </Notice>
   {/if}
 
   {#if data.flags.length === 0}
-    <p class="hv-notice" data-tone="info">{data.copy['flag.empty']}</p>
+    <Notice tone="info" as="p">{data.copy['flag.empty']}</Notice>
   {:else}
     <ul class="outcome-list grid gap-context m-0 p-0 list-none">
       {#each data.flags as item (item.flagId)}
@@ -112,9 +115,9 @@
             <Eyebrow class="kind-line">{data.copy[kindKey(item.kind)]} · {target(item)}</Eyebrow>
             <h2>{name(item)}</h2>
           </div>
-          <strong class="hv-status" data-status={statusTone(item.outcome)}>
+          <Status tone={statusTone(item.outcome)} class="outcome-status">
             {data.copy[statusKey(item.outcome)]}
-          </strong>
+          </Status>
           {#if data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}
             <p class="reason">{data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}</p>
           {/if}
@@ -124,20 +127,20 @@
   {/if}
 
   {#if data.nextCursor}
-    <a
-      class="next hv-control"
-      data-intent="primary"
+    <Button
+      intent="primary"
+      class="next"
       href={resolve(
         `/[lang=lang]/account/corrections-and-reports?cursorTime=${encodeURIComponent(data.nextCursor.submittedAt)}&cursorId=${encodeURIComponent(data.nextCursor.flagId)}`,
         { lang: data.lang }
-      )}>{data.copy['flag.nextPage']}</a
+      )}>{data.copy['flag.nextPage']}</Button
     >
   {/if}
   {#if data.hasPrevious}
-    <a
-      class="previous hv-control"
+    <Button
+      class="previous"
       href={resolve('/[lang=lang]/account/corrections-and-reports', { lang: data.lang })}
-      >{data.copy['flag.previousPage']}</a
+      >{data.copy['flag.previousPage']}</Button
     >
   {/if}
 </PageShell>
@@ -174,13 +177,17 @@
     color: var(--hv-color-basalt-muted);
   }
 
-  .outcome-list :global(.outcome-card > .hv-status) {
+  /* Status now renders the chip through a child component; the child combinator needs the
+     whole compound wrapped in :global() since Svelte cannot prove the `>` relationship across
+     the component boundary. */
+  .outcome-list :global(.outcome-card > .outcome-status) {
     align-self: start;
     justify-self: end;
   }
 
-  .next,
-  .previous {
+  /* Both render through Button (a child component), so the margin hooks need :global(). */
+  :global(.next),
+  :global(.previous) {
     margin-top: 0.75rem;
     margin-right: 0.5rem;
   }
@@ -190,7 +197,7 @@
       grid-template-columns: 1fr;
     }
 
-    .outcome-list :global(.outcome-card > .hv-status) {
+    .outcome-list :global(.outcome-card > .outcome-status) {
       justify-self: start;
     }
   }

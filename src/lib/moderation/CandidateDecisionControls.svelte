@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+  import { Button } from '@hundavaent/design-system';
   import type { Catalogue } from '$i18n';
 
   interface Props {
@@ -18,26 +19,31 @@
 
 {#if status === 'rejected'}
   <div class="decision-options single" role="group" aria-label={copy['moderation.reviewTitle']}>
-    <button type="button" {disabled} onclick={() => ondecide('reopen')}>
+    <Button class="decision-action" intent="neutral" {disabled} onclick={() => ondecide('reopen')}>
       {copy['moderation.workbench.reopen']}
-    </button>
+    </Button>
   </div>
 {:else if status === 'pending' || status === 'needs_information'}
   <div class="decision-options" role="group" aria-label={copy['moderation.reviewTitle']}>
-    <button
-      class="primary"
-      type="button"
+    <Button
+      class="decision-action"
+      intent="committed"
       disabled={disabled || !ready}
       onclick={() => ondecide('publish')}
     >
       {copy['moderation.verifyAndPublish']}
-    </button>
-    <button type="button" {disabled} onclick={() => ondecide('needs_information')}>
+    </Button>
+    <Button
+      class="decision-action"
+      intent="neutral"
+      {disabled}
+      onclick={() => ondecide('needs_information')}
+    >
       {copy['moderation.workbench.needsInformation']}
-    </button>
-    <button class="danger" type="button" {disabled} onclick={() => ondecide('rejected')}>
+    </Button>
+    <Button class="decision-action" intent="danger" {disabled} onclick={() => ondecide('rejected')}>
       {copy['moderation.workbench.reject']}
-    </button>
+    </Button>
   </div>
 {/if}
 
@@ -50,25 +56,15 @@
   .decision-options.single {
     grid-template-columns: minmax(8rem, 1fr);
   }
-  button {
+  /* Button renders its own <button> in a separate component, so Svelte's scoped CSS cannot reach
+     it directly - the same ancestor-scoped :global() pattern AuthDialog's .facebook rule and
+     ModerationReasonDialog's label rule use. The reduced font-size and min-width:0 truncation
+     are call-site layout glue this migration preserves; Button's weight/height are the
+     deliberately unified properties left untouched. */
+  .decision-options :global(.decision-action) {
     min-width: 0;
-    min-height: 2.7rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    padding: 0.55rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
     font-size: 0.76rem;
-    font-weight: 900;
     line-height: 1.15;
-  }
-  .primary:not(:disabled) {
-    background: var(--hv-color-signal);
-  }
-  .danger:not(:disabled) {
-    background: var(--hv-color-danger);
-    color: var(--hv-color-snow-raised);
   }
   @media (max-width: 44rem) {
     .decision-options {

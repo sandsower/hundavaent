@@ -15,7 +15,7 @@
   import RoundupRecommendationCard from '$lib/roundup/RoundupRecommendationCard.svelte';
   import RoundupTrailIcon from '$lib/roundup/RoundupTrailIcon.svelte';
   import type { RoundupPreferences } from '$lib/roundup/types';
-  import { Eyebrow, Panel, PageShell, PageTitle } from '@hundavaent/design-system';
+  import { Button, Eyebrow, Notice, Panel, PageShell, PageTitle } from '@hundavaent/design-system';
 
   import type { PageProps } from './$types';
 
@@ -126,7 +126,7 @@
     aria-labelledby="roundup-state-heading"
   >
     {#if actionSaved}
-      <p class="hv-notice" data-tone="success" role="status">{data.copy['roundup.saved']}</p>
+      <Notice tone="success" as="p" role="status">{data.copy['roundup.saved']}</Notice>
     {/if}
 
     <header class="state-heading">
@@ -169,17 +169,13 @@
 
     {#if data.roundup.status !== 'unavailable'}
       <div class="roundup-actions">
-        <a
-          class="hv-control"
-          data-intent="primary"
-          href={resolve('/[lang=lang]', { lang: roundupLocale })}
-        >
+        <Button intent="primary" href={resolve('/[lang=lang]', { lang: roundupLocale })}>
           {roundupCopy['roundup.browse']}
-        </a>
+        </Button>
         {#if data.roundup.status !== 'unconfigured'}
-          <button
-            class="settings-toggle hv-control"
+          <Button
             type="button"
+            intent="quiet"
             aria-expanded={settingsOpen}
             aria-controls="roundup-preferences"
             onclick={() => (settingsOpen = !settingsOpen)}
@@ -187,7 +183,7 @@
             {settingsOpen
               ? data.copy['roundup.closePreferences']
               : data.copy['roundup.editPreferences']}
-          </button>
+          </Button>
         {/if}
       </div>
     {/if}
@@ -205,9 +201,13 @@
     </div>
   {/if}
 
-  <a class="account-link hv-control" href={resolve('/[lang=lang]/account', { lang: data.lang })}>
+  <Button
+    href={resolve('/[lang=lang]/account', { lang: data.lang })}
+    intent="quiet"
+    class="account-link"
+  >
     {data.copy['account.navSignedIn']}
-  </a>
+  </Button>
 </PageShell>
 
 <style>
@@ -332,14 +332,9 @@
     gap: 0.65rem;
   }
 
-  .settings-toggle,
-  .account-link {
-    border-color: var(--hv-color-fjord);
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-fjord);
-  }
-
-  .account-link {
+  /* Renders through Button (a child component), so the layout hook needs :global(); the fjord
+     border/background/text this used to hand-roll is now Button's quiet intent. */
+  :global(.account-link) {
     justify-self: start;
   }
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
 
+  import { Field, Input, Select } from '@hundavaent/design-system';
   import type { Catalogue } from '$i18n';
   import type { SuggestionProposal } from '$server/suggestions/suggestion-input';
 
@@ -57,74 +58,65 @@
 </script>
 
 <div class="field-grid">
-  <label>
-    {copy['suggestion.accessArea']}
-    <select name="accessArea" required bind:value={accessArea}>
+  <Field label={copy['suggestion.accessArea']} class="compact-field">
+    <Select name="accessArea" required bind:value={accessArea}>
       <option value="indoors">{copy['access.indoor']}</option>
       <option value="outdoors">{copy['access.outdoor']}</option>
       <option value="designated_area">{copy['access.designated']}</option>
       <option value="other_bounded">{copy['access.otherBounded']}</option>
-    </select>
-  </label>
-  <label>
-    {copy['suggestion.accessAreaNote']}
-    <input
+    </Select>
+  </Field>
+  <Field label={copy['suggestion.accessAreaNote']} class="compact-field">
+    <Input
       name="accessAreaNote"
       bind:value={accessAreaNote}
       required={accessArea === 'other_bounded'}
     />
-  </label>
-  <label>
-    {copy['suggestion.restraint']}
-    <select name="restraintCondition" required bind:value={restraintCondition}>
+  </Field>
+  <Field label={copy['suggestion.restraint']} class="compact-field">
+    <Select name="restraintCondition" required bind:value={restraintCondition}>
       <option value="leash_required">{copy['access.leashRequired']}</option>
       <option value="off_leash_permitted">{copy['access.offLeash']}</option>
       <option value="carrier_required">{copy['access.carrierRequired']}</option>
       <option value="other_sourced">{copy['access.otherSourced']}</option>
-    </select>
-  </label>
-  <label>
-    {copy['suggestion.restraintNote']}
-    <input
+    </Select>
+  </Field>
+  <Field label={copy['suggestion.restraintNote']} class="compact-field">
+    <Input
       name="restraintNote"
       bind:value={restraintNote}
       required={restraintCondition === 'other_sourced'}
     />
-  </label>
-  <label>
-    {copy['moderation.availabilityStateLabel']}
-    <select name="availabilityState" required bind:value={availabilityState}>
+  </Field>
+  <Field label={copy['moderation.availabilityStateLabel']} class="compact-field">
+    <Select name="availabilityState" required bind:value={availabilityState}>
       <option value="not_stated">{copy['accessSymbols.notStated']}</option>
       <option value="whenever_open">{copy['accessSymbols.wheneverOpen']}</option>
       <option value="limited">{copy['accessSymbols.limited']}</option>
-    </select>
-  </label>
-  <label>
-    {copy['suggestion.permission']}
-    <select name="permissionRequirement" required bind:value={permissionRequirement}>
+    </Select>
+  </Field>
+  <Field label={copy['suggestion.permission']} class="compact-field">
+    <Select name="permissionRequirement" required bind:value={permissionRequirement}>
       <option value="standing_permission">{copy['access.standingPermission']}</option>
       <option value="ask_on_arrival">{copy['access.askOnArrival']}</option>
       <option value="advance_approval">{copy['access.advanceApproval']}</option>
-    </select>
-  </label>
+    </Select>
+  </Field>
   {#if availabilityState === 'limited'}
-    <label>
-      {copy['suggestion.availabilityDays']}
-      <input
+    <Field label={copy['suggestion.availabilityDays']} class="compact-field">
+      <Input
         name="availabilityDays"
         bind:value={availabilityDays}
         pattern="[1-7](,[1-7])*"
         required
       />
-    </label>
-    <label>
-      {copy['suggestion.availabilityStarts']}
-      <input name="availabilityStartsAt" type="time" bind:value={availabilityStartsAt} />
-    </label>
-    <label>
-      {copy['suggestion.availabilityEnds']}
-      <input name="availabilityEndsAt" type="time" bind:value={availabilityEndsAt} />
-    </label>
+    </Field>
+    <Field label={copy['suggestion.availabilityStarts']} class="compact-field">
+      <Input name="availabilityStartsAt" type="time" bind:value={availabilityStartsAt} />
+    </Field>
+    <Field label={copy['suggestion.availabilityEnds']} class="compact-field">
+      <Input name="availabilityEndsAt" type="time" bind:value={availabilityEndsAt} />
+    </Field>
   {/if}
 </div>
 
@@ -134,25 +126,17 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.55rem;
   }
-  label {
-    display: grid;
-    min-width: 0;
-    gap: 0.25rem;
+  /* Field renders its own label/control stack inside a child component, so scoped CSS cannot
+     reach the label directly - the whole remaining chain after .compact-field is wrapped in one
+     :global() (the SelectedPlaceCard ".card-body :global(.details-status p)" precedent), rather
+     than just the class, because a bare `label` tag selector after a partial :global() would
+     still be scope-hashed and fail to match. This preserves the original muted/reduced-size
+     label treatment Field's own docs invite a call site to keep via a scoped hook; Input/Select
+     now own the field's border/radius/surface/focus ring. */
+  .field-grid :global(.compact-field label) {
     color: var(--hv-color-basalt-muted);
     font-size: 0.78rem;
     font-weight: 800;
-  }
-  input,
-  select {
-    width: 100%;
-    min-height: 2.5rem;
-    box-sizing: border-box;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    padding: 0.5rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
   }
   @media (max-width: 40rem) {
     .field-grid {

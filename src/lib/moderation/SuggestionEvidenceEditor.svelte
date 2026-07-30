@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
 
+  import { Field, Input, Select, Textarea } from '@hundavaent/design-system';
   import type { Catalogue } from '$i18n';
   import type { Json } from '$server/db/generated.types';
   import type { SuggestionProposal } from '$server/suggestions/suggestion-input';
@@ -69,49 +70,43 @@
 </script>
 
 <div class="field-grid">
-  <label>
-    {copy['suggestion.evidenceKind']}
-    <select name="evidenceKind" required bind:value={kind}>
+  <Field label={copy['suggestion.evidenceKind']} class="compact-field">
+    <Select name="evidenceKind" required bind:value={kind}>
       <option value="official_website">{copy['evidence.officialWebsite']}</option>
       <option value="venue_representative">{copy['evidence.venueRepresentative']}</option>
       <option value="member_report">{copy['evidence.memberReport']}</option>
       <option value="direct_observation">{copy['evidence.directObservation']}</option>
       <option value="public_record">{copy['evidence.publicRecord']}</option>
       <option value="other">{copy['evidence.other']}</option>
-    </select>
-  </label>
-  <label>
-    {copy['suggestion.evidenceObserved']}
-    <input name="evidenceObservedAt" type="datetime-local" required bind:value={observedAt} />
-  </label>
-  <label class="wide">
-    {copy['suggestion.evidenceLabel']}
-    <input name="evidenceSourceLabel" required bind:value={sourceLabel} />
-  </label>
-  <label class="wide">
-    {copy['suggestion.evidenceUrl']}
-    <input name="evidenceUrl" type="url" bind:value={sourceUrl} />
-  </label>
-  <label class="wide">
-    {copy['suggestion.evidenceCitation']}
-    <input name="evidenceCitation" bind:value={sourceCitation} />
-  </label>
+    </Select>
+  </Field>
+  <Field label={copy['suggestion.evidenceObserved']} class="compact-field">
+    <Input name="evidenceObservedAt" type="datetime-local" required bind:value={observedAt} />
+  </Field>
+  <Field label={copy['suggestion.evidenceLabel']} class="compact-field wide">
+    <Input name="evidenceSourceLabel" required bind:value={sourceLabel} />
+  </Field>
+  <Field label={copy['suggestion.evidenceUrl']} class="compact-field wide">
+    <Input name="evidenceUrl" type="url" bind:value={sourceUrl} />
+  </Field>
+  <Field label={copy['suggestion.evidenceCitation']} class="compact-field wide">
+    <Input name="evidenceCitation" bind:value={sourceCitation} />
+  </Field>
   {#if showExplanation}
-    <label class="wide">
-      {copy['suggestion.evidenceExplanation']}
-      <textarea rows="3" required bind:value={explanation}></textarea>
-    </label>
+    <Field label={copy['suggestion.evidenceExplanation']} class="compact-field wide">
+      <Textarea rows={3} required bind:value={explanation} />
+    </Field>
   {/if}
   <details class="wide">
     <summary>{copy['evidenceField.sourceMetadata']}</summary>
-    <label>
-      {copy['evidenceField.sourceMetadata']}
-      <textarea
+    <Field label={copy['evidenceField.sourceMetadata']} class="compact-field">
+      <Textarea
         name="sourceMetadataJson"
-        rows="4"
+        rows={4}
         bind:value={metadataText}
-        oninput={(event) => validateMetadata(event.currentTarget)}></textarea>
-    </label>
+        oninput={(event) => validateMetadata(event.currentTarget)}
+      />
+    </Field>
   </details>
 </div>
 
@@ -121,31 +116,20 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.55rem;
   }
-  label {
-    display: grid;
-    min-width: 0;
-    gap: 0.25rem;
+  /* Field renders its own label/control stack inside a child component, so scoped CSS cannot
+     reach the label directly - the whole remaining chain after .compact-field is wrapped in one
+     :global() (the SelectedPlaceCard ".card-body :global(.details-status p)" precedent), rather
+     than just the class, because a bare `label` tag selector after a partial :global() would
+     still be scope-hashed and fail to match. This preserves the original muted/reduced-size
+     label treatment Field's own docs invite a call site to keep via a scoped hook; Input/Select/
+     Textarea now own the field's border/radius/surface/focus ring. .wide is also Field-rendered,
+     so it needs its own :global() to keep spanning both grid columns. */
+  .field-grid :global(.compact-field label) {
     color: var(--hv-color-basalt-muted);
     font-size: 0.78rem;
     font-weight: 800;
   }
-  input,
-  select,
-  textarea {
-    width: 100%;
-    min-height: 2.5rem;
-    box-sizing: border-box;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    padding: 0.5rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
-  }
-  textarea {
-    resize: vertical;
-  }
-  .wide {
+  .field-grid :global(.wide) {
     grid-column: 1 / -1;
   }
   details {
@@ -161,7 +145,7 @@
     .field-grid {
       grid-template-columns: 1fr;
     }
-    .wide {
+    .field-grid :global(.wide) {
       grid-column: auto;
     }
   }

@@ -7,19 +7,24 @@
   import { applyWeeklyRhythmRecognition } from '$lib/member-activity/client';
   import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
   import {
+    Button,
     Eyebrow,
     Meta,
+    Notice,
     PageHeader,
     PageShell,
     PageTitle,
-    Panel
+    Panel,
+    Status
   } from '@hundavaent/design-system';
 
   let { data }: PageProps = $props();
   const name = (item: (typeof data.suggestions)[number]) =>
     data.lang === 'is' ? item.nameIs : item.nameEn;
   const statusKey = (status: string): MessageKey => `suggestion.status.${status}` as MessageKey;
-  const statusTone = (status: string): string | undefined => {
+  // Narrowed to Status's own Tone union (not exported from the design-system package, so named
+  // literally here) rather than left as `string` - Status's tone prop rejects a bare string.
+  const statusTone = (status: string): 'success' | 'attention' | 'error' | undefined => {
     if (status === 'accepted') return 'success';
     if (status === 'needs_information') return 'attention';
     if (status === 'rejected') return 'error';
@@ -55,30 +60,26 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<PageShell width="narrow" aria-labelledby="suggestions-title">
+<PageShell width="narrow" class="suggestions-shell" aria-labelledby="suggestions-title">
   <PageHeader class="mb-section">
     <Eyebrow>{data.copy['site.name']}</Eyebrow>
     <PageTitle id="suggestions-title">{data.copy['suggestion.myTitle']}</PageTitle>
     <Meta>{data.copy['suggestion.myIntro']}</Meta>
     <div class="flex flex-wrap items-center gap-actions">
-      <a
-        class="hv-control"
-        data-intent="primary"
-        href={resolve('/[lang=lang]/suggest', { lang: data.lang })}
-      >
+      <Button intent="primary" href={resolve('/[lang=lang]/suggest', { lang: data.lang })}>
         {data.copy['suggestion.new']}
-      </a>
+      </Button>
     </div>
   </PageHeader>
   {#if data.recognition?.recognized}
     <WeeklyRhythmAcknowledgement recognition={data.recognition} copy={data.copy} />
   {:else if data.submitted}
-    <p class="hv-notice" data-tone="success" role="status">
+    <Notice tone="success" as="p" class="notice-tight" role="status">
       {data.copy['suggestion.acknowledged']}
-    </p>
+    </Notice>
   {/if}
   {#if data.suggestions.length === 0}
-    <p class="hv-notice" data-tone="info">{data.copy['suggestion.empty']}</p>
+    <Notice tone="info" as="p" class="notice-tight">{data.copy['suggestion.empty']}</Notice>
   {:else}
     <ul class="outcome-list grid gap-context m-0 p-0 list-none">
       {#each data.suggestions as item (item.suggestionId)}
@@ -93,13 +94,13 @@
               {localizePlaceCategory(item.category, data.copy)} · {item.locality}
             </Meta>
           </div>
-          <strong
-            class="hv-status"
-            data-status={statusTone(item.outcome)}
+          <Status
+            tone={statusTone(item.outcome)}
+            class="outcome-status"
             data-outcome={item.outcome}
           >
             {data.copy[statusKey(item.outcome)]}
-          </strong>
+          </Status>
           {#if data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}
             <p class="reason">
               {data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}
@@ -109,20 +110,20 @@
       {/each}
     </ul>
     {#if data.nextCursor}
-      <a
-        class="next hv-control"
-        data-intent="primary"
+      <Button
+        intent="primary"
+        class="next"
         href={resolve(
           `/[lang=lang]/account/suggestions?cursorTime=${encodeURIComponent(data.nextCursor.submittedAt)}&cursorId=${encodeURIComponent(data.nextCursor.suggestionId)}`,
           { lang: data.lang }
-        )}>{data.copy['suggestion.nextPage']}</a
+        )}>{data.copy['suggestion.nextPage']}</Button
       >
     {/if}
     {#if data.hasPrevious}
-      <a
-        class="previous hv-control"
+      <Button
+        class="previous"
         href={resolve('/[lang=lang]/account/suggestions', { lang: data.lang })}
-        >{data.copy['suggestion.previousPage']}</a
+        >{data.copy['suggestion.previousPage']}</Button
       >
     {/if}
   {/if}
@@ -149,6 +150,14 @@
     margin: 0;
   }
 
+  /* The acknowledged/empty notices render their <p> through Notice (a child component), so the
+     bare `p { margin: 0 }` above cannot reach them - anchored through PageShell's own class hook
+     (this route's own :global(), not a bare one) per the ancestor-scoped-:global pattern
+     (moderation's .workspace-shell precedent). */
+  :global(.suggestions-shell) :global(.notice-tight) {
+    margin: 0;
+  }
+
   .reason {
     grid-column: 1 / -1;
     border-top: 1px solid var(--hv-border-subtle);
@@ -156,17 +165,21 @@
     color: var(--hv-color-basalt-muted);
   }
 
-  .outcome-list :global(.outcome-card > .hv-status) {
+  /* Status now renders the chip through a child component; the child combinator needs the
+     whole compound wrapped in :global() since Svelte cannot prove the `>` relationship across
+     the component boundary (same pattern as the trusted-verification task-card notes). */
+  .outcome-list :global(.outcome-card > .outcome-status) {
     align-self: start;
     justify-self: end;
   }
 
-  .next,
-  .previous {
+  /* Both render through Button (a child component), so the margin hooks need :global(). */
+  :global(.next),
+  :global(.previous) {
     margin-top: 0.75rem;
   }
 
-  .previous {
+  :global(.previous) {
     margin-left: 0.5rem;
   }
 
@@ -175,7 +188,7 @@
       grid-template-columns: 1fr;
     }
 
-    .outcome-list :global(.outcome-card > .hv-status) {
+    .outcome-list :global(.outcome-card > .outcome-status) {
       justify-self: start;
     }
   }

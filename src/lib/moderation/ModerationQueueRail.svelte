@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Button } from '@hundavaent/design-system';
   import type { Catalogue, MessageKey } from '$i18n';
 
   import {
@@ -31,8 +32,9 @@
   <!-- eslint-disable svelte/no-navigation-without-resolve -->
   <div class="queue-links">
     {#each queues as queue (queue.id)}
-      <a
-        class:active={queue.id === activeQueueId}
+      <Button
+        class="queue-link"
+        intent={queue.id === activeQueueId ? 'committed' : 'neutral'}
         aria-current={queue.id === activeQueueId ? 'page' : undefined}
         href={buildModerationWorkspaceHref(baseHref, {
           queue: queue.id,
@@ -41,7 +43,7 @@
       >
         <span>{copy[queueKeys[queue.id]]}</span>
         <span class="count">{queue.count}</span>
-      </a>
+      </Button>
     {/each}
   </div>
   <!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -60,7 +62,7 @@
   h2 {
     margin: 0.25rem 0.55rem 0.7rem;
     font-size: 0.78rem;
-    font-weight: 950;
+    font-weight: 800;
     letter-spacing: 0.09em;
     text-transform: uppercase;
   }
@@ -68,33 +70,19 @@
     display: grid;
     gap: 0.4rem;
   }
-  a {
+  /* Button renders its own <a> inside a child component, so Svelte's scoped CSS cannot reach it
+     directly - the .queue-link class is guaranteed to land on that rendered element because we
+     pass it through Button's class prop ourselves (the FavouriteControl precedent). Border
+     colour, background, text colour, weight, and focus ring now come from Button's intent/base
+     classes; only the rail-specific grid layout for the label + count pair survives here. */
+  .queue-rail :global(.queue-link) {
     display: grid;
     box-sizing: border-box;
     min-width: 0;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.55rem;
-    align-items: center;
-    border: 1px solid transparent;
-    border-radius: var(--hv-radius-control);
     padding: 0.65rem;
-    color: var(--hv-color-basalt);
-    font-weight: 780;
     text-decoration: none;
-  }
-  a:hover {
-    background: var(--hv-color-snow-raised);
-  }
-  a.active {
-    border-color: var(--hv-color-basalt);
-    background: var(--hv-color-signal);
-    font-weight: 950;
-    box-shadow: none;
-  }
-  a:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
   .count {
     min-width: 1.75rem;
@@ -103,7 +91,7 @@
     padding: 0.18rem 0.42rem;
     color: var(--hv-color-snow-raised);
     font-size: 0.72rem;
-    font-weight: 900;
+    font-weight: 800;
     text-align: center;
   }
   @media (max-width: 60rem) {
@@ -128,7 +116,7 @@
       width: max-content;
       gap: 0.45rem;
     }
-    a {
+    .queue-rail :global(.queue-link) {
       width: auto;
       flex: none;
       white-space: nowrap;
@@ -145,7 +133,7 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 0.35rem;
     }
-    a {
+    .queue-rail :global(.queue-link) {
       width: 100%;
       min-height: 4.25rem;
       grid-template-columns: minmax(0, 1fr);

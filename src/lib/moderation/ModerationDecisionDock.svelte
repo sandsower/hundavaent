@@ -43,41 +43,15 @@
     gap: 0.65rem;
     align-items: end;
   }
-  .decision-dock :global(label) {
-    display: grid;
-    min-width: 0;
-    gap: 0.25rem;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.72rem;
-    font-weight: 900;
-  }
-  .decision-dock :global(select),
-  .decision-dock :global(textarea) {
-    width: 100%;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    padding: 0.5rem;
-    color: var(--hv-color-basalt);
-  }
-  .decision-dock :global(button) {
-    min-height: 2.75rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-signal);
-    padding: 0.55rem 0.9rem;
-    color: var(--hv-color-basalt);
-    font-weight: 950;
-    box-shadow: none;
-    cursor: pointer;
-  }
-  .decision-dock :global(button:focus-visible),
-  .decision-dock :global(select:focus-visible),
-  .decision-dock :global(textarea:focus-visible) {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
+  /* No live call site renders inside this dock today (grepped src/ and tests/ - nothing imports
+     ModerationDecisionDock). Its shape (a select/textarea/button trio in a form grid) mirrors
+     what ModerationReasonDialog and the moderation hub used to render as bare label/select/
+     textarea/button elements before this migration - those are now Field/Select/Textarea/Button
+     primitives that own their own look, and this batch's decision controls (Candidate/
+     Suggestion/CorrectionDecisionControls) render nothing but Buttons. The button and select/
+     textarea/label styling blocks that used to live here are deleted on that basis, matching the
+     twin ModerationActionBar component (which has a live call site) - only the structural form
+     grid above is layout glue worth keeping.  */
   @media (max-width: 44rem) {
     .decision-dock :global(form) {
       grid-template-columns: 1fr;

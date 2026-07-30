@@ -1,12 +1,14 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import {
+    Button,
     Eyebrow,
     Meta,
     PageHeader,
     PageShell,
     PageTitle,
-    Panel
+    Panel,
+    Status
   } from '@hundavaent/design-system';
   import { formatLocalizedDate } from '$i18n/date';
   import type { MessageKey } from '$i18n';
@@ -47,12 +49,12 @@
     aria-labelledby="status-heading"
   >
     <Eyebrow id="status-heading">{data.copy['site.name']}</Eyebrow>
-    <strong
-      class={`tier hv-status ${data.contributor.status}`}
-      data-status={data.contributor.status === 'trusted_contributor' ? 'verified' : undefined}
+    <Status
+      class={`tier ${data.contributor.status}`}
+      tone={data.contributor.status === 'trusted_contributor' ? 'verified' : undefined}
     >
       {data.copy[statusKey(data.contributor.status)]}
-    </strong>
+    </Status>
     <p class="explanation">{data.copy[explanationKey(data.contributor.status)]}</p>
     {#if since}
       <Meta class="since">{since}</Meta>
@@ -74,9 +76,13 @@
     {/if}
   </Panel>
 
-  <a class="back-link hv-control" href={resolve('/[lang=lang]/account', { lang: data.lang })}>
+  <Button
+    href={resolve('/[lang=lang]/account', { lang: data.lang })}
+    intent="quiet"
+    class="back-link"
+  >
     {data.copy['account.navSignedIn']}
-  </a>
+  </Button>
 </PageShell>
 
 <style>
@@ -89,7 +95,8 @@
     padding: clamp(1.25rem, 4vw, 2rem);
   }
 
-  .tier {
+  /* Renders through Status (a child component), so the layout hook needs :global(). */
+  :global(.tier) {
     justify-self: start;
   }
 
@@ -124,9 +131,9 @@
     width: 2.8rem;
   }
 
-  .back-link {
-    border-color: var(--hv-color-fjord);
+  /* Renders through Button (a child component), so the layout hook needs :global(); the fjord
+     border/text this used to hand-roll is now Button's quiet intent. */
+  :global(.back-link) {
     justify-self: start;
-    color: var(--hv-color-fjord);
   }
 </style>

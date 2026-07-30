@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Button, Field, Input } from '@hundavaent/design-system';
   import type { Catalogue, MessageKey } from '$i18n';
   import type { Json } from '$server/db/generated.types';
 
@@ -64,22 +65,20 @@
 <div class="opening-hours-editor">
   <div class="hours-grid">
     {#each days as day (day.key)}
-      <label>
-        {copy[day.label]}
-        <input
+      <Field label={copy[day.label]} class="mod-field">
+        <Input
           value={textValue(day.key)}
           placeholder="09:00-17:00"
           oninput={(event) => setValue(day.key, event.currentTarget.value)}
         />
-      </label>
+      </Field>
     {/each}
-    <label class="wide">
-      {copy['moderation.openingHoursNoteLabel']}
-      <input
+    <Field label={copy['moderation.openingHoursNoteLabel']} class="mod-field wide">
+      <Input
         value={textValue('note')}
         oninput={(event) => setValue('note', event.currentTarget.value)}
       />
-    </label>
+    </Field>
   </div>
 
   {#each extraKeys as key, index (key)}
@@ -87,26 +86,24 @@
       <legend>
         {copy['moderation.openingHoursAdditionalEntry'].replace('{number}', String(index + 1))}
       </legend>
-      <label>
-        {copy['moderation.openingHoursEntryKey']}
-        <input value={key} onblur={(event) => renameExtra(key, event.currentTarget.value)} />
-      </label>
-      <label>
-        {copy['moderation.openingHoursEntryValue']}
-        <input
+      <Field label={copy['moderation.openingHoursEntryKey']} class="mod-field">
+        <Input value={key} onblur={(event) => renameExtra(key, event.currentTarget.value)} />
+      </Field>
+      <Field label={copy['moderation.openingHoursEntryValue']} class="mod-field">
+        <Input
           value={textValue(key)}
           oninput={(event) => setValue(key, event.currentTarget.value)}
         />
-      </label>
-      <button type="button" class="quiet" onclick={() => removeExtra(key)}>
+      </Field>
+      <Button intent="neutral" class="remove-entry" onclick={() => removeExtra(key)}>
         {copy['moderation.removeOpeningHoursEntry']}
-      </button>
+      </Button>
     </fieldset>
   {/each}
 
-  <button type="button" class="quiet add-entry" onclick={addExtra}>
+  <Button intent="neutral" class="add-entry" onclick={addExtra}>
     {copy['moderation.addOpeningHoursEntry']}
-  </button>
+  </Button>
 </div>
 
 <style>
@@ -122,28 +119,18 @@
     gap: 0.55rem;
   }
 
-  label {
-    display: grid;
-    gap: 0.25rem;
+  /* Field's own label carries no weight/size utility (baseline-first); this file's labels were
+     always the reduced 0.78rem/750 treatment, so it is re-anchored here via an ancestor-scoped
+     :global() targeting Field's rendered label through the .mod-field hook, never a bare
+     :global(label) that would leak past this component. */
+  .opening-hours-editor :global(.mod-field label) {
     color: var(--hv-color-basalt-muted);
     font-size: 0.78rem;
     font-weight: 750;
   }
 
-  input {
-    width: 100%;
-    min-height: 2.5rem;
-    box-sizing: border-box;
-    padding: 0.5rem 0.6rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-    font: inherit;
-  }
-
-  .wide,
-  .extra-entry .quiet {
+  .hours-grid :global(.wide),
+  .extra-entry :global(.remove-entry) {
     grid-column: 1 / -1;
   }
 
@@ -160,20 +147,14 @@
     font-weight: 800;
   }
 
-  .quiet {
-    width: fit-content;
-    min-height: 2.35rem;
-    background: var(--hv-color-snow-raised);
-  }
-
   @media (max-width: 40rem) {
     .hours-grid,
     .extra-entry {
       grid-template-columns: 1fr;
     }
 
-    .wide,
-    .extra-entry .quiet {
+    .hours-grid :global(.wide),
+    .extra-entry :global(.remove-entry) {
       grid-column: auto;
     }
   }

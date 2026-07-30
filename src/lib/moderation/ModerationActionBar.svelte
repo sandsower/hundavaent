@@ -47,11 +47,8 @@
   .action-bar :global(.decision-options) {
     min-width: 0;
   }
-  .action-bar :global(button:focus-visible),
-  .action-bar :global(select:focus-visible),
-  .action-bar :global(textarea:focus-visible) {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
+  /* The button/select/textarea focus-visible block that used to live here is deleted: every
+     child this bar renders (CandidateDecisionControls, SuggestionDecisionControls,
+     CorrectionDecisionControls) is migrated onto the Button primitive, which owns its own
+     focus-visible ring. */
 </style>
