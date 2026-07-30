@@ -659,12 +659,16 @@
 
   /* Svelte scopes a bare universal selector the same as any other compound selector segment: an
      unqualified `.card-body > *` compiles to require ITS OWN hash class on the child too, which
-     Notice/Button/Disclosure-rendered root elements never carry (they carry their own component's
-     hash instead of this one), so the entry animation silently stopped reaching the notices, the
-     close button, and the disclosure once those migrated onto package primitives. `:global(*)`
-     drops that hash requirement - the same fix already applied to `.card-body > :global(.place-photos)`
-     below for the same reason - while still matching every plain local child exactly as before. */
-  .card-body > :global(*) {
+     the Notice- and Disclosure-rendered root elements never carry (they carry their own
+     component's hash instead of this one), so the entry animation silently stopped reaching the
+     notices and the disclosure once those migrated onto package primitives. The two package-
+     rendered roots are enumerated rather than swept up with a `> :global(*)` because that
+     wildcard would also newly animate the PlacePhotos and InlineRating roots, which never
+     matched the scoped `> *` on main either - restoring the baseline means restoring exactly
+     the set that animated before, nothing more. */
+  .card-body > *,
+  .card-body > :global(.details-status),
+  .card-body > :global([data-complete-details]) {
     animation: detail-content-enter var(--hv-motion-quick) var(--hv-ease-settle) both;
   }
 

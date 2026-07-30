@@ -36,7 +36,10 @@
   }: Props = $props();
 
   // The exact utility codification of .hv-disclosure's own rule (primitives.css:164-167): a
-  // single 1px top border in the subtle border colour, nothing else on the root.
+  // single 1px top border in the subtle border colour, nothing else on the root. Known
+  // asterisk: the source rule used the logical border-block-start; border-t is physical. They
+  // are identical for every writing mode this product ships - revisit if an RTL or vertical
+  // locale ever lands.
   const base = 'border-t border-border-subtle';
 
   // The exact utility codification of .hv-disclosure > summary (primitives.css:168-172) plus

@@ -96,4 +96,32 @@ describe('Disclosure', () => {
 
     expect(screen.getByText('Body content')).toBeTruthy();
   });
+
+  // Pins the codification itself (the reason this file loads app.css): the retired
+  // .hv-disclosure treatment - 1px top border, fjord weight-850 pointer summary - must survive
+  // as rendered style, not just as class strings. Token resolution goes through a probe element
+  // with a not-the-inherited-default guard so the pin cannot pass vacuously if tokens ever stop
+  // loading in this harness.
+  it('carries the codified .hv-disclosure treatment as rendered style', () => {
+    const { container } = render(Disclosure, {
+      props: { summary: label('Practical details'), children: label('Body content') }
+    });
+
+    const details = container.querySelector('details');
+    const summary = container.querySelector('summary');
+    if (!details || !summary) throw new Error('details/summary not found');
+
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--hv-color-fjord)';
+    document.body.append(probe);
+    const fjord = getComputedStyle(probe).color;
+    const inherited = getComputedStyle(document.body).color;
+    probe.remove();
+
+    expect(fjord).not.toBe(inherited);
+    expect(getComputedStyle(details).borderTopWidth).toBe('1px');
+    expect(getComputedStyle(summary).color).toBe(fjord);
+    expect(getComputedStyle(summary).fontWeight).toBe('850');
+    expect(getComputedStyle(summary).cursor).toBe('pointer');
+  });
 });

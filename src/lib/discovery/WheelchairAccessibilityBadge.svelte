@@ -170,7 +170,7 @@
   .persistent-detail {
     margin: 0;
     padding: 0.6rem 0.7rem;
-    border-inline-start: 0.3rem solid var(--hv-access-detail-accent, var(--hv-color-signal));
+    border-inline-start: 0.3rem solid var(--hv-access-detail-accent);
     border-radius: 0.4rem;
     background: var(--hv-color-snow-raised);
     font-size: 0.78rem;

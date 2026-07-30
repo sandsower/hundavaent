@@ -5,6 +5,11 @@ import { catalogues } from '$i18n';
 import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
 import { authRequestEventName } from '$lib/auth/controller';
 
+// app.css supplies tokens.css and the design-system utility layer. Without it the error-chip
+// assertion below would be vacuous: the probe's var(--hv-color-danger) and Status's text-danger
+// would BOTH collapse to the inherited default colour and compare equal for any tone.
+import '../../src/app.css';
+
 const { captureAnalytics } = vi.hoisted(() => ({ captureAnalytics: vi.fn() }));
 
 vi.mock('$lib/analytics/posthog', () => ({
@@ -353,7 +358,11 @@ describe('FavouriteControl', () => {
     probe.style.color = 'var(--hv-color-danger)';
     document.body.append(probe);
     const dangerColor = getComputedStyle(probe).color;
+    const defaultColor = getComputedStyle(document.body).color;
     probe.remove();
+    // Guard against the vacuous-pass failure mode: if tokens ever stop loading here, the probe
+    // and the chip would both collapse to the inherited default and compare equal for ANY tone.
+    expect(dangerColor).not.toBe(defaultColor);
     expect(getComputedStyle(screen.getByRole('alert')).color).toBe(dangerColor);
     expect(onChange).not.toHaveBeenCalled();
     expect(captureAnalytics).not.toHaveBeenCalled();

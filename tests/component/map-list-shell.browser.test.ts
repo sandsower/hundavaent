@@ -913,14 +913,17 @@ describe('MapListShell synchronization', () => {
     // The band gradient's colour stops are bare var(--hv-color-*) references (phase 5 removed
     // their literal fallbacks as drift risk), and this file deliberately loads no CSS - without
     // the tokens the whole background declaration is invalid at computed-value time and the
-    // gradient reads as 'none'. Supply the two tokens for this assertion only (their real
-    // tokens.css values, though any valid colour would satisfy it), the same per-test shim
-    // pattern the disclosure chevron tests in this file use.
-    document.documentElement.style.setProperty('--hv-color-moss-soft', '#d4f0f3');
-    document.documentElement.style.setProperty('--hv-color-fjord-soft', '#c8edf4');
+    // gradient reads as 'none'. Supply the two tokens for this assertion only, via the same
+    // onTestFinished-cleaned shim pattern the chevron-size shim uses. Deliberately arbitrary
+    // colours: this pins that the gradient declaration resolves, not any token value - a real
+    // value here would just be a shadow copy of tokens.css, the drift shape the sweep removed.
+    document.documentElement.style.setProperty('--hv-color-moss-soft', 'red');
+    document.documentElement.style.setProperty('--hv-color-fjord-soft', 'blue');
+    onTestFinished(() => {
+      document.documentElement.style.removeProperty('--hv-color-moss-soft');
+      document.documentElement.style.removeProperty('--hv-color-fjord-soft');
+    });
     expect(getComputedStyle(band!).backgroundImage).toContain('linear-gradient');
-    document.documentElement.style.removeProperty('--hv-color-moss-soft');
-    document.documentElement.style.removeProperty('--hv-color-fjord-soft');
     expect(within(card).getByText('Outdoor place · Café', { exact: true })).toBeTruthy();
   });
 
