@@ -19,12 +19,6 @@
   args={{ 'aria-label': 'Notes', value: 'Great little coffee spot near the harbour.' }}
 />
 
-<Story
-  name="Disabled"
-  args={{ 'aria-label': 'Unavailable', disabled: true, value: 'Read only' }}
-/>
+<Story name="Disabled" args={{ 'aria-label': 'Unavailable', disabled: true, value: 'Read only' }} />
 
-<Story
-  name="Invalid"
-  args={{ 'aria-label': 'Notes', 'aria-invalid': true, value: 'Too short' }}
-/>
+<Story name="Invalid" args={{ 'aria-label': 'Notes', 'aria-invalid': true, value: 'Too short' }} />

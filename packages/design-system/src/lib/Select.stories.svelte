@@ -37,10 +37,7 @@
   {/snippet}
 </Story>
 
-<Story
-  name="Disabled"
-  args={{ 'aria-label': 'Neighbourhood', disabled: true, value: 'downtown' }}
->
+<Story name="Disabled" args={{ 'aria-label': 'Neighbourhood', disabled: true, value: 'downtown' }}>
   {#snippet template(args)}
     {@const { children: _ignored, ...rest } = args}
     <Select {...rest}>

@@ -146,9 +146,7 @@ describe('Input', () => {
 
     const style = getComputedStyle(screen.getByRole('textbox', { name: 'Sized' }));
     expect(style.minHeight).toBe(resolvedProperty('min-height', 'var(--hv-control-height)'));
-    expect(style.borderRadius).toBe(
-      resolvedProperty('border-radius', 'var(--hv-radius-control)')
-    );
+    expect(style.borderRadius).toBe(resolvedProperty('border-radius', 'var(--hv-radius-control)'));
     expect(style.backgroundColor).toBe(
       resolvedProperty('background-color', 'var(--hv-color-snow-raised)')
     );
@@ -164,18 +162,15 @@ describe('Input', () => {
   it('passes disabled through to the native input', () => {
     render(Input, { disabled: true, 'aria-label': 'Unavailable' });
 
-    expect(
-      screen.getByRole('textbox', { name: 'Unavailable' }).hasAttribute('disabled')
-    ).toBe(true);
+    expect(screen.getByRole('textbox', { name: 'Unavailable' }).hasAttribute('disabled')).toBe(
+      true
+    );
   });
 
   it('merges a caller class alongside its generated classes, appended last', () => {
     render(Input, { class: 'call-site-hook', 'aria-label': 'Glued' });
 
-    const classes = screen
-      .getByRole('textbox', { name: 'Glued' })
-      .className.trim()
-      .split(/\s+/);
+    const classes = screen.getByRole('textbox', { name: 'Glued' }).className.trim().split(/\s+/);
     expect(classes).toContain('rounded-control');
     expect(classes.at(-1)).toBe('call-site-hook');
   });

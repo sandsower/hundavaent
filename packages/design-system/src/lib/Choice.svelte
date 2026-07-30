@@ -24,13 +24,7 @@
   // native input untouched.
   type Props = ChoiceOwnProps & Omit<HTMLInputAttributes, keyof ChoiceOwnProps>;
 
-  let {
-    type,
-    checked = $bindable(),
-    class: className = '',
-    children,
-    ...rest
-  }: Props = $props();
+  let { type, checked = $bindable(), class: className = '', children, ...rest }: Props = $props();
 
   // Manual checked wiring, not Svelte's bind:checked sugar: bind:checked only targets
   // type="checkbox" - a radio's two-way binding idiom is bind:group, which binds the group's
@@ -73,6 +67,6 @@
        kept as the baseline-first call for this primitive, the same "ship the native control"
        starting point every other primitive in this migration began from - a themed custom
        control is a deliberate future addition, not an oversight. -->
-  <input class="size-5" type={type} {...rest} {checked} onchange={handleChange} />
+  <input class="size-5" {type} {...rest} {checked} onchange={handleChange} />
   <span>{@render children()}</span>
 </label>

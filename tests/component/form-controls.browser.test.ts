@@ -114,10 +114,7 @@ describe('Textarea', () => {
   it('merges a caller class alongside its generated classes, appended last', () => {
     render(Textarea, { class: 'call-site-hook', 'aria-label': 'Glued' });
 
-    const classes = screen
-      .getByRole('textbox', { name: 'Glued' })
-      .className.trim()
-      .split(/\s+/);
+    const classes = screen.getByRole('textbox', { name: 'Glued' }).className.trim().split(/\s+/);
     expect(classes).toContain('rounded-control');
     expect(classes.at(-1)).toBe('call-site-hook');
   });
@@ -195,10 +192,7 @@ describe('Select', () => {
   it('merges a caller class alongside its generated classes, appended last', () => {
     render(Select, { class: 'call-site-hook', 'aria-label': 'Glued', children: fruitOptions() });
 
-    const classes = screen
-      .getByRole('combobox', { name: 'Glued' })
-      .className.trim()
-      .split(/\s+/);
+    const classes = screen.getByRole('combobox', { name: 'Glued' }).className.trim().split(/\s+/);
     expect(classes).toContain('rounded-control');
     expect(classes.at(-1)).toBe('call-site-hook');
   });

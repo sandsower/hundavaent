@@ -54,5 +54,4 @@
   bind:value
   id={resolvedId}
   aria-describedby={resolvedDescribedby}
-  aria-invalid={resolvedInvalid}
-></textarea>
+  aria-invalid={resolvedInvalid}></textarea>
