@@ -1,3 +1,4 @@
+import { Rating } from '@hundavaent/design-system';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -6,7 +7,6 @@ import { catalogues } from '$i18n';
 import CheckInControl from '$lib/check-ins/CheckInControl.svelte';
 import type { ProximityPlace } from '$lib/check-ins/proximity';
 import PlaceCard from '$lib/discovery/PlaceCard.svelte';
-import StarRating from '$lib/discovery/StarRating.svelte';
 
 const { captureAnalytics } = vi.hoisted(() => ({ captureAnalytics: vi.fn() }));
 
@@ -91,7 +91,7 @@ describe('PlaceCard motion', () => {
   });
 });
 
-describe('StarRating cascade', () => {
+describe('Rating cascade', () => {
   const scoreLabel = (score: number) => `${score} stars`;
   const base = { label: 'Overall', onSelect: vi.fn(), scoreLabel };
 
@@ -106,14 +106,14 @@ describe('StarRating cascade', () => {
   }
 
   it('leaves a score that arrived with the page unanimated', () => {
-    render(StarRating, { ...base, value: 4 });
+    render(Rating, { ...base, value: 4 });
 
     // Recognition belongs to the moment of choosing, exactly as it does for the Favourite heart.
     expect(popped()).toEqual([]);
   });
 
   it('pops every filled star and no empty one, cascading left to right', async () => {
-    const { rerender } = render(StarRating, { ...base, value: null });
+    const { rerender } = render(Rating, { ...base, value: null });
 
     await fireEvent.click(screen.getByRole('radio', { name: '3 stars' }));
     await rerender({ ...base, value: 3 });
@@ -131,7 +131,7 @@ describe('StarRating cascade', () => {
   });
 
   it('restarts the pop when the score changes again mid-cascade', async () => {
-    const { rerender } = render(StarRating, { ...base, value: null });
+    const { rerender } = render(Rating, { ...base, value: null });
 
     await fireEvent.click(screen.getByRole('radio', { name: '2 stars' }));
     await rerender({ ...base, value: 2 });

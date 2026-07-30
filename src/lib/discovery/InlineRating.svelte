@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
 
+  import { Rating } from '@hundavaent/design-system';
   import type { Catalogue, MessageKey } from '$i18n';
   import { requestAuthentication } from '$lib/auth/controller';
   import { applyWeeklyRhythmRecognition } from '$lib/member-activity/client';
@@ -13,8 +14,6 @@
     CurrentRating,
     DogFriendlinessSummary
   } from '$server/dog-friendliness/dog-friendliness';
-
-  import StarRating from './StarRating.svelte';
 
   type Category = 'welcome' | 'clarity' | 'comfort' | 'thoughtfulness';
   interface Snapshot {
@@ -276,7 +275,7 @@
     </p>
   {/if}
 
-  <StarRating
+  <Rating
     label={copy['rating.inline.overall']}
     value={overall}
     disabled={signedIn && !initialLoadReady}
@@ -295,7 +294,7 @@
       {#each categories as category (category)}
         <div class="category-row">
           <span>{copy[`rating.dimension.${category}.label` as MessageKey]}</span>
-          <StarRating
+          <Rating
             label={copy[`rating.dimension.${category}.label` as MessageKey]}
             value={values[category] ?? overall}
             inherited={values[category] === null}

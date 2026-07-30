@@ -1,12 +1,11 @@
+import { Rating } from '@hundavaent/design-system';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 
-import StarRating from '$lib/discovery/StarRating.svelte';
-
-describe('StarRating', () => {
+describe('Rating', () => {
   it('moves focus and selection through every score with arrow keys', async () => {
     const onSelect = vi.fn();
-    render(StarRating, {
+    render(Rating, {
       label: 'Heildareinkunn',
       value: 3,
       onSelect,
