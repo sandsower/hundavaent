@@ -6,6 +6,7 @@
     Button,
     Eyebrow,
     Meta,
+    Notice,
     PageHeader,
     PageShell,
     PageTitle,
@@ -37,19 +38,21 @@
   </PageHeader>
 
   {#if form?.conflict}
-    <p class="hv-notice" data-tone="attention" role="alert">
+    <!-- mt-0 mirrors the scoped `p { margin-top: 0 }` rule these notices lose by moving onto
+         Notice's own rendered root, which sits outside this file's scope hash. -->
+    <Notice as="p" tone="attention" role="alert" class="mt-0">
       Another publication happened while this page was open. Reload and review the current batch.
-    </p>
+    </Notice>
   {:else if form?.noChanges}
-    <p class="hv-notice" data-tone="info" role="status">There are no changes to publish.</p>
+    <Notice as="p" tone="info" role="status" class="mt-0">There are no changes to publish.</Notice>
   {:else if form?.invalidKeys}
-    <p class="hv-notice" data-tone="error" role="alert">
+    <Notice as="p" tone="error" role="alert" class="mt-0">
       Publishing was blocked because {form.invalidKeys.length} keys are incomplete or have invalid placeholders.
-    </p>
+    </Notice>
   {/if}
 
   {#if invalidEntries.length > 0}
-    <section class="hv-notice" data-tone="error" aria-labelledby="validation-title">
+    <Notice as="section" tone="error" aria-labelledby="validation-title">
       <h2 id="validation-title">Fix {invalidEntries.length} keys before publishing</h2>
       <ul>
         {#each invalidEntries.slice(0, 20) as entry (entry.key)}
@@ -61,7 +64,7 @@
           </li>
         {/each}
       </ul>
-    </section>
+    </Notice>
   {/if}
 
   <p class="summary"><strong>{changedEntries.length}</strong> keys have unpublished changes.</p>
@@ -85,7 +88,7 @@
         </div>
       </Panel>
     {:else}
-      <p class="hv-notice">No unpublished changes are waiting.</p>
+      <Notice as="p" class="mt-0">No unpublished changes are waiting.</Notice>
     {/each}
   </div>
 

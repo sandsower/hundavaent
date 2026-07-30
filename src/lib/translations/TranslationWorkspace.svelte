@@ -3,7 +3,15 @@
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
 
-  import { Button, Eyebrow, Input, PageShell, Panel, Select } from '@hundavaent/design-system';
+  import {
+    Button,
+    Eyebrow,
+    Input,
+    Notice,
+    PageShell,
+    Panel,
+    Select
+  } from '@hundavaent/design-system';
   import type {
     SavedTranslationDraft,
     TranslationWorkspace as WorkspaceData
@@ -180,7 +188,7 @@
         onSaved={handleSaved}
       />
     {:else}
-      <p class="empty hv-notice">No translations match these filters.</p>
+      <Notice as="p">No translations match these filters.</Notice>
     {/each}
   </div>
 

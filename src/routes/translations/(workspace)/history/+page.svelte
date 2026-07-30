@@ -6,6 +6,7 @@
     PageHeader,
     PageShell,
     PageTitle,
+    Notice,
     Panel,
     Status
   } from '@hundavaent/design-system';
@@ -32,19 +33,17 @@
   </PageHeader>
 
   {#if form?.conflict}
-    <p class="hv-notice" data-tone="attention" role="alert">
+    <Notice as="p" tone="attention" role="alert">
       A newer revision was published. Reload before restoring.
-    </p>
+    </Notice>
   {:else if form?.invalid}
-    <p class="hv-notice" data-tone="error" role="alert">
-      Confirm the revision before restoring it.
-    </p>
+    <Notice as="p" tone="error" role="alert">Confirm the revision before restoring it.</Notice>
   {/if}
 
   {#if data.workspace.pendingCount > 0}
-    <p class="hv-notice" data-tone="attention">
+    <Notice as="p" tone="attention">
       Publish or revise the {data.workspace.pendingCount} pending keys before restoring history.
-    </p>
+    </Notice>
   {/if}
 
   <ol class="revision-list">
@@ -81,7 +80,7 @@
         {/if}
       </Panel>
     {:else}
-      <li class="hv-notice">No published revisions yet.</li>
+      <Notice as="li">No published revisions yet.</Notice>
     {/each}
   </ol>
 </PageShell>
