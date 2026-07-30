@@ -15,6 +15,7 @@
   import RoundupRecommendationCard from '$lib/roundup/RoundupRecommendationCard.svelte';
   import RoundupTrailIcon from '$lib/roundup/RoundupTrailIcon.svelte';
   import type { RoundupPreferences } from '$lib/roundup/types';
+  import { Eyebrow, Panel, PageShell, PageTitle } from '@hundavaent/design-system';
 
   import type { PageProps } from './$types';
 
@@ -103,25 +104,25 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="roundup-shell hv-page-shell hv-stack" data-ui-mode="place" data-width="wide">
-  <header class="roundup-header hv-panel">
+<PageShell class="roundup-shell grid gap-context">
+  <Panel as="header" class="roundup-header">
     <div class="hero-icon"><RoundupTrailIcon kind="trail" size="large" /></div>
     <div class="hero-copy">
-      <p class="hv-eyebrow">{data.copy['roundup.eyebrow']}</p>
-      <h1 class="hv-page-title">{data.copy['roundup.title']}</h1>
+      <Eyebrow>{data.copy['roundup.eyebrow']}</Eyebrow>
+      <PageTitle>{data.copy['roundup.title']}</PageTitle>
       <p class="intro">{data.copy['roundup.intro']}</p>
       <p class="private-note">
         <RoundupTrailIcon kind="private" size="small" />
         <span>{data.copy['roundup.privateNote']}</span>
       </p>
     </div>
-  </header>
+  </Panel>
 
   <section
     class:quiet-state={data.roundup.status === 'empty' ||
       data.roundup.status === 'unconfigured' ||
       data.roundup.status === 'unavailable'}
-    class="roundup-state hv-stack"
+    class="roundup-state grid gap-context"
     aria-labelledby="roundup-state-heading"
   >
     {#if actionSaved}
@@ -131,9 +132,9 @@
     <header class="state-heading">
       <div>
         {#if data.roundup.status !== 'unavailable'}
-          <p class="week hv-eyebrow">
+          <Eyebrow>
             {weekLabel(data.roundup.week.startsOn, data.roundup.week.endsOn)}
-          </p>
+          </Eyebrow>
         {/if}
         <h2 id="roundup-state-heading">{stateTitle()}</h2>
         <p>{stateBody()}</p>
@@ -207,16 +208,23 @@
   <a class="account-link hv-control" href={resolve('/[lang=lang]/account', { lang: data.lang })}>
     {data.copy['account.navSignedIn']}
   </a>
-</main>
+</PageShell>
 
 <style>
-  .roundup-shell {
+  /* Re-anchored: .roundup-shell now sits on PageShell's class prop, and .roundup-header on the
+     hero Panel's - neither literal element exists in this template anymore. */
+  /* The width override must out-rank PageShell's own scoped .shell rule (two classes of
+     specificity); a bare :global(.roundup-shell) at one class silently loses and the page
+     grows to the 72rem wide container. main + the doubled class computes to 0-2-1 and wins
+     deterministically. The custom-property line needs no rank (nothing else sets it), but it
+     rides along rather than splitting the rule. */
+  :global(main.roundup-shell.roundup-shell) {
     --hv-space-context: 1.25rem;
     width: min(100%, 66rem);
     margin-inline: auto;
   }
 
-  .roundup-header {
+  :global(.roundup-header) {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     padding: clamp(1.25rem, 5vw, 2.5rem);
@@ -243,7 +251,9 @@
     margin-block: 0;
   }
 
-  .hero-copy h1 {
+  /* The title is now PageTitle - no literal h1 remains locally, so the descendant needs :global;
+     the ancestor stays scoped since .hero-copy is still a plain local div. */
+  .hero-copy > :global(h1) {
     margin-block-start: 0.2rem;
   }
 
@@ -356,7 +366,7 @@
   }
 
   @media (max-width: 42rem) {
-    .roundup-header {
+    :global(.roundup-header) {
       grid-template-columns: 1fr;
     }
 

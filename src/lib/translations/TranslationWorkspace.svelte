@@ -3,6 +3,7 @@
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
 
+  import { Eyebrow, PageShell, Panel } from '@hundavaent/design-system';
   import type {
     SavedTranslationDraft,
     TranslationWorkspace as WorkspaceData
@@ -95,14 +96,10 @@
   }
 </script>
 
-<section
-  class="workspace hv-page-shell"
-  data-ui-mode="operations"
-  aria-labelledby="translations-title"
->
+<PageShell as="section" mode="operations" class="workspace" aria-labelledby="translations-title">
   <header class="workspace-header">
     <div>
-      <p class="hv-eyebrow">Hundavænt workspace</p>
+      <Eyebrow class="my-[1em]">Hundavænt workspace</Eyebrow>
       <h1 id="translations-title">Translations</h1>
       <p>Update Icelandic and English as equal languages. Drafts stay private until publishing.</p>
     </div>
@@ -117,7 +114,7 @@
     </a>
   </header>
 
-  <div class="toolbar hv-panel" aria-label="Translation filters">
+  <Panel class="toolbar" aria-label="Translation filters">
     <label class="search-field">
       <span>Search</span>
       <input
@@ -168,7 +165,7 @@
     >
       {firstLocale === 'is' ? 'IS · EN' : 'EN · IS'}
     </button>
-  </div>
+  </Panel>
 
   <p class="result-summary" aria-live="polite">
     Showing {Math.min(visibleEntries.length, filteredEntries.length)} of {filteredEntries.length}
@@ -210,10 +207,16 @@
       {reviewLabel()}
     </a>
   </div>
-</section>
+</PageShell>
 
 <style>
-  .workspace {
+  /* .workspace now lives on PageShell's own <section> root, outside this file's scope hash. The
+     bare class is NOT unique repo-wide (ModerationWorkspace.svelte also has a `.workspace`
+     section), so this is qualified by tag and the aria-labelledby value that's unique to this
+     page. The hardcoded `1rem` stays literal (not a gap-panel/gap-context recipe utility)
+     because --hv-space-panel retunes to 0.75rem under operations mode, which this component
+     always renders in. */
+  :global(section.workspace[aria-labelledby='translations-title']) {
     display: grid;
     gap: 1rem;
   }
@@ -240,7 +243,9 @@
     color: var(--hv-color-basalt-muted);
   }
 
-  .toolbar {
+  /* .toolbar now lives on Panel's root <div>, outside this file's scope hash. Bare class is
+     unique repo-wide (grep-verified). */
+  :global(.toolbar) {
     position: sticky;
     z-index: 3;
     top: 0;
@@ -251,7 +256,7 @@
     align-items: end;
   }
 
-  .toolbar label {
+  :global(.toolbar) label {
     display: grid;
     min-width: 0;
     gap: 0.25rem;
@@ -301,13 +306,13 @@
   }
 
   @media (max-width: 58rem) {
-    .toolbar {
+    :global(.toolbar) {
       grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.6fr);
     }
   }
 
   @media (max-width: 42rem) {
-    .workspace {
+    :global(section.workspace[aria-labelledby='translations-title']) {
       padding-bottom: 5.5rem;
     }
 
@@ -319,7 +324,7 @@
       display: none;
     }
 
-    .toolbar {
+    :global(.toolbar) {
       position: static;
       grid-template-columns: 1fr;
     }

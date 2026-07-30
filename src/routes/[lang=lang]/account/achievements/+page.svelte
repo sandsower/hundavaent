@@ -2,6 +2,14 @@
   import { enhance } from '$app/forms';
   import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
+  import {
+    Eyebrow,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle,
+    Panel
+  } from '@hundavaent/design-system';
   import type { SubmitFunction } from '@sveltejs/kit';
 
   import { formatLocalizedDate } from '$i18n/date';
@@ -115,15 +123,15 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="achievements-shell hv-page-shell hv-stack" data-ui-mode="place" data-width="narrow">
-  <header class="hv-page-header">
-    <p class="hv-eyebrow">{data.copy['site.name']}</p>
-    <h1 class="hv-page-title">{data.copy['achievements.title']}</h1>
+<PageShell width="narrow" class="achievements-shell grid gap-context">
+  <PageHeader>
+    <Eyebrow>{data.copy['site.name']}</Eyebrow>
+    <PageTitle>{data.copy['achievements.title']}</PageTitle>
 
     {#if data.achievements.enabled}
-      <p class="intro hv-meta">{data.copy['achievements.intro']}</p>
+      <Meta class="achievements-intro">{data.copy['achievements.intro']}</Meta>
     {/if}
-  </header>
+  </PageHeader>
 
   {#if data.achievements.enabled}
     <form
@@ -136,7 +144,7 @@
     ></form>
 
     {#if claimed.length > 0 || continuations.length > 0}
-      <section class="celebrations hv-stack" aria-live="polite">
+      <section class="celebrations grid gap-context" aria-live="polite">
         {#each claimed as achievement (achievement.key)}
           <AchievementCelebration {achievement} lang={data.lang} copy={data.copy} />
         {/each}
@@ -154,16 +162,16 @@
     />
 
     {#if groups.length > 0}
-      <section class="archive hv-stack" aria-labelledby="achievement-archive-heading">
+      <section class="archive grid gap-context" aria-labelledby="achievement-archive-heading">
         <h2 id="achievement-archive-heading">{data.copy['achievements.archiveTitle']}</h2>
         {#each groups as { group, items } (group)}
-          <section class="group hv-stack" aria-labelledby={`group-${group}`}>
-            <h3 class="group-heading hv-eyebrow" id={`group-${group}`}>
+          <section class="group grid gap-context" aria-labelledby={`group-${group}`}>
+            <Eyebrow as="h3" class="group-heading" id={`group-${group}`}>
               {data.copy[groupKey(group)]}
-            </h3>
-            <ul class="catalogue hv-list">
+            </Eyebrow>
+            <ul class="catalogue grid gap-context m-0 p-0 list-none">
               {#each items as achievement (achievement.key)}
-                <li class="achievement hv-panel hv-list-card">
+                <Panel as="li" padded class="achievement">
                   <span class="earned-badge">
                     <AchievementBadge
                       achievementKey={achievement.key}
@@ -194,7 +202,7 @@
                       copy={data.copy}
                     />
                   </div>
-                </li>
+                </Panel>
               {/each}
             </ul>
           </section>
@@ -210,10 +218,10 @@
   <a class="back-link hv-control" href={resolve('/[lang=lang]/account', { lang: data.lang })}>
     {data.copy['account.navSignedIn']}
   </a>
-</main>
+</PageShell>
 
 <style>
-  .intro {
+  :global(.achievements-intro) {
     max-width: 46ch;
   }
 
@@ -236,11 +244,7 @@
     --hv-space-context: 0.75rem;
   }
 
-  .group-heading {
-    margin: 0;
-  }
-
-  .achievement {
+  :global(.achievement) {
     display: grid;
     grid-template-columns: 3.4rem minmax(0, 1fr);
     gap: 0.85rem;
@@ -255,7 +259,7 @@
     transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
   }
 
-  .achievement:hover .earned-badge {
+  :global(.achievement):hover .earned-badge {
     transform: translateY(-0.2rem) rotate(-4deg);
   }
 

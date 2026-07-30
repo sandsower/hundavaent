@@ -1,7 +1,19 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { resolve } from '$app/paths';
-  import { Button, Field, Input, Select, Textarea } from '@hundavaent/design-system';
+  import {
+    Button,
+    Eyebrow,
+    Field,
+    Input,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle,
+    Panel,
+    Select,
+    Textarea
+  } from '@hundavaent/design-system';
   import { formatLocalizedDate } from '$i18n/date';
   import {
     localizeAccessArea,
@@ -44,26 +56,31 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="trusted-shell hv-page-shell" data-ui-mode="place" data-width="wide">
-  <header class="hv-page-header trusted-header">
+<PageShell class="trusted-shell">
+  <PageHeader class="trusted-header mb-section">
     <div class="header-icon" aria-hidden="true">
       <ImpactPillarIcon kind="recognition" size="large" />
     </div>
-    <div class="hv-page-heading">
-      <p class="hv-eyebrow">{data.copy['trustedVerification.eyebrow']}</p>
-      <h1 class="hv-page-title">{data.copy['trustedVerification.title']}</h1>
-      <p class="hv-meta">{data.copy['trustedVerification.intro']}</p>
+    <!-- The one header that keeps a heading-group wrapper: .trusted-header lays its three bands
+         out as columns (icon | heading | actions, see the grid-template-columns rule below), so
+         the eyebrow/title/intro must stay one grid item. gap-panel inside reproduces the old
+         hv-page-heading rhythm. -->
+    <div class="grid gap-panel">
+      <Eyebrow>{data.copy['trustedVerification.eyebrow']}</Eyebrow>
+      <PageTitle>{data.copy['trustedVerification.title']}</PageTitle>
+      <Meta>{data.copy['trustedVerification.intro']}</Meta>
     </div>
-    <div class="hv-page-actions">
+    <div class="flex flex-wrap items-center gap-actions">
       <Button href={resolve('/[lang=lang]/account', { lang: data.lang })}>
         {data.copy['trustedVerification.backToAccount']}
       </Button>
     </div>
-  </header>
+  </PageHeader>
 
   {#if formState?.success}
-    <section
-      class="submission-celebration hv-panel hv-stack"
+    <Panel
+      as="section"
+      class="submission-celebration grid gap-context"
       aria-live="polite"
       data-testid="trusted-submission-success"
     >
@@ -77,7 +94,7 @@
           <p class="weekly-note">{data.copy['trustedVerification.weeklyActivated']}</p>
         {/if}
       </div>
-    </section>
+    </Panel>
   {:else if formState?.error}
     <p class="hv-notice" data-tone="error" role="alert">
       {formState.error === 'forbidden'
@@ -99,23 +116,23 @@
   {/if}
 
   {#if canVerify}
-    <section class="task-section hv-stack" aria-labelledby="task-heading">
+    <section class="task-section grid gap-context" aria-labelledby="task-heading">
       <div>
-        <p class="hv-eyebrow">{data.copy['trustedVerification.taskEyebrow']}</p>
+        <Eyebrow>{data.copy['trustedVerification.taskEyebrow']}</Eyebrow>
         <h2 id="task-heading">{data.copy['trustedVerification.taskHeading']}</h2>
-        <p class="hv-meta">{data.copy['trustedVerification.taskIntro']}</p>
+        <Meta>{data.copy['trustedVerification.taskIntro']}</Meta>
       </div>
 
       {#if data.tasks.length === 0}
-        <section class="empty-state hv-panel hv-stack">
+        <Panel as="section" class="empty-state grid gap-context">
           <span aria-hidden="true">✓</span>
           <h3>{data.copy['trustedVerification.emptyTitle']}</h3>
           <p>{data.copy['trustedVerification.emptyBody']}</p>
-        </section>
+        </Panel>
       {:else}
         <div class="task-grid">
           {#each data.tasks as task (task.taskId)}
-            <article class="task-card hv-panel hv-stack" data-task-kind={task.taskKind}>
+            <Panel as="article" class="task-card grid gap-context" data-task-kind={task.taskKind}>
               <header>
                 <div class="task-icon" aria-hidden="true">
                   <ImpactPillarIcon
@@ -177,7 +194,7 @@
                     </div>
                   {/if}
                 </dl>
-                <p class="hv-meta">{data.copy['trustedVerification.accessHint']}</p>
+                <Meta class="my-[1em]">{data.copy['trustedVerification.accessHint']}</Meta>
               {:else}
                 <p>{data.copy['trustedVerification.amenitiesHint']}</p>
               {/if}
@@ -187,7 +204,7 @@
                   {data.copy['trustedVerification.openTask']}
                 </summary>
                 <form
-                  class="verification-form hv-stack"
+                  class="verification-form grid gap-context"
                   method="POST"
                   use:enhance={() => enhanceTask(task.taskId)}
                   aria-busy={submittingTaskId === task.taskId}
@@ -213,16 +230,17 @@
                     </p>
                   {/if}
 
-                  <!-- Not migrated to FormSection on purpose: this fieldset carries only
-                       .hv-form-section (no .hv-panel), a grid+gap layout with no border, padding,
-                       background, or shadow. FormSection always renders the full panel look
-                       (primitives.css's .hv-form-section.hv-panel pair), so wrapping this one
-                       would add a border/shadow/background that is not part of today's baseline -
-                       a real visual regression, not one of the two approved deltas. Left as the
-                       native fieldset+legend pair; only its controls move to Field/Select/Input. -->
-                  <fieldset class="hv-form-section">
+                  <!-- Not migrated to FormSection on purpose: this fieldset carries only the
+                       bare grid gap-panel min-w-0 recipe (no Panel treatment), a grid+gap layout
+                       with no border, padding, background, or shadow. FormSection always renders
+                       the full panel look (Panel's border/background/shadow set), so wrapping
+                       this one would add a border/shadow/background that is not part of today's
+                       baseline - a real visual regression, not one of the two approved deltas.
+                       Left as the native fieldset+legend pair; only its controls move to
+                       Field/Select/Input. -->
+                  <fieldset class="grid gap-panel min-w-0">
                     <legend>{data.copy['evidenceField.section']}</legend>
-                    <div class="hv-grid" data-columns="2">
+                    <div class="grid grid-cols-2 gap-context max-narrow:grid-cols-1">
                       <Field label={data.copy['evidenceField.kind']}>
                         <Select name="evidenceKind" required>
                           <option value="direct_observation">
@@ -243,7 +261,7 @@
                         <Input name="evidenceSourceLabel" required />
                       </Field>
                     </div>
-                    <div class="hv-grid" data-columns="2">
+                    <div class="grid grid-cols-2 gap-context max-narrow:grid-cols-1">
                       <Field label={data.copy['evidenceField.url']}>
                         <Input name="evidenceUrl" type="url" />
                       </Field>
@@ -270,26 +288,26 @@
                   </Button>
                 </form>
               </details>
-            </article>
+            </Panel>
           {/each}
         </div>
       {/if}
     </section>
   {/if}
 
-  <section class="history-section hv-stack" aria-labelledby="history-heading">
+  <section class="history-section grid gap-context" aria-labelledby="history-heading">
     <div>
-      <p class="hv-eyebrow">{data.copy['trustedVerification.historyEyebrow']}</p>
+      <Eyebrow>{data.copy['trustedVerification.historyEyebrow']}</Eyebrow>
       <h2 id="history-heading">{data.copy['trustedVerification.historyHeading']}</h2>
-      <p class="hv-meta">{data.copy['trustedVerification.historyIntro']}</p>
+      <Meta>{data.copy['trustedVerification.historyIntro']}</Meta>
     </div>
 
     {#if data.history.length === 0}
-      <p class="hv-panel empty-history">{data.copy['trustedVerification.historyEmpty']}</p>
+      <Panel as="p" class="empty-history">{data.copy['trustedVerification.historyEmpty']}</Panel>
     {:else}
       <ul class="history-list">
         {#each data.history as item (item.submissionId)}
-          <li class="history-item hv-panel" data-outcome={item.outcome}>
+          <Panel as="li" class="history-item" data-outcome={item.outcome}>
             <span class="outcome-icon" aria-hidden="true">
               {item.outcome === 'accepted'
                 ? '✓'
@@ -304,13 +322,13 @@
                 <h3>{item.placeName}</h3>
                 <span class="outcome-label">{outcomeLabel(item.outcome)}</span>
               </div>
-              <p class="hv-meta">
+              <Meta>
                 {item.taskKind === 'access_freshness'
                   ? data.copy['trustedVerification.kind.accessFreshness']
                   : data.copy['trustedVerification.kind.dogAmenities']}
                 ·
                 {formatLocalizedDate(item.submittedAt, data.lang)}
-              </p>
+              </Meta>
               {#if item.memberReason}<p>{item.memberReason}</p>{/if}
               {#if item.outcome === 'accepted'}
                 <a
@@ -324,20 +342,23 @@
                 </a>
               {/if}
             </div>
-          </li>
+          </Panel>
         {/each}
       </ul>
     {/if}
   </section>
-</main>
+</PageShell>
 
 <style>
-  .trusted-shell {
+  /* trusted-shell and trusted-header now sit on PageShell/PageHeader's own rendered elements,
+     outside this file's scope hash - re-anchored :global() (both classes are unique to this
+     page, verified by repo grep). */
+  :global(.trusted-shell) {
     --trusted-tone: var(--hv-color-moss);
     gap: clamp(2rem, 5vw, 4rem);
   }
 
-  .trusted-header {
+  :global(.trusted-header) {
     align-items: center;
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
@@ -347,7 +368,9 @@
     --impact-tone: var(--trusted-tone);
   }
 
-  .submission-celebration {
+  /* submission-celebration now sits on Panel's rendered <section> - re-anchored :global()
+     (unique to this page, verified by repo grep). */
+  :global(.submission-celebration) {
     --impact-tone: var(--hv-color-moss);
     position: relative;
     grid-template-columns: auto minmax(0, 1fr);
@@ -379,19 +402,25 @@
     gap: 1rem;
   }
 
-  .task-card {
+  /* task-card and history-item now sit on Panel's rendered <article>/<li> - re-anchored
+     :global() (both unique to this page, verified by repo grep). header, h3 stay locally
+     authored children passed into Panel, so they keep their normal scope hash for descendant
+     selectors; the child combinator below is wrapped whole because Svelte's unused-selector
+     checker cannot prove a `>` relationship across the Panel component boundary (it treats the
+     rendered host element as opaque), even though the real DOM child relationship holds. */
+  :global(.task-card) {
     align-content: start;
   }
 
-  .task-card > header {
+  :global(.task-card > header) {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     gap: 0.8rem;
     align-items: center;
   }
 
-  .task-card h3,
-  .history-item h3 {
+  :global(.task-card) h3,
+  :global(.history-item) h3 {
     margin: 0;
   }
 
@@ -458,12 +487,17 @@
     font-weight: 900;
   }
 
-  .empty-state {
+  /* empty-state now sits on Panel's rendered <section>, but "empty-state" is NOT unique to
+     this page (also used by MapListShell, CheckInHistoryList, PersonalMapView, favorites) - a
+     bare :global(.empty-state) would leak this page's styling onto those. Anchored on the
+     locally-scoped .task-section ancestor (still a plain native element, unmoved) instead, so
+     the compound selector can only match inside this page. */
+  .task-section :global(.empty-state) {
     place-items: center;
     text-align: center;
   }
 
-  .empty-state > span {
+  .task-section :global(.empty-state > span) {
     display: grid;
     width: 3rem;
     height: 3rem;
@@ -483,7 +517,9 @@
     list-style: none;
   }
 
-  .history-item {
+  /* history-item now sits on Panel's rendered <li> - re-anchored :global() (unique to this
+     page, verified by repo grep). */
+  :global(.history-item) {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     gap: 0.85rem;
@@ -501,9 +537,9 @@
     font-weight: 900;
   }
 
-  .history-item[data-outcome='rejected'] .outcome-icon,
-  .history-item[data-outcome='revoked'] .outcome-icon,
-  .history-item[data-outcome='unavailable'] .outcome-icon {
+  :global(.history-item[data-outcome='rejected']) .outcome-icon,
+  :global(.history-item[data-outcome='revoked']) .outcome-icon,
+  :global(.history-item[data-outcome='unavailable']) .outcome-icon {
     background: color-mix(in srgb, var(--hv-color-basalt-muted) 12%, white);
     color: var(--hv-color-basalt-muted);
   }
@@ -530,7 +566,9 @@
     font-weight: 700;
   }
 
-  .empty-history {
+  /* empty-history now sits on Panel's rendered <p> - re-anchored :global() (unique to this
+     page, verified by repo grep). */
+  :global(.empty-history) {
     color: var(--hv-color-basalt-muted);
   }
 
@@ -553,12 +591,12 @@
   }
 
   @media (max-width: 760px) {
-    .trusted-header,
+    :global(.trusted-header),
     .task-grid {
       grid-template-columns: 1fr;
     }
 
-    .trusted-header .header-icon {
+    :global(.trusted-header) .header-icon {
       display: none;
     }
   }

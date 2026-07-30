@@ -50,6 +50,10 @@
        header, the discovery rail, and the map controls all align to it. */
     --hv-space-edge: clamp(0.75rem, 2vw, 1.5rem);
     --hv-space-section: clamp(1.5rem, 4vw, 3rem);
+    /* The gap inside an action cluster - a page header's button band, a card's action row, the
+       history tabs. Sits between nothing (buttons touching) and the panel rhythm; was a private
+       0.65rem restated at every cluster before it earned a name. */
+    --hv-space-actions: 0.65rem;
     --hv-control-height: 2.75rem;
     --hv-content-narrow: 42rem;
     --hv-content-wide: 72rem;

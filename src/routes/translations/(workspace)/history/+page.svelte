@@ -1,4 +1,12 @@
 <script lang="ts">
+  import {
+    Eyebrow,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle,
+    Panel
+  } from '@hundavaent/design-system';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
@@ -14,14 +22,12 @@
   <title>Translation history | Hundavænt</title>
 </svelte:head>
 
-<main class="history hv-page-shell" data-ui-mode="operations" aria-labelledby="history-title">
-  <header class="hv-page-header">
-    <p class="hv-eyebrow">Published revisions</p>
-    <h1 id="history-title" class="hv-page-title">Translation history</h1>
-    <p class="hv-meta">
-      Restore creates a new published revision. Existing history is never deleted.
-    </p>
-  </header>
+<PageShell mode="operations" class="history" aria-labelledby="history-title">
+  <PageHeader class="mb-section">
+    <Eyebrow>Published revisions</Eyebrow>
+    <PageTitle id="history-title">Translation history</PageTitle>
+    <Meta>Restore creates a new published revision. Existing history is never deleted.</Meta>
+  </PageHeader>
 
   {#if form?.conflict}
     <p class="hv-notice" data-tone="attention" role="alert">
@@ -41,17 +47,17 @@
 
   <ol class="revision-list">
     {#each data.workspace.revisions as revision (revision.revisionNumber)}
-      <li class="revision hv-panel">
+      <Panel as="li" class="revision">
         <div>
           <p class="revision-number">Revision {revision.revisionNumber}</p>
           <h2>{kindLabel(revision.kind)}</h2>
-          <p class="hv-meta">
+          <Meta>
             {revision.changeCount} changed keys · {new Date(revision.publishedAt).toLocaleString(
               'en-GB'
             )}
-          </p>
+          </Meta>
           {#if revision.restoredFromRevisionNumber}
-            <p class="hv-meta">Restored from revision {revision.restoredFromRevisionNumber}</p>
+            <Meta>Restored from revision {revision.restoredFromRevisionNumber}</Meta>
           {/if}
         </div>
         {#if data.workspace.currentRevision === revision.revisionNumber}
@@ -71,15 +77,21 @@
             >
           </form>
         {/if}
-      </li>
+      </Panel>
     {:else}
       <li class="hv-notice">No published revisions yet.</li>
     {/each}
   </ol>
-</main>
+</PageShell>
 
 <style>
-  .history {
+  /* .history now lives on PageShell's own <main> root, outside this file's scope hash. The
+     hardcoded `1rem` is left as a literal (not swapped for a gap-panel/gap-context recipe
+     utility) because --hv-space-panel retunes to 0.75rem under operations mode - resolving
+     through the token here would silently shrink this gap under exactly the mode this page
+     always renders in. Tag-qualified for defense in depth even though the bare class is
+     currently unique. */
+  :global(main.history) {
     display: grid;
     gap: 1rem;
   }
@@ -92,7 +104,9 @@
     list-style: none;
   }
 
-  .revision {
+  /* .revision now lives on Panel's root <li>, outside this file's scope hash. Bare class is
+     unique repo-wide (grep-verified). */
+  :global(.revision) {
     display: flex;
     padding: 1rem;
     gap: 1rem;
@@ -100,8 +114,11 @@
     justify-content: space-between;
   }
 
-  .revision p,
-  .revision h2 {
+  /* p/h2 stay bare (not :global) - they're still literal elements in this file's template (the
+     Meta-rendered paragraphs are components now and carry no such hash, so they're correctly
+     excluded here; Meta's own m-0 already zeroes their margin). */
+  :global(.revision) p,
+  :global(.revision) h2 {
     margin: 0;
   }
 
@@ -123,7 +140,7 @@
   }
 
   @media (max-width: 42rem) {
-    .revision,
+    :global(.revision),
     form {
       align-items: stretch;
       flex-direction: column;

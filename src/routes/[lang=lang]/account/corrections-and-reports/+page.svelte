@@ -5,6 +5,14 @@
   import { localizeFlagTarget } from '$i18n/structured-place';
   import { applyWeeklyRhythmRecognition } from '$lib/member-activity/client';
   import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
+  import {
+    Eyebrow,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle,
+    Panel
+  } from '@hundavaent/design-system';
 
   import type { PageProps } from './$types';
 
@@ -68,21 +76,19 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="hv-page-shell" data-width="narrow" data-ui-mode="place" aria-labelledby="flags-title">
-  <header class="hv-page-header">
-    <div class="hv-stack">
-      <p class="hv-eyebrow">{data.copy['site.name']}</p>
-      <h1 id="flags-title" class="hv-page-title">{data.copy['flag.myTitle']}</h1>
-      <p class="hv-meta">{data.copy['flag.myIntro']}</p>
-    </div>
-    <div class="hv-page-actions">
+<PageShell width="narrow" aria-labelledby="flags-title">
+  <PageHeader class="mb-section">
+    <Eyebrow>{data.copy['site.name']}</Eyebrow>
+    <PageTitle id="flags-title">{data.copy['flag.myTitle']}</PageTitle>
+    <Meta>{data.copy['flag.myIntro']}</Meta>
+    <div class="flex flex-wrap items-center gap-actions">
       <a
         class="hv-control"
         data-intent="primary"
         href={resolve('/[lang=lang]', { lang: data.lang })}>{data.copy['flag.newCorrection']}</a
       >
     </div>
-  </header>
+  </PageHeader>
 
   {#if data.recognition?.recognized}
     <WeeklyRhythmAcknowledgement recognition={data.recognition} copy={data.copy} />
@@ -95,14 +101,15 @@
   {#if data.flags.length === 0}
     <p class="hv-notice" data-tone="info">{data.copy['flag.empty']}</p>
   {:else}
-    <ul class="hv-list outcome-list">
+    <ul class="outcome-list grid gap-context m-0 p-0 list-none">
       {#each data.flags as item (item.flagId)}
-        <li
-          class="outcome-card hv-list-card hv-panel"
-          class:highlighted={data.submitted === item.flagId}
+        <Panel
+          as="li"
+          padded
+          class={`outcome-card${data.submitted === item.flagId ? ' highlighted' : ''}`}
         >
-          <div class="hv-stack">
-            <p class="hv-eyebrow">{data.copy[kindKey(item.kind)]} · {target(item)}</p>
+          <div class="grid gap-context">
+            <Eyebrow class="kind-line">{data.copy[kindKey(item.kind)]} · {target(item)}</Eyebrow>
             <h2>{name(item)}</h2>
           </div>
           <strong class="hv-status" data-status={statusTone(item.outcome)}>
@@ -111,7 +118,7 @@
           {#if data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}
             <p class="reason">{data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}</p>
           {/if}
-        </li>
+        </Panel>
       {/each}
     </ul>
   {/if}
@@ -133,25 +140,25 @@
       >{data.copy['flag.previousPage']}</a
     >
   {/if}
-</main>
+</PageShell>
 
 <style>
   .outcome-list {
     margin-block: calc(var(--hv-space-context) * 1.5);
   }
 
-  .outcome-card {
+  .outcome-list :global(.outcome-card) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.75rem var(--hv-space-panel);
   }
 
-  .outcome-card.highlighted {
+  .outcome-list :global(.outcome-card.highlighted) {
     border-color: var(--hv-color-fjord);
     box-shadow: 0 0 0 2px var(--hv-color-fjord-soft);
   }
 
-  .outcome-card .hv-eyebrow {
+  .outcome-list :global(.outcome-card .kind-line) {
     margin: 0;
   }
 
@@ -167,7 +174,7 @@
     color: var(--hv-color-basalt-muted);
   }
 
-  .outcome-card > .hv-status {
+  .outcome-list :global(.outcome-card > .hv-status) {
     align-self: start;
     justify-self: end;
   }
@@ -179,11 +186,11 @@
   }
 
   @media (max-width: 38rem) {
-    .outcome-card {
+    .outcome-list :global(.outcome-card) {
       grid-template-columns: 1fr;
     }
 
-    .outcome-card > .hv-status {
+    .outcome-list :global(.outcome-card > .hv-status) {
       justify-self: start;
     }
   }

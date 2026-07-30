@@ -4,7 +4,18 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { untrack } from 'svelte';
 
-  import { Button, Choice, Field, FormSection, Input } from '@hundavaent/design-system';
+  import {
+    Button,
+    Choice,
+    Eyebrow,
+    Field,
+    FormSection,
+    Input,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle
+  } from '@hundavaent/design-system';
   import SuggestionLocationPicker from '$lib/map/SuggestionLocationPicker.svelte';
   import { createMapLibreAdapter, emptyMapLibreStyle } from '$lib/map/maplibre-adapter';
   import type { MapAdapter } from '$lib/map/types';
@@ -89,19 +100,17 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="hv-page-shell" data-ui-mode="place" data-width="wide">
-  <header class="hv-page-header">
-    <div class="hv-page-heading">
-      <p class="hv-eyebrow">{data.copy['suggestion.nav']}</p>
-      <h1 class="hv-page-title">{data.copy['suggestion.title']}</h1>
-      <p class="hv-meta">{data.copy['suggestion.intro']}</p>
-    </div>
-    <div class="hv-page-actions">
+<PageShell>
+  <PageHeader class="mb-section">
+    <Eyebrow>{data.copy['suggestion.nav']}</Eyebrow>
+    <PageTitle>{data.copy['suggestion.title']}</PageTitle>
+    <Meta>{data.copy['suggestion.intro']}</Meta>
+    <div class="flex flex-wrap items-center gap-actions">
       <Button href={resolve('/[lang=lang]/account/suggestions', { lang: data.lang })}>
         {data.copy['suggestion.myTitle']}
       </Button>
     </div>
-  </header>
+  </PageHeader>
 
   {#if data.unavailable}
     <p class="hv-notice" data-tone="error" role="alert">{data.copy['error.unexpectedBody']}</p>
@@ -125,9 +134,9 @@
       <p class="hv-notice" data-tone="error" role="alert">{errorMessage}</p>
     {/if}
 
-    <form class="hv-stack" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
+    <form class="grid gap-context" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
       <input type="hidden" name="commandId" value={data.commandId} />
-      <fieldset class="answer-boundary hv-stack" disabled={submissionUnavailable}>
+      <fieldset class="answer-boundary grid gap-context" disabled={submissionUnavailable}>
         <input type="hidden" name="purpose" value="dog_access_destination" />
         <input type="hidden" name="submissionProfile" value="minimal-v1" />
 
@@ -137,14 +146,16 @@
           </Field>
         </FormSection>
 
-        <!-- Not migrated to FormSection on purpose: the enhance guard focuses this fieldset
-             directly (locationRegion?.focus(), below) when the pin question is blocked, and that
-             needs a real DOM node. bind:this on a component binds the component instance (its
-             exports), not the element it renders - FormSection exposes no such ref today - so
-             wrapping this one would silently break the "focus the blocked question" behavior
-             rather than merely change its look. Left as the native fieldset+legend pair. -->
+        <!-- Not migrated to FormSection - or to Panel - on purpose: the enhance guard focuses
+             this fieldset directly (locationRegion?.focus(), below) when the pin question is
+             blocked, and that needs a real DOM node. bind:this on a component binds the component
+             instance (its exports), not the element it renders - neither FormSection nor Panel
+             exposes such a ref today - so wrapping this one would silently break the "focus the
+             blocked question" behavior rather than merely change its look. Left as the native
+             fieldset+legend pair, carrying Panel's exact utility recipe (border/rounded-panel/
+             bg-snow-raised/shadow-raised/p-panel) directly instead of the component. -->
         <fieldset
-          class="hv-form-section hv-panel"
+          class="border border-border-subtle rounded-panel bg-snow-raised shadow-raised p-panel grid gap-panel min-w-0"
           role="region"
           aria-label={data.copy['suggestion.locationRegion']}
           aria-describedby={pinMissing ? pinRequiredMessageId : undefined}
@@ -177,7 +188,7 @@
       </fieldset>
     </form>
   {/if}
-</main>
+</PageShell>
 
 <style>
   .answer-boundary {

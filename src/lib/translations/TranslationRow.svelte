@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
 
+  import { Panel } from '@hundavaent/design-system';
   import type {
     SavedTranslationDraft,
     TranslationWorkspaceEntry
@@ -249,7 +250,7 @@
   }
 </script>
 
-<article class="translation-card hv-panel" aria-labelledby={`translation-${entry.key}`}>
+<Panel as="article" class="translation-card" aria-labelledby={`translation-${entry.key}`}>
   <header>
     <div>
       <span class="namespace">{entry.namespace}</span>
@@ -327,10 +328,12 @@
       {/each}
     </ul>
   {/if}
-</article>
+</Panel>
 
 <style>
-  .translation-card {
+  /* .translation-card now lives on Panel's root <article>, outside this file's scope hash. Bare
+     class is unique repo-wide (grep-verified). */
+  :global(.translation-card) {
     display: grid;
     gap: 0.9rem;
     padding: 1rem;

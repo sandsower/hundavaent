@@ -8,6 +8,7 @@
   import { createFailingMapAdapter } from '$lib/map/failing-adapter';
   import { createMapLibreAdapter, emptyMapLibreStyle } from '$lib/map/maplibre-adapter';
   import type { MapAdapter } from '$lib/map/types';
+  import { Eyebrow, Meta, PageHeader, PageShell, PageTitle } from '@hundavaent/design-system';
 
   import type { PageProps } from './$types';
 
@@ -35,16 +36,17 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="hv-page-shell" data-width="wide" data-ui-mode="place" aria-labelledby="history-title">
-  <header class="hv-page-header">
-    <div class="hv-stack">
-      <p class="hv-eyebrow">{data.copy['site.name']}</p>
-      <h1 id="history-title" class="hv-page-title">{data.copy['history.title']}</h1>
-      <p class="hv-meta">{data.copy['history.intro']}</p>
-    </div>
-  </header>
+<PageShell aria-labelledby="history-title">
+  <PageHeader class="mb-section">
+    <Eyebrow>{data.copy['site.name']}</Eyebrow>
+    <PageTitle id="history-title">{data.copy['history.title']}</PageTitle>
+    <Meta>{data.copy['history.intro']}</Meta>
+  </PageHeader>
 
-  <nav class="history-tabs hv-page-actions" aria-label={data.copy['history.title']}>
+  <nav
+    class="history-tabs flex flex-wrap items-center gap-actions"
+    aria-label={data.copy['history.title']}
+  >
     <!-- eslint-disable svelte/no-navigation-without-resolve -->
     <a
       class="hv-control"
@@ -83,7 +85,7 @@
       limit={data.mapLimit ?? 200}
     />
   {/if}
-</main>
+</PageShell>
 
 <style>
   .history-tabs {
