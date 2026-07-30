@@ -256,13 +256,16 @@ describe('Button', () => {
     ['quiet' as const, ['border-fjord', 'bg-snow-raised', 'text-fjord']],
     ['danger' as const, ['border-danger', 'bg-danger', 'text-snow-raised']],
     ['danger-quiet' as const, ['border-danger', 'bg-snow-raised', 'text-danger']]
-  ])('applies the %s intent as a single matched border/background/text triple', (intent, expected) => {
-    render(Button, { intent, children: label(intent) });
-    const classes = screen.getByRole('button', { name: intent }).classList;
-    for (const expectedClass of expected) {
-      expect(classes.contains(expectedClass)).toBe(true);
+  ])(
+    'applies the %s intent as a single matched border/background/text triple',
+    (intent, expected) => {
+      render(Button, { intent, children: label(intent) });
+      const classes = screen.getByRole('button', { name: intent }).classList;
+      for (const expectedClass of expected) {
+        expect(classes.contains(expectedClass)).toBe(true);
+      }
     }
-  });
+  );
 
   // Phase 6's three new intents: quiet (the fjord-outline back-link/secondary treatment),
   // danger (moderation's filled destructive flavour), and danger-quiet (the account-deletion /
