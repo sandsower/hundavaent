@@ -6,9 +6,14 @@
   import {
     Button,
     Choice,
+    Eyebrow,
     Field,
     FormSection,
     Input,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle,
     Select,
     Textarea
   } from '@hundavaent/design-system';
@@ -96,19 +101,17 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="hv-page-shell" data-ui-mode="place" data-width="wide">
-  <header class="hv-page-header">
-    <div class="hv-page-heading">
-      <p class="hv-eyebrow">{data.place?.name}</p>
-      <h1 class="hv-page-title">{data.copy['report.title']}</h1>
-      <p class="hv-meta">{data.copy['report.intro']}</p>
-    </div>
-    <div class="hv-page-actions">
+<PageShell>
+  <PageHeader class="mb-section">
+    <Eyebrow>{data.place?.name}</Eyebrow>
+    <PageTitle>{data.copy['report.title']}</PageTitle>
+    <Meta>{data.copy['report.intro']}</Meta>
+    <div class="flex flex-wrap items-center gap-actions">
       <Button href={resolve('/[lang=lang]/account/corrections-and-reports', { lang: data.lang })}>
         {data.copy['flag.myTitle']}
       </Button>
     </div>
-  </header>
+  </PageHeader>
 
   <p class="hv-notice" data-tone="info" role="note">{data.copy['report.safetyDisclaimer']}</p>
 
@@ -119,9 +122,9 @@
   {:else if data.place}
     {#if errorMessage}<p class="hv-notice" data-tone="error" role="alert">{errorMessage}</p>{/if}
 
-    <form class="hv-stack" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
+    <form class="grid gap-context" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
       <input type="hidden" name="commandId" value={data.commandId} />
-      <fieldset class="availability-boundary hv-stack" disabled={submissionUnavailable}>
+      <fieldset class="availability-boundary grid gap-context" disabled={submissionUnavailable}>
         <FormSection legend={data.copy['correction.targetKind']}>
           <Field label={data.copy['correction.targetKind']}>
             <Select name="targetKind" bind:value={targetKind}>
@@ -185,7 +188,7 @@
           <Field label={data.copy['report.explanation']}>
             <Textarea name="explanation" required></Textarea>
           </Field>
-          <p class="hv-meta">{data.copy['report.dataUseNotice']}</p>
+          <Meta>{data.copy['report.dataUseNotice']}</Meta>
         </FormSection>
 
         <Button intent="primary" type="submit" disabled={submitting || submissionUnavailable}>
@@ -194,7 +197,7 @@
       </fieldset>
     </form>
   {/if}
-</main>
+</PageShell>
 
 <style>
   .availability-boundary {

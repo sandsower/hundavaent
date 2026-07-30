@@ -1,5 +1,6 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import { Eyebrow, Meta, PageHeader, PageShell, PageTitle, Panel } from '@hundavaent/design-system';
   import { formatLocalizedDate } from '$i18n/date';
   import type { MessageKey } from '$i18n';
   import AchievementBadge from '$lib/achievements/AchievementBadge.svelte';
@@ -25,15 +26,15 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="status-shell hv-page-shell hv-stack" data-ui-mode="place" data-width="narrow">
-  <header class="hv-page-header">
-    <p class="hv-eyebrow">{data.copy['site.name']}</p>
-    <h1 class="hv-page-title">{data.copy['contributor.title']}</h1>
-    <p class="intro hv-meta">{data.copy['contributor.intro']}</p>
-  </header>
+<PageShell width="narrow" class="status-shell grid gap-context">
+  <PageHeader>
+    <Eyebrow>{data.copy['site.name']}</Eyebrow>
+    <PageTitle>{data.copy['contributor.title']}</PageTitle>
+    <Meta class="intro">{data.copy['contributor.intro']}</Meta>
+  </PageHeader>
 
-  <section class="status-card hv-panel hv-form-section" aria-labelledby="status-heading">
-    <p class="eyebrow hv-eyebrow" id="status-heading">{data.copy['site.name']}</p>
+  <Panel as="section" padded class="status-card grid gap-panel min-w-0" aria-labelledby="status-heading">
+    <Eyebrow class="eyebrow" id="status-heading">{data.copy['site.name']}</Eyebrow>
     <strong
       class={`tier hv-status ${data.contributor.status}`}
       data-status={data.contributor.status === 'trusted_contributor' ? 'verified' : undefined}
@@ -42,7 +43,7 @@
     </strong>
     <p class="explanation">{data.copy[explanationKey(data.contributor.status)]}</p>
     {#if since}
-      <p class="since hv-meta">{since}</p>
+      <Meta class="since">{since}</Meta>
     {/if}
     {#if data.contributor.status === 'trusted_contributor'}
       <aside class="trusted-note" aria-labelledby="trusted-note-heading">
@@ -59,25 +60,21 @@
         </span>
       </aside>
     {/if}
-  </section>
+  </Panel>
 
   <a class="back-link hv-control" href={resolve('/[lang=lang]/account', { lang: data.lang })}>
     {data.copy['account.navSignedIn']}
   </a>
-</main>
+</PageShell>
 
 <style>
-  .intro {
+  :global(.intro) {
     max-width: 46ch;
   }
 
-  .status-card {
+  :global(.status-card) {
     border-inline-start: 0.3rem solid var(--hv-color-moss);
     padding: clamp(1.25rem, 4vw, 2rem);
-  }
-
-  .eyebrow {
-    margin: 0;
   }
 
   .tier {
@@ -87,10 +84,6 @@
   .explanation {
     margin: 0;
     line-height: 1.55;
-  }
-
-  .since {
-    margin: 0;
   }
 
   .trusted-note {

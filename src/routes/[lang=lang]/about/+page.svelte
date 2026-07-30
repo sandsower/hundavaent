@@ -1,6 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
 
+  import { Eyebrow, PageShell, Panel } from '@hundavaent/design-system';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
@@ -12,14 +13,14 @@
 </svelte:head>
 
 <main class="about-page" data-ui-mode="place">
-  <div class="about-shell hv-page-shell" data-width="wide">
+  <PageShell as="div" class="about-shell">
     <section class="hero" aria-labelledby="about-title">
       <div class="hero-copy">
-        <p class="hv-eyebrow">{data.copy['about.heroEyebrow']}</p>
+        <Eyebrow>{data.copy['about.heroEyebrow']}</Eyebrow>
         <h1 id="about-title">{data.copy['about.heroTitle']}</h1>
         <p class="lede">{data.copy['about.heroLede']}</p>
         <p class="hero-story">{data.copy['about.heroStory']}</p>
-        <div class="hv-page-actions hero-actions">
+        <div class="hero-actions flex flex-wrap items-center gap-actions">
           <a
             class="hv-control"
             data-intent="committed"
@@ -54,10 +55,10 @@
       </div>
     </section>
 
-    <section class="history-panel hv-panel" aria-labelledby="history-title">
+    <Panel as="section" class="history-panel" aria-labelledby="history-title">
       <div class="section-heading">
         <div>
-          <p class="hv-eyebrow">{data.copy['about.historyEyebrow']}</p>
+          <Eyebrow class="tight-eyebrow">{data.copy['about.historyEyebrow']}</Eyebrow>
           <h2 id="history-title">{data.copy['about.historyTitle']}</h2>
         </div>
         <p>{data.copy['about.historyIntro']}</p>
@@ -80,7 +81,7 @@
           <p>{data.copy['about.historyTodayBody']}</p>
         </article>
       </div>
-    </section>
+    </Panel>
 
     <section
       class="editorial-section offers-intro"
@@ -88,7 +89,7 @@
       aria-labelledby="offers-title"
     >
       <div>
-        <p class="hv-eyebrow">{data.copy['about.offersEyebrow']}</p>
+        <Eyebrow class="tight-eyebrow">{data.copy['about.offersEyebrow']}</Eyebrow>
         <h2 id="offers-title">{data.copy['about.offersTitle']}</h2>
       </div>
       <div class="prose">
@@ -121,7 +122,7 @@
 
     <section class="trust-section" aria-labelledby="trust-title">
       <div class="trust-intro">
-        <p class="hv-eyebrow">{data.copy['about.trustEyebrow']}</p>
+        <Eyebrow class="tight-eyebrow">{data.copy['about.trustEyebrow']}</Eyebrow>
         <h2 id="trust-title">{data.copy['about.trustTitle']}</h2>
         <p>{data.copy['about.trustIntro']}</p>
       </div>
@@ -141,7 +142,7 @@
 
     <section class="vision" aria-labelledby="vision-title">
       <div>
-        <p class="hv-eyebrow">{data.copy['about.visionEyebrow']}</p>
+        <Eyebrow class="tight-eyebrow">{data.copy['about.visionEyebrow']}</Eyebrow>
         <h2 id="vision-title">{data.copy['about.visionTitle']}</h2>
         <p>{data.copy['about.visionBodyOne']}</p>
         <p>{data.copy['about.visionBodyTwo']}</p>
@@ -183,7 +184,7 @@
         </li>
       </ul>
     </footer>
-  </div>
+  </PageShell>
 </main>
 
 <style>
@@ -192,7 +193,9 @@
     background: var(--hv-color-snow);
   }
 
-  .about-shell {
+  /* .about-shell now lives on PageShell's own root element, outside this file's scope hash -
+     the class is unique to this page (grep-verified), so a fully-global anchor is safe. */
+  :global(.about-shell) {
     padding-top: clamp(1.5rem, 4vw, 3.5rem);
   }
 
@@ -320,7 +323,8 @@
     margin-top: 1.15rem;
   }
 
-  .history-panel {
+  /* .history-panel now lives on Panel's root element - same re-anchor reasoning as .about-shell. */
+  :global(.history-panel) {
     padding: clamp(2rem, 5vw, 3.5rem);
   }
 
@@ -331,10 +335,15 @@
     align-items: end;
   }
 
-  .section-heading .hv-eyebrow,
-  .offers-intro .hv-eyebrow,
-  .trust-intro .hv-eyebrow,
-  .vision .hv-eyebrow {
+  /* Eyebrow's own base classes now own the zero margin (m-0); this override wins over that
+     layered utility because unlayered scoped CSS always beats a layered one regardless of
+     specificity. The ancestor classes (.section-heading, .offers-intro, .trust-intro, .vision)
+     stay locally-authored plain divs, so they keep this file's scope hash and the compound
+     `:global(.tight-eyebrow)` form reaches the component-rendered <p> correctly. */
+  .section-heading :global(.tight-eyebrow),
+  .offers-intro :global(.tight-eyebrow),
+  .trust-intro :global(.tight-eyebrow),
+  .vision :global(.tight-eyebrow) {
     margin: 0 0 0.65rem;
   }
 
@@ -472,11 +481,14 @@
     color: var(--hv-color-snow-raised);
   }
 
-  .vision .hv-eyebrow {
+  .vision :global(.tight-eyebrow) {
     color: #9cc4d3;
   }
 
-  .vision p:not(.hv-eyebrow) {
+  /* :not(.hv-eyebrow) is vacuous now: the eyebrow is a component-rendered <p> that no longer
+     carries this file's scope hash, so scoped `.vision p` cannot match it regardless - the two
+     locally-authored body paragraphs are the only <p> elements left in .vision. */
+  .vision p {
     max-width: 44rem;
     margin: 1.25rem 0 0;
     color: #dbe2df;
@@ -561,7 +573,7 @@
       padding-inline: 0.35rem;
     }
 
-    .history-panel {
+    :global(.history-panel) {
       padding: 1.5rem 1.2rem;
     }
 

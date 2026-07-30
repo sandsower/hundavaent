@@ -3,7 +3,7 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { tick } from 'svelte';
 
-  import { Button, Field, Input } from '@hundavaent/design-system';
+  import { Button, Eyebrow, Field, Input, Panel } from '@hundavaent/design-system';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
@@ -30,9 +30,9 @@
 </svelte:head>
 
 <main class="sign-in-shell" data-ui-mode="operations" data-translation-workspace-sign-in>
-  <section class="sign-in-card hv-panel" aria-labelledby="translation-sign-in-title">
+  <Panel as="section" class="sign-in-card" aria-labelledby="translation-sign-in-title">
     <div class="identity-mark" aria-hidden="true">H</div>
-    <p class="hv-eyebrow">Private workspace</p>
+    <Eyebrow class="tight-eyebrow">Private workspace</Eyebrow>
     <h1 id="translation-sign-in-title">Translations</h1>
     <p class="intro">Enter the shared password to edit Icelandic and English interface copy.</p>
 
@@ -55,7 +55,7 @@
         {submitting ? 'Opening…' : 'Open workspace'}
       </Button>
     </form>
-  </section>
+  </Panel>
 </main>
 
 <style>
@@ -67,7 +67,12 @@
     background: var(--hv-color-snow);
   }
 
-  .sign-in-card {
+  /* .sign-in-card now lives on Panel's root element, outside this file's scope hash. The class
+     name is NOT unique repo-wide (moderation/sign-in/+page.svelte also has a `.sign-in-card`),
+     so a bare :global(.sign-in-card) would leak across files. Anchoring off .sign-in-shell (a
+     plain, locally-authored <main> that keeps this file's own scope hash) keeps the rule scoped
+     to this page only. */
+  .sign-in-shell :global(.sign-in-card) {
     width: min(100%, 28rem);
     padding: clamp(1.5rem, 6vw, 2.75rem);
   }
@@ -94,7 +99,9 @@
     letter-spacing: -0.035em;
   }
 
-  .hv-eyebrow {
+  /* Same re-anchor reasoning as .sign-in-card above: Eyebrow's own base classes carry m-0, and
+     this override (unlayered scoped CSS) still wins over that layered utility. */
+  .sign-in-shell :global(.tight-eyebrow) {
     margin: 1.2rem 0 0;
   }
 

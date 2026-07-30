@@ -4,6 +4,7 @@
   import AchievementBadge from '$lib/achievements/AchievementBadge.svelte';
   import ImpactPillarIcon from '$lib/impact/ImpactPillarIcon.svelte';
   import WeeklyRhythmTrail from '$lib/member-activity/WeeklyRhythmTrail.svelte';
+  import { Eyebrow, Panel, PageShell, PageTitle } from '@hundavaent/design-system';
   import { formatLocalizedDate } from '$i18n/date';
   import type { MessageKey } from '$i18n';
   import { collectionName, tierDisplayName } from '$lib/achievements/tier-copy';
@@ -111,12 +112,7 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main
-  class="impact-shell hv-page-shell hv-stack"
-  data-ui-mode="place"
-  data-width="wide"
-  data-impact-record
->
+<PageShell class="impact-shell grid gap-context" data-impact-record>
   <a
     class="top-back-link"
     data-impact-back
@@ -126,15 +122,15 @@
     {data.copy['account.navSignedIn']}
   </a>
 
-  <header class="impact-hero hv-panel" aria-labelledby="impact-title">
+  <Panel as="header" class="impact-hero" aria-labelledby="impact-title">
     <div class="hero-mark" aria-hidden="true">
       <ImpactPillarIcon kind="recognition" />
       <span class="orbit orbit-one"></span>
       <span class="orbit orbit-two"></span>
     </div>
     <div class="hero-copy">
-      <p class="hv-eyebrow">{data.copy['impact.eyebrow']}</p>
-      <h1 class="hv-page-title" id="impact-title">{data.copy['impact.title']}</h1>
+      <Eyebrow>{data.copy['impact.eyebrow']}</Eyebrow>
+      <PageTitle id="impact-title">{data.copy['impact.title']}</PageTitle>
       <p class="intro">{data.copy['impact.intro']}</p>
       <p class="private-note">
         <span aria-hidden="true">●</span>
@@ -155,11 +151,12 @@
         )}
       </small>
     </aside>
-  </header>
+  </Panel>
 
   {#if trustedVerificationFeedback.status === 'available' && trustedVerificationFeedback.value.hasUnread && trustedVerificationFeedback.value.latestConfirmedAt}
-    <section
-      class="trusted-celebration hv-panel"
+    <Panel
+      as="section"
+      class="trusted-celebration"
       aria-labelledby="trusted-celebration-title"
       data-testid="trusted-verification-celebration"
     >
@@ -174,7 +171,7 @@
         <span class="spark spark-three"></span>
       </div>
       <div>
-        <p class="hv-eyebrow">{data.copy['impact.trustedCelebrationEyebrow']}</p>
+        <Eyebrow>{data.copy['impact.trustedCelebrationEyebrow']}</Eyebrow>
         <h2 id="trusted-celebration-title">{data.copy['impact.trustedCelebrationTitle']}</h2>
         <p>{data.copy['impact.trustedCelebrationBody']}</p>
         <div class="trusted-celebration-actions">
@@ -196,23 +193,23 @@
           </form>
         </div>
       </div>
-    </section>
+    </Panel>
   {/if}
 
-  <section class="outcomes hv-stack" aria-labelledby="outcomes-title" data-impact-outcomes>
+  <section class="outcomes grid gap-context" aria-labelledby="outcomes-title" data-impact-outcomes>
     <header class="section-heading">
       <ImpactPillarIcon kind="outcome" size="small" />
       <div>
-        <p class="hv-eyebrow">{data.copy['impact.outcomesEyebrow']}</p>
+        <Eyebrow>{data.copy['impact.outcomesEyebrow']}</Eyebrow>
         <h2 id="outcomes-title">{data.copy['impact.outcomesTitle']}</h2>
         <p>{data.copy['impact.outcomesIntro']}</p>
       </div>
     </header>
 
     {#if data.impact.recentOutcomes.length > 0}
-      <ol class="outcome-list hv-list">
+      <ol class="outcome-list grid gap-context m-0 p-0 list-none">
         {#each data.impact.recentOutcomes as outcome (outcome.contributionId)}
-          <li class="outcome-card hv-panel" data-outcome-state={outcome.state}>
+          <Panel as="li" class="outcome-card" data-outcome-state={outcome.state}>
             <div class="outcome-mark" aria-hidden="true">
               {outcome.state === 'confirmed' ? '✓' : '↺'}
             </div>
@@ -261,7 +258,7 @@
                 </a>
               {/if}
             </div>
-          </li>
+          </Panel>
         {/each}
       </ol>
     {:else}
@@ -270,26 +267,26 @@
   </section>
 
   <section
-    class="participation hv-stack"
+    class="participation grid gap-context"
     aria-labelledby="participation-title"
     data-impact-participation
   >
     <header class="section-heading participation-heading">
       <ImpactPillarIcon kind="rhythm" size="small" />
       <div>
-        <p class="hv-eyebrow">{data.copy['impact.participationEyebrow']}</p>
+        <Eyebrow>{data.copy['impact.participationEyebrow']}</Eyebrow>
         <h2 id="participation-title">{data.copy['impact.participationTitle']}</h2>
         <p>{data.copy['impact.participationIntro']}</p>
       </div>
     </header>
 
     <div class="pillar-grid" aria-label={data.copy['impact.pillarsLabel']}>
-      <details class="pillar rhythm hv-panel" data-impact-pillar="rhythm">
+      <Panel as="details" class="pillar rhythm" data-impact-pillar="rhythm">
         <summary>
           <span class="pillar-heading">
             <ImpactPillarIcon kind="rhythm" />
             <span>
-              <span class="hv-eyebrow">{data.copy['impact.pillar.rhythm.eyebrow']}</span>
+              <Eyebrow as="span">{data.copy['impact.pillar.rhythm.eyebrow']}</Eyebrow>
               <span class="pillar-title" role="heading" aria-level="3">
                 {data.copy['impact.pillar.rhythm.title']}
               </span>
@@ -311,14 +308,14 @@
           <p class="pillar-intro">{data.copy['impact.pillar.rhythm.body']}</p>
           <WeeklyRhythmTrail history={data.rhythm} lang={data.lang} copy={data.copy} />
         </div>
-      </details>
+      </Panel>
 
-      <details class="pillar exploration hv-panel" data-impact-pillar="exploration">
+      <Panel as="details" class="pillar exploration" data-impact-pillar="exploration">
         <summary>
           <span class="pillar-heading">
             <ImpactPillarIcon kind="exploration" />
             <span>
-              <span class="hv-eyebrow">{data.copy['impact.pillar.exploration.eyebrow']}</span>
+              <Eyebrow as="span">{data.copy['impact.pillar.exploration.eyebrow']}</Eyebrow>
               <span class="pillar-title" role="heading" aria-level="3">
                 {data.copy['impact.pillar.exploration.title']}
               </span>
@@ -346,14 +343,14 @@
           </dl>
           <p class="integrity-note">{data.copy['impact.explorationIntegrity']}</p>
         </div>
-      </details>
+      </Panel>
 
-      <details class="pillar knowledge hv-panel" data-impact-pillar="knowledge">
+      <Panel as="details" class="pillar knowledge" data-impact-pillar="knowledge">
         <summary>
           <span class="pillar-heading">
             <ImpactPillarIcon kind="knowledge" />
             <span>
-              <span class="hv-eyebrow">{data.copy['impact.pillar.knowledge.eyebrow']}</span>
+              <Eyebrow as="span">{data.copy['impact.pillar.knowledge.eyebrow']}</Eyebrow>
               <span class="pillar-title" role="heading" aria-level="3">
                 {data.copy['impact.pillar.knowledge.title']}
               </span>
@@ -390,14 +387,14 @@
             </div>
           </dl>
         </div>
-      </details>
+      </Panel>
 
-      <details class="pillar contribution hv-panel" data-impact-pillar="contribution">
+      <Panel as="details" class="pillar contribution" data-impact-pillar="contribution">
         <summary>
           <span class="pillar-heading">
             <ImpactPillarIcon kind="contribution" />
             <span>
-              <span class="hv-eyebrow">{data.copy['impact.pillar.contribution.eyebrow']}</span>
+              <Eyebrow as="span">{data.copy['impact.pillar.contribution.eyebrow']}</Eyebrow>
               <span class="pillar-title" role="heading" aria-level="3">
                 {data.copy['impact.pillar.contribution.title']}
               </span>
@@ -443,15 +440,15 @@
             {data.copy['contributor.nav']}
           </a>
         </div>
-      </details>
+      </Panel>
     </div>
   </section>
 
-  <section class="recognition hv-panel" aria-labelledby="recognition-title">
+  <Panel as="section" class="recognition" aria-labelledby="recognition-title">
     <header class="section-heading">
       <ImpactPillarIcon kind="recognition" size="small" />
       <div>
-        <p class="hv-eyebrow">{data.copy['impact.recognitionEyebrow']}</p>
+        <Eyebrow>{data.copy['impact.recognitionEyebrow']}</Eyebrow>
         <h2 id="recognition-title">{data.copy['impact.recognitionTitle']}</h2>
         <p>{data.copy['impact.recognitionIntro']}</p>
       </div>
@@ -462,7 +459,7 @@
         {#if earnedAchievements.length > 0}
           <section class="achievement-group" data-achievement-kind="earned">
             <h3>{data.copy['impact.recognitionEarned']}</h3>
-            <ul class="achievement-strip hv-list">
+            <ul class="achievement-strip grid gap-context m-0 p-0 list-none">
               {#each earnedAchievements as achievement (achievement.key)}
                 <li>
                   <span class="achievement-icon" aria-hidden="true">
@@ -485,7 +482,7 @@
         {#if upcomingAchievements.length > 0}
           <section class="achievement-group" data-achievement-kind="upcoming">
             <h3>{data.copy['impact.recognitionNext']}</h3>
-            <ul class="achievement-strip hv-list">
+            <ul class="achievement-strip grid gap-context m-0 p-0 list-none">
               {#each upcomingAchievements as achievement (achievement.key)}
                 <li>
                   <span class="achievement-icon" aria-hidden="true">
@@ -529,15 +526,18 @@
     >
       {data.copy['impact.achievementsLink']}
     </a>
-  </section>
+  </Panel>
 
   <a class="back-link hv-control" href={resolve('/[lang=lang]/account', { lang: data.lang })}>
     {data.copy['account.navSignedIn']}
   </a>
-</main>
+</PageShell>
 
 <style>
-  .impact-shell {
+  /* .impact-shell now lives on PageShell's class prop: the literal element never appears in
+     this template, so the selector needs :global to survive scoping (the Notice-precedent
+     pattern already used below for .hero-mark :global(.impact-icon)). */
+  :global(.impact-shell) {
     --impact-rhythm: var(--hv-color-fjord);
     --impact-exploration: #287a5d;
     --impact-knowledge: #a0651b;
@@ -561,7 +561,8 @@
     text-underline-offset: 0.2em;
   }
 
-  .impact-hero {
+  /* Re-anchored: .impact-hero now sits on the header Panel's class prop. */
+  :global(.impact-hero) {
     position: relative;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -612,7 +613,8 @@
     line-height: 1.35;
   }
 
-  .trusted-celebration {
+  /* Re-anchored: .trusted-celebration now sits on the section Panel's class prop. */
+  :global(.trusted-celebration) {
     --impact-tone: var(--hv-color-moss);
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -627,12 +629,12 @@
     );
   }
 
-  .trusted-celebration h2,
-  .trusted-celebration p {
+  :global(.trusted-celebration) h2,
+  :global(.trusted-celebration) p {
     margin: 0;
   }
 
-  .trusted-celebration > div:last-child {
+  :global(.trusted-celebration) > div:last-child {
     display: grid;
     gap: 0.45rem;
   }
@@ -758,7 +760,8 @@
     border-style: dashed;
   }
 
-  .hero-copy h1,
+  /* .hero-copy h1 dropped: the title is now PageTitle, which owns its own m-0 already, and no
+     literal h1 remains in this template for the selector to match. */
   .hero-copy p,
   .section-heading p,
   .section-heading h2 {
@@ -802,13 +805,16 @@
     gap: 1rem;
   }
 
-  .pillar {
+  /* Re-anchored: .pillar (and its per-kind modifiers) now sit on each details Panel's class
+     prop, so every selector rooted on it needs :global; summary/the chevron stay literal local
+     elements and keep their normal scoping. */
+  :global(.pillar) {
     overflow: clip;
     padding: 0;
     border-top: 0.3rem solid var(--impact-tone);
   }
 
-  .pillar summary {
+  :global(.pillar) summary {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 1rem;
@@ -818,34 +824,34 @@
     list-style: none;
   }
 
-  .pillar summary::-webkit-details-marker {
+  :global(.pillar) summary::-webkit-details-marker {
     display: none;
   }
 
-  .pillar summary:focus-visible {
+  :global(.pillar) summary:focus-visible {
     border-radius: calc(var(--hv-radius-panel) - 2px);
     outline: 3px solid color-mix(in srgb, var(--impact-tone) 38%, transparent);
     outline-offset: -3px;
   }
 
-  .pillar[open] summary {
+  :global(.pillar[open]) summary {
     border-bottom: 1px solid var(--hv-border-subtle);
     background: color-mix(in srgb, var(--impact-tone) 4%, var(--hv-color-snow-raised));
   }
 
-  .pillar.rhythm {
+  :global(.pillar.rhythm) {
     --impact-tone: var(--impact-rhythm);
   }
 
-  .pillar.exploration {
+  :global(.pillar.exploration) {
     --impact-tone: var(--impact-exploration);
   }
 
-  .pillar.knowledge {
+  :global(.pillar.knowledge) {
     --impact-tone: var(--impact-knowledge);
   }
 
-  .pillar.contribution {
+  :global(.pillar.contribution) {
     --impact-tone: var(--impact-contribution);
   }
 
@@ -912,7 +918,7 @@
     transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
   }
 
-  .pillar[open] .summary-chevron {
+  :global(.pillar[open]) .summary-chevron {
     transform: rotate(180deg);
   }
 
@@ -1004,7 +1010,8 @@
     line-height: 1.45;
   }
 
-  .recognition {
+  /* Re-anchored: .recognition now sits on the section Panel's class prop. */
+  :global(.recognition) {
     --impact-tone: var(--hv-color-moss);
     display: grid;
     gap: 1rem;
@@ -1118,11 +1125,15 @@
     gap: 0.65rem;
   }
 
-  .outcome-list > li:first-child {
+  /* The li is now a Panel, so no literal <li> tag exists in this template for the compiler to
+     anchor "li:first-child" to; the ancestor .outcome-list stays a real ol, so only the
+     descendant compound needs :global. */
+  .outcome-list > :global(li:first-child) {
     background: color-mix(in srgb, var(--hv-color-moss) 4%, var(--hv-color-snow-raised));
   }
 
-  .outcome-card {
+  /* Re-anchored: .outcome-card now sits on each row's Panel class prop. */
+  :global(.outcome-card) {
     display: grid;
     grid-template-columns: auto minmax(0, 1.15fr) minmax(14rem, 0.85fr);
     gap: clamp(0.8rem, 2.5vw, 1.35rem);
@@ -1131,7 +1142,7 @@
     padding: 0.95rem 1.05rem;
   }
 
-  .outcome-card[data-outcome-state='revoked'] {
+  :global(.outcome-card[data-outcome-state='revoked']) {
     background: color-mix(in srgb, var(--hv-color-basalt-muted) 4%, var(--hv-color-snow-raised));
   }
 
@@ -1146,7 +1157,7 @@
     font-weight: 950;
   }
 
-  [data-outcome-state='revoked'] .outcome-mark {
+  :global([data-outcome-state='revoked']) .outcome-mark {
     background: color-mix(in srgb, var(--hv-color-basalt-muted) 12%, white);
     color: var(--hv-color-basalt-muted);
   }
@@ -1231,19 +1242,19 @@
 
   /* The pillars carry text, so their rise is transform-only: words arrive at full contrast
      and move into place (see the fade-family limit in tokens.css). */
-  .pillar {
+  :global(.pillar) {
     animation: rise var(--hv-motion-celebrate) var(--hv-ease-settle) both;
   }
 
-  .pillar:nth-child(2) {
+  :global(.pillar:nth-child(2)) {
     animation-delay: var(--hv-motion-stagger);
   }
 
-  .pillar:nth-child(3) {
+  :global(.pillar:nth-child(3)) {
     animation-delay: calc(var(--hv-motion-stagger) * 2);
   }
 
-  .pillar:nth-child(4) {
+  :global(.pillar:nth-child(4)) {
     animation-delay: calc(var(--hv-motion-stagger) * 3);
   }
 
@@ -1280,7 +1291,7 @@
       grid-auto-rows: auto;
     }
 
-    .outcome-card {
+    :global(.outcome-card) {
       grid-template-columns: auto minmax(0, 1fr);
       min-height: 0;
     }
@@ -1299,7 +1310,7 @@
   }
 
   @media (max-width: 34rem) {
-    .impact-hero {
+    :global(.impact-hero) {
       grid-template-columns: 1fr;
     }
 
@@ -1321,7 +1332,7 @@
       height: 4.5rem;
     }
 
-    .pillar summary {
+    :global(.pillar) summary {
       grid-template-columns: minmax(0, 1fr) auto;
     }
 

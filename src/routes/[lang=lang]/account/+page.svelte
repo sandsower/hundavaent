@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { resolve } from '$app/paths';
+  import { Eyebrow, Meta, PageHeader, PageShell, PageTitle, Panel } from '@hundavaent/design-system';
   import type { SubmitFunction } from '@sveltejs/kit';
 
   import { formatLocalizedDate } from '$i18n/date';
@@ -134,14 +135,14 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="account-shell hv-page-shell" data-ui-mode="place" data-width="narrow">
+<PageShell width="narrow" class="account-shell">
   {#if data.member}
-    <section class="account-card hv-panel hv-stack" aria-labelledby="account-title">
-      <header class="hv-page-header">
-        <p class="eyebrow hv-eyebrow">{data.copy['site.name']}</p>
-        <h1 class="hv-page-title" id="account-title">{data.copy['account.signedInTitle']}</h1>
-        <p class="intro hv-meta">{data.copy['account.signedInIntro']}</p>
-      </header>
+    <Panel as="section" class="account-card grid gap-context" aria-labelledby="account-title">
+      <PageHeader>
+        <Eyebrow class="eyebrow">{data.copy['site.name']}</Eyebrow>
+        <PageTitle id="account-title">{data.copy['account.signedInTitle']}</PageTitle>
+        <Meta class="intro">{data.copy['account.signedInIntro']}</Meta>
+      </PageHeader>
 
       {#if errorCode}
         <p class="message error hv-notice" data-tone="error" role="alert">
@@ -159,9 +160,11 @@
         achievementsLabel={achievementsDoorLabel}
       />
 
-      <div class="account-home hv-stack">
-        <section
-          class="account-destination impact hv-panel hv-list-card"
+      <div class="account-home grid gap-context">
+        <Panel
+          as="section"
+          padded
+          class="account-destination impact"
           data-linked
           aria-labelledby="impact-heading"
         >
@@ -183,11 +186,13 @@
               {data.copy['account.impactLink']}
             </a>
           </div>
-        </section>
+        </Panel>
 
         {#if trustedVerification.status === 'available'}
-          <section
-            class="account-destination trusted-verification hv-panel hv-list-card"
+          <Panel
+            as="section"
+            padded
+            class="account-destination trusted-verification"
             data-linked
             aria-labelledby="trusted-verification-heading"
           >
@@ -206,11 +211,13 @@
                 {data.copy['account.trustedVerificationLink']}
               </a>
             </div>
-          </section>
+          </Panel>
         {/if}
 
-        <section
-          class="account-destination places hv-panel hv-list-card"
+        <Panel
+          as="section"
+          padded
+          class="account-destination places"
           data-linked
           aria-labelledby="places-heading"
         >
@@ -225,10 +232,12 @@
           >
             {data.copy['account.placesLink']}
           </a>
-        </section>
+        </Panel>
 
-        <section
-          class="account-destination contributions hv-panel hv-list-card"
+        <Panel
+          as="section"
+          padded
+          class="account-destination contributions"
           aria-labelledby="contributions-heading"
         >
           <h2 id="contributions-heading">{data.copy['account.contributionsHeading']}</h2>
@@ -236,7 +245,7 @@
             <p class="destination-fact">{factLine}</p>
           {/each}
           <p>{data.copy['account.contributionsIntro']}</p>
-          <div class="destination-links hv-page-actions">
+          <div class="destination-links flex flex-wrap items-center gap-actions">
             <a
               class="hv-control"
               data-intent="primary"
@@ -251,11 +260,13 @@
               {data.copy['suggestion.myTitle']}
             </a>
           </div>
-        </section>
+        </Panel>
 
         {#if data.canModerate}
-          <section
-            class="account-destination moderation hv-panel hv-list-card"
+          <Panel
+            as="section"
+            padded
+            class="account-destination moderation"
             data-linked
             aria-labelledby="moderation-heading"
           >
@@ -267,7 +278,7 @@
             >
               {data.copy['account.moderationLink']}
             </a>
-          </section>
+          </Panel>
         {/if}
       </div>
 
@@ -286,8 +297,13 @@
           {data.copy['account.settingsHeading']}
         </button>
         {#if settingsOpen}
-          <div class="settings-body hv-stack">
-            <section class="identity hv-form-section hv-panel" aria-labelledby="identity-heading">
+          <div class="settings-body grid gap-context">
+            <Panel
+              as="section"
+              padded
+              class="identity grid gap-panel min-w-0"
+              aria-labelledby="identity-heading"
+            >
               <h2 id="identity-heading">{data.copy['account.identityHeading']}</h2>
               <dl>
                 <div>
@@ -303,7 +319,7 @@
                   <dd>{formatLocalizedDate(data.member.createdAt, data.lang)}</dd>
                 </div>
               </dl>
-            </section>
+            </Panel>
 
             <form method="POST" action="?/signOut" use:enhance={enhanceAction}>
               <input type="hidden" name="returnTo" value={data.returnTo} />
@@ -312,7 +328,12 @@
               >
             </form>
 
-            <section class="deletion hv-form-section hv-panel" aria-labelledby="deletion-heading">
+            <Panel
+              as="section"
+              padded
+              class="deletion grid gap-panel min-w-0"
+              aria-labelledby="deletion-heading"
+            >
               <h2 id="deletion-heading">{data.copy['account.deletionHeading']}</h2>
               <p>{data.copy['account.deletionExplanation']}</p>
               {#if deletionRequested}
@@ -329,7 +350,7 @@
                 </button>
               {:else}
                 <form method="POST" action="?/requestDeletion" use:enhance={enhanceAction}>
-                  <div class="deletion-actions hv-page-actions">
+                  <div class="deletion-actions flex flex-wrap items-center gap-actions">
                     <button class="danger hv-control" type="submit" disabled={submitting}>
                       {data.copy['account.confirmDeletion']}
                     </button>
@@ -343,28 +364,24 @@
                   </div>
                 </form>
               {/if}
-            </section>
+            </Panel>
           </div>
         {/if}
       </div>
-    </section>
+    </Panel>
   {/if}
-</main>
+</PageShell>
 
 <style>
-  .account-shell {
+  :global(.account-shell) {
     display: grid;
     min-height: calc(100dvh - 5.5rem);
     place-items: start center;
   }
 
-  .account-card {
+  :global(.account-card) {
     width: min(100%, 42rem);
     padding: clamp(var(--hv-space-context), 5vw, 2.5rem);
-  }
-
-  .eyebrow {
-    margin: 0;
   }
 
   h2 {
@@ -372,7 +389,7 @@
     font-size: 1.2rem;
   }
 
-  .intro {
+  :global(.intro) {
     max-width: 46ch;
   }
 
@@ -432,7 +449,7 @@
     overflow-wrap: anywhere;
   }
 
-  .account-destination {
+  :global(.account-destination) {
     position: relative;
     display: flex;
     flex-direction: column;
@@ -442,18 +459,18 @@
       background-color var(--hv-fade-quick) ease;
   }
 
-  .account-destination h2,
-  .account-destination p {
+  :global(.account-destination) h2,
+  :global(.account-destination) p {
     margin: 0;
   }
 
-  .account-destination p {
+  :global(.account-destination) p {
     margin-top: 0.4rem;
     color: var(--hv-color-basalt-muted);
     line-height: 1.45;
   }
 
-  .account-destination .destination-fact {
+  :global(.account-destination) .destination-fact {
     color: var(--hv-color-basalt);
     font-size: 0.92rem;
     font-weight: 800;
@@ -462,31 +479,31 @@
   /* Paired cards stretch to the row's tallest sibling; the auto margin pins each card's
      control to the bottom edge so the pair reads aligned. The preceding paragraph owns the
      minimum gap, because an auto margin collapses to zero in a content-sized card. */
-  .account-destination .card-link,
+  :global(.account-destination) .card-link,
   .destination-links {
     margin-top: auto;
   }
 
-  .account-destination p:last-of-type {
+  :global(.account-destination) p:last-of-type {
     margin-bottom: var(--hv-space-panel);
   }
 
   /* The whole card is one link target: the card's single control stretches an invisible hit
      area across the panel. Cards with several destinations (contributions) stay button-only,
      so a card never looks tappable while routing only part of its surface. */
-  .account-destination[data-linked] .card-link::after {
+  :global(.account-destination[data-linked]) .card-link::after {
     position: absolute;
     inset: 0;
     border-radius: var(--hv-radius-panel);
     content: '';
   }
 
-  .account-destination[data-linked]:focus-within {
+  :global(.account-destination[data-linked]):focus-within {
     border-color: color-mix(in srgb, var(--hv-color-fjord) 55%, var(--hv-border-subtle));
   }
 
   @media (hover: hover) {
-    .account-destination[data-linked]:hover {
+    :global(.account-destination[data-linked]):hover {
       border-color: color-mix(in srgb, var(--hv-color-fjord) 55%, var(--hv-border-subtle));
       background-color: color-mix(in srgb, var(--hv-color-fjord) 4%, var(--hv-color-snow-raised));
     }
@@ -494,7 +511,7 @@
 
   /* Impact is the one featured card; every other destination renders as a plain panel so the
      accent actually directs attention instead of competing with two other tinted cards. */
-  .account-destination.impact {
+  :global(.account-destination.impact) {
     --impact-tone: var(--hv-color-moss);
 
     display: grid;
@@ -503,7 +520,7 @@
     background: linear-gradient(105deg, rgb(79 143 104 / 12%) 0%, var(--hv-color-snow-raised) 38%);
   }
 
-  .account-destination.trusted-verification {
+  :global(.account-destination.trusted-verification) {
     --impact-tone: var(--hv-color-fjord);
 
     display: grid;
@@ -524,7 +541,7 @@
     align-items: center;
   }
 
-  .account-destination.moderation {
+  :global(.account-destination.moderation) {
     background: var(--hv-color-fjord-soft);
   }
 
@@ -560,13 +577,13 @@
     margin-top: var(--hv-space-panel);
   }
 
-  .deletion p {
+  :global(.deletion) p {
     color: var(--hv-color-basalt-muted);
     line-height: 1.5;
   }
 
   @media (max-width: 32rem) {
-    .account-card {
+    :global(.account-card) {
       padding: var(--hv-space-context);
     }
 

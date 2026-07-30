@@ -3,7 +3,19 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
-  import { Button, Field, FormSection, Input, Select, Textarea } from '@hundavaent/design-system';
+  import {
+    Button,
+    Eyebrow,
+    Field,
+    FormSection,
+    Input,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle,
+    Select,
+    Textarea
+  } from '@hundavaent/design-system';
   import {
     localizeAccessArea,
     localizePermission,
@@ -94,19 +106,17 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="hv-page-shell" data-ui-mode="place" data-width="wide">
-  <header class="hv-page-header">
-    <div class="hv-page-heading">
-      <p class="hv-eyebrow">{data.place?.name}</p>
-      <h1 class="hv-page-title">{data.copy['correction.title']}</h1>
-      <p class="hv-meta">{data.copy['correction.intro']}</p>
-    </div>
-    <div class="hv-page-actions">
+<PageShell>
+  <PageHeader class="mb-section">
+    <Eyebrow>{data.place?.name}</Eyebrow>
+    <PageTitle>{data.copy['correction.title']}</PageTitle>
+    <Meta>{data.copy['correction.intro']}</Meta>
+    <div class="flex flex-wrap items-center gap-actions">
       <Button href={resolve('/[lang=lang]/account/corrections-and-reports', { lang: data.lang })}>
         {data.copy['flag.myTitle']}
       </Button>
     </div>
-  </header>
+  </PageHeader>
 
   {#if data.signInUrl}
     <p class="hv-notice" data-tone="info" role="status">{data.copy['common.loading']}</p>
@@ -115,9 +125,9 @@
   {:else if data.place}
     {#if errorMessage}<p class="hv-notice" data-tone="error" role="alert">{errorMessage}</p>{/if}
 
-    <form class="hv-stack" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
+    <form class="grid gap-context" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
       <input type="hidden" name="commandId" value={data.commandId} />
-      <fieldset class="availability-boundary hv-stack" disabled={submissionUnavailable}>
+      <fieldset class="availability-boundary grid gap-context" disabled={submissionUnavailable}>
         <FormSection legend={data.copy['correction.targetKind']}>
           <Field label={data.copy['correction.targetKind']}>
             <Select name="targetKind" bind:value={targetKind}>
@@ -169,7 +179,7 @@
 
           <FormSection legend={data.copy['correction.proposedValue']}>
             {#if targetField === 'name' || targetField === 'description'}
-              <div class="hv-grid" data-columns="2">
+              <div class="grid grid-cols-2 gap-context max-narrow:grid-cols-1">
                 <Field label={data.copy['correction.nameIs']}>
                   <Input name="fieldValueIs" />
                 </Field>
@@ -182,7 +192,7 @@
                    The blank one is named for review and a Moderator fills it before it applies.
                    This hint sits below the pair rather than inside one Field's hint, exactly as
                    it did before migration: it is not about either box alone. -->
-              <p class="hv-meta">{data.copy['correction.localeOptional']}</p>
+              <Meta>{data.copy['correction.localeOptional']}</Meta>
             {:else if targetField === 'opening_hours'}
               <Field label={data.copy['correction.openingHoursJson']}>
                 <Textarea name="fieldValueJson"></Textarea>
@@ -216,7 +226,7 @@
           </FormSection>
 
           <FormSection legend={data.copy['correction.proposedValue']}>
-            <div class="hv-grid" data-columns="3">
+            <div class="grid grid-cols-3 gap-context max-narrow:grid-cols-1">
               <Field label={data.copy['correction.accessArea']}>
                 <Select name="accessArea" bind:value={accessArea}>
                   {#each accessAreas as area (area)}
@@ -268,7 +278,7 @@
               </Select>
             </Field>
             {#if availabilityState === 'limited'}
-              <div class="hv-grid" data-columns="2">
+              <div class="grid grid-cols-2 gap-context max-narrow:grid-cols-1">
                 <Field label={data.copy['correction.availabilityStarts']}>
                   <Input
                     name="availabilityStartsAt"
@@ -300,7 +310,7 @@
           <Field label={data.copy['correction.explanation']}>
             <Textarea name="explanation" required></Textarea>
           </Field>
-          <p class="hv-meta">{data.copy['correction.dataUseNotice']}</p>
+          <Meta>{data.copy['correction.dataUseNotice']}</Meta>
         </FormSection>
 
         <Button intent="primary" type="submit" disabled={submitting || submissionUnavailable}>
@@ -309,7 +319,7 @@
       </fieldset>
     </form>
   {/if}
-</main>
+</PageShell>
 
 <style>
   .availability-boundary {

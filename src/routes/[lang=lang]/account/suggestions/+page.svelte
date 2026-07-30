@@ -6,6 +6,7 @@
   import type { PageProps } from './$types';
   import { applyWeeklyRhythmRecognition } from '$lib/member-activity/client';
   import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
+  import { Eyebrow, Meta, PageHeader, PageShell, PageTitle, Panel } from '@hundavaent/design-system';
 
   let { data }: PageProps = $props();
   const name = (item: (typeof data.suggestions)[number]) =>
@@ -47,19 +48,12 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main
-  class="hv-page-shell"
-  data-width="narrow"
-  data-ui-mode="place"
-  aria-labelledby="suggestions-title"
->
-  <header class="hv-page-header">
-    <div class="hv-stack">
-      <p class="hv-eyebrow">{data.copy['site.name']}</p>
-      <h1 id="suggestions-title" class="hv-page-title">{data.copy['suggestion.myTitle']}</h1>
-      <p class="hv-meta">{data.copy['suggestion.myIntro']}</p>
-    </div>
-    <div class="hv-page-actions">
+<PageShell width="narrow" aria-labelledby="suggestions-title">
+  <PageHeader class="mb-section">
+    <Eyebrow>{data.copy['site.name']}</Eyebrow>
+    <PageTitle id="suggestions-title">{data.copy['suggestion.myTitle']}</PageTitle>
+    <Meta>{data.copy['suggestion.myIntro']}</Meta>
+    <div class="flex flex-wrap items-center gap-actions">
       <a
         class="hv-control"
         data-intent="primary"
@@ -68,7 +62,7 @@
         {data.copy['suggestion.new']}
       </a>
     </div>
-  </header>
+  </PageHeader>
   {#if data.recognition?.recognized}
     <WeeklyRhythmAcknowledgement recognition={data.recognition} copy={data.copy} />
   {:else if data.submitted}
@@ -79,17 +73,18 @@
   {#if data.suggestions.length === 0}
     <p class="hv-notice" data-tone="info">{data.copy['suggestion.empty']}</p>
   {:else}
-    <ul class="hv-list outcome-list">
+    <ul class="outcome-list grid gap-context m-0 p-0 list-none">
       {#each data.suggestions as item (item.suggestionId)}
-        <li
-          class="outcome-card hv-list-card hv-panel"
-          class:highlighted={data.submitted === item.suggestionId}
+        <Panel
+          as="li"
+          padded
+          class={`outcome-card${data.submitted === item.suggestionId ? ' highlighted' : ''}`}
         >
-          <div class="hv-stack">
+          <div class="grid gap-context">
             <h2>{name(item)}</h2>
-            <p class="hv-meta">
+            <Meta>
               {localizePlaceCategory(item.category, data.copy)} · {item.locality}
-            </p>
+            </Meta>
           </div>
           <strong
             class="hv-status"
@@ -103,7 +98,7 @@
               {data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}
             </p>
           {/if}
-        </li>
+        </Panel>
       {/each}
     </ul>
     {#if data.nextCursor}
@@ -124,20 +119,20 @@
       >
     {/if}
   {/if}
-</main>
+</PageShell>
 
 <style>
   .outcome-list {
     margin-block: calc(var(--hv-space-context) * 1.5);
   }
 
-  .outcome-card {
+  :global(.outcome-card) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.75rem var(--hv-space-panel);
   }
 
-  .outcome-card.highlighted {
+  :global(.outcome-card.highlighted) {
     border-color: var(--hv-color-fjord);
     box-shadow: 0 0 0 2px var(--hv-color-fjord-soft);
   }
@@ -154,7 +149,7 @@
     color: var(--hv-color-basalt-muted);
   }
 
-  .outcome-card > .hv-status {
+  :global(.outcome-card > .hv-status) {
     align-self: start;
     justify-self: end;
   }
@@ -169,11 +164,11 @@
   }
 
   @media (max-width: 38rem) {
-    .outcome-card {
+    :global(.outcome-card) {
       grid-template-columns: 1fr;
     }
 
-    .outcome-card > .hv-status {
+    :global(.outcome-card > .hv-status) {
       justify-self: start;
     }
   }

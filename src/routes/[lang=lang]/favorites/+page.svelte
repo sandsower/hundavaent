@@ -6,6 +6,7 @@
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
   import { subscribeToFavouriteInvalidation } from '$lib/favourites/sync';
   import type { FavouriteAvailability } from '$server/favourites/favourites';
+  import { Eyebrow, Meta, PageHeader, PageShell, PageTitle, Panel } from '@hundavaent/design-system';
 
   import type { PageProps } from './$types';
 
@@ -105,17 +106,15 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="hv-page-shell" data-width="narrow" data-ui-mode="place" aria-labelledby="saved-title">
-  <header class="hv-page-header">
-    <div class="hv-stack">
-      <p class="hv-eyebrow">{data.copy['site.name']}</p>
-      <h1 id="saved-title" class="hv-page-title">{data.copy['favourite.savedTitle']}</h1>
-      <p class="hv-meta">{data.copy['favourite.savedIntro']}</p>
-    </div>
-  </header>
+<PageShell width="narrow" aria-labelledby="saved-title">
+  <PageHeader class="mb-section">
+    <Eyebrow>{data.copy['site.name']}</Eyebrow>
+    <PageTitle id="saved-title">{data.copy['favourite.savedTitle']}</PageTitle>
+    <Meta>{data.copy['favourite.savedIntro']}</Meta>
+  </PageHeader>
 
   {#if savedPlaces.length === 0 && data.isFirstPage}
-    <section class="empty-state hv-panel hv-stack" aria-labelledby="saved-empty-title">
+    <Panel as="section" class="empty-state grid gap-context" aria-labelledby="saved-empty-title">
       <h2 id="saved-empty-title" data-saved-empty-heading tabindex="-1">
         {data.copy['favourite.emptyTitle']}
       </h2>
@@ -127,9 +126,13 @@
       >
         {data.copy['favourite.backToDiscovery']}
       </a>
-    </section>
+    </Panel>
   {:else if savedPlaces.length === 0}
-    <section class="empty-state hv-panel hv-stack" aria-labelledby="saved-page-empty-title">
+    <Panel
+      as="section"
+      class="empty-state grid gap-context"
+      aria-labelledby="saved-page-empty-title"
+    >
       <h2 id="saved-page-empty-title" data-saved-empty-heading tabindex="-1">
         {data.copy['favourite.pageEmptyTitle']}
       </h2>
@@ -141,29 +144,30 @@
       >
         {data.copy['favourite.pageEmptyAction']}
       </a>
-    </section>
+    </Panel>
   {:else}
-    <ul class="hv-list saved-list" aria-label={data.copy['favourite.savedTitle']}>
+    <ul class="saved-list grid gap-context m-0 p-0 list-none" aria-label={data.copy['favourite.savedTitle']}>
       {#each savedPlaces as place (place.placeId)}
-        <li
-          class="saved-card hv-list-card hv-panel"
+        <Panel
+          as="li"
+          padded
           data-saved-row
-          class:unavailable={place.availability !== 'available'}
+          class={`saved-card${place.availability !== 'available' ? ' unavailable' : ''}`}
         >
-          <div class="hv-stack">
+          <div class="grid gap-context">
             <h2>{place.name}</h2>
-            <p class="hv-meta">{place.locality}</p>
+            <Meta>{place.locality}</Meta>
             <strong
               class="hv-status"
               data-status={place.availability === 'available' ? undefined : 'attention'}
               >{availabilityLabel(place.availability)}</strong
             >
             {#if place.availability !== 'available'}
-              <small class="hv-meta">
+              <Meta as="small">
                 {place.availability === 'inactive'
                   ? data.copy['favourite.inactiveHelp']
                   : data.copy['favourite.unavailableHelp']}
-              </small>
+              </Meta>
             {/if}
             {#if place.availability === 'inactive' && place.successorPlaceId && place.successorName}
               <p class="successor">
@@ -171,7 +175,7 @@
               </p>
             {/if}
           </div>
-          <div class="saved-actions hv-page-actions">
+          <div class="saved-actions flex flex-wrap items-center gap-actions">
             {#if place.availability === 'available'}
               <!-- The helper resolves the localized internal path before adding encoded query data. -->
               <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
@@ -194,7 +198,7 @@
               onChange={removeSavedPlace}
             />
           </div>
-        </li>
+        </Panel>
       {/each}
     </ul>
 
@@ -210,7 +214,7 @@
       <!-- eslint-enable svelte/no-navigation-without-resolve -->
     {/if}
   {/if}
-</main>
+</PageShell>
 
 <p class="visually-hidden" role="status" aria-live="polite">{announcement}</p>
 
@@ -219,18 +223,21 @@
     margin-block: calc(var(--hv-space-context) * 1.5);
   }
 
-  .saved-card {
+  :global(.saved-card) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--hv-space-panel);
   }
 
-  .saved-card.unavailable {
+  :global(.saved-card.unavailable) {
     background: var(--hv-color-snow);
   }
 
-  h2,
-  .saved-card p {
+  h2 {
+    margin: 0;
+  }
+
+  :global(.saved-card) p {
     margin: 0;
   }
 
@@ -239,7 +246,7 @@
     font-weight: 700;
   }
 
-  .saved-card small {
+  :global(.saved-card small) {
     max-width: 42ch;
   }
 
@@ -248,14 +255,14 @@
     justify-content: end;
   }
 
-  .empty-state {
+  :global(.empty-state) {
     max-width: 34rem;
     margin-top: calc(var(--hv-space-context) * 1.5);
     padding: var(--hv-space-panel);
   }
 
-  .empty-state h2,
-  .empty-state p {
+  :global(.empty-state) h2,
+  :global(.empty-state) p {
     margin: 0;
   }
 
@@ -264,7 +271,7 @@
   }
 
   @media (max-width: 35rem) {
-    .saved-card {
+    :global(.saved-card) {
       grid-template-columns: 1fr;
     }
 
