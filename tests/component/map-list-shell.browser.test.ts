@@ -8,7 +8,6 @@ import { defaultDiscoveryState } from '$lib/discovery/state';
 import MapListShell from '$lib/discovery/MapListShell.svelte';
 import { createDomTestMapAdapter } from '$lib/map/dom-test-adapter';
 import type { MapAdapter, MapCallbacks } from '$lib/map/types';
-
 const { captureAnalytics } = vi.hoisted(() => ({ captureAnalytics: vi.fn() }));
 
 vi.mock('$lib/analytics/posthog', () => ({
@@ -911,7 +910,17 @@ describe('MapListShell synchronization', () => {
     expect(band).toBeTruthy();
     expect(band?.querySelector('img')).toBeNull();
     expect(Number.parseFloat(getComputedStyle(band!).minHeight)).toBeCloseTo(83.2, 0);
+    // The band gradient's colour stops are bare var(--hv-color-*) references (phase 5 removed
+    // their literal fallbacks as drift risk), and this file deliberately loads no CSS - without
+    // the tokens the whole background declaration is invalid at computed-value time and the
+    // gradient reads as 'none'. Supply the two tokens for this assertion only (their real
+    // tokens.css values, though any valid colour would satisfy it), the same per-test shim
+    // pattern the disclosure chevron tests in this file use.
+    document.documentElement.style.setProperty('--hv-color-moss-soft', '#d4f0f3');
+    document.documentElement.style.setProperty('--hv-color-fjord-soft', '#c8edf4');
     expect(getComputedStyle(band!).backgroundImage).toContain('linear-gradient');
+    document.documentElement.style.removeProperty('--hv-color-moss-soft');
+    document.documentElement.style.removeProperty('--hv-color-fjord-soft');
     expect(within(card).getByText('Outdoor place · Café', { exact: true })).toBeTruthy();
   });
 
@@ -1082,7 +1091,8 @@ describe('MapListShell synchronization', () => {
     // The entry animation rides the motion tokens, and this harness never loads app.css, so the
     // two tokens it needs are injected from motion.ts - the sanctioned script-side copy that the
     // parity test holds to tokens.css. Without them the unresolved var() would collapse the
-    // animation shorthand and there would be nothing to assert against.
+    // animation shorthand and there would be nothing to assert
+    // against.
     document.documentElement.style.setProperty('--hv-motion-quick', `${motionDurationsMs.quick}ms`);
     document.documentElement.style.setProperty(
       '--hv-ease-settle',
@@ -1092,6 +1102,17 @@ describe('MapListShell synchronization', () => {
       document.documentElement.style.removeProperty('--hv-motion-quick');
       document.documentElement.style.removeProperty('--hv-ease-settle');
     });
+    // Disclosure's chevron is sized entirely through Tailwind utility classes, which this
+    // CSS-free harness never loads, so a bare <svg viewBox="0 0 24 24"> falls back to the
+    // browser's default replaced-element sizing (stretching to the containing block's width)
+    // instead of its real 1.05rem. That inflates the disclosure element this test measures well
+    // past the viewport, which is enough to keep its entry animation from ever exposing a finished
+    // frame through getAnimations(). Giving just that one class its real production size restores
+    // the animation lookup without pulling in the rest of Tailwind's CSS.
+    const chevronSizeFix = document.createElement('style');
+    chevronSizeFix.textContent = '.disclosure-chevron { width: 1.05rem; height: 1.05rem; }';
+    document.head.append(chevronSizeFix);
+    onTestFinished(() => chevronSizeFix.remove());
     render(MapListShell, {
       places,
       lang: 'en',
@@ -1110,7 +1131,7 @@ describe('MapListShell synchronization', () => {
       .closest<HTMLElement>('.welcome-answer');
     const disclosure = (
       await within(selectedPlace).findByText('Place details')
-    ).closest<HTMLElement>('.hv-disclosure');
+    ).closest<HTMLElement>('details[data-complete-details]');
     expect(welcomeAnswer).toBeTruthy();
     expect(disclosure).toBeTruthy();
     if (!welcomeAnswer || !disclosure) throw new Error('Expected animated selected-place content');
@@ -1207,10 +1228,9 @@ describe('MapListShell synchronization', () => {
     await waitFor(() => expect(setCamera.mock.calls.at(-1)?.[1]?.duration).toBe(0));
     const shell = document.querySelector<HTMLElement>('[data-responsive-shell]');
     expect(shell?.dataset.reducedMotion).toBe('true');
-    // This harness never loads app.css, so token-driven CSS cannot be asserted here: an
-    // unresolvable var() collapses the whole animation shorthand and any duration reads 0s
-    // whether reduced motion is on or not. The card and marker CSS under reduce are covered
-    // by tests/evaluation/a11y.spec.ts, where emulateMedia drives the real media query.
+    // The map camera duration above is a JS-level mock call argument, not CSS - this test does not
+    // also assert the card/marker CSS actually retunes under reduce; that is covered by
+    // tests/evaluation/a11y.spec.ts, where emulateMedia drives the real media query end to end.
   });
 
   it('rides the selection camera on the settle curve', async () => {
@@ -1532,7 +1552,15 @@ describe('MapListShell synchronization', () => {
     });
 
     const selectedPlace = screen.getByLabelText('Selected place');
-    expect(selectedPlace.classList.contains('hv-panel')).toBe(true);
+    // The panel-surface pin: of Panel.svelte's recipe this full-bleed card keeps only the raised
+    // background (its scoped root rule always neutralized border/radius/shadow, so those
+    // utilities never rode along - the DiscoveryResults treatment). This harness deliberately
+    // loads no CSS at all (see the many geometry assertions elsewhere in this file, calibrated
+    // against an unstyled DOM), so a getComputedStyle check - the phase-2 precedent used where a
+    // CSS-loaded harness is available (button.browser.test.ts, place-photos.browser.test.ts) -
+    // would read nothing back here; this asserts the one live surface class survived instead,
+    // at the same rigor as the hv-panel class check it replaces.
+    expect(selectedPlace.classList.contains('bg-snow-raised')).toBe(true);
     await fireEvent.click(
       within(selectedPlace).getByRole('button', { name: 'Different conditions apply' })
     );
@@ -1550,7 +1578,7 @@ describe('MapListShell synchronization', () => {
     expect(within(selectedPlace).getByText(/Monday: 09:00-17:00/)).toBeTruthy();
     expect(within(selectedPlace).getByText(/seasonal_note: Call ahead on holidays/)).toBeTruthy();
     expect(within(selectedPlace).getByText('Water bowl, covered patio hook')).toBeTruthy();
-    expect(selectedPlace.querySelector('details.hv-disclosure')).not.toBeNull();
+    expect(selectedPlace.querySelector('details[data-complete-details]')).not.toBeNull();
     expect(selectedPlace.querySelector('[data-status="attention"]')).toBeNull();
     expect(selectedPlace.querySelector('[data-status="verified"]')).toBeNull();
     expect(window.location.pathname).toBe('/en');
@@ -1589,7 +1617,7 @@ describe('MapListShell synchronization', () => {
         profileRequest.resolve(complexProfile);
         await waitFor(() =>
           expect(
-            selectedPlace.querySelector<HTMLDetailsElement>('details.hv-disclosure')?.open
+            selectedPlace.querySelector<HTMLDetailsElement>('details[data-complete-details]')?.open
           ).toBe(true)
         );
         expect(within(selectedPlace).getByRole('heading', { name: 'Dog access' })).toBeTruthy();
@@ -1830,8 +1858,13 @@ describe('MapListShell synchronization', () => {
     expect(unavailable.textContent).toContain(
       'The complete access information could not be loaded.'
     );
-    expect(unavailable.classList.contains('hv-notice')).toBe(true);
-    expect(unavailable.getAttribute('data-tone')).toBe('error');
+    // Notice's error tone compiles to Tailwind classes (border-danger bg-danger-soft text-danger)
+    // rather than the retired hv-notice class and data-tone attribute. This CSS-free harness can't
+    // read a computed danger border back (see the panel-recipe pin's comment above), so this
+    // asserts the exact tone class set survived the migration instead.
+    for (const toneClass of ['border-danger', 'bg-danger-soft', 'text-danger']) {
+      expect(unavailable.classList.contains(toneClass)).toBe(true);
+    }
     await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(loadPlace).toHaveBeenCalledTimes(2));
     expect(screen.getByRole('button', { name: 'Special conditions' })).toBeTruthy();
@@ -2435,6 +2468,19 @@ describe('MapListShell synchronization', () => {
     await browserPage.viewport(1280, 800);
     history.replaceState(null, '', '/en');
 
+    // This harness loads no CSS at all, so Disclosure's chevron - sized entirely through Tailwind
+    // utility classes, unlike every other icon in this app which carries a plain scoped-CSS
+    // width/height - has no intrinsic size here.
+    // A bare <svg viewBox="0 0 24 24"> with no width/height falls back to the browser's default
+    // replaced-element sizing, which stretches it to the width of its containing block (the whole
+    // card), inflating the compact card to look "open" before the Member ever clicks. Giving just
+    // that one class its real production size (Disclosure.svelte's own w-[1.05rem] h-[1.05rem])
+    // fixes this without pulling in the rest of Tailwind's CSS, which this file's other geometry
+    // assertions are not tuned for.
+    const chevronSizeFix = document.createElement('style');
+    chevronSizeFix.textContent = '.disclosure-chevron { width: 1.05rem; height: 1.05rem; }';
+    document.head.append(chevronSizeFix);
+
     try {
       const { container } = render(MapListShell, {
         places,
@@ -2469,6 +2515,7 @@ describe('MapListShell synchronization', () => {
       expect(overlay.getBoundingClientRect().left).toBeCloseTo(compactRect.left, 0);
       expect(overlay.getBoundingClientRect().width).toBeCloseTo(compactRect.width, 0);
     } finally {
+      chevronSizeFix.remove();
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }
   });

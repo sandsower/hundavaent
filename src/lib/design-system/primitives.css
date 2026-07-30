@@ -160,21 +160,4 @@
     background: var(--hv-color-success-soft);
     color: var(--hv-color-success);
   }
-
-  :where([data-ui-mode], [data-ui-mode] *).hv-disclosure {
-    border-block-start: 1px solid var(--hv-border-subtle);
-  }
-
-  :where([data-ui-mode], [data-ui-mode] *).hv-disclosure > summary {
-    color: var(--hv-color-fjord);
-    font-weight: 850;
-    cursor: pointer;
-  }
-
-  :where([data-ui-mode], [data-ui-mode] *).hv-disclosure > summary:focus-visible {
-    border-radius: var(--hv-radius-control);
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
 }

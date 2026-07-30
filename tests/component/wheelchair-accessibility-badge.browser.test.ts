@@ -4,6 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { catalogues } from '$i18n';
 import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibilityBadge.svelte';
 
+// app.css supplies the real token values (tokens.css). The contrast assertions below used to be
+// satisfied by the hardcoded hex fallbacks the component carried in its var() references - the
+// phase 5 sweep removed those as drift risk, so the test now measures the same token-driven
+// rendering the app ships instead of a shadow copy that could silently diverge from it.
+import '../../src/app.css';
+
 function contrastRatio(foreground: string, background: string): number {
   const luminance = (color: string) => {
     const channels = color

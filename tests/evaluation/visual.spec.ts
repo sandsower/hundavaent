@@ -511,7 +511,7 @@ for (const locale of ['is', 'en'] as const) {
     );
     const accessCard = page.getByRole('complementary', { name: copy[locale].selectedPlace });
     await expect(accessCard).toBeVisible();
-    await accessCard.locator('details.hv-disclosure').locator(':scope > summary').click();
+    await accessCard.locator('details[data-complete-details]').locator(':scope > summary').click();
     await expect(
       accessCard.getByRole('heading', { name: locale === 'is' ? 'Aðgangur hunda' : 'Dog access' })
     ).toBeVisible();

@@ -266,8 +266,8 @@
   .category-band {
     background: linear-gradient(
       145deg,
-      var(--hv-color-moss-soft, #d4f0f3) 0 40%,
-      var(--hv-color-fjord-soft, #c8edf4) 100%
+      var(--hv-color-moss-soft) 0 40%,
+      var(--hv-color-fjord-soft) 100%
     );
   }
 
@@ -277,7 +277,7 @@
     right: 1rem;
     width: 2.6rem;
     height: 2.6rem;
-    color: color-mix(in srgb, var(--hv-color-basalt, #1e2d31) 18%, transparent);
+    color: color-mix(in srgb, var(--hv-color-basalt) 18%, transparent);
     transform: translateY(-50%) rotate(-12deg);
   }
 
@@ -317,7 +317,7 @@
     bottom: 0;
     left: 0;
     width: 0.3rem;
-    background: var(--hv-color-signal, #f2c94c);
+    background: var(--hv-color-signal);
     content: '';
     pointer-events: none;
     transform: scaleY(0);
@@ -330,7 +330,7 @@
   }
 
   article.selected {
-    border-color: var(--hv-color-basalt, #1e2d31);
+    border-color: var(--hv-color-basalt);
   }
 
   .card-body {

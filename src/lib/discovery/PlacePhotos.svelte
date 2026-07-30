@@ -84,8 +84,11 @@
 </script>
 
 {#if photos.length > 0 || contributable}
+  <!-- Panel.svelte's exact utility recipe (base), not the Panel component: this root also
+       carries class:featured/class:strip/class:tileless plus scoped .place-photos rules below
+       that must keep matching a locally-authored <section>. -->
   <section
-    class="place-photos hv-panel"
+    class="place-photos border border-border-subtle rounded-panel bg-snow-raised shadow-raised"
     class:featured
     class:strip
     class:tileless={tileCount === 0}

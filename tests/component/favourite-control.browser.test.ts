@@ -346,8 +346,15 @@ describe('FavouriteControl', () => {
         'We could not update your favorites. Please try again.'
       )
     );
-    expect(screen.getByRole('alert').classList.contains('hv-status')).toBe(true);
-    expect(screen.getByRole('alert').getAttribute('data-status')).toBe('error');
+    // The error chip is the package Status primitive now (tone="error") - pin the danger
+    // treatment by computed style rather than the retired hv-status/data-status vocabulary,
+    // resolving the token through a probe element (the button.browser.test.ts precedent).
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--hv-color-danger)';
+    document.body.append(probe);
+    const dangerColor = getComputedStyle(probe).color;
+    probe.remove();
+    expect(getComputedStyle(screen.getByRole('alert')).color).toBe(dangerColor);
     expect(onChange).not.toHaveBeenCalled();
     expect(captureAnalytics).not.toHaveBeenCalled();
     expect(button.getAttribute('aria-pressed')).toBe('false');

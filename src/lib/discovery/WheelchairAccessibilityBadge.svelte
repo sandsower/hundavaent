@@ -110,29 +110,29 @@
     gap: 0.42rem;
     align-items: center;
     padding: 0.24rem 0.55rem 0.24rem 0.3rem;
-    border: 1px solid var(--hv-color-basalt, #1e2d31);
+    border: 1px solid var(--hv-color-basalt);
     border-radius: 999px;
-    background: var(--hv-access-unknown, #e4e7e5);
-    color: var(--hv-color-basalt, #1e2d31);
+    background: var(--hv-access-unknown);
+    color: var(--hv-color-basalt);
     font-size: 0.72rem;
     font-weight: 800;
     line-height: 1.05;
   }
 
   .badge.accessible {
-    background: var(--hv-color-moss-soft, #e2e9e2);
+    background: var(--hv-color-moss-soft);
   }
 
   .badge.partially_accessible {
-    background: var(--hv-access-special, #f1d7bd);
+    background: var(--hv-access-special);
   }
 
   .badge.not_accessible {
-    background: var(--hv-color-danger-soft, #f6e1dc);
+    background: var(--hv-color-danger-soft);
   }
 
   .badge.unknown {
-    color: var(--hv-color-basalt, #1e2d31);
+    color: var(--hv-color-basalt);
   }
 
   /* The same face, standing as a button. It follows the access chips' manner: a lift on hover
@@ -170,10 +170,9 @@
   .persistent-detail {
     margin: 0;
     padding: 0.6rem 0.7rem;
-    border-inline-start: 0.3rem solid
-      var(--hv-access-detail-accent, var(--hv-color-signal, #f2c94c));
+    border-inline-start: 0.3rem solid var(--hv-access-detail-accent, var(--hv-color-signal));
     border-radius: 0.4rem;
-    background: var(--hv-color-snow-raised, #fbfcf9);
+    background: var(--hv-color-snow-raised);
     font-size: 0.78rem;
     line-height: 1.4;
     /* The detail carries text, so the reveal is transform-only: words arrive at full contrast
@@ -196,7 +195,7 @@
     height: 1.45rem;
     flex: 0 0 auto;
     border-radius: 50%;
-    background: var(--hv-color-snow-raised, #ffffff);
+    background: var(--hv-color-snow-raised);
     place-items: center;
   }
 
@@ -213,10 +212,10 @@
     display: grid;
     width: 0.72rem;
     height: 0.72rem;
-    border: 1px solid var(--hv-color-basalt, #1e2d31);
+    border: 1px solid var(--hv-color-basalt);
     border-radius: 50%;
-    background: var(--hv-color-snow-raised, #ffffff);
-    color: var(--hv-color-basalt, #1e2d31);
+    background: var(--hv-color-snow-raised);
+    color: var(--hv-color-basalt);
     font-size: 0.55rem;
     font-weight: 950;
     line-height: 1;
@@ -228,7 +227,7 @@
     width: 1.15rem;
     height: 0.13rem;
     border-radius: 999px;
-    background: var(--hv-color-danger, #a53f2b);
+    background: var(--hv-color-danger);
     transform: rotate(-42deg);
   }
 
