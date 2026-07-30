@@ -61,54 +61,13 @@ function resolvedPadding(token: string): string {
   return value;
 }
 
-// A live [data-ui-mode] wrapper hosting the legacy .hv-notice/.hv-status markup, the actual CSS
-// primitives.css:186-243 codifies. Comparing the new component's computed styles against this
-// element - rather than only against resolved tokens - is the strongest pixel-parity proof: it
-// exercises the real cascade (:where([data-ui-mode], [data-ui-mode] *).hv-notice, etc.), not just
-// the tokens the new Tailwind utilities also happen to reference.
-function renderLegacy(
-  markup: 'notice' | 'status',
-  tone: string | undefined,
-  text: string
-): { wrapper: HTMLElement; element: HTMLElement } {
-  const wrapper = document.createElement('div');
-  wrapper.setAttribute('data-ui-mode', 'member');
-  document.body.append(wrapper);
-
-  const element = document.createElement(markup === 'notice' ? 'div' : 'span');
-  element.className = markup === 'notice' ? 'hv-notice' : 'hv-status';
-  if (tone) {
-    element.setAttribute('data-tone', tone);
-    if (markup === 'status') {
-      element.setAttribute('data-status', tone);
-    }
-  }
-  element.textContent = text;
-  wrapper.append(element);
-
-  return { wrapper, element };
-}
+// The legacy-parity tests that rendered a live .hv-notice/.hv-status probe against the real
+// primitives.css cascade retired with the rules themselves (phase 6 deleted the last legacy
+// class users, so the baseline no longer exists to compare against). The direct token-resolution
+// pins below are now the codification's contract - each resolves its token through a probe
+// element, never a bare equality that could collapse to an inherited default.
 
 describe('Notice', () => {
-  it('matches the legacy .hv-notice baseline for border, background, radius, and padding', () => {
-    const { wrapper, element: legacy } = renderLegacy('notice', undefined, 'Legacy');
-    const legacyStyle = getComputedStyle(legacy);
-
-    try {
-      render(Notice, { children: label('Untoned notice') });
-      const notice = screen.getByText('Untoned notice');
-      const style = getComputedStyle(notice);
-
-      expect(style.borderTopWidth).toBe(legacyStyle.borderTopWidth);
-      expect(style.borderTopColor).toBe(legacyStyle.borderTopColor);
-      expect(style.backgroundColor).toBe(legacyStyle.backgroundColor);
-      expect(style.borderRadius).toBe(legacyStyle.borderRadius);
-      expect(style.paddingTop).toBe(legacyStyle.paddingTop);
-    } finally {
-      wrapper.remove();
-    }
-  });
-
   it('resolves the untoned base to border-border-subtle and bg-fjord-soft', () => {
     render(Notice, { children: label('Untoned') });
     const style = getComputedStyle(screen.getByText('Untoned'));
@@ -211,27 +170,6 @@ describe('Notice', () => {
 });
 
 describe('Status', () => {
-  it('matches the legacy .hv-status baseline for border, background, radius, and padding', () => {
-    const { wrapper, element: legacy } = renderLegacy('status', undefined, 'Legacy status');
-    const legacyStyle = getComputedStyle(legacy);
-
-    try {
-      render(Status, { children: label('Untoned status') });
-      const status = screen.getByText('Untoned status');
-      const style = getComputedStyle(status);
-
-      expect(style.borderTopWidth).toBe(legacyStyle.borderTopWidth);
-      expect(style.borderTopColor).toBe(legacyStyle.borderTopColor);
-      expect(style.backgroundColor).toBe(legacyStyle.backgroundColor);
-      expect(style.borderRadius).toBe(legacyStyle.borderRadius);
-      expect(style.paddingTop).toBe(legacyStyle.paddingTop);
-      expect(style.paddingLeft).toBe(legacyStyle.paddingLeft);
-      expect(style.fontWeight).toBe(legacyStyle.fontWeight);
-    } finally {
-      wrapper.remove();
-    }
-  });
-
   it('resolves the untoned base to border-border-strong, bg-fjord-soft, and the fixed padding', () => {
     render(Status, { children: label('Untoned chip') });
     const style = getComputedStyle(screen.getByText('Untoned chip'));
