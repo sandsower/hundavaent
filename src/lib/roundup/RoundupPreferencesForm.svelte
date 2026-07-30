@@ -223,8 +223,11 @@
      token, and font weight - so the chip look crosses the component boundary via :global()
      anchored on the locally-authored .choice-grid/.language-options wrappers, the same pattern as
      AuthDialog's .dialog-content :global(p). Font-weight and gap here restate this component's
-     own values (750 and 0.55rem) rather than accepting Choice's row defaults (800 and 0.6rem),
-     because those are visual decisions this component made, not approved to drift. */
+     own values (750, 0.55rem, and the 2.65rem chip height) rather than accepting Choice's row
+     defaults (800, 0.6rem, and the 2.75rem control token), because those are visual decisions
+     this component made, not approved to drift. The email-interest row is the one place Choice's
+     control-token floor is accepted without restatement: its multi-line label already exceeds it,
+     so the floor is invisible there. */
   .choice-grid :global(.chip),
   .language-options :global(.chip) {
     gap: 0.55rem;
@@ -233,6 +236,7 @@
     border-radius: 0.75rem;
     background: var(--hv-color-snow-raised);
     font-weight: 750;
+    min-height: 2.65rem;
   }
 
   .choice-grid :global(.chip:has(input:checked)),

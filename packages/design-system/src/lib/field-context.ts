@@ -8,7 +8,10 @@ import { getContext, hasContext, setContext } from 'svelte';
 const FIELD_CONTEXT_KEY = Symbol('hundavaent-field');
 
 export interface FieldContext {
-  /** The id Field's own <label for> points at; the wrapped control must carry it. */
+  /** The id Field's own <label for> points at; the wrapped control must carry it. One control
+      per Field: a second consumer under the same Field resolves this same id and produces
+      duplicate DOM ids, and a caller-supplied id on the control is overridden by this one -
+      both are silent misuse shapes, documented on Field's children prop. */
   readonly controlId: string;
   /** Space-joined ids of the hint/error paragraphs currently rendered; undefined when neither
       is. Exposed as a getter over $derived state so consumers stay live when an error appears
@@ -23,9 +26,7 @@ export function provideFieldContext(context: FieldContext): void {
 }
 
 export function consumeFieldContext(): FieldContext | undefined {
-  return hasContext(FIELD_CONTEXT_KEY)
-    ? getContext<FieldContext>(FIELD_CONTEXT_KEY)
-    : undefined;
+  return hasContext(FIELD_CONTEXT_KEY) ? getContext<FieldContext>(FIELD_CONTEXT_KEY) : undefined;
 }
 
 /** Field-provided ids first, then whatever the caller passed - a call site that references its

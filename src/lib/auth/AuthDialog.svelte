@@ -203,7 +203,12 @@
     sent = false;
     error = null;
     stopResendTimer();
-    queueMicrotask(() => emailFormElement?.querySelector('input')?.focus());
+    // Scoped to the email input by type, not the form's first input of any kind: a future
+    // hidden or auxiliary input inserted before the Field would silently steal this focus
+    // target, and the old bind:this on the exact element could never miss.
+    queueMicrotask(() =>
+      emailFormElement?.querySelector<HTMLInputElement>('input[type="email"]')?.focus()
+    );
   }
 
   function fallbackRequest(url: URL): AuthRequest | null {

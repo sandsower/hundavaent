@@ -16,9 +16,13 @@
     /** Call-site hooks and non-conflicting layout utilities only - the same contract as every
         other primitive's class prop. */
     class?: string;
-    /** The control. Input/Textarea/Select pick up this field's id/describedby/invalid wiring
-        through context automatically; anything else (a file input, a custom picker) can be
-        wired by hand against the ids visible in the rendered markup. */
+    /** The control - exactly one. Input/Textarea/Select pick up this field's id/describedby/
+        invalid wiring through context automatically; anything else (a file input, a custom
+        picker) can be wired by hand against the ids visible in the rendered markup. Two
+        context-consuming controls under one Field is unsupported: both would resolve the same
+        controlId (duplicate DOM ids, label associated with the first only). A caller-supplied
+        id on the wrapped control is silently overridden by the field's own - external
+        references must target the Field-generated id, or the control belongs outside a Field. */
     children: Snippet;
   }
 

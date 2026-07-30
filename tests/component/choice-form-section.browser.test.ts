@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Choice, FormSection } from '@hundavaent/design-system';
 
@@ -41,6 +41,28 @@ describe('Choice', () => {
 
     const checkbox = screen.getByRole('checkbox', { name: 'Notify me' });
     expect(checkbox.getAttribute('type')).toBe('checkbox');
+  });
+
+  // The manual handleChange path: Choice wires checked by hand (bind:checked cannot ride a
+  // dynamic type attribute), so a real click must both update the bound state and chain a
+  // caller-supplied onchange rather than clobbering it - the rerender-flip test below never
+  // exercises this DOM-event route.
+  it('updates checked and chains a caller onchange on a real click', async () => {
+    const callerOnchange = vi.fn();
+    render(Choice, {
+      type: 'checkbox',
+      checked: false,
+      onchange: callerOnchange,
+      children: label('Clicked')
+    });
+
+    const checkbox = screen.getByRole('checkbox', { name: 'Clicked' });
+    checkbox.click();
+    await Promise.resolve();
+
+    expect(checkbox).toHaveProperty('checked', true);
+    expect(callerOnchange).toHaveBeenCalledTimes(1);
+    expect(callerOnchange.mock.calls[0][0]).toBeInstanceOf(Event);
   });
 
   it('reflects an initial checked prop', () => {
@@ -141,9 +163,7 @@ describe('FormSection', () => {
       children: html('<input type="text" aria-label="Nested control" />')
     });
 
-    expect(
-      screen.getByRole('textbox', { name: 'Nested control' }).matches(':disabled')
-    ).toBe(true);
+    expect(screen.getByRole('textbox', { name: 'Nested control' }).matches(':disabled')).toBe(true);
   });
 
   it('leaves a nested control enabled when disabled is absent', () => {
@@ -151,9 +171,9 @@ describe('FormSection', () => {
       children: html('<input type="text" aria-label="Nested control" />')
     });
 
-    expect(
-      screen.getByRole('textbox', { name: 'Nested control' }).matches(':disabled')
-    ).toBe(false);
+    expect(screen.getByRole('textbox', { name: 'Nested control' }).matches(':disabled')).toBe(
+      false
+    );
   });
 
   it('resolves background-color to the raised-surface token', () => {
