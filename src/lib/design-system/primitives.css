@@ -1,5 +1,6 @@
 @layer hundavaent.primitives {
-  /* Phase 6 (VIB-54) retired the last class-attribute users of every rule this file carried:
+  /* Phase 6 of the design-system migration retired the last class-attribute users of every rule
+     this file carried:
      the hv-control family (with its data-intent variants), hv-field, hv-notice, hv-status,
      hv-panel, hv-stack, hv-list, hv-list-card, hv-meta, hv-eyebrow, and hv-page-actions. Their
      codifications live in @hundavaent/design-system (Button, Field/Input/Select/Textarea,
