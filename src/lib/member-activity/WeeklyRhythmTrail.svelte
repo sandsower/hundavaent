@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Catalogue, Locale } from '$i18n';
   import { formatLocalizedWeekRange } from '$i18n/date';
+  import { Eyebrow, Notice } from '@hundavaent/design-system';
   import PawMark from './PawMark.svelte';
   import type { WeeklyRhythmHistory } from './types';
 
@@ -18,13 +19,13 @@
 </script>
 
 <section
-  class="weekly-rhythm hv-panel"
+  class="weekly-rhythm"
   data-weekly-rhythm-history
   data-state={history.status}
   aria-labelledby="weekly-rhythm-heading"
 >
   <div class="rhythm-copy">
-    <p class="hv-eyebrow">{copy['weeklyRhythm.privateEyebrow']}</p>
+    <Eyebrow>{copy['weeklyRhythm.privateEyebrow']}</Eyebrow>
     <h2 id="weekly-rhythm-heading">{copy['weeklyRhythm.historyTitle']}</h2>
     <p>{copy['weeklyRhythm.historyIntro']}</p>
   </div>
@@ -66,10 +67,10 @@
       {/each}
     </ol>
   {:else}
-    <div class="unavailable hv-notice" data-tone="info" role="status">
+    <Notice as="div" tone="info" role="status" class="unavailable">
       <PawMark />
       <span>{copy['weeklyRhythm.unavailable']}</span>
-    </div>
+    </Notice>
   {/if}
 
   {#if achievementsHref && achievementsLabel}
@@ -82,6 +83,11 @@
 </section>
 
 <style>
+  /* Not <Panel>: this surface needs a bespoke border colour (a fjord-tinted mix), which Panel's
+     contract cannot carry (its border/radius/shadow/background ship as one matched set that
+     callers must not override - see Panel.svelte's class-prop doc comment). The panel recipe is
+     reproduced here as scoped token CSS instead, on the caller's own element (the
+     SelectedPlaceCard precedent: carry only the tokens that render). */
   .weekly-rhythm {
     position: relative;
     display: grid;
@@ -93,6 +99,9 @@
     container-type: inline-size;
     overflow: hidden;
     padding: var(--hv-space-panel);
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    box-shadow: var(--hv-shadow-raised);
     border-color: color-mix(in srgb, var(--hv-color-fjord) 36%, var(--hv-border-subtle));
     background: var(--hv-color-snow-raised);
     gap: var(--hv-space-context);
@@ -209,7 +218,11 @@
     font-weight: 900;
   }
 
-  .unavailable {
+  /* .unavailable now renders through Notice (a child component), so the hook needs :global() -
+     Notice's own border/radius/background/padding stay untouched; this only adds layout.
+     Ancestor-scoped under .weekly-rhythm (never a bare :global()), matching the rest of this
+     migration's hook convention. */
+  .weekly-rhythm :global(.unavailable) {
     display: flex;
     margin: 0;
     gap: 0.65rem;
@@ -248,7 +261,7 @@
     }
   }
 
-  .unavailable :global(svg) {
+  .weekly-rhythm :global(.unavailable svg) {
     width: 1.25rem;
     flex: 0 0 auto;
     color: var(--hv-color-fjord);

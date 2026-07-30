@@ -3,6 +3,7 @@
   import { resolve } from '$app/paths';
 
   import { provideTranslationSaveCoordinator } from '$lib/translations/save-coordinator';
+  import { Notice } from '@hundavaent/design-system';
   import type { LayoutProps } from './$types';
 
   let { children }: LayoutProps = $props();
@@ -60,14 +61,16 @@
 </header>
 
 {#if saveCoordinator.problemCount > 0}
-  <p class="workspace-save-warning hv-notice" data-tone="error" role="alert">
+  <Notice as="p" tone="error" role="alert" class="workspace-save-warning">
     Resolve {saveCoordinator.problemCount} translation save problem{saveCoordinator.problemCount ===
     1
       ? ''
       : 's'} before leaving the editor.
-  </p>
+  </Notice>
 {:else if saveCoordinator.hasUnsettled}
-  <p class="workspace-save-warning hv-notice" role="status">Saving edits before navigation…</p>
+  <Notice as="p" role="status" class="workspace-save-warning"
+    >Saving edits before navigation…</Notice
+  >
 {/if}
 
 {@render children()}
@@ -84,7 +87,9 @@
     background: var(--hv-color-snow-raised);
   }
 
-  .workspace-save-warning {
+  /* Lives on Notice's rendered root now, outside this file's scope hash. Bare :global with a
+     layout-unique name, per the rootless-hook precedent (.saved-card and friends). */
+  :global(.workspace-save-warning) {
     margin: 0.75rem auto;
     width: min(calc(100% - 2rem), 78rem);
   }

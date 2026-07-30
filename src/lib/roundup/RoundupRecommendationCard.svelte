@@ -1,6 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
 
+  import { Button, Eyebrow } from '@hundavaent/design-system';
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import type { PlaceCategory } from '$domain/place';
   import type { RoundupMunicipality, RoundupRecommendation } from './types';
@@ -36,7 +37,7 @@
   }
 </script>
 
-<article class:lead class="recommendation hv-panel" data-rank={recommendation.rank}>
+<article class:lead class="recommendation" data-rank={recommendation.rank}>
   <div class="icon-wrap" aria-hidden="true">
     <RoundupTrailIcon
       kind={recommendation.reason === 'newly_published' ? 'new' : 'updated'}
@@ -44,34 +45,40 @@
     />
   </div>
   <div class="content">
-    <p class="reason hv-eyebrow">{reason}</p>
+    <Eyebrow>{reason}</Eyebrow>
     <h3>{recommendation.name}</h3>
     <p class="facts">
       <span>{copy[categoryKey(recommendation.category)]}</span>
       <span aria-hidden="true">·</span>
       <span>{copy[municipalityKey(recommendation.municipality)]}</span>
     </p>
-    <!-- eslint-disable svelte/no-navigation-without-resolve -- the locale root is resolved inside this dynamic discovery URL. -->
-    <a
-      class="hv-control"
-      data-intent={lead ? 'primary' : undefined}
+    <Button
       href={`${resolve('/[lang=lang]', { lang })}?place=${encodeURIComponent(recommendation.placeId)}&view=list`}
+      intent={lead ? 'primary' : 'neutral'}
+      class="open-place"
       onclick={onselect}
     >
       {copy['roundup.openPlace'].replace('{name}', recommendation.name)}
-    </a>
-    <!-- eslint-enable svelte/no-navigation-without-resolve -->
+    </Button>
   </div>
 </article>
 
 <style>
+  /* Not <Panel>: this card needs a bespoke fjord-tinted border (stronger still on .lead), which
+     Panel's contract cannot carry (its border/radius/shadow/background ship as one matched set
+     that callers must not override - see Panel.svelte's class-prop doc comment). The panel
+     recipe is reproduced here as scoped token CSS instead, on the caller's own element (the
+     SelectedPlaceCard/WeeklyRhythmTrail precedent: carry only the tokens that render). */
   .recommendation {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     min-height: 100%;
     padding: 1rem;
     gap: 0.85rem;
-    border-color: color-mix(in srgb, var(--hv-color-fjord) 18%, var(--hv-border-subtle));
+    border: 1px solid color-mix(in srgb, var(--hv-color-fjord) 18%, var(--hv-border-subtle));
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
   }
 
   .recommendation.lead {
@@ -97,7 +104,7 @@
     color: var(--hv-color-fjord);
   }
 
-  .reason,
+  /* .reason no longer needs a margin reset here: Eyebrow's own base already carries m-0. */
   h3,
   .facts {
     margin: 0;
@@ -124,7 +131,9 @@
     font-weight: 700;
   }
 
-  .hv-control {
+  /* Button renders its own <a> in a separate component; the hook is ancestor-scoped under
+     .content (this file's own hashed scope), never a bare :global(). */
+  .content :global(.open-place) {
     width: fit-content;
   }
 

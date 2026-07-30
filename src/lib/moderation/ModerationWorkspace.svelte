@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Notice, Status } from '@hundavaent/design-system';
   import type { MessageKey } from '$i18n';
 
   import ModerationActionBar from './ModerationActionBar.svelte';
@@ -182,8 +183,14 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
+<!-- Of Panel's surface set this shell keeps only the raised background: the border colour
+     (basalt, not Panel's subtle default), radius (shell, not panel), and shadow are call-site
+     overrides that Panel's own class-prop contract explicitly does not support ("overriding the
+     surface set through this is unsupported"). The one live utility rides directly on this
+     locally-authored element rather than a <Panel> wrapper so the scoped .workspace rule below
+     keeps matching without needing :global() (the SelectedPlaceCard precedent). -->
 <section
-  class="workspace hv-panel"
+  class="workspace bg-snow-raised"
   aria-labelledby="moderation-workspace-title"
   data-moderation-workspace
   bind:this={workspaceElement}
@@ -233,16 +240,18 @@
             <p class="review-meta">{copy['moderation.workspace.noSelectionBody']}</p>
           </div>
         {/if}
-        <p class="live-status" role="status" aria-live="polite">{statusMessage}</p>
+        <Status tone="success" class="live-status" role="status" aria-live="polite"
+          >{statusMessage}</Status
+        >
       </header>
 
       <div class="review-scroll" data-review-scroll>
         {#if reviewErrorMessage}
-          <div class="review-error" role="alert">
+          <Notice tone="error" class="review-error" role="alert">
             <p>{reviewErrorMessage}</p>
             <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- retryHref is assembled from the already-resolved locale-specific moderation base path. -->
             <a href={retryHref}>{copy['moderation.workspace.retry']}</a>
-          </div>
+          </Notice>
         {/if}
         {#if selectedItem}
           <fieldset class="review-content" disabled={reviewDisabled}>
@@ -277,9 +286,8 @@
     min-height: 0;
     grid-template-rows: auto minmax(0, 1fr);
     overflow: hidden;
-    border-color: var(--hv-color-basalt);
+    border: 1px solid var(--hv-color-basalt);
     border-radius: var(--hv-radius-shell);
-    background: var(--hv-color-snow-raised);
     box-shadow: var(--hv-shadow-raised);
   }
   .workspace-top {
@@ -353,7 +361,7 @@
     margin-bottom: 0.25rem;
     color: var(--hv-color-fjord);
     font-size: 0.68rem;
-    font-weight: 950;
+    font-weight: 800;
     letter-spacing: 0.09em;
     text-transform: uppercase;
   }
@@ -372,21 +380,29 @@
     font-size: 0.67rem;
     font-weight: 800;
   }
-  .live-status {
+  /* Status renders its span inside a child component, so Svelte's scoped CSS cannot reach it
+     directly - anchored through .review-head with :global() (the FavouriteControl precedent).
+     Status's success tone now owns the background/text and its base owns the weight; the
+     positioning, radius, and the "collapses away while empty" live-region behaviour (this element
+     stays mounted so aria-live keeps announcing future updates, but must render invisible when
+     there is nothing to say) survive as call-site character. Status's base border is fixed to
+     border-strong regardless of tone, so the border colour is pinned to success here the same way
+     FavouriteControl pins .favourite-toggle's selected-state border/background at the call site. */
+  .review-head :global(.live-status) {
     position: absolute;
     top: 100%;
     right: 1.2rem;
     left: 1.2rem;
     z-index: 2;
-    border-radius: 0 0 var(--hv-radius-shell) var(--hv-radius-shell);
-    background: var(--hv-color-success-soft);
-    font-size: 0.78rem;
-    font-weight: 850;
-  }
-  .live-status:not(:empty) {
-    border: 1px solid var(--hv-color-success);
+    border-color: var(--hv-color-success);
     border-top: 0;
+    border-radius: 0 0 var(--hv-radius-shell) var(--hv-radius-shell);
     padding: 0.5rem 0.7rem;
+    font-size: 0.78rem;
+  }
+  .review-head :global(.live-status:empty) {
+    border: 0;
+    padding: 0;
   }
   .review-scroll {
     min-width: 0;
@@ -409,22 +425,22 @@
     border: 0;
     padding: 0;
   }
-  .review-error {
+  /* Notice renders its element inside a child component, so scoped CSS cannot reach it directly -
+     anchored through .review-scroll with :global() (the FavouriteControl precedent). Notice's
+     error tone is an exact match for the old border/background pair, so only the margin survives
+     as call-site character. */
+  .review-scroll :global(.review-error) {
     margin-bottom: 1rem;
-    border: 1px solid var(--hv-color-danger);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-danger-soft);
-    padding: 0.75rem;
   }
-  .review-error a {
+  .review-scroll :global(.review-error a) {
     display: inline-block;
     margin-top: 0.5rem;
-    font-weight: 900;
+    font-weight: 800;
   }
   .review-summary span {
     color: var(--hv-color-fjord);
     font-size: 0.68rem;
-    font-weight: 950;
+    font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }

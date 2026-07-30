@@ -2,12 +2,15 @@
   import { enhance } from '$app/forms';
   import { resolve } from '$app/paths';
   import {
+    Button,
     Eyebrow,
     Meta,
+    Notice,
     PageHeader,
     PageShell,
     PageTitle,
-    Panel
+    Panel,
+    Status
   } from '@hundavaent/design-system';
   import type { SubmitFunction } from '@sveltejs/kit';
 
@@ -152,11 +155,11 @@
       </PageHeader>
 
       {#if errorCode}
-        <p class="message error hv-notice" data-tone="error" role="alert">
+        <Notice tone="error" as="p" class="account-message" role="alert">
           {errorCode === 'authentication_required'
             ? data.copy['account.authenticationRequired']
             : data.copy['account.authUnavailable']}
-        </p>
+        </Notice>
       {/if}
 
       <WeeklyRhythmTrail
@@ -182,16 +185,16 @@
             <div class="destination-heading">
               <h2 id="impact-heading">{data.copy['account.impactHeading']}</h2>
               {#if trustedVerificationFeedback.status === 'available' && trustedVerificationFeedback.value.hasUnread}
-                <span class="hv-status">{data.copy['account.newBadge']}</span>
+                <Status>{data.copy['account.newBadge']}</Status>
               {/if}
             </div>
             <p>{data.copy['account.impactIntro']}</p>
-            <a
-              class="hv-control card-link"
+            <Button
               href={resolve('/[lang=lang]/account/impact', { lang: data.lang })}
+              class="card-link"
             >
               {data.copy['account.impactLink']}
-            </a>
+            </Button>
           </div>
         </Panel>
 
@@ -211,12 +214,12 @@
                 {data.copy['account.trustedVerificationHeading']}
               </h2>
               <p>{data.copy['account.trustedVerificationIntro']}</p>
-              <a
-                class="hv-control card-link"
+              <Button
                 href={resolve('/[lang=lang]/account/keep-current', { lang: data.lang })}
+                class="card-link"
               >
                 {data.copy['account.trustedVerificationLink']}
-              </a>
+              </Button>
             </div>
           </Panel>
         {/if}
@@ -233,12 +236,9 @@
             <p class="destination-fact">{placesFact}</p>
           {/if}
           <p>{data.copy['account.placesIntro']}</p>
-          <a
-            class="hv-control card-link"
-            href={resolve('/[lang=lang]/history', { lang: data.lang })}
-          >
+          <Button href={resolve('/[lang=lang]/history', { lang: data.lang })} class="card-link">
             {data.copy['account.placesLink']}
-          </a>
+          </Button>
         </Panel>
 
         <Panel
@@ -253,19 +253,12 @@
           {/each}
           <p>{data.copy['account.contributionsIntro']}</p>
           <div class="destination-links flex flex-wrap items-center gap-actions">
-            <a
-              class="hv-control"
-              data-intent="primary"
-              href={resolve('/[lang=lang]/suggest', { lang: data.lang })}
-            >
+            <Button intent="primary" href={resolve('/[lang=lang]/suggest', { lang: data.lang })}>
               {data.copy['suggestion.nav']}
-            </a>
-            <a
-              class="hv-control"
-              href={resolve('/[lang=lang]/account/suggestions', { lang: data.lang })}
-            >
+            </Button>
+            <Button href={resolve('/[lang=lang]/account/suggestions', { lang: data.lang })}>
               {data.copy['suggestion.myTitle']}
-            </a>
+            </Button>
           </div>
         </Panel>
 
@@ -279,19 +272,19 @@
           >
             <h2 id="moderation-heading">{data.copy['account.moderationHeading']}</h2>
             <p>{data.copy['account.moderationIntro']}</p>
-            <a
-              class="hv-control card-link"
+            <Button
               href={resolve('/[lang=lang]/moderation', { lang: data.lang })}
+              class="card-link"
             >
               {data.copy['account.moderationLink']}
-            </a>
+            </Button>
           </Panel>
         {/if}
       </div>
 
       <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-      <a class="back-link discovery-link hv-control" href={data.returnTo}
-        >{data.copy['account.backToPlace']}</a
+      <Button href={data.returnTo} intent="quiet" class="discovery-link"
+        >{data.copy['account.backToPlace']}</Button
       >
 
       <div class="settings">
@@ -330,9 +323,9 @@
 
             <form method="POST" action="?/signOut" use:enhance={enhanceAction}>
               <input type="hidden" name="returnTo" value={data.returnTo} />
-              <button class="secondary hv-control" type="submit" disabled={submitting}
-                >{data.copy['account.signOut']}</button
-              >
+              <Button type="submit" intent="quiet" disabled={submitting} class="disabled-fade">
+                {data.copy['account.signOut']}
+              </Button>
             </form>
 
             <Panel
@@ -344,30 +337,27 @@
               <h2 id="deletion-heading">{data.copy['account.deletionHeading']}</h2>
               <p>{data.copy['account.deletionExplanation']}</p>
               {#if deletionRequested}
-                <p class="message success hv-notice" data-tone="success" role="status">
+                <Notice tone="success" as="p" class="account-message" role="status">
                   {data.copy['account.deletionRequested']}
-                </p>
+                </Notice>
               {:else if !deletionArmed}
-                <button
-                  type="button"
-                  class="danger hv-control"
-                  onclick={() => (deletionArmed = true)}
-                >
+                <Button type="button" intent="danger-quiet" onclick={() => (deletionArmed = true)}>
                   {data.copy['account.requestDeletion']}
-                </button>
+                </Button>
               {:else}
                 <form method="POST" action="?/requestDeletion" use:enhance={enhanceAction}>
                   <div class="deletion-actions flex flex-wrap items-center gap-actions">
-                    <button class="danger hv-control" type="submit" disabled={submitting}>
-                      {data.copy['account.confirmDeletion']}
-                    </button>
-                    <button
-                      type="button"
-                      class="secondary hv-control"
-                      onclick={() => (deletionArmed = false)}
+                    <Button
+                      type="submit"
+                      intent="danger-quiet"
+                      disabled={submitting}
+                      class="disabled-fade"
                     >
+                      {data.copy['account.confirmDeletion']}
+                    </Button>
+                    <Button type="button" intent="quiet" onclick={() => (deletionArmed = false)}>
                       {data.copy['account.keepAccount']}
-                    </button>
+                    </Button>
                   </div>
                 </form>
               {/if}
@@ -409,31 +399,19 @@
     font-weight: 850;
   }
 
-  button,
-  .back-link {
-    text-align: center;
-    text-decoration: none;
-    cursor: pointer;
-  }
-
-  button:disabled {
+  /* Button owns its own disabled treatment, which differs from this page's dimmed-fade look;
+     the hook keeps the fade for the two migrated Buttons (sign out, confirm deletion) that had
+     it before. Both render through Button (a child component), so the hook class needs
+     :global() to reach the element it lands on. */
+  :global(.disabled-fade):disabled {
     cursor: not-allowed;
     opacity: 0.55;
   }
 
-  .secondary,
-  .back-link {
-    border-color: var(--hv-color-fjord);
-    color: var(--hv-color-fjord);
-  }
-
-  .danger {
-    border-color: var(--hv-color-danger);
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-danger);
-  }
-
-  .message {
+  /* Renders through Notice (a child component), so the hook class needs :global(). Page-unique
+     name: bare :global(.message) leaked this typography into the moderation review panels'
+     message Notices whenever this route's CSS was loaded first. */
+  :global(.account-message) {
     margin: 0;
     font-weight: 700;
     line-height: 1.45;
@@ -485,8 +463,10 @@
 
   /* Paired cards stretch to the row's tallest sibling; the auto margin pins each card's
      control to the bottom edge so the pair reads aligned. The preceding paragraph owns the
-     minimum gap, because an auto margin collapses to zero in a content-sized card. */
-  :global(.account-destination) .card-link,
+     minimum gap, because an auto margin collapses to zero in a content-sized card. .card-link
+     now renders through Button (a child component), so it needs its own :global() alongside
+     the already-global .account-destination ancestor. */
+  :global(.account-destination) :global(.card-link),
   .destination-links {
     margin-top: auto;
   }
@@ -497,8 +477,10 @@
 
   /* The whole card is one link target: the card's single control stretches an invisible hit
      area across the panel. Cards with several destinations (contributions) stay button-only,
-     so a card never looks tappable while routing only part of its surface. */
-  :global(.account-destination[data-linked]) .card-link::after {
+     so a card never looks tappable while routing only part of its surface. .card-link now
+     renders through Button, so it needs its own :global() too; the positioned ancestor stays
+     .account-destination (position: relative, above), unaffected by the Button migration. */
+  :global(.account-destination[data-linked]) :global(.card-link)::after {
     position: absolute;
     inset: 0;
     border-radius: var(--hv-radius-panel);
@@ -552,7 +534,8 @@
     background: var(--hv-color-fjord-soft);
   }
 
-  .discovery-link {
+  /* Renders through Button (a child component), so the layout hook needs :global(). */
+  :global(.discovery-link) {
     display: inline-flex;
     justify-self: start;
   }

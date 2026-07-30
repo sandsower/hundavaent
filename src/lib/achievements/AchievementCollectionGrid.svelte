@@ -7,6 +7,7 @@
     LockedTierAchievement,
     MyAchievement
   } from '$server/achievements/achievements';
+  import { Panel } from '@hundavaent/design-system';
   import AchievementTierCell from './AchievementTierCell.svelte';
   import { collectionName } from './tier-copy';
 
@@ -57,18 +58,15 @@
 </script>
 
 {#if collections.length > 0}
-  <section class="collections hv-stack" aria-labelledby="achievement-collections-heading">
+  <section class="collections grid gap-context" aria-labelledby="achievement-collections-heading">
     <header class="section-header">
       <h2 id="achievement-collections-heading">{copy['achievements.collectionsTitle']}</h2>
       <p class="spacing-note">{copy['achievements.spacingNote']}</p>
     </header>
 
-    <ul class="collection-list hv-list">
+    <ul class="collection-list grid gap-context m-0 p-0 list-none">
       {#each collections as collection (collection.key)}
-        <li
-          class="collection hv-panel hv-list-card"
-          aria-label={collectionName(collection.head, lang)}
-        >
+        <Panel as="li" padded class="collection" aria-label={collectionName(collection.head, lang)}>
           <div class="collection-head">
             <h3>{collectionName(collection.head, lang)}</h3>
             {#if collection.key === 'explorer_places' && collection.goldEarned && collection.progress?.total}
@@ -97,7 +95,7 @@
               />
             {/each}
           </div>
-        </li>
+        </Panel>
       {/each}
     </ul>
   </section>
@@ -133,7 +131,11 @@
     --hv-space-context: 0.85rem;
   }
 
-  .collection {
+  /* .collection now renders through Panel (a child component), so the hook needs :global() -
+     Panel's own border/radius/shadow/background/padding stay untouched; this only adds layout.
+     Anchored through the locally-hashed .collection-list rather than left bare so the generic
+     name cannot leak once this component's CSS is injected app-wide. */
+  .collection-list :global(.collection) {
     display: grid;
     gap: 0.85rem;
   }

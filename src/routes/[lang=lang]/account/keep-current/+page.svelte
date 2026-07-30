@@ -7,6 +7,7 @@
     Field,
     Input,
     Meta,
+    Notice,
     PageHeader,
     PageShell,
     PageTitle,
@@ -96,7 +97,7 @@
       </div>
     </Panel>
   {:else if formState?.error}
-    <p class="hv-notice" data-tone="error" role="alert">
+    <Notice tone="error" as="p" role="alert">
       {formState.error === 'forbidden'
         ? data.copy['trustedVerification.trustedRequired']
         : formState.error === 'rate_limited'
@@ -106,13 +107,13 @@
             : formState.error === 'policy_unavailable'
               ? data.copy['trustedVerification.policyUnavailable']
               : data.copy['trustedVerification.invalid']}
-    </p>
+    </Notice>
   {/if}
 
   {#if !canVerify}
-    <p class="hv-notice" data-tone="info" role="status">
+    <Notice tone="info" as="p" role="status">
       {data.copy['trustedVerification.trustedRequired']}
-    </p>
+    </Notice>
   {/if}
 
   {#if canVerify}
@@ -200,7 +201,11 @@
               {/if}
 
               <details>
-                <summary class="hv-control" data-intent="primary">
+                <!-- Button cannot render a <summary> - details needs a real summary child to stay
+                     accessible/native-toggleable, so this is the one control-look surface left as
+                     a hand-styled non-Button element; the recipe below mirrors Button's primary
+                     intent exactly (see the summary rule in <style>). -->
+                <summary class="task-open-control">
                   {data.copy['trustedVerification.openTask']}
                 </summary>
                 <form
@@ -457,14 +462,35 @@
     margin-top: auto;
   }
 
-  summary {
+  /* details needs a real summary child, so this is the one control-look surface left hand-styled
+     rather than moved onto Button - the recipe below is an exact mirror of Button's primary
+     intent (border-strong border, basalt fill, snow-raised text, the control height/radius/
+     padding/weight, and the focus-visible ring + offset shadow) applied directly to a native
+     element instead. */
+  summary.task-open-control {
+    display: inline-flex;
     width: fit-content;
+    min-height: var(--hv-control-height);
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--hv-border-strong);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-basalt);
+    padding: 0.55rem 0.8rem;
+    color: var(--hv-color-snow-raised);
+    font-weight: 800;
     cursor: pointer;
     list-style: none;
   }
 
-  summary::-webkit-details-marker {
+  summary.task-open-control::-webkit-details-marker {
     display: none;
+  }
+
+  summary.task-open-control:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   .verification-form {

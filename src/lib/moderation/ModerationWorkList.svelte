@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Notice, Status } from '@hundavaent/design-system';
   import type { Catalogue } from '$i18n';
 
   import {
@@ -83,7 +84,7 @@
 
   <div class="items" data-work-list-scroll>
     {#if errorMessage}
-      <div class="error" role="alert">
+      <Notice tone="error" class="error" role="alert">
         <strong>{copy['moderation.workspace.errorTitle']}</strong>
         <p>{errorMessage}</p>
         <a
@@ -94,7 +95,7 @@
             cursorTrail
           })}>{copy['moderation.workspace.retry']}</a
         >
-      </div>
+      </Notice>
     {:else if items.length === 0}
       <div class="empty">
         <h3>{copy['moderation.workspace.emptyTitle']}</h3>
@@ -118,10 +119,12 @@
             >
               <span class="item-top">
                 <strong>{item.title}</strong>
-                <span class:priority={item.priority} class="badge">{item.statusLabel}</span>
+                <Status tone={item.priority ? 'error' : undefined} class="badge"
+                  >{item.statusLabel}</Status
+                >
               </span>
               {#if item.priorityLabel}
-                <span class="priority-signal">
+                <Status tone="success" class="priority-signal">
                   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <path
                       d="M12 3c2.5 2 5 2.5 7.5 3v5c0 5-3.1 8.2-7.5 10-4.4-1.8-7.5-5-7.5-10V6C7 5.5 9.5 5 12 3Z"
@@ -129,7 +132,7 @@
                     <path d="m8.7 11.8 2.1 2.1 4.6-4.7" />
                   </svg>
                   {item.priorityLabel}
-                </span>
+                </Status>
               {/if}
               <span class="summary">{item.summary}</span>
               <span class="meta">{item.meta}</span>
@@ -222,7 +225,7 @@
     padding: 0.42rem 0.3rem;
     color: var(--hv-color-basalt);
     font-size: 0.72rem;
-    font-weight: 850;
+    font-weight: 800;
     text-align: center;
     text-decoration: none;
   }
@@ -295,32 +298,26 @@
     min-width: 0;
     overflow-wrap: anywhere;
   }
-  .badge {
+  /* Status renders its span inside a child component, so Svelte's scoped CSS cannot reach it
+     directly - .badge/.priority-signal are guaranteed to land on the rendered span because we
+     pass them through Status's class prop ourselves (the FavouriteControl precedent). Status's
+     own tone classes now own background/text/radius/weight; only the leftover layout and the
+     original reduced font-size survive here. */
+  .work-list :global(.badge) {
     flex: none;
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-fjord-soft);
     padding: 0.16rem 0.4rem;
     font-size: 0.65rem;
-    font-weight: 900;
     text-transform: uppercase;
   }
-  .badge.priority {
-    background: var(--hv-color-danger-soft);
-    color: var(--hv-color-danger);
-  }
-  .priority-signal {
+  .work-list :global(.priority-signal) {
     display: inline-flex;
     width: fit-content;
     gap: 0.28rem;
     align-items: center;
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-success-soft);
     padding: 0.2rem 0.45rem;
-    color: var(--hv-color-moss);
     font-size: 0.68rem;
-    font-weight: 850;
   }
-  .priority-signal svg {
+  .work-list :global(.priority-signal svg) {
     width: 0.9rem;
     height: 0.9rem;
     stroke: currentColor;
@@ -333,31 +330,31 @@
     font-size: 0.76rem;
     line-height: 1.35;
   }
-  .empty,
-  .error {
+  .empty {
     margin: 1rem;
     border: 1px solid var(--hv-color-basalt);
     border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-success-soft);
     padding: 1rem;
   }
-  .empty {
-    background: var(--hv-color-success-soft);
-  }
-  .error {
-    border-color: var(--hv-color-danger);
-    background: var(--hv-color-danger-soft);
+  /* Notice renders its element in a child component, so scoped CSS cannot reach it directly -
+     anchored through .work-list (locally authored) with :global() on the Notice-rendered class,
+     per the ancestor-scoped-:global pattern (FavouriteControl.svelte). Notice's error tone now
+     owns the border/background colour; only the leftover margin survives here. */
+  .work-list :global(.error) {
+    margin: 1rem;
   }
   .empty p,
-  .error p {
+  .work-list :global(.error p) {
     margin-top: 0.3rem;
     color: var(--hv-color-basalt-muted);
     line-height: 1.4;
   }
-  .error a {
+  .work-list :global(.error a) {
     display: inline-block;
     margin-top: 0.7rem;
     color: var(--hv-color-fjord);
-    font-weight: 900;
+    font-weight: 800;
   }
   .pending-photos {
     margin: 1rem;
@@ -368,7 +365,7 @@
   }
   .pending-photos h3 {
     font-size: 0.78rem;
-    font-weight: 900;
+    font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
@@ -417,7 +414,7 @@
   .pagination a {
     color: var(--hv-color-fjord);
     font-size: 0.78rem;
-    font-weight: 900;
+    font-weight: 800;
   }
   .pagination a:last-child {
     margin-left: auto;

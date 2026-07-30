@@ -97,11 +97,17 @@ test('saved places and private visits stay distinct and synchronized on the map'
   await page.goto('/en/history?view=map');
   const marker = page.getByRole('button', { name: mixed.nameEn });
   await expect(marker).toBeVisible();
-  await marker.click();
   const mapListEntry = page.getByRole('list', { name: 'Map' }).getByRole('button', {
     name: mixed.nameEn
   });
-  await expect(mapListEntry).toHaveAttribute('aria-pressed', 'true');
+  // The marker renders before the map adapter's selection wiring finishes attaching on a cold
+  // run, and a click that lands in that window is silently lost - the pressed state then never
+  // arrives no matter how long the assertion below retries. Retry the click itself until the
+  // selection is reflected.
+  await expect(async () => {
+    await marker.click();
+    await expect(mapListEntry).toHaveAttribute('aria-pressed', 'true', { timeout: 2000 });
+  }).toPass();
 });
 
 test('another Member cannot see the first Member personal history', async ({ page }) => {
@@ -176,8 +182,11 @@ test('a long Check-in history paginates by stable server-ordered keyset with no 
   // in the URL before re-reading the DOM.
   await page.waitForURL(/before=/);
 
-  const secondPageHeadings = await page.getByRole('heading', { name: favouriteOnly.nameEn }).all();
-  expect(secondPageHeadings).toHaveLength(6);
+  // The URL lands before the DOM swap: this navigation runs inside a view transition, and
+  // document.startViewTransition holds the OLD page live (all 24 first-page cards) until the
+  // browser finishes capturing and runs the update callback. A one-shot .all() read here counted
+  // the outgoing page on cold/slow runs, so the count must be a retrying web-first assertion.
+  await expect(page.getByRole('heading', { name: favouriteOnly.nameEn })).toHaveCount(6);
   await expect(page.getByRole('link', { name: 'Show more' })).toHaveCount(0);
 });
 

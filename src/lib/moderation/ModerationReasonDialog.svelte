@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Dialog } from '@hundavaent/design-system';
+  import { Button, Dialog, Field, Textarea } from '@hundavaent/design-system';
   import type { Snippet } from 'svelte';
 
   export interface ModerationReasonValue {
@@ -63,14 +63,12 @@
   <form class="reason-form" onsubmit={submit}>
     {@render children?.()}
     <div class="reasons">
-      <label>
-        {reasonIsLabel}
-        <textarea bind:value={memberReasonIs} rows="3" required={reasonsRequired}></textarea>
-      </label>
-      <label>
-        {reasonEnLabel}
-        <textarea bind:value={memberReasonEn} rows="3" required={reasonsRequired}></textarea>
-      </label>
+      <Field label={reasonIsLabel}>
+        <Textarea bind:value={memberReasonIs} rows={3} required={reasonsRequired} />
+      </Field>
+      <Field label={reasonEnLabel}>
+        <Textarea bind:value={memberReasonEn} rows={3} required={reasonsRequired} />
+      </Field>
     </div>
     {#if previousPrivateNote}
       <p class="previous-note">
@@ -78,15 +76,18 @@
         {previousPrivateNote}
       </p>
     {/if}
-    <label>
-      {privateNoteLabel}
-      <textarea bind:value={privateNote} rows="2"></textarea>
-    </label>
+    <Field label={privateNoteLabel}>
+      <Textarea bind:value={privateNote} rows={2} />
+    </Field>
     <div class="actions">
-      <button type="button" class="cancel" onclick={oncancel}>{cancelLabel}</button>
-      <button type="submit" class:danger={tone === 'danger'} disabled={submitting}>
+      <Button intent="neutral" onclick={oncancel}>{cancelLabel}</Button>
+      <Button
+        intent={tone === 'danger' ? 'danger' : 'committed'}
+        type="submit"
+        disabled={submitting}
+      >
         {confirmLabel}
-      </button>
+      </Button>
     </div>
   </form>
 </Dialog>
@@ -104,33 +105,24 @@
     color: var(--hv-color-basalt-muted);
     line-height: 1.4;
   }
-  .reason-form,
-  label,
-  .reasons {
-    display: grid;
-    gap: 0.45rem;
-  }
   .reason-form {
+    display: grid;
     gap: 0.7rem;
   }
   .reasons {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
   }
-  label {
+  /* Field renders its own <label>, crossing this component's scoping boundary the same way
+     AuthDialog's `form :global(label)` rule does - :global() reaches it purely on the literal
+     element, scoped under this component's hash via the ancestor selector. Field's label carries
+     no size/weight utility of its own precisely so this surface keeps its reduced, heavier
+     treatment. */
+  .reason-form :global(label) {
     color: var(--hv-color-basalt-muted);
     font-size: 0.78rem;
     font-weight: 800;
-  }
-  textarea,
-  .reason-form :global(select) {
-    width: 100%;
-    box-sizing: border-box;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    padding: 0.55rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
   }
   .previous-note {
     border-left: 0.25rem solid var(--hv-color-signal);
@@ -140,23 +132,6 @@
     display: flex;
     gap: 0.55rem;
     justify-content: flex-end;
-  }
-  button {
-    min-height: 2.7rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-signal);
-    padding: 0.55rem 0.8rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
-    font-weight: 900;
-  }
-  button.cancel {
-    background: var(--hv-color-snow-raised);
-  }
-  button.danger {
-    background: var(--hv-color-danger);
-    color: var(--hv-color-snow-raised);
   }
   @media (max-width: 36rem) {
     .reasons {

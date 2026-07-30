@@ -3,6 +3,7 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { tick } from 'svelte';
 
+  import { Button, Field, Input, Notice, Select, Textarea } from '@hundavaent/design-system';
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import {
     localizeAccessArea,
@@ -439,8 +440,10 @@
     {#if data.flag.reportReason}
       · {localizeReportReason(data.flag.reportReason, data.copy)}{/if}
   </p>
-  {#if errorMessage}<p class="message error" role="alert">{errorMessage}</p>{/if}
-  {#if data.resolved}<p class="message success" role="status">{data.copy['flag.resolved']}</p>{/if}
+  {#if errorMessage}<Notice as="p" tone="error" role="alert">{errorMessage}</Notice>{/if}
+  {#if data.resolved}<Notice as="p" tone="success" role="status"
+      >{data.copy['flag.resolved']}</Notice
+    >{/if}
   {#if data.trustedVerification}
     <aside
       class="trusted-context"
@@ -512,41 +515,26 @@
           <input type="hidden" name="expectedVersion" value={data.flag.currentPlaceVersion ?? ''} />
           {#if data.flag.targetKind === 'place_field' && data.flag.targetField}
             {#if data.flag.targetField === 'name' || data.flag.targetField === 'description'}
-              <label
-                >{data.copy['correction.nameIs']}<input
-                  name="fieldValueIs"
-                  required
-                  bind:value={fieldValueIs}
-                /></label
-              >
-              <label
-                >{data.copy['correction.nameEn']}<input
-                  name="fieldValueEn"
-                  required
-                  bind:value={fieldValueEn}
-                /></label
-              >
+              <Field label={data.copy['correction.nameIs']} class="compact-field">
+                <Input name="fieldValueIs" required bind:value={fieldValueIs} />
+              </Field>
+              <Field label={data.copy['correction.nameEn']} class="compact-field">
+                <Input name="fieldValueEn" required bind:value={fieldValueEn} />
+              </Field>
             {:else if data.flag.targetField === 'opening_hours'}
-              <label class="wide"
-                >{data.copy['correction.openingHoursJson']}<textarea
-                  name="fieldValueJson"
-                  required
-                  rows="5"
-                  bind:value={fieldValueJson}></textarea></label
-              >
+              <Field label={data.copy['correction.openingHoursJson']} class="compact-field wide">
+                <Textarea name="fieldValueJson" required rows={5} bind:value={fieldValueJson} />
+              </Field>
             {:else if data.flag.targetField === 'dog_amenities'}
-              <label class="wide"
-                >{data.copy['correction.dogAmenitiesList']}<input
-                  name="fieldValueList"
-                  bind:value={fieldValueList}
-                /></label
-              >
+              <Field label={data.copy['correction.dogAmenitiesList']} class="compact-field wide">
+                <Input name="fieldValueList" bind:value={fieldValueList} />
+              </Field>
             {:else if data.flag.targetField === 'wheelchair_accessibility'}
-              <label class="wide"
-                >{data.copy['moderation.wheelchairAccessibilityLabel']}<select
-                  name="fieldValueText"
-                  bind:value={fieldValueText}
-                >
+              <Field
+                label={data.copy['moderation.wheelchairAccessibilityLabel']}
+                class="compact-field wide"
+              >
+                <Select name="fieldValueText" bind:value={fieldValueText}>
                   <!-- The apply path accepts the three definite states only; the explicit-unknown
                        state stays with the Moderator's own wheelchair command. -->
                   <option value="accessible"
@@ -558,16 +546,16 @@
                   <option value="not_accessible"
                     >{data.copy['wheelchairAccessibility.notAccessible']}</option
                   >
-                </select></label
-              >
+                </Select>
+              </Field>
             {:else}
-              <label class="wide"
-                >{data.copy['flag.newFieldValue']}<input
+              <Field label={data.copy['flag.newFieldValue']} class="compact-field wide">
+                <Input
                   name="fieldValueText"
                   type={data.flag.targetField === 'website_url' ? 'url' : 'text'}
                   bind:value={fieldValueText}
-                /></label
-              >
+                />
+              </Field>
             {/if}
           {:else}
             <input
@@ -577,21 +565,17 @@
             />
             <SuggestionAccessConditionEditor copy={data.copy} bind:value={applicationCondition} />
             <div class="date-grid">
-              <label
-                >{data.copy['flag.verifiedAt']}<input
-                  name="verifiedAt"
-                  type="datetime-local"
-                  required
-                  bind:value={verifiedAt}
-                /></label
-              ><label
-                >{data.copy['flag.freshnessUntil']}<input
+              <Field label={data.copy['flag.verifiedAt']} class="compact-field">
+                <Input name="verifiedAt" type="datetime-local" required bind:value={verifiedAt} />
+              </Field>
+              <Field label={data.copy['flag.freshnessUntil']} class="compact-field">
+                <Input
                   name="freshnessUntil"
                   type="datetime-local"
                   required
                   bind:value={freshnessUntil}
-                /></label
-              >
+                />
+              </Field>
             </div>
             <fieldset class="wide">
               <legend>{data.copy['evidenceField.section']}</legend><SuggestionEvidenceEditor
@@ -730,13 +714,10 @@
                 type="hidden"
                 name="expectedVerificationId"
                 value={data.flag.currentVerificationId ?? ''}
-              /><label class="wide"
-                >{data.copy['flag.disputeReason']}<textarea
-                  name="disputeReason"
-                  required
-                  rows="3"
-                  bind:value={disputeReason}></textarea></label
-              >
+              />
+              <Field label={data.copy['flag.disputeReason']} class="compact-field wide">
+                <Textarea name="disputeReason" required rows={3} bind:value={disputeReason} />
+              </Field>
               <fieldset class="wide">
                 <legend>{data.copy['evidenceField.section']}</legend><SuggestionEvidenceEditor
                   copy={data.copy}
@@ -762,13 +743,11 @@
               type="hidden"
               name="expectedVersion"
               value={data.flag.currentPlaceVersion ?? ''}
-            /><label class="wide"
-              >{data.copy['flag.decisionNotes']}<textarea
-                name="decisionNotes"
-                required
-                rows="3"
-                bind:value={decisionNotes}></textarea></label
-            >{@render sectionActions('transition')}
+            />
+            <Field label={data.copy['flag.decisionNotes']} class="compact-field wide">
+              <Textarea name="decisionNotes" required rows={3} bind:value={decisionNotes} />
+            </Field>
+            {@render sectionActions('transition')}
           </form>{:else}<p>{data.copy['flag.inactivateBody']}</p>
           {@render editButton('transition', data.copy['flag.section.inactivate'])}{/if}
       </section>
@@ -848,17 +827,18 @@
 
   {#if !trustedVerificationSuperseded && (data.flag.outcome === 'applied' || data.flag.outcome === 'confirmed_useful')}
     {#if data.contributionConfirmed}
-      <p class="message success" role="status">{data.copy['flag.contributionConfirmed']}</p>
-    {:else if data.flag.contributionId}<p class="message success">
+      <Notice as="p" tone="success" role="status">{data.copy['flag.contributionConfirmed']}</Notice>
+    {:else if data.flag.contributionId}<Notice as="p" tone="success">
         {data.copy['flag.contributionAlreadyConfirmed']}
-      </p>{:else if !data.flag.contributionId}<form
+      </Notice>{:else if !data.flag.contributionId}<form
         method="POST"
         action="?/confirmUseful"
         use:enhance={enhanceForm}
       >
-        <input type="hidden" name="flagId" value={data.flag.flagId} /><button
+        <input type="hidden" name="flagId" value={data.flag.flagId} /><Button
           type="submit"
-          disabled={submitting}>{data.copy['flag.confirmUseful']}</button
+          intent="committed"
+          disabled={submitting}>{data.copy['flag.confirmUseful']}</Button
         >
       </form>{/if}
   {/if}
@@ -873,24 +853,25 @@
 
 {#snippet sectionActions(sectionId: EditableSectionId)}
   <div class="section-form-actions">
-    <button type="button" class="quiet" onclick={() => (editingSection = null)}
-      >{data.copy['common.cancel']}</button
-    ><button type="submit" disabled={savingSection === sectionId}
+    <Button type="button" intent="neutral" onclick={() => (editingSection = null)}
+      >{data.copy['common.cancel']}</Button
+    ><Button type="submit" intent="committed" disabled={savingSection === sectionId}
       >{savingSection === sectionId
         ? data.copy['moderation.workbench.section.saving']
-        : data.copy['common.save']}</button
+        : data.copy['common.save']}</Button
     >
   </div>
 {/snippet}
 
 {#snippet editButton(sectionId: EditableSectionId, title: string)}
-  <button
+  <Button
     type="button"
+    intent="neutral"
     class="edit-section"
     disabled={trustedVerificationSuperseded}
     aria-label={data.copy['moderation.workbench.editSection'].replace('{section}', title)}
     onclick={() => beginEditing(sectionId)}
-    >{data.copy['moderation.workbench.editSection'].replace('{section}', title)}</button
+    >{data.copy['moderation.workbench.editSection'].replace('{section}', title)}</Button
   >
 {/snippet}
 
@@ -918,8 +899,7 @@
   }
   header,
   .review-sections,
-  .section-form,
-  label {
+  .section-form {
     display: grid;
     gap: 0.55rem;
   }
@@ -937,7 +917,7 @@
   .eyebrow {
     color: var(--hv-color-fjord);
     font-size: 0.72rem;
-    font-weight: 950;
+    font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -954,7 +934,7 @@
     background: var(--hv-color-danger-soft);
     padding: 0.2rem 0.45rem;
     color: var(--hv-color-danger);
-    font-weight: 900;
+    font-weight: 800;
   }
   .readiness-title {
     font-size: 1rem;
@@ -988,7 +968,7 @@
   .place-snapshot dt {
     color: var(--hv-color-basalt-muted);
     font-size: 0.72rem;
-    font-weight: 850;
+    font-weight: 800;
   }
   .place-snapshot dd {
     margin: 0;
@@ -1009,7 +989,7 @@
   article span {
     color: var(--hv-color-basalt-muted);
     font-size: 0.72rem;
-    font-weight: 850;
+    font-weight: 800;
   }
   article strong {
     overflow-wrap: anywhere;
@@ -1019,38 +999,30 @@
     margin-top: 0.6rem;
   }
   .section-form > :global(*),
-  .wide,
+  .review-shell :global(.wide),
   .section-form-actions {
     min-width: 0;
   }
   .section-form > :global(.field-grid),
   .section-form > fieldset,
-  .wide,
+  .review-shell :global(.wide),
   .section-form-actions,
   .date-grid {
     grid-column: 1 / -1;
   }
-  label {
-    min-width: 0;
+  /* Field renders its own label/control stack inside a child component, so scoped CSS cannot
+     reach the label directly - the whole remaining chain after .compact-field is wrapped in one
+     :global() (the SelectedPlaceCard ".card-body :global(.details-status p)" precedent), rather
+     than just the class, because a bare `label` tag selector after a partial :global() would
+     still be scope-hashed and fail to match. This preserves the original muted/reduced-size
+     label treatment Field's own docs invite a call site to keep via a scoped hook; Input/Select/
+     Textarea now own the field's border/radius/surface/focus ring. .wide above is also
+     :global()-anchored because it now lands both on plain locally-authored elements (the evidence
+     fieldsets) and on Field's own child-component-rendered wrapper - :global() matches either. */
+  .review-shell :global(.compact-field label) {
     color: var(--hv-color-basalt-muted);
     font-size: 0.78rem;
     font-weight: 800;
-  }
-  input,
-  textarea,
-  :global(select) {
-    width: 100%;
-    min-height: 2.5rem;
-    box-sizing: border-box;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    padding: 0.5rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
-  }
-  textarea {
-    resize: vertical;
   }
   fieldset {
     min-width: 0;
@@ -1060,29 +1032,19 @@
     padding: 0.65rem;
   }
   legend {
-    font-weight: 850;
+    font-weight: 800;
   }
   .section-form-actions {
     display: flex;
     gap: 0.5rem;
     justify-content: flex-end;
   }
-  button {
-    min-height: 2.55rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-signal);
-    padding: 0.5rem 0.75rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
-    font-weight: 900;
-  }
-  button.quiet,
-  .edit-section {
-    width: fit-content;
-    background: var(--hv-color-snow-raised);
-  }
-  .edit-section {
+  /* Button renders its own <button> inside a child component, so scoped CSS cannot reach it
+     directly - .edit-section is guaranteed to land on that rendered element because we pass it
+     through Button's class prop ourselves (the FavouriteControl precedent). Button's neutral
+     intent now owns the background/weight/min-height (the old bespoke 2.55rem/900 pair is
+     retired); only the leftover margin placement survives here. */
+  .review-shell :global(.edit-section) {
     margin-top: 0.55rem;
     margin-left: auto;
   }
@@ -1101,16 +1063,6 @@
     border-left: 0.25rem solid var(--hv-color-signal);
     padding-left: 0.55rem;
   }
-  .message {
-    border: 1px solid var(--hv-color-success);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-success-soft);
-    padding: 0.65rem;
-  }
-  .message.error {
-    border-color: var(--hv-color-danger);
-    background: var(--hv-color-danger-soft);
-  }
   .decision-form {
     display: none;
   }
@@ -1128,7 +1080,7 @@
     }
     .section-form > :global(.field-grid),
     .section-form > fieldset,
-    .wide,
+    .review-shell :global(.wide),
     .section-form-actions,
     .date-grid {
       grid-column: auto;

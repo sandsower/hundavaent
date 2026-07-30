@@ -1,6 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { tick } from 'svelte';
+  import { Button, Field, Notice, Select } from '@hundavaent/design-system';
   import CandidateDecisionControls, {
     type CandidateDecisionOutcome
   } from '$lib/moderation/CandidateDecisionControls.svelte';
@@ -367,7 +368,9 @@
         />
       {:else if candidateReviewData && (candidateDecisionAvailable || candidateDecisionError)}
         {#if candidateDecisionError}
-          <p class="candidate-decision-error" role="alert">{candidateDecisionError}</p>
+          <Notice tone="error" as="p" class="candidate-decision-error" role="alert"
+            >{candidateDecisionError}</Notice
+          >
         {/if}
         <CandidateDecisionControls
           copy={data.copy}
@@ -435,9 +438,8 @@
             oncancel={() => (candidateDialog = null)}
           >
             {#if candidateDialog === 'rejected'}
-              <label>
-                {data.copy['moderation.workbench.reasonCode']}
-                <select bind:value={candidateReasonCode} required>
+              <Field label={data.copy['moderation.workbench.reasonCode']}>
+                <Select bind:value={candidateReasonCode} required>
                   <option value="insufficient_evidence"
                     >{data.copy['moderation.workbench.reason.insufficientEvidence']}</option
                   >
@@ -450,8 +452,8 @@
                   <option value="unsafe">{data.copy['moderation.workbench.reason.unsafe']}</option>
                   <option value="spam">{data.copy['moderation.workbench.reason.spam']}</option>
                   <option value="other">{data.copy['moderation.workbench.reason.other']}</option>
-                </select>
-              </label>
+                </Select>
+              </Field>
             {/if}
           </ModerationReasonDialog>
         {/if}
@@ -460,9 +462,12 @@
   </ModerationWorkspace>
 
   <nav class="workspace-actions" aria-label={data.copy['moderation.hub.navLabel']}>
-    <a href={resolve('/[lang=lang]/moderation/places/new', { lang: data.lang })}>
+    <Button
+      intent="neutral"
+      href={resolve('/[lang=lang]/moderation/places/new', { lang: data.lang })}
+    >
       {data.copy['moderation.candidateTitle']}
-    </a>
+    </Button>
   </nav>
 </main>
 
@@ -481,29 +486,14 @@
     gap: 0.7rem;
     margin-top: 1.2rem;
   }
-  .workspace-actions a {
-    display: inline-block;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    padding: 0.65rem 0.9rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
-    font-weight: 900;
-    text-decoration: none;
-    cursor: pointer;
-  }
-  .workspace-actions a:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-  .candidate-decision-error {
+  /* Notice renders its own element in a separate component, so Svelte's scoped CSS cannot reach
+     it via a plain locally-scoped selector. Ancestor-scoped under .workspace-shell (this route's
+     own hashed root) rather than a bare :global(.class) - SvelteKit injects route CSS app-wide
+     after navigation, and a bare global here would leak the same way the design-system
+     migration's earlier bare-global defect did. Notice owns the border/radius/background/padding
+     for its error tone now; only the call-site spacing before the decision controls stays here. */
+  .workspace-shell :global(.candidate-decision-error) {
     margin: 0 0 0.55rem;
-    border: 1px solid var(--hv-color-danger);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-danger-soft);
-    padding: 0.55rem;
   }
   .decision-form {
     display: none;

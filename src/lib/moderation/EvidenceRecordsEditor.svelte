@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
 
+  import { Button, Field, Input, Select, Textarea } from '@hundavaent/design-system';
   import type { Catalogue } from '$i18n';
   import type { Json } from '$server/db/generated.types';
   import type { CandidatePublicationReview } from '$server/moderation/place-moderation';
@@ -111,63 +112,63 @@
   }
 </script>
 
-<input type="hidden" name="sectionPayload" value={sectionPayload} />
+<div class="evidence-records-editor">
+  <input type="hidden" name="sectionPayload" value={sectionPayload} />
 
-<div class="evidence-list">
-  {#each items as evidence, index (evidence.key)}
-    <fieldset class="evidence-card">
-      <legend>{copy['moderation.evidenceHeading']} {index + 1}</legend>
-      <div class="field-grid">
-        <label>
-          {copy['moderation.evidenceKindLabel']}
-          <select required bind:value={evidence.kind}>
-            <option value="official_website">{copy['evidence.officialWebsite']}</option>
-            <option value="venue_representative">{copy['evidence.venueRepresentative']}</option>
-            <option value="member_report">{copy['evidence.memberReport']}</option>
-            <option value="direct_observation">{copy['evidence.directObservation']}</option>
-            <option value="public_record">{copy['evidence.publicRecord']}</option>
-            <option value="other">{copy['evidence.other']}</option>
-          </select>
-        </label>
-        <label>
-          {copy['moderation.evidenceObservedAtLabel']}
-          <input type="datetime-local" required bind:value={evidence.observedAt} />
-        </label>
-        <label class="wide">
-          {copy['moderation.evidenceSourceLabel']}
-          <input required bind:value={evidence.sourceLabel} />
-        </label>
-        <label class="wide">
-          {copy['moderation.evidenceUrlLabel']}
-          <input type="url" bind:value={evidence.sourceUrl} />
-        </label>
-        <label class="wide">
-          {copy['moderation.evidenceCitationLabel']}
-          <input bind:value={evidence.sourceCitation} />
-        </label>
-      </div>
-      <details class="metadata">
-        <summary>{copy['evidenceField.sourceMetadata']}</summary>
-        <label for={`metadata-${evidence.key}`}>{copy['evidenceField.sourceMetadata']}</label>
-        <textarea
-          id={`metadata-${evidence.key}`}
-          aria-describedby={`metadata-help-${evidence.key}`}
-          rows="4"
-          bind:value={evidence.sourceMetadataText}
-          oninput={(event) => validateMetadata(event.currentTarget, evidence.sourceMetadataText)}
-        ></textarea>
-        <small id={`metadata-help-${evidence.key}`}>{copy['moderation.sourceMetadataHelp']}</small>
-      </details>
-      <button type="button" class="quiet remove" onclick={() => removeEvidence(index)}>
-        {copy['moderation.removeEvidence']}
-      </button>
-    </fieldset>
-  {/each}
+  <div class="evidence-list">
+    {#each items as evidence, index (evidence.key)}
+      <fieldset class="evidence-card">
+        <legend>{copy['moderation.evidenceHeading']} {index + 1}</legend>
+        <div class="field-grid">
+          <Field label={copy['moderation.evidenceKindLabel']} class="mod-field">
+            <Select required bind:value={evidence.kind}>
+              <option value="official_website">{copy['evidence.officialWebsite']}</option>
+              <option value="venue_representative">{copy['evidence.venueRepresentative']}</option>
+              <option value="member_report">{copy['evidence.memberReport']}</option>
+              <option value="direct_observation">{copy['evidence.directObservation']}</option>
+              <option value="public_record">{copy['evidence.publicRecord']}</option>
+              <option value="other">{copy['evidence.other']}</option>
+            </Select>
+          </Field>
+          <Field label={copy['moderation.evidenceObservedAtLabel']} class="mod-field">
+            <Input type="datetime-local" required bind:value={evidence.observedAt} />
+          </Field>
+          <Field label={copy['moderation.evidenceSourceLabel']} class="mod-field wide">
+            <Input required bind:value={evidence.sourceLabel} />
+          </Field>
+          <Field label={copy['moderation.evidenceUrlLabel']} class="mod-field wide">
+            <Input type="url" bind:value={evidence.sourceUrl} />
+          </Field>
+          <Field label={copy['moderation.evidenceCitationLabel']} class="mod-field wide">
+            <Input bind:value={evidence.sourceCitation} />
+          </Field>
+        </div>
+        <details class="metadata">
+          <summary>{copy['evidenceField.sourceMetadata']}</summary>
+          <Field
+            label={copy['evidenceField.sourceMetadata']}
+            hint={copy['moderation.sourceMetadataHelp']}
+            class="mod-field"
+          >
+            <Textarea
+              rows={4}
+              bind:value={evidence.sourceMetadataText}
+              oninput={(event) =>
+                validateMetadata(event.currentTarget, evidence.sourceMetadataText)}
+            />
+          </Field>
+        </details>
+        <Button intent="neutral" class="remove" onclick={() => removeEvidence(index)}>
+          {copy['moderation.removeEvidence']}
+        </Button>
+      </fieldset>
+    {/each}
+  </div>
+
+  <Button intent="neutral" class="add" onclick={addEvidence}>
+    {copy['moderation.addAnotherEvidence']}
+  </Button>
 </div>
-
-<button type="button" class="quiet add" onclick={addEvidence}>
-  {copy['moderation.addAnotherEvidence']}
-</button>
 
 <style>
   .evidence-list {
@@ -196,33 +197,17 @@
     gap: 0.55rem;
   }
 
-  label {
-    display: grid;
-    gap: 0.25rem;
+  /* Field's own label carries no weight/size utility (baseline-first); this file's labels were
+     always the reduced 0.78rem/750 treatment, so it is re-anchored here via an ancestor-scoped
+     :global() targeting Field's rendered label through the .mod-field hook, never a bare
+     :global(label) that would leak past this component. */
+  .evidence-records-editor :global(.mod-field label) {
     color: var(--hv-color-basalt-muted);
     font-size: 0.78rem;
     font-weight: 750;
   }
 
-  input,
-  select,
-  textarea {
-    width: 100%;
-    min-height: 2.5rem;
-    box-sizing: border-box;
-    padding: 0.5rem 0.6rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-    font: inherit;
-  }
-
-  textarea {
-    resize: vertical;
-  }
-
-  .wide {
+  .field-grid :global(.wide) {
     grid-column: 1 / -1;
   }
 
@@ -237,21 +222,15 @@
     font-weight: 800;
   }
 
-  .metadata label {
+  .metadata :global(.mod-field) {
     margin-top: 0.55rem;
   }
 
-  .quiet {
-    width: fit-content;
-    min-height: 2.4rem;
-    background: var(--hv-color-snow-raised);
-  }
-
-  .remove {
+  .evidence-card :global(.remove) {
     justify-self: end;
   }
 
-  .add {
+  .evidence-records-editor > :global(.add) {
     margin-top: 0.65rem;
   }
 
@@ -260,7 +239,7 @@
       grid-template-columns: 1fr;
     }
 
-    .wide {
+    .field-grid :global(.wide) {
       grid-column: auto;
     }
   }

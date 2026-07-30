@@ -12,6 +12,7 @@
     FormSection,
     Input,
     Meta,
+    Notice,
     PageHeader,
     PageShell,
     PageTitle
@@ -113,14 +114,14 @@
   </PageHeader>
 
   {#if data.unavailable}
-    <p class="hv-notice" data-tone="error" role="alert">{data.copy['error.unexpectedBody']}</p>
+    <Notice as="p" tone="error" role="alert">{data.copy['error.unexpectedBody']}</Notice>
   {:else}
     {#if pinMissing}
-      <p class="hv-notice" data-tone="error" role="alert" id={pinRequiredMessageId}>
+      <Notice as="p" tone="error" role="alert" id={pinRequiredMessageId}>
         {data.copy['suggestion.locationRequired']}
-      </p>
+      </Notice>
     {:else if signInRequired}
-      <div class="hv-notice sign-in-gate" data-tone="info" role="alert">
+      <Notice as="div" tone="info" role="alert" class="sign-in-gate">
         <span>{data.copy['suggestion.signInRequired']}</span>
         <!-- A full navigation (not a client-side route transition) keeps the account page's own
              sign-in handoff deterministic instead of racing the SPA router's async goto(). The
@@ -129,9 +130,9 @@
         <Button intent="primary" href={data.signInUrl} data-sveltekit-reload>
           {data.copy['suggestion.signInAction']}
         </Button>
-      </div>
+      </Notice>
     {:else if errorMessage}
-      <p class="hv-notice" data-tone="error" role="alert">{errorMessage}</p>
+      <Notice as="p" tone="error" role="alert">{errorMessage}</Notice>
     {/if}
 
     <form class="grid gap-context" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
@@ -208,7 +209,9 @@
     margin-block-start: var(--hv-space-panel);
   }
 
-  .sign-in-gate {
+  /* .sign-in-gate now renders through Notice (a child component), so the hook needs :global() -
+     Notice's own border/radius/background/padding stay untouched; this only adds layout. */
+  :global(.sign-in-gate) {
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem;

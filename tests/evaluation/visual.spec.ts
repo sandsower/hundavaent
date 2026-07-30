@@ -789,6 +789,11 @@ for (const locale of ['is', 'en'] as const) {
     await expect(
       page.getByRole('heading', { name: locale === 'is' ? 'Uppáhaldsstaðir' : 'Favorites' })
     ).toBeVisible();
+    // The heading is server-rendered, so it proves nothing about hydration - and the removal
+    // control below is a fetch-driven button whose click is a silent no-op until hydration
+    // attaches its handler. On slow runners the click reliably landed in that window and the
+    // awaited PUT never fired.
+    await waitForHydration(page);
 
     const removalResponse = page.waitForResponse(
       (response) =>

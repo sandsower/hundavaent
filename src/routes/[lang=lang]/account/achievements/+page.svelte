@@ -3,12 +3,15 @@
   import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
   import {
+    Button,
     Eyebrow,
     Meta,
+    Notice,
     PageHeader,
     PageShell,
     PageTitle,
-    Panel
+    Panel,
+    Status
   } from '@hundavaent/design-system';
   import type { SubmitFunction } from '@sveltejs/kit';
 
@@ -183,7 +186,7 @@
                     <p class="name-line">
                       <strong class="name">{name(achievement)}</strong>
                       {#if claimedKeys.has(achievement.key)}
-                        <span class="new-badge hv-status">{data.copy['achievements.new']}</span>
+                        <Status class="new-badge">{data.copy['achievements.new']}</Status>
                       {/if}
                     </p>
                     <p class="description">{description(achievement)}</p>
@@ -210,14 +213,18 @@
       </section>
     {/if}
   {:else}
-    <section class="disabled-card hv-notice" data-tone="info">
+    <Notice as="section" tone="info" class="disabled-card">
       <p>{data.copy['achievements.disabled']}</p>
-    </section>
+    </Notice>
   {/if}
 
-  <a class="back-link hv-control" href={resolve('/[lang=lang]/account', { lang: data.lang })}>
+  <Button
+    href={resolve('/[lang=lang]/account', { lang: data.lang })}
+    intent="quiet"
+    class="achievements-back-link"
+  >
     {data.copy['account.navSignedIn']}
-  </a>
+  </Button>
 </PageShell>
 
 <style>
@@ -273,11 +280,12 @@
     font-weight: 900;
   }
 
-  .new-badge {
+  /* Renders through Status (a child component), so the hook class needs :global(). */
+  :global(.new-badge) {
     text-transform: uppercase;
   }
 
-  .new-badge {
+  :global(.new-badge) {
     animation: new-badge-settle var(--hv-motion-celebrate) var(--hv-ease-settle) 1;
   }
 
@@ -302,14 +310,17 @@
     font-weight: 700;
   }
 
-  .disabled-card p {
+  /* .disabled-card now renders through Notice (a child component), so the ancestor needs
+     :global(); the child <p> is still authored literally in this file, so it keeps its normal
+     scope hash and needs no :global() of its own. */
+  :global(.disabled-card) p {
     margin: 0;
     line-height: 1.55;
   }
 
-  .back-link {
-    border-color: var(--hv-color-fjord);
+  /* Renders through Button (a child component), so the layout hook needs :global(); the fjord
+     border/text this used to hand-roll is now Button's quiet intent. */
+  :global(.achievements-back-link) {
     justify-self: start;
-    color: var(--hv-color-fjord);
   }
 </style>

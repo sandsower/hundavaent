@@ -2,7 +2,7 @@
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '@sveltejs/kit';
 
-  import { Button, Choice } from '@hundavaent/design-system';
+  import { Button, Choice, Notice } from '@hundavaent/design-system';
   import type { Catalogue, MessageKey } from '$i18n';
   import type { PlaceCategory } from '$domain/place';
   import {
@@ -37,7 +37,7 @@
   }
 </script>
 
-<section class="preferences hv-panel hv-stack" aria-labelledby="roundup-preferences-heading">
+<section class="preferences grid gap-context" aria-labelledby="roundup-preferences-heading">
   <header class="preferences-header">
     <span class="preferences-icon"><RoundupTrailIcon kind="private" size="small" /></span>
     <div>
@@ -47,9 +47,9 @@
   </header>
 
   {#if error}
-    <p class="hv-notice" data-tone="error" role="alert">
+    <Notice as="p" tone="error" role="alert">
       {error === 'invalid' ? copy['roundup.invalid'] : copy['roundup.saveUnavailable']}
-    </p>
+    </Notice>
   {/if}
 
   <form method="POST" action="?/savePreferences" use:enhance={enhanceAction}>
@@ -135,9 +135,17 @@
 </section>
 
 <style>
+  /* Not <Panel>: this surface needs a bespoke fjord-tinted border, which Panel's contract cannot
+     carry (its border/radius/shadow/background ship as one matched set that callers must not
+     override - see Panel.svelte's class-prop doc comment). The panel recipe is reproduced here as
+     scoped token CSS instead, on the caller's own element - the same call as its sibling
+     RoundupRecommendationCard and WeeklyRhythmTrail. */
   .preferences {
     padding: clamp(1rem, 4vw, 1.5rem);
-    border-color: color-mix(in srgb, var(--hv-color-fjord) 25%, var(--hv-border-subtle));
+    border: 1px solid color-mix(in srgb, var(--hv-color-fjord) 25%, var(--hv-border-subtle));
+    border-radius: var(--hv-radius-panel);
+    background: var(--hv-color-snow-raised);
+    box-shadow: var(--hv-shadow-raised);
   }
 
   .preferences-header {

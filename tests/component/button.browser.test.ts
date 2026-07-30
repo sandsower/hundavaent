@@ -45,6 +45,33 @@ function resolvedBackground(token: string): string {
   return value;
 }
 
+function resolvedBorderColor(token: string): string {
+  const probe = document.createElement('div');
+  probe.style.borderColor = `var(${token})`;
+  document.body.append(probe);
+  const value = getComputedStyle(probe).borderColor;
+  probe.remove();
+  return value;
+}
+
+function resolvedTextColor(token: string): string {
+  const probe = document.createElement('div');
+  probe.style.color = `var(${token})`;
+  document.body.append(probe);
+  const value = getComputedStyle(probe).color;
+  probe.remove();
+  return value;
+}
+
+function resolvedControlHeight(): string {
+  const probe = document.createElement('div');
+  probe.style.height = 'var(--hv-control-height)';
+  document.body.append(probe);
+  const value = getComputedStyle(probe).height;
+  probe.remove();
+  return value;
+}
+
 function resolvedEaseSettle(): string {
   const probe = document.createElement('div');
   probe.style.transitionTimingFunction = 'var(--hv-ease-settle)';
@@ -117,6 +144,22 @@ describe('Button', () => {
   it('passes disabled through to the native button', () => {
     render(Button, { disabled: true, children: label('Unavailable') });
     expect(screen.getByRole('button', { name: 'Unavailable' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('dims a disabled button and swaps the cursor, keeping the intent tone', () => {
+    render(Button, { disabled: true, intent: 'committed', children: label('Not ready') });
+    const button = screen.getByRole('button', { name: 'Not ready' });
+    const style = getComputedStyle(button);
+    // Guard against the vacuous-pin class: opacity/cursor must differ from an enabled sibling's
+    // resolved values, not merely equal some expected string both states could collapse to.
+    expect(style.opacity).toBe('0.55');
+    expect(style.cursor).toBe('not-allowed');
+    render(Button, { intent: 'committed', children: label('Ready') });
+    const enabled = getComputedStyle(screen.getByRole('button', { name: 'Ready' }));
+    expect(enabled.opacity).toBe('1');
+    expect(enabled.cursor).toBe('pointer');
+    // The tone survives disabling - dimming, not de-toning, is the affordance.
+    expect(style.backgroundColor).toBe(enabled.backgroundColor);
   });
 
   it('merges a caller class alongside its own generated classes, appended last', () => {
@@ -223,6 +266,143 @@ describe('Button', () => {
     render(Button, { intent, children: label(intent) });
     const style = getComputedStyle(screen.getByRole('button', { name: intent }));
     expect(style.backgroundColor).toBe(resolvedBackground(token));
+  });
+
+  it.each([
+    ['quiet' as const, ['border-fjord', 'bg-snow-raised', 'text-fjord']],
+    ['danger' as const, ['border-danger', 'bg-danger', 'text-snow-raised']],
+    ['danger-quiet' as const, ['border-danger', 'bg-snow-raised', 'text-danger']]
+  ])(
+    'applies the %s intent as a single matched border/background/text triple',
+    (intent, expected) => {
+      render(Button, { intent, children: label(intent) });
+      const classes = screen.getByRole('button', { name: intent }).classList;
+      for (const expectedClass of expected) {
+        expect(classes.contains(expectedClass)).toBe(true);
+      }
+    }
+  );
+
+  // Phase 6's three new intents: quiet (the fjord-outline back-link/secondary treatment),
+  // danger (moderation's filled destructive flavour), and danger-quiet (the account-deletion /
+  // correction-controls outline flavour). Each assertion below resolves its expected token through
+  // an independent probe (never a literal colour), then guards against the vacuous-pin failure
+  // mode from phase 5: it first proves the expected token differs from document.body's own
+  // inherited/initial default for that property, so a Button whose intent utilities silently
+  // failed to apply - and therefore fell back to that same default - could not pass by collapsing
+  // to the same value as the expectation.
+  it.each([
+    ['quiet' as const, '--hv-color-fjord', '--hv-color-snow-raised', '--hv-color-fjord'],
+    ['danger' as const, '--hv-color-danger', '--hv-color-danger', '--hv-color-snow-raised'],
+    ['danger-quiet' as const, '--hv-color-danger', '--hv-color-snow-raised', '--hv-color-danger']
+  ])(
+    'resolves the %s intent to its border/background/text token triple',
+    (intent, borderToken, backgroundToken, textToken) => {
+      render(Button, { intent, children: label(intent) });
+      const style = getComputedStyle(screen.getByRole('button', { name: intent }));
+
+      const expectedBorder = resolvedBorderColor(borderToken);
+      const expectedBackground = resolvedBackground(backgroundToken);
+      const expectedText = resolvedTextColor(textToken);
+      const defaultBorder = getComputedStyle(document.body).borderColor;
+      const defaultBackground = getComputedStyle(document.body).backgroundColor;
+      const defaultText = getComputedStyle(document.body).color;
+
+      expect(expectedBorder).not.toBe(defaultBorder);
+      expect(expectedBackground).not.toBe(defaultBackground);
+      expect(expectedText).not.toBe(defaultText);
+
+      expect(style.borderColor).toBe(expectedBorder);
+      expect(style.backgroundColor).toBe(expectedBackground);
+      expect(style.color).toBe(expectedText);
+    }
+  );
+
+  // shape="round": rounded-full, a square tied to --hv-control-height, and zero padding.
+  it('resolves shape="round" to a fully-round radius, a control-height square, and zero padding', () => {
+    render(Button, { shape: 'round', 'aria-label': 'Round', children: label('R') });
+    const style = getComputedStyle(screen.getByRole('button', { name: 'Round' }));
+
+    const fullRadiusProbe = document.createElement('div');
+    fullRadiusProbe.className = 'rounded-full';
+    document.body.append(fullRadiusProbe);
+    const fullRadius = getComputedStyle(fullRadiusProbe).borderRadius;
+    fullRadiusProbe.remove();
+
+    // Guard against the vacuous-pin class: rounded-control's own radius (999px, tokens.css) already
+    // reads as fully round on a small square, so a bare equality between the round Button's radius
+    // and rounded-full's radius would not catch a Button that silently stayed on the default shape.
+    // Comparing against the pill shape's own resolved radius proves the two are genuinely different
+    // values, not two paths that happen to look the same.
+    expect(fullRadius).not.toBe(resolvedBorderRadius());
+    expect(style.borderRadius).toBe(fullRadius);
+
+    const controlHeight = resolvedControlHeight();
+    expect(style.width).toBe(controlHeight);
+    expect(style.height).toBe(controlHeight);
+    expect(style.padding).toBe('0px');
+  });
+
+  it('never carries two border-colour utilities at once for round + neutral', () => {
+    render(Button, {
+      shape: 'round',
+      intent: 'neutral',
+      'aria-label': 'Solo border',
+      children: label('N')
+    });
+    const classes = screen.getByRole('button', { name: 'Solo border' }).classList;
+    expect(classes.contains('border-border-subtle')).toBe(true);
+    expect(classes.contains('border-border-strong')).toBe(false);
+  });
+
+  it('renders round + neutral with the subtle border token, not the strong one', () => {
+    render(Button, {
+      shape: 'round',
+      intent: 'neutral',
+      'aria-label': 'Subtle border',
+      children: label('N')
+    });
+    const style = getComputedStyle(screen.getByRole('button', { name: 'Subtle border' }));
+
+    const subtleBorder = resolvedBorderColor('--hv-border-subtle');
+    const strongBorder = resolvedBorderColor('--hv-border-strong');
+
+    // Guard against the vacuous-pin class: prove the subtle and strong border tokens actually
+    // resolve to different colours before trusting the "not strong" half of this test - if they
+    // ever collapsed to the same value, a Button that kept the strong border would pass anyway.
+    expect(subtleBorder).not.toBe(strongBorder);
+    expect(style.borderColor).toBe(subtleBorder);
+    expect(style.borderColor).not.toBe(strongBorder);
+  });
+
+  it('renders shape="round" as an anchor with the same geometry as the button when href is given', () => {
+    const { unmount } = render(Button, {
+      shape: 'round',
+      'aria-label': 'Round button',
+      children: label('B')
+    });
+    const buttonStyle = getComputedStyle(screen.getByRole('button', { name: 'Round button' }));
+    const buttonGeometry = {
+      width: buttonStyle.width,
+      height: buttonStyle.height,
+      borderRadius: buttonStyle.borderRadius,
+      padding: buttonStyle.padding
+    };
+    unmount();
+
+    render(Button, {
+      shape: 'round',
+      href: '/place/1',
+      'aria-label': 'Round link',
+      children: label('L')
+    });
+    const link = screen.getByRole('link', { name: 'Round link' });
+    expect(link.tagName).toBe('A');
+    const linkStyle = getComputedStyle(link);
+    expect(linkStyle.width).toBe(buttonGeometry.width);
+    expect(linkStyle.height).toBe(buttonGeometry.height);
+    expect(linkStyle.borderRadius).toBe(buttonGeometry.borderRadius);
+    expect(linkStyle.padding).toBe(buttonGeometry.padding);
   });
 
   // The standard hover/active/cursor treatment Button now owns, codified from the idiom surveyed

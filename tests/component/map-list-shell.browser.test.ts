@@ -1423,6 +1423,16 @@ describe('MapListShell synchronization', () => {
         )
     );
     vi.stubGlobal('fetch', fetchMock);
+    // The Share control is a Button shape="round" whose geometry lives entirely in Tailwind
+    // utilities, which this CSS-free harness never loads - without them it falls back to the
+    // UA's default button box and the square/roundness assertions below would measure nothing
+    // real. Mirror the production values for just its hook class, the same way chevronSizeFix
+    // does for the disclosure chevron (2.75rem is --hv-control-height's member-mode value).
+    const roundShapeFix = document.createElement('style');
+    roundShapeFix.textContent =
+      '.icon-control { width: 2.75rem; height: 2.75rem; padding: 0; border-radius: 999px; }';
+    document.head.append(roundShapeFix);
+    onTestFinished(() => roundShapeFix.remove());
     try {
       render(MapListShell, {
         places,

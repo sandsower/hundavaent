@@ -2,12 +2,16 @@
   import type { Snippet } from 'svelte';
   import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
 
-  type Intent = 'neutral' | 'primary' | 'committed';
+  type Intent = 'neutral' | 'primary' | 'committed' | 'quiet' | 'danger' | 'danger-quiet';
 
   interface ButtonOwnProps {
     intent?: Intent;
     /** Present at all when this Button is a toggle; true renders the same look as `committed`. */
     pressed?: boolean;
+    /** Undefined renders the default pill/control shape. 'round' renders the circular icon-only
+     * shape codified from the surveyed icon family (SelectedPlaceCard .icon-action,
+     * SharePlaceControl .icon-control) - see shapeClasses below. */
+    shape?: 'round';
     href?: string;
     type?: HTMLButtonAttributes['type'];
     class?: string;
@@ -47,6 +51,7 @@
   let {
     intent = 'neutral',
     pressed,
+    shape,
     href,
     type,
     class: className = '',
@@ -55,9 +60,15 @@
   }: Props = $props();
 
   // The exact utility codification of .hv-control (primitives.css ~131-176): min-height, the 1px
-  // strong border, the control radius, the fixed padding, weight 800, no underline, and the
-  // focus-visible ring + offset shadow. Background and text colour are deliberately absent here -
-  // they come from intentClasses below as a single matched pair, never layered on top of this.
+  // border (width/style only - see below), weight 800, no underline, and the focus-visible ring +
+  // offset shadow. Border colour, background, text colour, radius, and padding are deliberately
+  // absent here - they come from intentClasses and shapeClasses below, each as a single matched
+  // set, never layered on top of this or on top of each other. This is more than the original
+  // two-property split: border colour lives in intentClasses (a `quiet` intent needs
+  // border-fjord, not border-border-strong, alongside its own background/text), and radius+padding
+  // live in shapeClasses (a `round` Button needs rounded-full and zero padding, not
+  // rounded-control's pill radius and fixed inset). `base` keeps only the unqualified `border`
+  // utility, which owns width and style but never colour on its own.
   // font-extrabold (not font-bold) matches .hv-control's font-weight: 800. The three inherited
   // properties are named individually rather than via the `[font:inherit]` shorthand: that
   // shorthand also resets font-weight, and its resolution order against a separate weight utility
@@ -83,24 +94,85 @@
   // double ownership is a known/deferred inconsistency, not a bug to fix now - see the matching
   // comment at app.css's :focus-visible rule. Settling it (retiring one side) is planned for the
   // primitives retirement phase of this migration, not before.
+  // The disabled pair codifies the affordance the surveyed call sites converged on (account's
+  // .disabled-fade hook, the candidate review shell's button:disabled rule): dimmed to 0.55 with
+  // a not-allowed cursor, tone kept. Before this Button had no disabled styling at all, so a
+  // disabled committed/danger action rendered full-strength with a pointer cursor -
+  // indistinguishable from ready. Anchors carry no :disabled, so the variants are inert in link
+  // mode, which is correct (there is no disabled link). Call sites with a deliberately different
+  // disabled affordance (CheckInControl's cursor: wait at 0.72) out-rank these with scoped rules.
   const base =
-    'inline-flex min-h-control items-center justify-center border border-border-strong rounded-control px-[0.8rem] py-[0.55rem] [font-family:inherit] [font-size:inherit] [line-height:inherit] font-extrabold no-underline cursor-pointer transition-transform duration-[var(--hv-motion-instant)] ease-settle not-disabled:not-aria-pressed:hover:-translate-y-px not-disabled:active:scale-[0.97] focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]';
+    'inline-flex min-h-control items-center justify-center border [font-family:inherit] [font-size:inherit] [line-height:inherit] font-extrabold no-underline cursor-pointer transition-transform duration-[var(--hv-motion-instant)] ease-settle not-disabled:not-aria-pressed:hover:-translate-y-px not-disabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-[0.55] focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]';
 
-  // Each intent is a complete background/text pair, not an override layered on the base classes:
-  // Tailwind resolves two same-specificity utility classes (say bg-snow-raised and bg-basalt) by
-  // their position in the generated stylesheet, not by their order in the class attribute, so
-  // having both in the list at once is not a safe way to express "this one wins".
+  // Each intent is a complete border/background/text triple, not an override layered on the base
+  // classes: Tailwind resolves two utilities that touch the same CSS property (say
+  // border-border-strong and border-fjord, or bg-snow-raised and bg-basalt) by their position in
+  // the generated stylesheet, not by their order in the class attribute, so having two utilities
+  // for the same property in the list at once is not a safe way to express "this one wins" - the
+  // same reason border colour was pulled out of `base` above. Six intents, surveyed from the
+  // shipped call sites this migration is codifying:
+  // - neutral/primary/committed: unchanged, the strong border this file has always used.
+  // - quiet: the fjord-outline back-link/secondary treatment hand-rolled across
+  //   account/impact/roundup/contributor-status/achievements surfaces.
+  // - danger: moderation's filled destructive flavour (solid danger fill, snow-raised text).
+  // - danger-quiet: the account-deletion / correction-controls outline flavour (danger border and
+  //   text on snow-raised, no fill).
   const intentClasses: Record<Intent, string> = {
-    neutral: 'bg-snow-raised text-basalt',
-    primary: 'bg-basalt text-snow-raised',
-    committed: 'bg-signal text-basalt'
+    neutral: 'border-border-strong bg-snow-raised text-basalt',
+    primary: 'border-border-strong bg-basalt text-snow-raised',
+    committed: 'border-border-strong bg-signal text-basalt',
+    quiet: 'border-fjord bg-snow-raised text-fjord',
+    danger: 'border-danger bg-danger text-snow-raised',
+    'danger-quiet': 'border-danger bg-snow-raised text-danger'
   };
 
+  // Radius and padding move out of `base` for the same same-property reason border colour did:
+  // `default` is exactly the pill radius/padding pair `base` used to carry directly. `round` ties
+  // both dimensions to --hv-control-height via Tailwind's `spacing-control` theme mapping
+  // (theme.css, itself `var(--hv-control-height)`) rather than a literal rem value, so the square
+  // retunes with the token exactly as [data-ui-mode='operations'] already retunes every other
+  // control-height consumer. The surveyed icon family (SelectedPlaceCard .icon-action,
+  // SharePlaceControl .icon-control) hand-rolls a literal 2.5rem square - that literal matches
+  // operations mode's retuned --hv-control-height (tokens.css), not the Member-mode default of
+  // 2.75rem, so a literal here would only have been correct in one mode. w-control and h-control
+  // both resolve the same var(--hv-control-height) reference at the element, guaranteeing a square
+  // in either mode without an aspect-ratio fallback.
+  const shapeClasses = {
+    default: 'rounded-control px-[0.8rem] py-[0.55rem]',
+    round: 'rounded-full p-0 w-control h-control'
+  } as const;
+
   // A pressed Button always reads as committed. The two states are visually identical today, and
-  // pressed is the more specific signal, so it wins over whatever intent was passed.
+  // pressed is the more specific signal, so it wins over whatever intent was passed. Note the
+  // latent interaction this creates for the danger intents: a pressed danger toggle would render
+  // signal, not danger. No call site combines pressed with a danger intent today (pressed is used
+  // only with neutral); if one ever needs to, this precedence has to be revisited rather than
+  // worked around at the call site.
   const visualIntent = $derived(pressed === true ? 'committed' : intent);
+  const isRound = $derived(shape === 'round');
+
+  // Round buttons keep base's inline-flex centering rather than switching to inline-grid +
+  // place-items:center, which is what the surveyed icon family (.icon-action, .icon-control) uses:
+  // for a single glyph child, flex's main/cross-axis centering (items-center justify-center,
+  // already on base) and grid's place-items centering produce an identical result, so there is no
+  // need for shapeClasses to touch display/alignment at all.
   const classes = $derived(
-    [base, intentClasses[visualIntent], className].filter(Boolean).join(' ')
+    [
+      base,
+      // Round + neutral is a documented special case, not a seventh intent: the surveyed icon
+      // family sits on snow-raised with the SUBTLE border token, not neutral's usual strong
+      // border. Swapping the border utility here - rather than adding border-border-subtle
+      // alongside border-border-strong in the list - avoids ever putting two border-colour
+      // utilities in the same class attribute at once (see the intentClasses comment above).
+      // Every other intent keeps its own border unchanged when rounded.
+      isRound && visualIntent === 'neutral'
+        ? intentClasses.neutral.replace('border-border-strong', 'border-border-subtle')
+        : intentClasses[visualIntent],
+      shapeClasses[isRound ? 'round' : 'default'],
+      className
+    ]
+      .filter(Boolean)
+      .join(' ')
   );
 </script>
 

@@ -1,11 +1,14 @@
 <script lang="ts">
   import {
+    Button,
     Eyebrow,
     Meta,
     PageHeader,
     PageShell,
     PageTitle,
-    Panel
+    Notice,
+    Panel,
+    Status
   } from '@hundavaent/design-system';
   import type { PageProps } from './$types';
 
@@ -30,19 +33,17 @@
   </PageHeader>
 
   {#if form?.conflict}
-    <p class="hv-notice" data-tone="attention" role="alert">
+    <Notice as="p" tone="attention" role="alert">
       A newer revision was published. Reload before restoring.
-    </p>
+    </Notice>
   {:else if form?.invalid}
-    <p class="hv-notice" data-tone="error" role="alert">
-      Confirm the revision before restoring it.
-    </p>
+    <Notice as="p" tone="error" role="alert">Confirm the revision before restoring it.</Notice>
   {/if}
 
   {#if data.workspace.pendingCount > 0}
-    <p class="hv-notice" data-tone="attention">
+    <Notice as="p" tone="attention">
       Publish or revise the {data.workspace.pendingCount} pending keys before restoring history.
-    </p>
+    </Notice>
   {/if}
 
   <ol class="revision-list">
@@ -61,9 +62,9 @@
           {/if}
         </div>
         {#if data.workspace.currentRevision === revision.revisionNumber}
-          <span class="hv-status" data-status="success">Current</span>
+          <Status tone="success">Current</Status>
         {:else if data.workspace.pendingCount > 0 || !data.workspace.currentRevision}
-          <span class="hv-status" data-status="attention">Restore unavailable</span>
+          <Status tone="attention">Restore unavailable</Status>
         {:else}
           <form method="POST" action="?/restore">
             <input type="hidden" name="targetRevision" value={revision.revisionNumber} />
@@ -72,14 +73,14 @@
               <input type="checkbox" name="confirm" value="restore" required />
               Confirm
             </label>
-            <button class="hv-control" type="submit"
-              >Restore revision {revision.revisionNumber}</button
+            <Button intent="neutral" type="submit"
+              >Restore revision {revision.revisionNumber}</Button
             >
           </form>
         {/if}
       </Panel>
     {:else}
-      <li class="hv-notice">No published revisions yet.</li>
+      <Notice as="li">No published revisions yet.</Notice>
     {/each}
   </ol>
 </PageShell>

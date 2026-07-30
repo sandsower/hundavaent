@@ -7,12 +7,14 @@
   import { subscribeToFavouriteInvalidation } from '$lib/favourites/sync';
   import type { FavouriteAvailability } from '$server/favourites/favourites';
   import {
+    Button,
     Eyebrow,
     Meta,
     PageHeader,
     PageShell,
     PageTitle,
-    Panel
+    Panel,
+    Status
   } from '@hundavaent/design-system';
 
   import type { PageProps } from './$types';
@@ -130,13 +132,9 @@
         {data.copy['favourite.emptyTitle']}
       </h2>
       <p>{data.copy['favourite.emptyBody']}</p>
-      <a
-        class="hv-control"
-        data-intent="primary"
-        href={resolve('/[lang=lang]', { lang: data.lang })}
-      >
+      <Button href={resolve('/[lang=lang]', { lang: data.lang })} intent="primary">
         {data.copy['favourite.backToDiscovery']}
-      </a>
+      </Button>
     </Panel>
   {:else if savedPlaces.length === 0}
     <Panel
@@ -148,13 +146,9 @@
         {data.copy['favourite.pageEmptyTitle']}
       </h2>
       <p>{data.copy['favourite.pageEmptyBody']}</p>
-      <a
-        class="hv-control"
-        data-intent="primary"
-        href={resolve('/[lang=lang]/favorites', { lang: data.lang })}
-      >
+      <Button href={resolve('/[lang=lang]/favorites', { lang: data.lang })} intent="primary">
         {data.copy['favourite.pageEmptyAction']}
-      </a>
+      </Button>
     </Panel>
   {:else}
     <ul
@@ -171,11 +165,12 @@
           <div class="grid gap-context">
             <h2>{place.name}</h2>
             <Meta>{place.locality}</Meta>
-            <strong
-              class="hv-status"
+            <Status
+              tone={place.availability === 'available' ? undefined : 'attention'}
               data-status={place.availability === 'available' ? undefined : 'attention'}
-              >{availabilityLabel(place.availability)}</strong
             >
+              {availabilityLabel(place.availability)}
+            </Status>
             {#if place.availability !== 'available'}
               <Meta as="small">
                 {place.availability === 'inactive'
@@ -192,15 +187,13 @@
           <div class="saved-actions flex flex-wrap items-center gap-actions">
             {#if place.availability === 'available'}
               <!-- The helper resolves the localized internal path before adding encoded query data. -->
-              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-              <a class="hv-control" href={discoveryPlaceHref(place.placeId)}
-                >{data.copy['directory.openPlace']}</a
-              >
+              <Button href={discoveryPlaceHref(place.placeId)}>
+                {data.copy['directory.openPlace']}
+              </Button>
             {:else if place.successorPlaceId && place.successorAvailable}
-              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-              <a class="hv-control" href={discoveryPlaceHref(place.successorPlaceId)}>
+              <Button href={discoveryPlaceHref(place.successorPlaceId)}>
                 {data.copy['history.successorLink'].replace('{name}', place.successorName ?? '')}
-              </a>
+              </Button>
             {/if}
             <FavouriteControl
               placeId={place.placeId}
@@ -218,14 +211,13 @@
 
     {#if data.nextCursor}
       <!-- The helper resolves the localized internal path before adding encoded cursor data. -->
-      <!-- eslint-disable svelte/no-navigation-without-resolve -->
-      <a
-        class="next-page hv-control"
-        data-intent="primary"
+      <Button
         href={nextPageHref(data.nextCursor.beforeSavedAt, data.nextCursor.beforePlaceId)}
-        >{data.copy['favourite.nextPage']}</a
+        intent="primary"
+        class="saved-next-page"
       >
-      <!-- eslint-enable svelte/no-navigation-without-resolve -->
+        {data.copy['favourite.nextPage']}
+      </Button>
     {/if}
   {/if}
 </PageShell>
@@ -280,7 +272,9 @@
     margin: 0;
   }
 
-  .next-page {
+  /* Button's rendered anchor has no native wrapping ancestor here - the same rootless situation
+     .saved-card/.saved-empty-state above already carry. */
+  :global(.saved-next-page) {
     margin-top: 0.75rem;
   }
 

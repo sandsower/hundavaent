@@ -36,12 +36,25 @@
     <h1 id="translation-sign-in-title">Translations</h1>
     <p class="intro">Enter the shared password to edit Icelandic and English interface copy.</p>
 
+    <!-- Native <p> carrying Notice's exact error recipe rather than the Notice component: the
+         focus-after-submit effect needs bind:this on the DOM node, which a component boundary
+         cannot forward (the moderation places/new error message documents the same trade). -->
     {#if form?.throttled}
-      <p class="hv-notice" data-tone="error" role="alert" tabindex="-1" bind:this={errorElement}>
+      <p
+        class="border rounded-panel p-panel border-danger bg-danger-soft text-danger"
+        role="alert"
+        tabindex="-1"
+        bind:this={errorElement}
+      >
         Too many failed attempts. Try again in about {Math.ceil(form.retryAfterSeconds / 60)} minutes.
       </p>
     {:else if form?.incorrect}
-      <p class="hv-notice" data-tone="error" role="alert" tabindex="-1" bind:this={errorElement}>
+      <p
+        class="border rounded-panel p-panel border-danger bg-danger-soft text-danger"
+        role="alert"
+        tabindex="-1"
+        bind:this={errorElement}
+      >
         That password is not correct.
       </p>
     {/if}

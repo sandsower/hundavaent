@@ -391,8 +391,8 @@
       <!-- Getting there is the one action every visitor shares, so it stands in the heading
            beside Share rather than waiting in the body. The summary already carries the
            coordinates, so the link works before the profile arrives. -->
-      <!-- eslint-disable svelte/no-navigation-without-resolve -- external Google Maps URL -->
-      <a
+      <Button
+        shape="round"
         class="icon-action directions"
         data-directions
         href={googleMapsDirectionsUrl({ latitude: place.latitude, longitude: place.longitude })}
@@ -409,8 +409,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="m3 11 19-9-9 19-2-8-8-2z" />
         </svg>
-      </a>
-      <!-- eslint-enable svelte/no-navigation-without-resolve -->
+      </Button>
       <SharePlaceControl placeId={place.placeId} placeName={place.name} {lang} {copy} />
       <Button
         data-selected-place-close
@@ -842,28 +841,13 @@
   }
 
   /* The same round icon control the Share button draws, so the heading's actions read as one
-     family. An anchor rather than a button: it navigates. */
-  .icon-action {
-    display: inline-grid;
-    width: 2.5rem;
-    height: 2.5rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: 999px;
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-    place-items: center;
-    transition: transform var(--hv-motion-instant) var(--hv-ease-settle);
-  }
-
-  .icon-action:hover {
-    transform: translateY(-1px);
-  }
-
-  .icon-action:active {
-    transform: scale(0.94);
-  }
-
-  .icon-action svg {
+     family. Button renders its own <a> in a child component (href is set, so it navigates), so
+     scoped CSS cannot reach it directly - anchored through .heading-actions (locally authored)
+     with :global() on the Button-rendered class, per the ancestor-scoped-:global pattern
+     (FavouriteControl.svelte, and .close below). Border/bg/radius/size/transition/hover/focus now
+     come from Button's shape="round" + neutral intent; only the svg sizing and the deliberately
+     stronger active squish survive as call-site overrides. */
+  .heading-actions :global(.icon-action svg) {
     width: 1.15rem;
     height: 1.15rem;
     fill: none;
@@ -873,10 +857,12 @@
     stroke-width: 1.8;
   }
 
-  .icon-action:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
+  /* Smaller round pills using a stronger squish than Button's default 0.97 is deliberate call-site
+     character (Button.svelte's own comment on its active-squish), not a deviation to fix -
+     restated here as the independent `scale` property (never `transform`) so it wins over
+     Button's `active:scale-[0.97]` utility without killing the hover lift's `translate`. */
+  .heading-actions :global(.icon-action:active) {
+    scale: 0.94;
   }
 
   .welcome-answer {

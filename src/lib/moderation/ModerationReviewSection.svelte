@@ -3,6 +3,15 @@
 
   import type { ModerationReviewSectionState } from './types';
 
+  // Deliberately NOT the package Disclosure (phase-6 decision): ModerationReadinessSummary
+  // imperatively reaches into a section by id, asserts `instanceof HTMLDetailsElement`, flips
+  // `.open`, and focuses the child <summary> - a contract that needs a literal native
+  // <details>/<summary> pair at a stable id. The custom summary grid (title + meta + trailing
+  // state-marker dot) and the hash-expansion effect below also don't fit Disclosure's plain
+  // trigger/panel contract. Internals are restyled onto tokens/utilities where they hard-coded a
+  // value that already has a token equivalent; spacing/type literals with no token equivalent are
+  // left as scoped CSS.
+
   interface Props {
     id: string;
     title: string;
@@ -95,7 +104,7 @@
   .state-marker {
     width: 0.7rem;
     height: 0.7rem;
-    border-radius: 999px;
+    border-radius: var(--hv-radius-control);
     background: var(--hv-color-success);
   }
   [data-section-state='warning'] .state-marker {

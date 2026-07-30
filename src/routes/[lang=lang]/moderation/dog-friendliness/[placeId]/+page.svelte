@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
   import { resolve } from '$app/paths';
 
+  import { Button, Field, Notice, Select, Textarea } from '@hundavaent/design-system';
   import type { MessageKey } from '$i18n';
 
   import type { ActionData, PageProps } from './$types';
@@ -53,15 +54,19 @@
   <h1>{data.copy['moderation.dogFriendliness.title']}</h1>
   <p class="intro">{data.copy['moderation.dogFriendliness.intro']}</p>
 
-  {#if errorMessage}<p class="message error" role="alert">{errorMessage}</p>{/if}
+  {#if errorMessage}
+    <Notice tone="error" role="alert" class="font-extrabold">{errorMessage}</Notice>
+  {/if}
   {#if dispositionRecorded}
-    <p class="message" role="status">
+    <Notice tone="info" role="status" class="font-extrabold">
       {data.copy['moderation.dogFriendliness.dispositionRecorded']}
-    </p>
+    </Notice>
   {/if}
 
   {#if data.ratings.length === 0}
-    <p class="message" role="status">{data.copy['moderation.dogFriendliness.empty']}</p>
+    <Notice tone="info" role="status" class="font-extrabold"
+      >{data.copy['moderation.dogFriendliness.empty']}</Notice
+    >
   {:else}
     <ul class="ratings">
       {#each data.ratings as rating (rating.id)}
@@ -108,20 +113,18 @@
               aria-busy={submitting}
             >
               <input type="hidden" name="memberId" value={rating.memberId} />
-              <label>
-                {data.copy['moderation.dogFriendliness.reason']}
-                <textarea name="reason" rows="2" required></textarea>
-              </label>
-              <button type="submit" disabled={submitting}>
+              <Field label={data.copy['moderation.dogFriendliness.reason']}>
+                <Textarea name="reason" rows={2} required></Textarea>
+              </Field>
+              <Button type="submit" intent="primary" disabled={submitting}>
                 {data.copy['moderation.dogFriendliness.reinstateAction']}
-              </button>
+              </Button>
             </form>
           {:else}
             <form method="POST" action="?/exclude" use:enhance={enhanceForm} aria-busy={submitting}>
               <input type="hidden" name="memberId" value={rating.memberId} />
-              <label>
-                {data.copy['moderation.dogFriendliness.exclusionKind']}
-                <select name="exclusionKind">
+              <Field label={data.copy['moderation.dogFriendliness.exclusionKind']}>
+                <Select name="exclusionKind">
                   {#each exclusionKinds as kind (kind)}
                     <option value={kind}
                       >{data.copy[
@@ -129,15 +132,14 @@
                       ]}</option
                     >
                   {/each}
-                </select>
-              </label>
-              <label>
-                {data.copy['moderation.dogFriendliness.reason']}
-                <textarea name="reason" rows="2" required></textarea>
-              </label>
-              <button type="submit" disabled={submitting}>
+                </Select>
+              </Field>
+              <Field label={data.copy['moderation.dogFriendliness.reason']}>
+                <Textarea name="reason" rows={2} required></Textarea>
+              </Field>
+              <Button type="submit" intent="primary" disabled={submitting}>
                 {data.copy['moderation.dogFriendliness.excludeAction']}
-              </button>
+              </Button>
             </form>
           {/if}
 
@@ -182,9 +184,9 @@
               <details class="note-history">
                 <summary>{data.copy['moderation.dogFriendliness.noteHistoryHeading']}</summary>
                 {#if !noteDetail || noteDetail.history.length === 0}
-                  <p class="message" role="status">
+                  <Notice tone="info" role="status" class="font-extrabold">
                     {data.copy['moderation.dogFriendliness.noteHistoryEmpty']}
-                  </p>
+                  </Notice>
                 {:else}
                   <ol class="note-history-list">
                     {#each noteDetail.history as entry, index (index)}
@@ -210,9 +212,8 @@
                 class="disposition-form"
               >
                 <input type="hidden" name="memberId" value={rating.memberId} />
-                <label>
-                  {data.copy['moderation.dogFriendliness.dispositionKindLabel']}
-                  <select name="dispositionKind">
+                <Field label={data.copy['moderation.dogFriendliness.dispositionKindLabel']}>
+                  <Select name="dispositionKind">
                     {#each dispositionKinds as kind (kind)}
                       <option value={kind}
                         >{data.copy[
@@ -220,15 +221,14 @@
                         ]}</option
                       >
                     {/each}
-                  </select>
-                </label>
-                <label>
-                  {data.copy['moderation.dogFriendliness.dispositionNotesLabel']}
-                  <textarea name="dispositionNotes" rows="2" required></textarea>
-                </label>
-                <button type="submit" disabled={submitting}>
+                  </Select>
+                </Field>
+                <Field label={data.copy['moderation.dogFriendliness.dispositionNotesLabel']}>
+                  <Textarea name="dispositionNotes" rows={2} required></Textarea>
+                </Field>
+                <Button type="submit" intent="primary" disabled={submitting}>
                   {data.copy['moderation.dogFriendliness.dispositionSubmit']}
-                </button>
+                </Button>
               </form>
 
               {#if noteDetail && noteDetail.dispositions.length > 0}
@@ -338,50 +338,22 @@
     gap: 0.5rem;
     align-items: end;
   }
-  label {
-    display: grid;
-    gap: 0.25rem;
+  /* Field renders its own <label>, crossing this component's scoping boundary; :global() reaches
+     it purely on the literal element, ancestor-scoped to form the same way
+     moderation/sign-in/+page.svelte's `form :global(label)` reaches Field's label - safe here
+     since every form in this file wraps only Field/Select/Textarea/Button, none of which render a
+     second, unrelated <label> of their own. Weight and size are the one thing not approved to
+     simplify away in this migration - Field intentionally carries no opinion on either. */
+  form :global(label) {
     font-size: 0.8rem;
     font-weight: 800;
   }
-  select,
-  textarea {
-    border: 1px solid var(--hv-border-strong);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    padding: 0.5rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
-  }
-  button {
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-basalt);
-    padding: 0.6rem 1rem;
-    color: var(--hv-color-snow-raised);
-    font-weight: 900;
-  }
-  select:focus-visible,
-  textarea:focus-visible,
-  button:focus-visible,
   a:focus-visible,
   summary:focus-visible {
     border-radius: var(--hv-radius-control);
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
     box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-  .message {
-    border: 1px solid var(--hv-color-fjord);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-fjord-soft);
-    padding: 0.9rem;
-    font-weight: 850;
-  }
-  .error {
-    border-color: var(--hv-color-danger);
-    background: var(--hv-color-danger-soft);
-    color: var(--hv-color-danger);
   }
   .private-note {
     display: grid;

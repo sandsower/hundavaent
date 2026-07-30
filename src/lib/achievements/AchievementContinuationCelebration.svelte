@@ -33,7 +33,7 @@
 </script>
 
 <section
-  class="continuation hv-panel"
+  class="continuation"
   aria-label={copy['achievements.celebrationRegion'].replace('{name}', name)}
 >
   <span class="badge">
@@ -53,11 +53,19 @@
 </section>
 
 <style>
+  /* Not <Panel>: this card needs a moss-tinted gradient background, which Panel's contract
+     cannot carry (its border/radius/shadow/background ship as one matched set that callers must
+     not override - see Panel.svelte's class-prop doc comment). The panel recipe is reproduced
+     here as scoped token CSS instead, on the caller's own element (the SelectedPlaceCard
+     precedent: carry only the tokens that render, rather than fighting the primitive). */
   .continuation {
     display: grid;
     grid-template-columns: 5.5rem minmax(0, 1fr);
     gap: 1rem;
     align-items: center;
+    border: 1px solid var(--hv-border-subtle);
+    border-radius: var(--hv-radius-panel);
+    box-shadow: var(--hv-shadow-raised);
     border-color: color-mix(in srgb, var(--hv-color-moss) 34%, transparent);
     background: linear-gradient(
       135deg,

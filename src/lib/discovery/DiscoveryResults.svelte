@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Button } from '@hundavaent/design-system';
   import type { Catalogue, Locale } from '$i18n';
   import type { PublishedPlaceSummary } from '$server/discovery/public-places';
 
@@ -49,11 +50,12 @@
         : copy['directory.resultCountMany'].replace('{count}', String(places.length))}
     </p>
     {#if closable}
-      <button
+      <Button
         id="discovery-results-close"
         type="button"
+        shape="round"
         aria-label={closeLabel ?? copy['directory.closeResults']}
-        onclick={onClose}>{closeGlyph ?? '×'}</button
+        onclick={onClose}>{closeGlyph ?? '×'}</Button
       >
     {/if}
   </div>
@@ -115,29 +117,18 @@
     white-space: nowrap;
   }
 
-  .tray-heading button {
+  /* Button renders its own <button> in a child component, so scoped CSS cannot reach it directly
+     - anchored through .tray-heading (locally authored) with :global() on the tag, per the
+     ancestor-scoped-:global pattern (FavouriteControl.svelte). Geometry (size, border, bg,
+     radius, focus ring) now comes from Button's shape="round" + neutral intent - deliberately
+     larger and softer than the old 2.25rem/basalt-strong-border/radius-control square (recorded
+     veto item, not a regression to fix). Only the heading's own alignment and the × glyph's
+     typography (1.4rem/900 - the character's legibility, not the control's tone) survive as
+     call-site overrides. */
+  .tray-heading :global(button) {
     align-self: center;
-  }
-
-  button {
-    display: grid;
-    width: 2.25rem;
-    height: 2.25rem;
-    padding: 0;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow);
-    color: var(--hv-color-basalt);
-    font: inherit;
     font-size: 1.4rem;
     font-weight: 900;
-    place-items: center;
-  }
-
-  button:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   .empty {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
 
+  import { Choice, Field, Input, Select } from '@hundavaent/design-system';
   import type { Catalogue } from '$i18n';
   import type {
     CompletedPlacePhotoPeopleReview,
@@ -73,9 +74,12 @@
 
 <div class="photo-approval-fields">
   <div class="essential-fields">
-    <label>
-      {copy['moderation.media.simpleRightsLabel']}
-      <select
+    <Field
+      label={copy['moderation.media.simpleRightsLabel']}
+      hint={copy['moderation.media.simpleRightsHelp']}
+      class="mod-field"
+    >
+      <Select
         name="rightsChoice"
         required
         aria-label={copy['moderation.media.simpleRightsLabel']}
@@ -86,12 +90,10 @@
         <option value="reusable_source">
           {copy['moderation.media.simpleRights.reusableSource']}
         </option>
-      </select>
-      <small>{copy['moderation.media.simpleRightsHelp']}</small>
-    </label>
-    <label>
-      {copy['moderation.media.peopleReviewLabel']}
-      <select name="peopleReview" required bind:value={peopleReview}>
+      </Select>
+    </Field>
+    <Field label={copy['moderation.media.peopleReviewLabel']} class="mod-field">
+      <Select name="peopleReview" required bind:value={peopleReview}>
         <option value="" disabled>{copy['moderation.media.peopleReview.unknown']}</option>
         <option value="no_prominent_people">
           {copy['moderation.media.peopleReview.noProminentPeople']}
@@ -99,15 +101,14 @@
         <option value="permission_documented">
           {copy['moderation.media.peopleReview.permissionDocumented']}
         </option>
-      </select>
-    </label>
+      </Select>
+    </Field>
   </div>
 
   {#if rightsChoice === 'reusable_source'}
     <div class="reusable-fields">
-      <label>
-        {copy['moderation.media.reusableLicenseLabel']}
-        <select name="reusableRightsBasis" required bind:value={reusableRightsBasis}>
+      <Field label={copy['moderation.media.reusableLicenseLabel']} class="mod-field">
+        <Select name="reusableRightsBasis" required bind:value={reusableRightsBasis}>
           <option value="cc0">CC0 1.0</option>
           <option value="public_domain">{copy['moderation.media.rightsBasis.publicDomain']}</option>
           <option value="cc_by">CC BY 4.0</option>
@@ -115,28 +116,25 @@
           <option value="official_reuse">
             {copy['moderation.media.rightsBasis.officialReuse']}
           </option>
-        </select>
-      </label>
-      <label>
-        {copy['moderation.media.photoSourceUrlLabel']}
-        <input type="url" name="sourceUrl" required value={initial?.sourceUrl ?? ''} />
-      </label>
+        </Select>
+      </Field>
+      <Field label={copy['moderation.media.photoSourceUrlLabel']} class="mod-field">
+        <Input type="url" name="sourceUrl" required value={initial?.sourceUrl ?? ''} />
+      </Field>
       {#if attributionRequired}
-        <label>
-          {copy['moderation.media.photographerLabel']}
-          <input
+        <Field label={copy['moderation.media.photographerLabel']} class="mod-field">
+          <Input
             type="text"
             name="photographerOrUploader"
             required
             value={initial?.photographerOrUploader ?? ''}
           />
-        </label>
+        </Field>
       {/if}
       {#if reusableRightsBasis === 'official_reuse'}
-        <label>
-          {copy['moderation.media.licenseUrlLabel']}
-          <input type="url" name="licenseUrl" required value={initial?.licenseUrl ?? ''} />
-        </label>
+        <Field label={copy['moderation.media.licenseUrlLabel']} class="mod-field">
+          <Input type="url" name="licenseUrl" required value={initial?.licenseUrl ?? ''} />
+        </Field>
       {/if}
     </div>
   {/if}
@@ -145,64 +143,58 @@
     <summary>{copy['moderation.media.optionalDetails']}</summary>
     <div class="optional-fields">
       {#if !attributionRequired}
-        <label>
-          {copy['moderation.media.photographerLabel']}
-          <input
+        <Field label={copy['moderation.media.photographerLabel']} class="mod-field">
+          <Input
             type="text"
             name="photographerOrUploader"
             value={initial?.photographerOrUploader ?? ''}
           />
-        </label>
+        </Field>
       {/if}
-      <label>
-        {copy['moderation.media.licenseDateLabel']}
-        <input type="date" name="sourceOrCaptureDate" value={initial?.sourceOrCaptureDate ?? ''} />
-      </label>
-      <label>
-        {copy['moderation.media.licenseReferenceLabel']}
-        <input type="text" name="licenseReference" value={initial?.licenseReference ?? ''} />
-      </label>
-      <label>
-        {copy['moderation.media.rightsEvidenceLabel']}
-        <input
+      <Field label={copy['moderation.media.licenseDateLabel']} class="mod-field">
+        <Input type="date" name="sourceOrCaptureDate" value={initial?.sourceOrCaptureDate ?? ''} />
+      </Field>
+      <Field label={copy['moderation.media.licenseReferenceLabel']} class="mod-field">
+        <Input type="text" name="licenseReference" value={initial?.licenseReference ?? ''} />
+      </Field>
+      <Field label={copy['moderation.media.rightsEvidenceLabel']} class="mod-field">
+        <Input
           type="text"
           name="rightsEvidenceReference"
           value={initial?.rightsEvidenceReference ?? ''}
         />
-      </label>
+      </Field>
       {#if rightsChoice !== 'reusable_source'}
-        <label>
-          {copy['moderation.media.photoSourceUrlLabel']}
-          <input type="url" name="sourceUrl" value={initial?.sourceUrl ?? ''} />
-        </label>
+        <Field label={copy['moderation.media.photoSourceUrlLabel']} class="mod-field">
+          <Input type="url" name="sourceUrl" value={initial?.sourceUrl ?? ''} />
+        </Field>
       {/if}
       {#if rightsChoice === 'reusable_source' && reusableRightsBasis !== 'official_reuse'}
-        <label>
-          {copy['moderation.media.licenseUrlLabel']}
-          <input type="url" name="licenseUrl" value={initial?.licenseUrl ?? ''} />
-        </label>
+        <Field label={copy['moderation.media.licenseUrlLabel']} class="mod-field">
+          <Input type="url" name="licenseUrl" value={initial?.licenseUrl ?? ''} />
+        </Field>
       {/if}
-      <label>
-        {copy['moderation.media.attributionTextLabel']}
-        <input type="text" name="attributionText" value={initial?.attributionText ?? ''} />
-      </label>
-      <label>
-        {copy['moderation.media.attributionUrlLabel']}
-        <input type="url" name="attributionUrl" value={initial?.attributionUrl ?? ''} />
-      </label>
-      <label lang="is">
-        {copy['moderation.media.altTextIsLabel']}
-        <input type="text" name="altTextIs" value={initial?.altTextIs ?? ''} />
-      </label>
-      <label lang="en">
-        {copy['moderation.media.altTextEnLabel']}
-        <input type="text" name="altTextEn" value={initial?.altTextEn ?? ''} />
-      </label>
+      <Field label={copy['moderation.media.attributionTextLabel']} class="mod-field">
+        <Input type="text" name="attributionText" value={initial?.attributionText ?? ''} />
+      </Field>
+      <Field label={copy['moderation.media.attributionUrlLabel']} class="mod-field">
+        <Input type="url" name="attributionUrl" value={initial?.attributionUrl ?? ''} />
+      </Field>
+      <Field label={copy['moderation.media.altTextIsLabel']} class="mod-field">
+        <Input type="text" name="altTextIs" lang="is" value={initial?.altTextIs ?? ''} />
+      </Field>
+      <Field label={copy['moderation.media.altTextEnLabel']} class="mod-field">
+        <Input type="text" name="altTextEn" lang="en" value={initial?.altTextEn ?? ''} />
+      </Field>
       {#if allowPrimaryChoice}
-        <label class="checkbox-label">
-          <input type="checkbox" name="makePrimary" checked={initial?.makePrimary ?? false} />
+        <Choice
+          type="checkbox"
+          class="checkbox-choice"
+          name="makePrimary"
+          checked={initial?.makePrimary ?? false}
+        >
           {copy['moderation.media.makePrimaryLabel']}
-        </label>
+        </Choice>
       {/if}
     </div>
   </details>
@@ -229,38 +221,9 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  label {
-    display: grid;
-    align-content: start;
-    min-width: 0;
-    gap: 0.3rem;
-  }
-
-  input,
-  select {
-    box-sizing: border-box;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    min-height: 2.5rem;
-    padding: 0.5rem 0.6rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-    font: inherit;
-  }
-
-  input[type='checkbox'] {
-    width: auto;
-    min-height: auto;
-    padding: 0;
-  }
-
-  small {
-    color: var(--hv-color-basalt-muted);
-    font-weight: 500;
-  }
+  /* Field's own label carries no weight/size utility (baseline-first); this component never had
+     bespoke label typography of its own (it relied on the shared bare `label{}` rule this file
+     used to define), so nothing to re-anchor beyond min-width:0 - already Field's own default. */
 
   details {
     border-top: 1px solid color-mix(in srgb, var(--hv-color-basalt) 18%, transparent);
@@ -277,10 +240,8 @@
     margin-top: 0.75rem;
   }
 
-  .checkbox-label {
-    display: flex;
+  .optional-fields :global(.checkbox-choice) {
     grid-column: 1 / -1;
-    align-items: center;
   }
 
   @media (max-width: 42rem) {

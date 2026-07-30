@@ -4,6 +4,7 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { tick, untrack } from 'svelte';
 
+  import { Button, Field, Input, Notice, Select, Textarea } from '@hundavaent/design-system';
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import { explainAccessCondition } from '$domain/access-explanation';
   import type { PlaceCategory } from '$domain/place';
@@ -97,7 +98,7 @@
   let candidatePrivateNote = $state('');
   let candidateDecisionForm = $state<HTMLFormElement>();
   let publicationForm = $state<HTMLFormElement>();
-  let alertElement = $state<HTMLElement>();
+  const publishAlertId = 'candidate-review-publish-alert';
   let publishError = $derived(
     form && 'action' in form && form.action === 'publish' && 'error' in form ? form.error : null
   );
@@ -571,11 +572,8 @@
   }
 
   $effect(() => {
-    if (
-      (publishError || locationCorrectionError || wheelchairAccessibilityError || mediaError) &&
-      alertElement
-    ) {
-      void tick().then(() => alertElement?.focus());
+    if (publishError || locationCorrectionError || wheelchairAccessibilityError || mediaError) {
+      void tick().then(() => document.getElementById(publishAlertId)?.focus());
     }
   });
 
@@ -595,7 +593,14 @@
   {/if}
 
   {#if publishError}
-    <section class="message error" role="alert" tabindex="-1" bind:this={alertElement}>
+    <Notice
+      tone="error"
+      as="section"
+      class="message grid gap-[0.5rem]"
+      role="alert"
+      tabindex={-1}
+      id={publishAlertId}
+    >
       <strong>{publishError}</strong>
       {#if form && 'conflict' in form && form.conflict}
         <a
@@ -607,13 +612,13 @@
           {data.copy['moderation.reloadCurrent']}
         </a>
       {/if}
-    </section>
+    </Notice>
   {/if}
 
   {#if succeeded}
-    <section class="message success" role="status">
+    <Notice tone="success" as="section" class="message" role="status">
       <strong>{data.copy['moderation.published']}</strong>
-    </section>
+    </Notice>
   {/if}
 
   <h2 class="readiness-title">{data.copy['moderation.checklistTitle']}</h2>
@@ -645,9 +650,12 @@
     />
   </form>
 
-  {#if draftError}<p class="message error" role="alert">{draftError}</p>{/if}
+  {#if draftError}<Notice tone="error" as="p" class="message" role="alert">{draftError}</Notice
+    >{/if}
   {#if draftSucceeded}
-    <p class="message success" role="status">{data.copy['moderation.workbench.draftSaved']}</p>
+    <Notice tone="success" as="p" class="message" role="status"
+      >{data.copy['moderation.workbench.draftSaved']}</Notice
+    >
   {/if}
 
   {#if standalone && (canDecide || decisionError)}<div class="candidate-actions">
@@ -658,7 +666,9 @@
           ? data.copy['moderation.workbench.unsavedDecisionHint']
           : null}
       >
-        {#if decisionError}<p class="decision-error" role="alert">{decisionError}</p>{/if}
+        {#if decisionError}<Notice tone="error" as="p" class="decision-error" role="alert"
+            >{decisionError}</Notice
+          >{/if}
         <CandidateDecisionControls
           copy={data.copy}
           status={data.review.candidateStatus}
@@ -713,13 +723,11 @@
           <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
           <input type="hidden" name="sectionId" value="identity" />
           <input type="hidden" name="sectionPayload" value={identitySectionPayload} />
-          <label>
-            {data.copy['moderation.operatorLabel']}
-            <input required bind:value={identityOperatorName} />
-          </label>
-          <label>
-            {data.copy['place.category']}
-            <select required bind:value={identityCategory}>
+          <Field label={data.copy['moderation.operatorLabel']} class="mod-field">
+            <Input required bind:value={identityOperatorName} />
+          </Field>
+          <Field label={data.copy['place.category']} class="mod-field">
+            <Select required bind:value={identityCategory}>
               <option value="restaurant">{data.copy['category.restaurant']}</option>
               <option value="cafe">{data.copy['category.cafe']}</option>
               <option value="bar">{data.copy['category.bar']}</option>
@@ -731,14 +739,12 @@
               <option value="culture">{data.copy['category.culture']}</option>
               <option value="service">{data.copy['category.service']}</option>
               <option value="other">{data.copy['category.other']}</option>
-            </select>
-          </label>
+            </Select>
+          </Field>
           <div class="section-form-actions">
-            <button type="button" class="quiet" onclick={cancelEditing}
-              >{data.copy['common.cancel']}</button
-            >
-            <button type="submit" disabled={savingSection === 'identity'}
-              >{saveLabel('identity')}</button
+            <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
+            <Button intent="neutral" type="submit" disabled={savingSection === 'identity'}
+              >{saveLabel('identity')}</Button
             >
           </div>
         </form>
@@ -758,12 +764,12 @@
               )}
             </p>
           </section>
-          <button
-            type="button"
+          <Button
+            intent="neutral"
             class="edit-section"
             aria-label={editLabel(data.copy['moderation.identityHeading'])}
             onclick={() => beginEditing('identity')}
-            >{editLabel(data.copy['moderation.identityHeading'])}</button
+            >{editLabel(data.copy['moderation.identityHeading'])}</Button
           >
         </div>
       {/if}
@@ -788,14 +794,12 @@
           <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
           <input type="hidden" name="sectionId" value="details" />
           <input type="hidden" name="sectionPayload" value={detailsSectionPayload} />
-          <label>
-            {data.copy['moderation.websiteLabel']}
-            <input type="url" bind:value={detailsWebsiteUrl} />
-          </label>
-          <label>
-            {data.copy['moderation.phoneLabel']}
-            <input type="tel" bind:value={detailsPhone} />
-          </label>
+          <Field label={data.copy['moderation.websiteLabel']} class="mod-field">
+            <Input type="url" bind:value={detailsWebsiteUrl} />
+          </Field>
+          <Field label={data.copy['moderation.phoneLabel']} class="mod-field">
+            <Input type="tel" bind:value={detailsPhone} />
+          </Field>
           <div class="wide editor-group">
             <h3>{data.copy['place.openingHours']}</h3>
             <OpeningHoursEditor copy={data.copy} bind:value={detailsOpeningHours} />
@@ -804,28 +808,31 @@
             <legend>{data.copy['place.amenities']}</legend>
             {#each detailsDogAmenities as amenity, index (index)}
               <div class="repeated-row">
-                <label>
-                  {data.copy['moderation.amenityLabel'].replace('{number}', String(index + 1))}
-                  <input
+                <Field
+                  label={data.copy['moderation.amenityLabel'].replace(
+                    '{number}',
+                    String(index + 1)
+                  )}
+                  class="mod-field"
+                >
+                  <Input
                     value={amenity}
                     oninput={(event) => (detailsDogAmenities[index] = event.currentTarget.value)}
                   />
-                </label>
-                <button type="button" class="quiet" onclick={() => removeAmenity(index)}>
+                </Field>
+                <Button intent="neutral" onclick={() => removeAmenity(index)}>
                   {data.copy['moderation.removeAmenity']}
-                </button>
+                </Button>
               </div>
             {/each}
-            <button type="button" class="quiet add-row" onclick={addAmenity}>
+            <Button intent="neutral" class="add-row" onclick={addAmenity}>
               {data.copy['moderation.addAmenity']}
-            </button>
+            </Button>
           </fieldset>
           <div class="section-form-actions">
-            <button type="button" class="quiet" onclick={cancelEditing}
-              >{data.copy['common.cancel']}</button
-            >
-            <button type="submit" disabled={savingSection === 'details'}
-              >{saveLabel('details')}</button
+            <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
+            <Button intent="neutral" type="submit" disabled={savingSection === 'details'}
+              >{saveLabel('details')}</Button
             >
           </div>
         </form>
@@ -859,12 +866,12 @@
               </dd>
             </div>
           </dl>
-          <button
-            type="button"
+          <Button
+            intent="neutral"
             class="edit-section"
             aria-label={editLabel(data.copy['moderation.workbench.section.details'])}
             onclick={() => beginEditing('details')}
-            >{editLabel(data.copy['moderation.workbench.section.details'])}</button
+            >{editLabel(data.copy['moderation.workbench.section.details'])}</Button
           >
         </div>
       {/if}
@@ -885,9 +892,8 @@
         >
           <input type="hidden" name="placeId" value={data.review.placeId} />
           <input type="hidden" name="expectedVersion" value={data.review.version} />
-          <label>
-            {data.copy['moderation.wheelchairAccessibilityLabel']}
-            <select name="wheelchairAccessibility" bind:value={wheelchairAccessibilityValue}>
+          <Field label={data.copy['moderation.wheelchairAccessibilityLabel']} class="mod-field">
+            <Select name="wheelchairAccessibility" bind:value={wheelchairAccessibilityValue}>
               <option value="accessible">{data.copy['wheelchairAccessibility.accessible']}</option>
               <option value="partially_accessible"
                 >{data.copy['wheelchairAccessibility.partiallyAccessible']}</option
@@ -896,38 +902,38 @@
                 >{data.copy['wheelchairAccessibility.notAccessible']}</option
               >
               <option value="unknown">{data.copy['wheelchairAccessibility.unknown']}</option>
-            </select>
-          </label>
+            </Select>
+          </Field>
           <p class="field-help">{data.copy['moderation.wheelchairAccessibilityHelp']}</p>
           <div class="section-form-actions">
-            <button type="button" class="quiet" onclick={cancelEditing}
-              >{data.copy['common.cancel']}</button
-            >
-            <button type="submit" disabled={savingWheelchairAccessibility}>
+            <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
+            <Button intent="neutral" type="submit" disabled={savingWheelchairAccessibility}>
               {savingWheelchairAccessibility
                 ? data.copy['moderation.workbench.section.saving']
                 : data.copy['moderation.saveWheelchairAccessibility']}
-            </button>
+            </Button>
           </div>
         </form>
       {:else}
         <div class="section-view">
           <p>{wheelchairAccessibilityLabel()}</p>
-          <button
-            type="button"
+          <Button
+            intent="neutral"
             class="edit-section"
             aria-label={editLabel(data.copy['moderation.wheelchairAccessibilityLabel'])}
             onclick={() => beginEditing('wheelchair_accessibility')}
-            >{editLabel(data.copy['moderation.wheelchairAccessibilityLabel'])}</button
+            >{editLabel(data.copy['moderation.wheelchairAccessibilityLabel'])}</Button
           >
         </div>
       {/if}
       {#if wheelchairAccessibilityError}
-        <p class="message error" role="alert">{wheelchairAccessibilityError}</p>
+        <Notice tone="error" as="p" class="message" role="alert"
+          >{wheelchairAccessibilityError}</Notice
+        >
       {:else if wheelchairAccessibilitySucceeded}
-        <p class="message success" role="status">
+        <Notice tone="success" as="p" class="message" role="status">
           {data.copy['moderation.wheelchairAccessibilitySaved']}
-        </p>
+        </Notice>
       {/if}
     </ModerationReviewSection>
 
@@ -987,27 +993,28 @@
               />
             </div>
             <div class="section-form-actions wide">
-              <button type="button" class="quiet" onclick={cancelEditing}
-                >{data.copy['common.cancel']}</button
-              >
-              <button type="submit" disabled={savingSection === 'location'}
-                >{saveLabel('location')}</button
+              <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
+              <Button intent="neutral" type="submit" disabled={savingSection === 'location'}
+                >{saveLabel('location')}</Button
               >
             </div>
           </form>
         {:else}
-          <button
-            type="button"
+          <Button
+            intent="neutral"
             class="edit-section"
             aria-label={editLabel(data.copy['moderation.locationHeading'])}
             onclick={() => beginEditing('location')}
-            >{editLabel(data.copy['moderation.locationHeading'])}</button
+            >{editLabel(data.copy['moderation.locationHeading'])}</Button
           >
         {/if}
         {#if locationCorrectionError}
-          <p class="message error" role="alert">{locationCorrectionError}</p>
+          <Notice tone="error" as="p" class="message" role="alert">{locationCorrectionError}</Notice
+          >
         {:else if locationCorrectionSucceeded}
-          <p class="message success" role="status">{data.copy['moderation.geometryCorrected']}</p>
+          <Notice tone="success" as="p" class="message" role="status"
+            >{data.copy['moderation.geometryCorrected']}</Notice
+          >
         {/if}
       </div>
     </ModerationReviewSection>
@@ -1036,28 +1043,22 @@
           <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
           <input type="hidden" name="sectionId" value="translations" />
           <input type="hidden" name="sectionPayload" value={translationsSectionPayload} />
-          <label lang="is">
-            {data.copy['moderation.nameIsLabel']}
-            <input required bind:value={translationNameIs} />
-          </label>
-          <label lang="en">
-            {data.copy['moderation.nameEnLabel']}
-            <input required bind:value={translationNameEn} />
-          </label>
-          <label class="wide" lang="is">
-            {data.copy['moderation.descriptionIsLabel']}
-            <textarea required bind:value={translationDescriptionIs}></textarea>
-          </label>
-          <label class="wide" lang="en">
-            {data.copy['moderation.descriptionEnLabel']}
-            <textarea required bind:value={translationDescriptionEn}></textarea>
-          </label>
+          <Field label={data.copy['moderation.nameIsLabel']} class="mod-field">
+            <Input required lang="is" bind:value={translationNameIs} />
+          </Field>
+          <Field label={data.copy['moderation.nameEnLabel']} class="mod-field">
+            <Input required lang="en" bind:value={translationNameEn} />
+          </Field>
+          <Field label={data.copy['moderation.descriptionIsLabel']} class="mod-field wide">
+            <Textarea required lang="is" bind:value={translationDescriptionIs} />
+          </Field>
+          <Field label={data.copy['moderation.descriptionEnLabel']} class="mod-field wide">
+            <Textarea required lang="en" bind:value={translationDescriptionEn} />
+          </Field>
           <div class="section-form-actions">
-            <button type="button" class="quiet" onclick={cancelEditing}
-              >{data.copy['common.cancel']}</button
-            >
-            <button type="submit" disabled={savingSection === 'translations'}
-              >{saveLabel('translations')}</button
+            <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
+            <Button intent="neutral" type="submit" disabled={savingSection === 'translations'}
+              >{saveLabel('translations')}</Button
             >
           </div>
         </form>
@@ -1075,12 +1076,12 @@
               <p>{data.review.descriptionEn ?? data.copy['common.notAvailable']}</p>
             </article>
           </div>
-          <button
-            type="button"
+          <Button
+            intent="neutral"
             class="edit-section"
             aria-label={editLabel(data.copy['moderation.workbench.section.translations'])}
             onclick={() => beginEditing('translations')}
-            >{editLabel(data.copy['moderation.workbench.section.translations'])}</button
+            >{editLabel(data.copy['moderation.workbench.section.translations'])}</Button
           >
         </div>
       {/if}
@@ -1110,11 +1111,9 @@
           <input type="hidden" name="sectionId" value="access_conditions" />
           <AccessConditionsEditor copy={data.copy} conditions={data.review.accessConditions} />
           <div class="section-form-actions">
-            <button type="button" class="quiet" onclick={cancelEditing}
-              >{data.copy['common.cancel']}</button
-            >
-            <button type="submit" disabled={savingSection === 'access_conditions'}
-              >{saveLabel('access_conditions')}</button
+            <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
+            <Button intent="neutral" type="submit" disabled={savingSection === 'access_conditions'}
+              >{saveLabel('access_conditions')}</Button
             >
           </div>
         </form>
@@ -1127,12 +1126,12 @@
               </li>
             {/each}
           </ol>
-          <button
-            type="button"
+          <Button
+            intent="neutral"
             class="edit-section"
             aria-label={editLabel(data.copy['moderation.checkAccess'])}
             onclick={() => beginEditing('access_conditions')}
-            >{editLabel(data.copy['moderation.checkAccess'])}</button
+            >{editLabel(data.copy['moderation.checkAccess'])}</Button
           >
         </div>
       {/if}
@@ -1162,11 +1161,9 @@
           <input type="hidden" name="sectionId" value="evidence_records" />
           <EvidenceRecordsEditor copy={data.copy} evidenceRecords={data.review.evidenceRecords} />
           <div class="section-form-actions">
-            <button type="button" class="quiet" onclick={cancelEditing}
-              >{data.copy['common.cancel']}</button
-            >
-            <button type="submit" disabled={savingSection === 'evidence_records'}
-              >{saveLabel('evidence_records')}</button
+            <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
+            <Button intent="neutral" type="submit" disabled={savingSection === 'evidence_records'}
+              >{saveLabel('evidence_records')}</Button
             >
           </div>
         </form>
@@ -1187,12 +1184,12 @@
               </li>
             {/each}
           </ul>
-          <button
-            type="button"
+          <Button
+            intent="neutral"
             class="edit-section"
             aria-label={editLabel(data.copy['moderation.checkEvidence'])}
             onclick={() => beginEditing('evidence_records')}
-            >{editLabel(data.copy['moderation.checkEvidence'])}</button
+            >{editLabel(data.copy['moderation.checkEvidence'])}</Button
           >
         </div>
       {/if}
@@ -1210,12 +1207,12 @@
         <p>{data.copy['moderation.media.intro']}</p>
 
         {#if mediaError}
-          <section class="message error" role="alert">
+          <Notice tone="error" as="section" class="message" role="alert">
             <strong>{mediaError}</strong>
-          </section>
+          </Notice>
         {/if}
         {#if mediaSucceeded}
-          <section class="message success" role="status">
+          <Notice tone="success" as="section" class="message" role="status">
             <strong>
               {form && 'action' in form && form.action === 'uploadEvidence'
                 ? data.copy['moderation.media.uploadSucceeded']
@@ -1227,7 +1224,7 @@
                       ? data.copy['moderation.media.rejectSucceeded']
                       : data.copy['moderation.media.retireSucceeded']}
             </strong>
-          </section>
+          </Notice>
         {/if}
 
         <div class="media-columns">
@@ -1264,7 +1261,8 @@
                         <form method="POST" action="?/retireMedia" use:enhance={enhanceMedia}>
                           <input type="hidden" name="placeId" value={data.review.placeId} />
                           <input type="hidden" name="mediaId" value={item.mediaId} />
-                          <button type="submit">{data.copy['moderation.media.retireAction']}</button
+                          <Button intent="neutral" type="submit"
+                            >{data.copy['moderation.media.retireAction']}</Button
                           >
                         </form>
                       {/if}
@@ -1283,34 +1281,37 @@
             >
               <input type="hidden" name="placeId" value={data.review.placeId} />
               <h4>{data.copy['moderation.media.uploadEvidenceTitle']}</h4>
-              <label>
-                {data.copy['moderation.media.fileLabel']}
-                <input
+              <Field label={data.copy['moderation.media.fileLabel']} class="mod-field">
+                <Input
                   type="file"
                   name="file"
                   accept="image/png,image/jpeg,image/webp"
                   required
                   onchange={(fileEvent) => handleEvidenceFileChange(fileEvent.currentTarget)}
                 />
-              </label>
+              </Field>
               <input type="hidden" name="widthPx" value={evidenceWidth ?? ''} />
               <input type="hidden" name="heightPx" value={evidenceHeight ?? ''} />
               {#if evidenceFileError}
-                <p class="field-error">{data.copy[evidenceFileError]}</p>
+                <Notice tone="error" as="p" class="field-error"
+                  >{data.copy[evidenceFileError]}</Notice
+                >
               {/if}
-              <label>
-                {data.copy['moderation.media.sourceUrlLabel']}
-                <input type="url" name="sourceUrl" required />
-              </label>
-              <label>
-                {data.copy['moderation.media.capturedAtLabel']}
-                <input type="datetime-local" name="capturedAt" required />
-              </label>
-              <button type="submit" disabled={evidenceProcessing || !evidenceWidth}>
+              <Field label={data.copy['moderation.media.sourceUrlLabel']} class="mod-field">
+                <Input type="url" name="sourceUrl" required />
+              </Field>
+              <Field label={data.copy['moderation.media.capturedAtLabel']} class="mod-field">
+                <Input type="datetime-local" name="capturedAt" required />
+              </Field>
+              <Button
+                intent="neutral"
+                type="submit"
+                disabled={evidenceProcessing || !evidenceWidth}
+              >
                 {evidenceProcessing
                   ? data.copy['moderation.media.uploading']
                   : data.copy['moderation.media.uploadEvidenceAction']}
-              </button>
+              </Button>
             </form>
           </article>
 
@@ -1362,21 +1363,23 @@
                             autoPrimary={activeApprovedPhotoCount === 0}
                             allowPrimaryChoice={activeApprovedPhotoCount > 0}
                           />
-                          <button type="submit"
-                            >{data.copy['moderation.media.publishPhotoAction']}</button
+                          <Button intent="neutral" type="submit"
+                            >{data.copy['moderation.media.publishPhotoAction']}</Button
                           >
                         </form>
                         <form method="POST" action="?/rejectMedia" use:enhance={enhanceMedia}>
                           <input type="hidden" name="placeId" value={data.review.placeId} />
                           <input type="hidden" name="mediaId" value={item.mediaId} />
-                          <button type="submit">{data.copy['moderation.media.rejectAction']}</button
+                          <Button intent="neutral" type="submit"
+                            >{data.copy['moderation.media.rejectAction']}</Button
                           >
                         </form>
                       {:else}
                         <form method="POST" action="?/retireMedia" use:enhance={enhanceMedia}>
                           <input type="hidden" name="placeId" value={data.review.placeId} />
                           <input type="hidden" name="mediaId" value={item.mediaId} />
-                          <button type="submit">{data.copy['moderation.media.retireAction']}</button
+                          <Button intent="neutral" type="submit"
+                            >{data.copy['moderation.media.retireAction']}</Button
                           >
                         </form>
                       {/if}
@@ -1395,20 +1398,19 @@
             >
               <input type="hidden" name="placeId" value={data.review.placeId} />
               <h4>{data.copy['moderation.media.uploadPhotoTitle']}</h4>
-              <label>
-                {data.copy['moderation.media.fileLabel']}
-                <input
+              <Field label={data.copy['moderation.media.fileLabel']} class="mod-field">
+                <Input
                   type="file"
                   name="file"
                   accept="image/png,image/jpeg,image/webp"
                   required
                   onchange={(fileEvent) => handlePhotoFileChange(fileEvent.currentTarget)}
                 />
-              </label>
+              </Field>
               <input type="hidden" name="widthPx" value={photoWidth ?? ''} />
               <input type="hidden" name="heightPx" value={photoHeight ?? ''} />
               {#if photoFileError}
-                <p class="field-error">{data.copy[photoFileError]}</p>
+                <Notice tone="error" as="p" class="field-error">{data.copy[photoFileError]}</Notice>
               {/if}
               <ModerationPhotoApprovalFields
                 copy={data.copy}
@@ -1417,11 +1419,11 @@
                 autoPrimary={activeApprovedPhotoCount === 0}
                 allowPrimaryChoice={activeApprovedPhotoCount > 0}
               />
-              <button type="submit" disabled={photoProcessing || !photoWidth}>
+              <Button intent="neutral" type="submit" disabled={photoProcessing || !photoWidth}>
                 {photoProcessing
                   ? data.copy['moderation.media.uploading']
                   : data.copy['moderation.media.uploadAndPublishAction']}
-              </button>
+              </Button>
             </form>
           </article>
         </div>
@@ -1460,9 +1462,8 @@
         oncancel={() => (candidateDialog = null)}
       >
         {#if candidateDialog === 'rejected'}
-          <label>
-            {data.copy['moderation.workbench.reasonCode']}
-            <select bind:value={candidateReasonCode} required>
+          <Field label={data.copy['moderation.workbench.reasonCode']} class="mod-field">
+            <Select bind:value={candidateReasonCode} required>
               <option value="insufficient_evidence"
                 >{data.copy['moderation.workbench.reason.insufficientEvidence']}</option
               >
@@ -1475,8 +1476,8 @@
               <option value="unsafe">{data.copy['moderation.workbench.reason.unsafe']}</option>
               <option value="spam">{data.copy['moderation.workbench.reason.spam']}</option>
               <option value="other">{data.copy['moderation.workbench.reason.other']}</option>
-            </select>
-          </label>
+            </Select>
+          </Field>
         {/if}
       </ModerationReasonDialog>
     {/if}
@@ -1537,12 +1538,11 @@
     margin-top: 0.75rem;
   }
 
-  .decision-error {
+  /* Notice now owns the border/background/padding/radius for this tone; only the spacing this
+     file's layout depends on is re-anchored here, ancestor-scoped through the literal
+     .candidate-actions div rather than a bare :global(.decision-error). */
+  .candidate-actions :global(.decision-error) {
     margin: 0 0 0.55rem;
-    border: 1px solid var(--hv-color-danger);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-danger-soft);
-    padding: 0.55rem;
   }
 
   .review-sections {
@@ -1556,10 +1556,12 @@
     gap: 0.7rem;
   }
 
-  .edit-section {
+  /* Button owns min-height/background now (the bespoke 2.4rem control-height and snow-raised
+     re-tone are the unification policy's targets); only the grid placement survives, re-anchored
+     through .review-sections since edit-section buttons sit in more than one grid ancestor
+     (.section-view and .location-detail). */
+  .review-sections :global(.edit-section) {
     justify-self: end;
-    min-height: 2.4rem;
-    background: var(--hv-color-snow-raised);
   }
 
   .section-form {
@@ -1575,7 +1577,7 @@
     grid-template-columns: 1fr;
   }
 
-  .section-form .wide,
+  .section-form :global(.wide),
   .section-form-actions {
     grid-column: 1 / -1;
   }
@@ -1586,13 +1588,8 @@
     justify-content: flex-end;
   }
 
-  .section-form-actions button {
+  .section-form-actions :global(button) {
     min-width: 7rem;
-  }
-
-  .section-form .quiet,
-  .edit-section {
-    background: var(--hv-color-snow-raised);
   }
 
   .editor-group,
@@ -1626,7 +1623,7 @@
     align-items: end;
   }
 
-  .add-row {
+  .amenities-editor :global(.add-row) {
     width: fit-content;
   }
 
@@ -1667,8 +1664,7 @@
     border-radius: var(--hv-radius-panel);
   }
 
-  .location-correction .wide,
-  .location-correction button {
+  .location-correction .wide {
     grid-column: 1 / -1;
   }
 
@@ -1827,58 +1823,23 @@
     border-radius: var(--hv-radius-panel);
   }
 
-  label {
-    display: grid;
-    flex: 1 1 18rem;
-    gap: 0.25rem;
+  /* Field's own label carries no weight/size utility (baseline-first); this file's labels were
+     always the reduced 0.78rem/750 treatment, so it is re-anchored here via an ancestor-scoped
+     :global() targeting Field's rendered label through the .mod-field hook, never a bare
+     :global(label) that would leak past this component. The old flex-basis sizing dies outright:
+     every Field-bearing form in this file is a CSS Grid (.section-form / .media-upload-form), so
+     flex-item sizing never had anywhere left to apply. */
+  .review-shell :global(.mod-field label) {
     color: var(--hv-color-basalt-muted);
     font-size: 0.78rem;
     font-weight: 750;
   }
 
-  input[type='datetime-local'],
-  input[type='url'],
-  input[type='tel'],
-  input[type='file'],
-  input:not([type]),
-  select {
-    width: 100%;
-    max-width: 100%;
-    min-height: 2.5rem;
-    padding: 0.5rem 0.6rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-    font: inherit;
-  }
-
-  textarea {
-    width: 100%;
-    min-height: 6rem;
-    box-sizing: border-box;
-    resize: vertical;
-    padding: 0.5rem 0.6rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-    font: inherit;
-  }
-
-  button {
-    min-height: 2.65rem;
-    padding: 0.6rem 0.85rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-    font: inherit;
-    font-weight: 850;
-    box-shadow: none;
-  }
-
-  button:disabled {
+  /* Input/Select/Textarea/Button own their own border/background/padding/radius/font-weight now;
+     the disabled dimming is re-anchored because Button does not yet style a disabled state on its
+     own (a known gap outside this migration's file scope) - kept ancestor-scoped so it stays this
+     surface's own affordance rather than a bare app-wide :global(button:disabled). */
+  .review-shell :global(button:disabled) {
     cursor: not-allowed;
     opacity: 0.55;
   }
@@ -1888,36 +1849,11 @@
     font-weight: 800;
   }
 
-  .message {
-    display: grid;
-    gap: 0.5rem;
+  /* Notice owns tone/border/background/padding/radius now; only the spacing this file's layout
+     depends on survives, re-anchored through the .message hook every Notice call site here still
+     carries as a layout-glue class. */
+  .review-shell :global(.message) {
     margin-bottom: 0.75rem;
-    padding: 0.7rem;
-    border: 1px solid;
-    border-radius: var(--hv-radius-panel);
-  }
-
-  .error {
-    border-color: var(--hv-color-danger);
-    background: var(--hv-color-danger-soft);
-    color: var(--hv-color-danger);
-  }
-
-  .success {
-    border-color: var(--hv-color-success);
-    background: var(--hv-color-success-soft);
-    color: var(--hv-color-success);
-  }
-
-  button:focus-visible,
-  input:focus-visible,
-  textarea:focus-visible,
-  select:focus-visible,
-  a:focus-visible,
-  .message:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   .media-section {
@@ -2016,10 +1952,11 @@
     margin: 0;
   }
 
-  .field-error {
+  /* Notice's own tone box replaces this paragraph's border/background; only the tight margin
+     this grid-gapped upload form depended on survives, re-anchored via the same .field-error hook
+     class the Notice call sites here still carry as layout glue. */
+  .media-upload-form :global(.field-error) {
     margin: 0;
-    color: var(--hv-color-danger);
-    font-weight: 700;
   }
 
   @media (max-width: 48rem) {
@@ -2051,7 +1988,7 @@
       grid-template-columns: 1fr;
     }
 
-    .section-form .wide,
+    .section-form :global(.wide),
     .section-form-actions {
       grid-column: auto;
     }
@@ -2060,12 +1997,13 @@
       display: grid;
     }
 
-    .edit-section,
-    .add-row {
+    .review-sections :global(.edit-section),
+    .amenities-editor :global(.add-row) {
       width: 100%;
     }
 
-    button {
+    .section-form-actions :global(button),
+    .media-section :global(button) {
       width: 100%;
     }
   }

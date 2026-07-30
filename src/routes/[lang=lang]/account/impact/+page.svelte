@@ -4,7 +4,15 @@
   import AchievementBadge from '$lib/achievements/AchievementBadge.svelte';
   import ImpactPillarIcon from '$lib/impact/ImpactPillarIcon.svelte';
   import WeeklyRhythmTrail from '$lib/member-activity/WeeklyRhythmTrail.svelte';
-  import { Eyebrow, Panel, PageShell, PageTitle } from '@hundavaent/design-system';
+  import {
+    Button,
+    Eyebrow,
+    Notice,
+    Panel,
+    PageShell,
+    PageTitle,
+    Status
+  } from '@hundavaent/design-system';
   import { formatLocalizedDate } from '$i18n/date';
   import type { MessageKey } from '$i18n';
   import { collectionName, tierDisplayName } from '$lib/achievements/tier-copy';
@@ -177,9 +185,9 @@
         <div class="trusted-celebration-actions">
           {#if trustedVerificationFeedback.value.latestPlaceId}
             <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-            <a class="hv-control" href={placeHref(trustedVerificationFeedback.value.latestPlaceId)}>
+            <Button href={placeHref(trustedVerificationFeedback.value.latestPlaceId)}>
               {data.copy['impact.trustedCelebrationOpenPlace']}
-            </a>
+            </Button>
           {/if}
           <form method="POST" action="?/markTrustedVerificationRead">
             <input
@@ -187,9 +195,9 @@
               name="readThrough"
               value={trustedVerificationFeedback.value.latestConfirmedAt}
             />
-            <button class="hv-control" data-intent="primary" type="submit">
+            <Button intent="primary" type="submit">
               {data.copy['impact.trustedCelebrationAcknowledge']}
-            </button>
+            </Button>
           </form>
         </div>
       </div>
@@ -214,14 +222,11 @@
               {outcome.state === 'confirmed' ? '✓' : '↺'}
             </div>
             <div class="outcome-primary">
-              <span
-                class="hv-status"
-                data-status={outcome.state === 'confirmed' ? 'verified' : undefined}
-              >
+              <Status tone={outcome.state === 'confirmed' ? 'verified' : undefined}>
                 {outcome.state === 'confirmed'
                   ? data.copy['impact.outcome.confirmed']
                   : data.copy['impact.outcome.revoked']}
-              </span>
+              </Status>
               <h3>{outcomeName(outcome)}</h3>
               <p class="outcome-date">
                 {data.copy[
@@ -262,7 +267,7 @@
         {/each}
       </ol>
     {:else}
-      <p class="empty hv-notice" data-tone="info">{data.copy['impact.outcomesEmpty']}</p>
+      <Notice tone="info" as="p" class="empty">{data.copy['impact.outcomesEmpty']}</Notice>
     {/if}
   </section>
 
@@ -419,26 +424,25 @@
           {#if data.contributor.status === 'available'}
             <div class="status-line">
               <span>{data.copy['impact.currentStatus']}</span>
-              <strong
-                class="hv-status"
-                data-status={data.contributor.value.status === 'trusted_contributor'
+              <Status
+                tone={data.contributor.value.status === 'trusted_contributor'
                   ? 'verified'
                   : undefined}
               >
                 {data.copy[contributorKey(data.contributor.value.status)]}
-              </strong>
+              </Status>
             </div>
           {:else}
             <p class="integrity-note">{data.copy['impact.statusUnavailable']}</p>
           {/if}
           <!-- Outside the availability branch: this is the only navigation entry to the status
                page, and its own load handles a degraded status fact. -->
-          <a
-            class="hv-control status-detail-link"
+          <Button
             href={resolve('/[lang=lang]/account/contributor-status', { lang: data.lang })}
+            class="status-detail-link"
           >
             {data.copy['contributor.nav']}
-          </a>
+          </Button>
         </div>
       </Panel>
     </div>
@@ -520,17 +524,22 @@
       <p class="integrity-note">{data.copy['impact.achievementsEmpty']}</p>
     {/if}
 
-    <a
-      class="hv-control recognition-link"
+    <Button
       href={resolve('/[lang=lang]/account/achievements', { lang: data.lang })}
+      intent="quiet"
+      class="recognition-link"
     >
       {data.copy['impact.achievementsLink']}
-    </a>
+    </Button>
   </Panel>
 
-  <a class="back-link hv-control" href={resolve('/[lang=lang]/account', { lang: data.lang })}>
+  <Button
+    href={resolve('/[lang=lang]/account', { lang: data.lang })}
+    intent="quiet"
+    class="impact-back-link"
+  >
     {data.copy['account.navSignedIn']}
-  </a>
+  </Button>
 </PageShell>
 
 <style>
@@ -1104,12 +1113,13 @@
     height: 2.8rem;
   }
 
-  .recognition-link,
-  .back-link {
+  /* Both render through Button (a child component), so the layout hooks need :global(). */
+  :global(.recognition-link),
+  :global(.impact-back-link) {
     justify-self: start;
   }
 
-  .status-detail-link {
+  :global(.status-detail-link) {
     justify-self: start;
     margin-top: 0.8rem;
   }

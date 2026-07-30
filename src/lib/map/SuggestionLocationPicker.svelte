@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
 
+  import { Button, Field, Input, Meta } from '@hundavaent/design-system';
   import type { Catalogue } from '$i18n';
   import type { AddressSearchResult } from '$server/locations/address-search';
 
@@ -107,22 +108,20 @@
   <div class="picker-heading">
     <div>
       <h3>{copy['suggestion.locationPickerTitle']}</h3>
-      <p class="hv-meta">{copy['suggestion.locationPickerHelp']}</p>
+      <Meta class="picker-help">{copy['suggestion.locationPickerHelp']}</Meta>
     </div>
-    <button class="hv-control" type="button" onclick={useMapCenter}
-      >{copy['suggestion.useMapCenter']}</button
-    >
+    <Button type="button" class="use-map-center" onclick={useMapCenter}>
+      {copy['suggestion.useMapCenter']}
+    </Button>
   </div>
 
   <div class="address-search" role="search">
-    <label class="hv-stack">
-      {copy['suggestion.locationSearchLabel']}
+    <Field label={copy['suggestion.locationSearchLabel']} class="field-label">
       <span class="search-row">
-        <input
-          class="hv-field"
+        <Input
           type="search"
           bind:value={query}
-          minlength="3"
+          minlength={3}
           autocomplete="street-address"
           onkeydown={(event) => {
             if (event.key !== 'Enter') return;
@@ -130,8 +129,7 @@
             void search();
           }}
         />
-        <button
-          class="hv-control"
+        <Button
           type="button"
           disabled={searching || query.trim().length < 3}
           onclick={() => void search()}
@@ -139,10 +137,10 @@
           {searching
             ? copy['suggestion.locationSearching']
             : copy['suggestion.locationSearchAction']}
-        </button>
+        </Button>
       </span>
-    </label>
-    <small class="hv-meta">{copy['suggestion.locationSearchHelp']}</small>
+    </Field>
+    <Meta as="small">{copy['suggestion.locationSearchHelp']}</Meta>
   </div>
 
   {#if results.length > 0}
@@ -152,9 +150,9 @@
       {/each}
     </section>
   {:else if searchState === 'empty'}
-    <p class="search-note hv-meta" role="status">{copy['suggestion.locationSearchEmpty']}</p>
+    <Meta as="p" role="status">{copy['suggestion.locationSearchEmpty']}</Meta>
   {:else if searchState === 'unavailable'}
-    <p class="search-note hv-meta" role="status">{copy['suggestion.locationSearchUnavailable']}</p>
+    <Meta as="p" role="status">{copy['suggestion.locationSearchUnavailable']}</Meta>
   {/if}
 
   <MapSurface
@@ -169,24 +167,21 @@
     compact
   />
 
-  <div class="coordinate-alternative hv-meta">
+  <Meta as="div" class="coordinate-alternative">
     <span>{copy['suggestion.manualLocationHelp']}</span>
     <button
       type="button"
-      class="hv-control text-toggle"
+      class="text-toggle"
       aria-expanded={coordinatesOpen}
       onclick={() => (coordinatesOpen = !coordinatesOpen)}
     >
       {copy['suggestion.coordinatesAlternative']}
     </button>
-  </div>
+  </Meta>
   {#if coordinatesOpen}
     <div class="coordinates">
-      <label class="hv-stack">
-        {copy['suggestion.latitude']}
-        <input
-          class="hv-field"
-          id="suggestion-latitude"
+      <Field label={copy['suggestion.latitude']} class="field-label">
+        <Input
           name="latitude"
           type="number"
           min="-90"
@@ -195,11 +190,9 @@
           required
           bind:value={latitude}
         />
-      </label>
-      <label class="hv-stack">
-        {copy['suggestion.longitude']}
-        <input
-          class="hv-field"
+      </Field>
+      <Field label={copy['suggestion.longitude']} class="field-label">
+        <Input
           name="longitude"
           type="number"
           min="-180"
@@ -208,7 +201,7 @@
           required
           bind:value={longitude}
         />
-      </label>
+      </Field>
     </div>
   {:else if answered}
     <!-- Only a placed pin is submitted. An unanswered question sends nothing, which is what makes
@@ -235,21 +228,20 @@
     justify-content: space-between;
   }
 
-  h3,
-  p {
-    margin: 0;
-  }
-
   h3 {
+    margin: 0;
     color: var(--hv-color-basalt);
     font-size: 1.25rem;
   }
 
-  .picker-heading p {
+  /* Meta renders its own <p> in a separate component; the hook is ancestor-scoped under
+     .picker-heading (this file's own hashed scope), never a bare :global(). */
+  .picker-heading :global(.picker-help) {
     margin-top: 0.25rem;
   }
 
-  .picker-heading button {
+  /* Button renders its own <button> in a separate component; same ancestor-scoped hook rule. */
+  .picker-heading :global(.use-map-center) {
     flex: none;
   }
 
@@ -292,17 +284,21 @@
     background: var(--hv-color-fjord-soft);
   }
 
-  .search-note {
-    margin: 0;
-  }
-
-  .coordinate-alternative {
+  /* Meta renders its own <div> in a separate component (m-0 already covers the old margin:0
+     reset the bare-<p> "search-note" rule carried); the hook is ancestor-scoped under
+     .location-picker, never a bare :global(). */
+  .location-picker :global(.coordinate-alternative) {
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem 0.75rem;
     align-items: baseline;
   }
 
+  /* .text-toggle is a plain <button> authored directly in this file's own markup (passed as a
+     child into Meta's snippet), so it keeps this file's scope hash and needs no :global() - only
+     Meta's own wrapping element does. hv-control is fully stripped here (border/background/
+     padding/min-height/focus all neutralized or restated below), matching the "carry only what
+     renders" rule: this is a plain underlined text link, not a control. */
   .text-toggle {
     border: 0;
     background: transparent;
@@ -312,13 +308,23 @@
     text-decoration: underline;
   }
 
+  .text-toggle:focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
+  }
+
   .coordinates {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--hv-space-panel);
   }
 
-  label {
+  /* Field renders its own <label> in a separate component; the hook is ancestor-scoped under
+     .address-search / .coordinates (this file's own hashed scope), never a bare :global(). All
+     three Field instances share one hook class since they all want the same label treatment. */
+  .address-search :global(.field-label label),
+  .coordinates :global(.field-label label) {
     color: var(--hv-color-basalt);
     font-weight: 800;
   }
@@ -343,7 +349,7 @@
       grid-template-columns: 1fr;
     }
 
-    .picker-heading button {
+    .picker-heading :global(.use-map-center) {
       justify-self: start;
     }
   }

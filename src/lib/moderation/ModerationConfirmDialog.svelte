@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Dialog } from '@hundavaent/design-system';
+  import { Button, Dialog } from '@hundavaent/design-system';
 
   interface Props {
     open: boolean;
@@ -30,10 +30,10 @@
   {/snippet}
   <p>{description}</p>
   <div class="actions">
-    <button type="button" class="cancel" onclick={oncancel}>{cancelLabel}</button>
-    <button type="button" class:danger={tone === 'danger'} onclick={onconfirm}>
+    <Button intent="neutral" onclick={oncancel}>{cancelLabel}</Button>
+    <Button intent={tone === 'danger' ? 'danger' : 'committed'} onclick={onconfirm}>
       {confirmLabel}
-    </button>
+    </Button>
   </div>
 </Dialog>
 
@@ -54,26 +54,5 @@
     display: flex;
     gap: 0.6rem;
     justify-content: flex-end;
-  }
-  button {
-    min-height: 2.7rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-signal);
-    padding: 0.55rem 0.8rem;
-    color: var(--hv-color-basalt);
-    font: inherit;
-    font-weight: 900;
-  }
-  button.cancel {
-    background: var(--hv-color-snow-raised);
-  }
-  button.danger {
-    background: var(--hv-color-danger);
-    color: var(--hv-color-snow-raised);
-  }
-  button:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
   }
 </style>
