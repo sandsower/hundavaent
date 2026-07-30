@@ -817,6 +817,10 @@ test('Correction, Report, and Moderator review forms are keyboard-operable and A
   await page.goto(await waitForLocalMagicLink(memberEmail));
 
   await page.goto(`/en/places/${correctable.placeId}/correct?field=phone`);
+  // Full navigation, so hydration starts over; focusing before it completes loses the race on a
+  // cold vite cache (the SSR heading is visible while the client is still compiling, and the
+  // pre-hydration focus never survives into the interactive page).
+  await waitForHydration(page);
   await expect(page.getByRole('heading', { name: 'Suggest a correction' })).toBeVisible();
   await page.getByLabel('What are you correcting?').focus();
   await page.keyboard.press('Tab');
@@ -830,6 +834,9 @@ test('Correction, Report, and Moderator review forms are keyboard-operable and A
   // what every other run of this form has never exercised: the deep-linked `?conditionId=` state
   // is still captured by visual.spec.ts, so this pass covers the default one instead.
   await page.goto(`/en/places/${correctable.placeId}/report`);
+  // Same hydration guard as the correction page above: this test focuses controls right after a
+  // full navigation.
+  await waitForHydration(page);
   await expect(page.getByRole('heading', { name: 'Report a problem' })).toBeVisible();
   // The whole Place is the default, and it carries neither a field nor a Condition, so neither
   // selector is in the DOM to be tabbed into or read out.
