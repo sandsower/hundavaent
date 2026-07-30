@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
 
+  import { Button } from '@hundavaent/design-system';
   import type { Catalogue, Locale } from '$i18n';
   import { buildPlaceShareUrl } from './share-url';
 
@@ -34,8 +35,9 @@
 </script>
 
 <div class="share-control">
-  <button
+  <Button
     type="button"
+    shape="round"
     class="icon-control"
     aria-label={copy['share.place'].replace('{name}', placeName)}
     onclick={share}
@@ -46,7 +48,7 @@
       <circle cx="18" cy="19" r="2.5" />
       <path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5" />
     </svg>
-  </button>
+  </Button>
   <span class:visible={status !== 'idle'} class="share-status" role="status" aria-live="polite">
     {status === 'copied' ? copy['share.copied'] : status === 'failed' ? copy['share.failed'] : ''}
   </span>
@@ -58,31 +60,20 @@
     display: inline-flex;
   }
 
-  .icon-control {
-    display: inline-grid;
-    width: 2.5rem;
-    height: 2.5rem;
-    padding: 0;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: 999px;
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-    cursor: pointer;
-    place-items: center;
-  }
-
-  .icon-control svg {
+  /* Button renders its own <button> in a child component, so scoped CSS cannot reach it directly
+     - anchored through .share-control (locally authored) with :global() on the Button-rendered
+     class, per the ancestor-scoped-:global pattern (FavouriteControl.svelte). Only the svg sizing
+     survives as a call-site override; border/bg/radius/size/cursor now come from Button's
+     shape="round" + neutral intent. This control previously had no hover/active motion and a 2px
+     focus offset - it now adopts Button's standard motion and 3px focus treatment (recorded veto
+     item, not a regression to fix). */
+  .share-control :global(.icon-control svg) {
     width: 1.15rem;
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.8;
-  }
-
-  .icon-control:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 2px;
   }
 
   .share-status {

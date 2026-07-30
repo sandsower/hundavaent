@@ -3,6 +3,7 @@
 
   import { validateTranslationEntry } from '$lib/translations/placeholders';
   import {
+    Button,
     Eyebrow,
     Meta,
     PageHeader,
@@ -89,7 +90,7 @@
   </div>
 
   <Panel class="publication-actions">
-    <a class="hv-control" href={resolve('/translations')}>Back to editing</a>
+    <Button intent="neutral" href={resolve('/translations')}>Back to editing</Button>
     <form method="POST" action="?/publish">
       <input
         type="hidden"
@@ -97,12 +98,11 @@
         value={data.workspace.currentRevision ?? 'none'}
       />
       <input type="hidden" name="expectedDraftGeneration" value={data.workspace.draftGeneration} />
-      <button
-        class="hv-control"
-        data-intent="committed"
+      <Button
+        intent="committed"
         type="submit"
         disabled={changedEntries.length === 0 || invalidEntries.length > 0}
-        >Publish all changes</button
+        >Publish all changes</Button
       >
     </form>
   </Panel>

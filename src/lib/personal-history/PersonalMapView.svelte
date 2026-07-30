@@ -3,6 +3,7 @@
 
   import { resolve } from '$app/paths';
 
+  import { Button, Notice, Panel } from '@hundavaent/design-system';
   import type { Catalogue, Locale } from '$i18n';
   import MapSurface from '$lib/map/MapSurface.svelte';
   import type { MapAdapter, MapCamera } from '$lib/map/types';
@@ -53,23 +54,27 @@
 </script>
 
 {#if places.length === 0}
-  <section class="empty-state hv-panel hv-stack" aria-labelledby="history-map-empty-title">
+  <Panel
+    as="section"
+    class="map-empty-state grid gap-context"
+    aria-labelledby="history-map-empty-title"
+  >
     <h2 id="history-map-empty-title" tabindex="-1">{copy['history.emptyMapTitle']}</h2>
     <p>{copy['history.emptyMapBody']}</p>
-    <a class="hv-control" data-intent="primary" href={resolve('/[lang=lang]', { lang })}
-      >{copy['favourite.backToDiscovery']}</a
-    >
-  </section>
+    <Button href={resolve('/[lang=lang]', { lang })} intent="primary">
+      {copy['favourite.backToDiscovery']}
+    </Button>
+  </Panel>
 {:else}
   {#if truncated}
-    <p class="truncation-note hv-notice" data-tone="info" role="status">
+    <Notice as="p" tone="info" role="status" class="map-truncation-note">
       {copy['history.mapTruncated'].replace('{count}', String(limit))}
-    </p>
+    </Notice>
   {/if}
   <div class="map-view">
-    <div class="map-surface hv-panel">
+    <Panel class="map-surface">
       {#if mappablePlaces.length === 0}
-        <section class="map-empty hv-stack" aria-labelledby="history-map-withheld-title">
+        <section class="map-empty grid gap-context" aria-labelledby="history-map-withheld-title">
           <h2 id="history-map-withheld-title" tabindex="-1">{copy['history.emptyMapTitle']}</h2>
           <p>{copy['history.emptyMapBody']}</p>
         </section>
@@ -96,40 +101,41 @@
           {/snippet}
         </MapSurface>
       {/if}
-    </div>
-    <ul class="map-list hv-list" aria-label={copy['history.tabMap']}>
+    </Panel>
+    <ul class="grid gap-context m-0 p-0 list-none map-list" aria-label={copy['history.tabMap']}>
       {#each places as place (place.placeId)}
-        <li
-          class="map-card hv-list-card hv-panel"
-          class:selected={place.placeId === selectedPlaceId}
+        <Panel
+          as="li"
+          padded
+          class={place.placeId === selectedPlaceId ? 'map-card selected' : 'map-card'}
         >
           {#if hasCoordinates(place)}
-            <button
-              class="hv-control"
-              data-intent={place.placeId === selectedPlaceId ? 'selected' : undefined}
-              type="button"
-              aria-pressed={place.placeId === selectedPlaceId}
+            <Button
+              pressed={place.placeId === selectedPlaceId}
               onclick={() => selectPlace(place.placeId)}
             >
               {place.name}
-            </button>
+            </Button>
           {:else}
             <strong>{place.name}</strong>
           {/if}
           {#if place.availability === 'available'}
-            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-            <a class="hv-control" href={discoveryPlaceHref(place.placeId)}
-              >{copy['directory.viewPlace'].replace('{name}', place.name)}</a
-            >
+            <Button href={discoveryPlaceHref(place.placeId)}>
+              {copy['directory.viewPlace'].replace('{name}', place.name)}
+            </Button>
           {/if}
-        </li>
+        </Panel>
       {/each}
     </ul>
   </div>
 {/if}
 
 <style>
-  .truncation-note {
+  /* Notice's root is rendered by a child component, and the truncation banner sits at the top of
+     the fragment with no native wrapping element in this component's own template to anchor a
+     scoped :global() through - the same rootless situation favorites/+page.svelte's
+     .saved-empty-state hook already carries. */
+  :global(.map-truncation-note) {
     max-width: 42ch;
     margin: calc(var(--hv-space-context) * 1.5) 0 0;
   }
@@ -141,7 +147,11 @@
     grid-template-columns: minmax(0, 1fr) 20rem;
   }
 
-  .map-surface {
+  /* Panel renders its own element inside a child component, so this component's scoped CSS
+     cannot reach it directly - the actual target selector is wrapped in :global() and anchored
+     through .map-view, the ancestor idiom FavouriteControl.svelte uses for its own
+     child-component call sites. */
+  .map-view :global(.map-surface) {
     min-height: 24rem;
     overflow: hidden;
   }
@@ -171,37 +181,43 @@
 
   .map-list {
     align-content: start;
-    margin: 0;
   }
 
-  .map-card {
+  /* Same child-component reasoning as .map-surface above, anchored through .map-list. Button's
+     own rendered <button> is likewise reached only through :global() - it is Button's internal
+     root element, not markup this component authors directly - while .selected and strong (both
+     written directly as Panel's children here) stay reachable normally once .map-card itself is
+     unwrapped. Button already owns cursor: pointer, so only the left-alignment override survives
+     here; the scoped rule is unlayered and wins over Button's own justify-center Tailwind utility
+     regardless of specificity, per Button.svelte's own cascade-layer note. */
+  .map-list :global(.map-card) {
     display: grid;
     gap: 0.5rem;
   }
 
-  .map-card.selected {
+  .map-list :global(.map-card.selected) {
     border-color: var(--hv-color-basalt);
     background: var(--hv-color-signal-soft);
   }
 
-  .map-card button {
+  .map-list :global(.map-card button) {
     justify-content: start;
     text-align: left;
-    cursor: pointer;
   }
 
-  .map-card strong {
+  .map-list :global(.map-card strong) {
     color: var(--hv-color-basalt-muted);
   }
 
-  .empty-state {
+  /* Same rootless situation as .map-truncation-note above. */
+  :global(.map-empty-state) {
     max-width: 34rem;
     margin-top: calc(var(--hv-space-context) * 1.5);
     padding: var(--hv-space-panel);
   }
 
-  .empty-state h2,
-  .empty-state p {
+  :global(.map-empty-state) h2,
+  :global(.map-empty-state) p {
     margin: 0;
   }
 

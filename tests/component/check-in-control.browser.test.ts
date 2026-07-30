@@ -57,8 +57,10 @@ describe('CheckInControl', () => {
     });
 
     const link = screen.getByRole('link', { name: label });
-    expect(link.classList.contains('hv-control')).toBe(true);
-    expect(link.getAttribute('data-intent')).toBe('secondary');
+    // Button owns the control look itself now; it never renders the retired hv-control class or
+    // data-intent.
+    expect(link.classList.contains('hv-control')).toBe(false);
+    expect(link.getAttribute('data-intent')).toBeNull();
   });
 
   it.each([
@@ -83,8 +85,10 @@ describe('CheckInControl', () => {
       const action = screen.getByRole('button', {
         name: copy['checkIn.actionAccessible'].replace('{name}', placeName)
       });
-      expect(action.classList.contains('hv-control')).toBe(true);
-      expect(action.getAttribute('data-intent')).toBe('primary');
+      // Button owns the control look itself now; it never renders the retired hv-control class
+      // or data-intent.
+      expect(action.classList.contains('hv-control')).toBe(false);
+      expect(action.getAttribute('data-intent')).toBeNull();
     }
   );
 
@@ -116,8 +120,10 @@ describe('CheckInControl', () => {
     });
 
     const assist = screen.getByRole('button', { name: 'Use my location to confirm' });
-    expect(assist.classList.contains('hv-control')).toBe(true);
-    expect(assist.getAttribute('data-intent')).toBe('secondary');
+    // Button owns the control look itself now; it never renders the retired hv-control class or
+    // data-intent.
+    expect(assist.classList.contains('hv-control')).toBe(false);
+    expect(assist.getAttribute('data-intent')).toBeNull();
   });
 
   it('records a no-location Check-in and shows the server result', async () => {
@@ -147,7 +153,8 @@ describe('CheckInControl', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Check in at Published Place' }));
 
     const result = await screen.findByText("You're checked in at Published Place.");
-    expect(result.classList.contains('hv-status')).toBe(true);
+    // Status owns the chip look itself now; it never renders the retired hv-status class.
+    expect(result.classList.contains('hv-status')).toBe(false);
     expect(result.getAttribute('data-status')).toBe('success');
     expect(screen.getByText("This week's trail has begun")).toBeTruthy();
     expect(screen.getByRole('region').getAttribute('data-state')).toBe('committed');
@@ -238,7 +245,8 @@ describe('CheckInControl', () => {
         'This place is no longer available, so the check-in could not be completed.'
       )
     );
-    expect(screen.getByRole('alert').classList.contains('hv-status')).toBe(true);
+    // Status owns the chip look itself now; it never renders the retired hv-status class.
+    expect(screen.getByRole('alert').classList.contains('hv-status')).toBe(false);
     expect(screen.getByRole('alert').getAttribute('data-status')).toBe('error');
   });
 

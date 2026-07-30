@@ -10,6 +10,7 @@
 </script>
 
 <script lang="ts">
+  import { Button, Status } from '@hundavaent/design-system';
   import type { Catalogue, Locale } from '$i18n';
   import { postHogAnalytics } from '$lib/analytics/posthog';
   import { decideProximity, type ProximityPlace } from '$lib/check-ins/proximity';
@@ -201,54 +202,57 @@
 >
   {#if !signedIn}
     <!-- Exact local return context is assembled by the discovery owner. -->
-    <!-- eslint-disable svelte/no-navigation-without-resolve -->
-    <a
-      class="hv-control"
-      data-intent="secondary"
-      data-state="signed-out"
+    <Button
       href={signInHref}
+      class="check-in-control"
+      data-state="signed-out"
       aria-label={copy['checkIn.signInAccessible'].replace('{name}', placeName)}
     >
       {copy['checkIn.signIn']}
-    </a>
-    <!-- eslint-enable svelte/no-navigation-without-resolve -->
+    </Button>
   {:else if effectivePhase === 'success' || effectivePhase === 'duplicate'}
     {#if recognition}
       <WeeklyRhythmAcknowledgement {recognition} subjectName={placeName} {copy} />
     {/if}
-    <p role="status" class="result hv-status" data-status="success" class:arrived={justCommitted}>
+    <Status
+      role="status"
+      tone="success"
+      data-status="success"
+      class={justCommitted ? 'result check-in-status arrived' : 'result check-in-status'}
+    >
       {effectivePhase === 'duplicate'
         ? copy['checkIn.duplicate']
         : copy['checkIn.success'].replace('{name}', placeName)}
-    </p>
+    </Status>
     {#if effectiveCheckedInAt}
       <p class="result-time" class:arrived={justCommitted}>
         {copy['checkIn.successAt'].replace('{time}', formatCheckInTime(effectiveCheckedInAt, lang))}
       </p>
     {/if}
   {:else if effectivePhase === 'place_unavailable'}
-    <p role="alert" class="hv-status" data-status="error">
+    <Status role="alert" tone="error" data-status="error" class="check-in-status">
       {copy['checkIn.placeUnavailable']}
-    </p>
+    </Status>
   {:else}
     <p class="explanation">{copy['checkIn.timeExplanation']}</p>
     <p class="explanation">{copy['checkIn.privacyExplanation']}</p>
 
     {#if locationOutcomeMessage}
-      <p role="status" class="location-outcome hv-status" data-status="info">
+      <Status role="status" data-status="info" class="check-in-status">
         {locationOutcomeMessage}
-      </p>
+      </Status>
     {/if}
 
     {#if effectivePhase === 'failed'}
-      <p role="alert" class="hv-status" data-status="error">{copy['checkIn.failed']}</p>
+      <Status role="alert" tone="error" data-status="error" class="check-in-status">
+        {copy['checkIn.failed']}
+      </Status>
     {/if}
 
     <div class="actions">
-      <button
-        type="button"
-        class="hv-control"
-        data-intent="primary"
+      <Button
+        intent="primary"
+        class="check-in-control"
         data-state={effectivePhase === 'submitting' ? 'busy' : 'idle'}
         aria-busy={effectivePhase === 'submitting'}
         disabled={effectivePhase === 'submitting' || effectivePhase === 'locating'}
@@ -256,13 +260,11 @@
         onclick={() => void checkInWithoutLocation()}
       >
         {effectivePhase === 'submitting' ? copy['checkIn.submitting'] : copy['checkIn.action']}
-      </button>
+      </Button>
 
       {#if showLocationAssist}
-        <button
-          type="button"
-          class="hv-control"
-          data-intent="secondary"
+        <Button
+          class="check-in-control"
           data-state={effectivePhase === 'locating' ? 'busy' : 'idle'}
           aria-busy={effectivePhase === 'locating'}
           disabled={effectivePhase === 'submitting' || effectivePhase === 'locating'}
@@ -271,7 +273,7 @@
           {effectivePhase === 'locating'
             ? copy['checkIn.locationRequesting']
             : copy['checkIn.locationAssistAction']}
-        </button>
+        </Button>
         <p class="location-explanation">{copy['checkIn.locationAssistExplanation']}</p>
       {/if}
     </div>
@@ -299,23 +301,16 @@
     gap: 0.5rem;
   }
 
-  .hv-control {
+  /* Button and Status each render their own element inside a child component, so this
+     component's scoped CSS cannot reach them directly - the actual target selectors are wrapped
+     in :global() and anchored through .check-in, the idiom FavouriteControl.svelte uses for its
+     own Button/Status call sites. Button owns cursor/hover-lift/active-squish/transition/focus-
+     ring itself now; only the call-site-specific font size and the busy cursor survive here. */
+  .check-in :global(.check-in-control) {
     font-size: 0.85rem;
-    cursor: pointer;
-    /* Movement only, for the same reason the chips carry no colour transition: these controls
-       invert their pair between intents, and there is no readable path across an inversion. */
-    transition: transform var(--hv-motion-instant) var(--hv-ease-settle);
   }
 
-  .hv-control:not(:disabled):hover {
-    transform: translateY(-1px);
-  }
-
-  .hv-control:not(:disabled):active {
-    transform: scale(0.97);
-  }
-
-  .hv-control:disabled {
+  .check-in :global(.check-in-control:disabled) {
     cursor: wait;
     opacity: 0.72;
   }
@@ -326,8 +321,10 @@
      this exact element at 1.66:1 against the required 4.5:1. Anything that carries state in
      words arrives at full contrast and moves into place, never the other way round.
      Under reduced motion this collapses to nothing and the text simply appears, which is the
-     right outcome - the words are the announcement, and role="status" carries it either way. */
-  .arrived {
+     right outcome - the words are the announcement, and role="status" carries it either way.
+     Anchored through :global() the same way as .check-in-control above: this class lands both on
+     the native .result-time paragraph and on Status's child-component-rendered span. */
+  .check-in :global(.arrived) {
     animation: committed-rise var(--hv-motion-considered) var(--hv-ease-settle);
   }
 
@@ -347,16 +344,14 @@
     font-size: 0.75rem;
   }
 
-  .location-outcome {
-    margin: 0;
-  }
-
-  .check-in > .hv-status {
+  /* Anchors the old .check-in > .hv-status rule to the hook class every Status usage in this
+     component now carries. */
+  .check-in > :global(.check-in-status) {
     width: fit-content;
     margin: 0;
   }
 
-  .result {
+  .check-in :global(.result) {
     font-weight: 900;
   }
 
@@ -366,7 +361,7 @@
     font-size: 0.82rem;
   }
 
-  a.hv-control {
+  .check-in :global(a.check-in-control) {
     width: fit-content;
   }
 </style>

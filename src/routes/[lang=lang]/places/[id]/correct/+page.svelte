@@ -10,6 +10,7 @@
     FormSection,
     Input,
     Meta,
+    Notice,
     PageHeader,
     PageShell,
     PageTitle,
@@ -119,11 +120,11 @@
   </PageHeader>
 
   {#if data.signInUrl}
-    <p class="hv-notice" data-tone="info" role="status">{data.copy['common.loading']}</p>
+    <Notice as="p" tone="info" role="status">{data.copy['common.loading']}</Notice>
   {:else if data.unavailable}
-    <p class="hv-notice" data-tone="error" role="alert">{data.copy['error.unexpectedBody']}</p>
+    <Notice as="p" tone="error" role="alert">{data.copy['error.unexpectedBody']}</Notice>
   {:else if data.place}
-    {#if errorMessage}<p class="hv-notice" data-tone="error" role="alert">{errorMessage}</p>{/if}
+    {#if errorMessage}<Notice as="p" tone="error" role="alert">{errorMessage}</Notice>{/if}
 
     <form class="grid gap-context" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
       <input type="hidden" name="commandId" value={data.commandId} />

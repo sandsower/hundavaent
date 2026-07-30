@@ -100,6 +100,7 @@
           <h2 id={titleId}>{copy['achievements.share.title']}</h2>
         </div>
         <Button
+          shape="round"
           class="share-close"
           aria-label={copy['achievements.share.close']}
           onclick={() => (open = false)}>×</Button
@@ -183,9 +184,6 @@
   }
 
   .share :global(.share-close) {
-    width: 2.25rem;
-    min-width: 2.25rem;
-    padding: 0;
     font-size: 1.5rem;
     line-height: 1;
   }

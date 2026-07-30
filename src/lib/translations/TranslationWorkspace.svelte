@@ -3,7 +3,7 @@
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
 
-  import { Eyebrow, PageShell, Panel } from '@hundavaent/design-system';
+  import { Button, Eyebrow, Input, PageShell, Panel, Select } from '@hundavaent/design-system';
   import type {
     SavedTranslationDraft,
     TranslationWorkspace as WorkspaceData
@@ -103,22 +103,21 @@
       <h1 id="translations-title">Translations</h1>
       <p>Update Icelandic and English as equal languages. Drafts stay private until publishing.</p>
     </div>
-    <a
-      class="review-link hv-control"
-      data-intent="committed"
+    <Button
+      class="review-link"
+      intent="committed"
       href={resolve('/translations/review')}
       aria-disabled={saveCoordinator.hasBlocking}
       onclick={(event) => void guardReview(event)}
     >
       {reviewLabel()}
-    </a>
+    </Button>
   </header>
 
   <Panel class="toolbar" aria-label="Translation filters">
     <label class="search-field">
       <span>Search</span>
-      <input
-        class="hv-field"
+      <Input
         type="search"
         name="search"
         aria-label="Search translations"
@@ -129,8 +128,7 @@
     </label>
     <label>
       <span>Namespace</span>
-      <select
-        class="hv-field"
+      <Select
         name="namespace"
         aria-label="Namespace"
         bind:value={namespace}
@@ -140,7 +138,7 @@
         {#each namespaces as item (item)}
           <option value={item}>{item}</option>
         {/each}
-      </select>
+      </Select>
     </label>
     <div class="filter-buttons" aria-label="Translation status filters">
       <button type="button" aria-pressed={filter === 'all'} onclick={() => selectFilter('all')}
@@ -187,25 +185,24 @@
   </div>
 
   {#if visibleEntries.length < filteredEntries.length}
-    <button
-      class="show-more hv-control"
-      type="button"
+    <Button
+      class="show-more"
+      intent="neutral"
       onclick={() => (visibleLimit += 50)}
-      aria-label="Show more translations">Show 50 more</button
+      aria-label="Show more translations">Show 50 more</Button
     >
   {/if}
 
   <div class="mobile-review-bar">
     <span>{pendingCount} unpublished</span>
-    <a
-      class="hv-control"
-      data-intent="committed"
+    <Button
+      intent="committed"
       href={resolve('/translations/review')}
       aria-disabled={saveCoordinator.hasBlocking}
       onclick={(event) => void guardReview(event)}
     >
       {reviewLabel()}
-    </a>
+    </Button>
   </div>
 </PageShell>
 
@@ -297,7 +294,9 @@
     gap: 0.75rem;
   }
 
-  .show-more {
+  /* .show-more now lives on Button's own rendered element, outside this file's scope hash. Bare
+     class is unique repo-wide (grep-verified). */
+  :global(.show-more) {
     justify-self: center;
   }
 
@@ -320,7 +319,10 @@
       display: block;
     }
 
-    .workspace-header > .review-link {
+    /* .review-link now lives on Button's own rendered <a>, outside this file's scope hash, but
+       Button renders it as a direct child of .workspace-header in this file's own template, so
+       the child combinator still holds - only the class needs :global() to re-anchor onto it. */
+    .workspace-header > :global(.review-link) {
       display: none;
     }
 

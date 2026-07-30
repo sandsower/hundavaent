@@ -1,6 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
 
+  import { Button, Meta, Panel, Status } from '@hundavaent/design-system';
   import type { Catalogue, Locale } from '$i18n';
   import type { PersonalCheckIn } from '$server/personal-history/personal-history';
 
@@ -45,73 +46,79 @@
 </script>
 
 {#if checkIns.length === 0 && isFirstPage}
-  <section class="empty-state hv-panel hv-stack" aria-labelledby="check-in-history-empty-title">
+  <Panel
+    as="section"
+    class="history-empty-state grid gap-context"
+    aria-labelledby="check-in-history-empty-title"
+  >
     <h2 id="check-in-history-empty-title" tabindex="-1">{copy['history.emptyCheckInsTitle']}</h2>
     <p>{copy['history.emptyCheckInsBody']}</p>
-    <a class="hv-control" data-intent="primary" href={resolve('/[lang=lang]', { lang })}
-      >{copy['favourite.backToDiscovery']}</a
-    >
-  </section>
+    <Button href={resolve('/[lang=lang]', { lang })} intent="primary">
+      {copy['favourite.backToDiscovery']}
+    </Button>
+  </Panel>
 {:else if checkIns.length === 0}
-  <section
-    class="empty-state hv-panel hv-stack"
+  <Panel
+    as="section"
+    class="history-empty-state grid gap-context"
     aria-labelledby="check-in-history-page-empty-title"
   >
     <h2 id="check-in-history-page-empty-title" tabindex="-1">
       {copy['history.pageEmptyCheckInsTitle']}
     </h2>
     <p>{copy['history.pageEmptyCheckInsBody']}</p>
-  </section>
+  </Panel>
 {:else}
-  <ol class="hv-list check-in-list" aria-label={copy['history.tabCheckIns']}>
+  <ol
+    class="grid gap-context m-0 p-0 list-none check-in-list"
+    aria-label={copy['history.tabCheckIns']}
+  >
     {#each checkIns as checkIn (checkIn.checkInId)}
-      <li
-        class="check-in-card hv-list-card hv-panel"
+      <Panel
+        as="li"
+        padded
+        class={checkIn.availability !== 'available' ? 'check-in-card unavailable' : 'check-in-card'}
         data-check-in-row
-        class:unavailable={checkIn.availability !== 'available'}
       >
-        <div class="hv-stack">
+        <div class="grid gap-context">
           <h2>{checkIn.name}</h2>
-          <p class="hv-meta">
+          <Meta>
             {copy['history.checkedInAt'].replace('{date}', formatDateTime(checkIn.checkedInAt))}
-          </p>
-          <strong
-            class="hv-status"
+          </Meta>
+          <Status
+            tone={checkIn.availability === 'available' ? undefined : 'attention'}
             data-status={checkIn.availability === 'available' ? undefined : 'attention'}
-            >{availabilityLabel(checkIn)}</strong
           >
+            {availabilityLabel(checkIn)}
+          </Status>
           {#if checkIn.availability === 'inactive' && checkIn.successorPlaceId && checkIn.successorName}
             <p class="successor">
               {copy['history.successorNote'].replace('{name}', checkIn.successorName)}
             </p>
           {/if}
         </div>
-        <div class="check-in-actions hv-page-actions">
+        <div class="check-in-actions flex flex-wrap items-center gap-actions">
           {#if checkIn.availability === 'available'}
-            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-            <a class="hv-control" href={discoveryPlaceHref(checkIn.placeId)}
-              >{copy['directory.openPlace']}</a
-            >
+            <Button href={discoveryPlaceHref(checkIn.placeId)}>
+              {copy['directory.openPlace']}
+            </Button>
           {:else if checkIn.successorPlaceId && checkIn.successorAvailable}
             <!-- A successor is a Candidate at transition time and may not be published yet;
                  only a currently discoverable successor gets a discovery deep link. The name
                  itself is still shown honestly in the successor note above. -->
-            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-            <a class="hv-control" href={discoveryPlaceHref(checkIn.successorPlaceId)}>
+            <Button href={discoveryPlaceHref(checkIn.successorPlaceId)}>
               {copy['history.successorLink'].replace('{name}', checkIn.successorName ?? '')}
-            </a>
+            </Button>
           {/if}
         </div>
-      </li>
+      </Panel>
     {/each}
   </ol>
 
   {#if nextCursor}
-    <!-- eslint-disable svelte/no-navigation-without-resolve -->
-    <a class="next-page hv-control" data-intent="primary" href={nextPageHref(nextCursor)}
-      >{copy['history.nextPage']}</a
-    >
-    <!-- eslint-enable svelte/no-navigation-without-resolve -->
+    <Button href={nextPageHref(nextCursor)} intent="primary" class="history-next-page">
+      {copy['history.nextPage']}
+    </Button>
   {/if}
 {/if}
 
@@ -120,22 +127,27 @@
     margin-block: calc(var(--hv-space-context) * 1.5);
   }
 
-  .check-in-card {
+  /* Panel renders its own element inside a child component, so this component's scoped CSS
+     cannot reach it directly - the actual target selectors are wrapped in :global() and anchored
+     through .check-in-list, the ancestor idiom FavouriteControl.svelte uses for its own
+     child-component call sites. Elements written directly inside Panel's children (h2, p,
+     .successor) stay reachable normally - only Panel's own rendered <li> needs the wrap. */
+  .check-in-list :global(.check-in-card) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--hv-space-panel);
   }
 
-  .check-in-card.unavailable {
+  .check-in-list :global(.check-in-card.unavailable) {
     background: var(--hv-color-snow);
   }
 
   h2,
-  .check-in-card p {
+  .check-in-list :global(.check-in-card p) {
     margin: 0;
   }
 
-  .check-in-card .successor {
+  .check-in-list :global(.check-in-card .successor) {
     font-weight: 700;
   }
 
@@ -144,23 +156,31 @@
     justify-content: end;
   }
 
-  .empty-state {
+  /* Panel's history-empty-state root is rendered by a child component too, and these two empty states
+     sit at the top of the fragment with no native wrapping element in this component's own
+     template to anchor a scoped :global() through - the same rootless situation
+     favorites/+page.svelte's .saved-empty-state hook already carries. */
+  :global(.history-empty-state) {
     max-width: 34rem;
     margin-top: calc(var(--hv-space-context) * 1.5);
     padding: var(--hv-space-panel);
   }
 
-  .empty-state h2,
-  .empty-state p {
+  :global(.history-empty-state) h2,
+  :global(.history-empty-state) p {
     margin: 0;
   }
 
-  .next-page {
+  /* Button's rendered anchor for pagination has no native wrapping ancestor either - same
+     rootless case as .history-empty-state above. Page-unique name (favorites' equivalent is
+     .saved-next-page): identically-named bare globals from two surfaces fight each other
+     app-wide once route CSS is injected - the phase-4 .empty-state leak lesson. */
+  :global(.history-next-page) {
     margin-top: 0.75rem;
   }
 
   @media (max-width: 35rem) {
-    .check-in-card {
+    .check-in-list :global(.check-in-card) {
       grid-template-columns: 1fr;
     }
 

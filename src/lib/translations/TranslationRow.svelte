@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
 
-  import { Panel } from '@hundavaent/design-system';
+  import { Panel, Status, Textarea } from '@hundavaent/design-system';
   import type {
     SavedTranslationDraft,
     TranslationWorkspaceEntry
@@ -257,7 +257,7 @@
       <h2 id={`translation-${entry.key}`}>{entry.key}</h2>
     </div>
     {#if changed.is || changed.en}
-      <span class="hv-status" data-status="attention">Unpublished</span>
+      <Status tone="attention">Unpublished</Status>
     {/if}
   </header>
 
@@ -270,16 +270,17 @@
           </label>
           <span class="save-state" aria-live="polite">{statusLabel(locale)}</span>
         </div>
-        <textarea
+        <Textarea
+          class="translation-field"
           id={`${entry.key}-${locale}`}
-          class="hv-field"
           aria-label={`${locale === 'is' ? 'Icelandic' : 'English'} translation for ${entry.key}`}
           value={valueFor(locale)}
           oninput={(event) => setValue(locale, event.currentTarget.value)}
           onblur={() => flushSave(locale)}
           maxlength={TRANSLATION_VALUE_MAX_LENGTH}
-          rows="3"
-          spellcheck="true"></textarea>
+          rows={3}
+          spellcheck="true"
+        />
         {#if saveStates[locale] === 'conflict'}
           <div class="save-problem" role="alert">
             <p>This translation changed elsewhere. Choose which value to keep.</p>
@@ -383,7 +384,12 @@
     font-weight: 750;
   }
 
-  textarea {
+  /* The textarea now lives on Textarea's own rendered element, outside this file's scope hash,
+     and is no longer a literal <textarea> tag anywhere in this file's template (Svelte's
+     unused-selector check needs one to keep a bare-tag :global() selector, which this file no
+     longer has), so it takes a class hook instead - the same pattern as .show-more in
+     TranslationWorkspace.svelte. Bare class is unique repo-wide (grep-verified). */
+  :global(.translation-field) {
     min-height: 6.5rem;
     margin-top: 0.35rem;
     line-height: 1.45;
@@ -456,7 +462,7 @@
       grid-template-columns: 1fr;
     }
 
-    textarea {
+    :global(.translation-field) {
       min-height: 7.5rem;
     }
   }

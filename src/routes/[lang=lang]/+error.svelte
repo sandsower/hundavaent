@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Button } from '@hundavaent/design-system';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import PawMark from '$lib/member-activity/PawMark.svelte';
@@ -27,9 +28,13 @@
     {#if requestId}
       <p class="reference">{data.copy['error.reference']}: {requestId}</p>
     {/if}
-    <a href={resolve('/[lang=lang]', { lang: data.lang })}>
+    <Button
+      href={resolve('/[lang=lang]', { lang: data.lang })}
+      intent="committed"
+      class="error-action"
+    >
       {data.copy['place.backToDirectory']}
-    </a>
+    </Button>
   </section>
 </main>
 
@@ -96,17 +101,13 @@
     letter-spacing: -0.035em;
   }
 
-  a {
-    display: inline-flex;
+  /* Button renders its own <a> in a separate component and owns the border/radius/background/
+     color/font-weight/focus this hand-rolled control recipe used to carry (all of it matches
+     Button's committed intent exactly - bg-signal, border-border-strong which resolves to
+     basalt, text-basalt - not neutral, which would render a snow-raised background instead). The
+     hook is ancestor-scoped under section, never a bare :global(), and keeps only the one thing
+     Button doesn't own: this call site's layout margin. */
+  section :global(.error-action) {
     margin-top: 1rem;
-    min-height: var(--hv-control-height);
-    padding: 0.55rem 0.8rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    align-items: center;
-    background: var(--hv-color-signal);
-    color: var(--hv-color-basalt);
-    font-weight: 850;
-    text-decoration: none;
   }
 </style>

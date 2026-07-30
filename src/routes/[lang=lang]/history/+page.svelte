@@ -8,7 +8,14 @@
   import { createFailingMapAdapter } from '$lib/map/failing-adapter';
   import { createMapLibreAdapter, emptyMapLibreStyle } from '$lib/map/maplibre-adapter';
   import type { MapAdapter } from '$lib/map/types';
-  import { Eyebrow, Meta, PageHeader, PageShell, PageTitle } from '@hundavaent/design-system';
+  import {
+    Button,
+    Eyebrow,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle
+  } from '@hundavaent/design-system';
 
   import type { PageProps } from './$types';
 
@@ -47,24 +54,20 @@
     class="history-tabs flex flex-wrap items-center gap-actions"
     aria-label={data.copy['history.title']}
   >
-    <!-- eslint-disable svelte/no-navigation-without-resolve -->
-    <a
-      class="hv-control"
-      data-intent={data.view === 'checkins' ? 'selected' : undefined}
+    <Button
       href={tabHref('checkins')}
+      intent={data.view === 'checkins' ? 'committed' : 'neutral'}
       aria-current={data.view === 'checkins' ? 'page' : undefined}
     >
       {data.copy['history.tabCheckIns']}
-    </a>
-    <a
-      class="hv-control"
-      data-intent={data.view === 'map' ? 'selected' : undefined}
+    </Button>
+    <Button
       href={tabHref('map')}
+      intent={data.view === 'map' ? 'committed' : 'neutral'}
       aria-current={data.view === 'map' ? 'page' : undefined}
     >
       {data.copy['history.tabMap']}
-    </a>
-    <!-- eslint-enable svelte/no-navigation-without-resolve -->
+    </Button>
   </nav>
 
   {#if data.view === 'checkins'}

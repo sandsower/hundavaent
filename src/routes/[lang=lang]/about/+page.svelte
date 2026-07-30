@@ -1,7 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
 
-  import { Eyebrow, PageShell, Panel } from '@hundavaent/design-system';
+  import { Button, Eyebrow, PageShell, Panel } from '@hundavaent/design-system';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
@@ -21,16 +21,12 @@
         <p class="lede">{data.copy['about.heroLede']}</p>
         <p class="hero-story">{data.copy['about.heroStory']}</p>
         <div class="hero-actions flex flex-wrap items-center gap-actions">
-          <a
-            class="hv-control"
-            data-intent="committed"
-            href={resolve('/[lang=lang]', { lang: data.lang })}
-          >
+          <Button href={resolve('/[lang=lang]', { lang: data.lang })} intent="committed">
             {data.copy['about.browseAction']}
-          </a>
-          <a class="hv-control" href="#what-hundavaent-offers">
+          </Button>
+          <Button href="#what-hundavaent-offers" class="hero-secondary">
             {data.copy['about.offersAction']}
-          </a>
+          </Button>
         </div>
       </div>
 
@@ -148,19 +144,19 @@
         <p>{data.copy['about.visionBodyTwo']}</p>
       </div>
       <div class="vision-actions">
-        <a
-          class="hv-control"
-          data-intent="committed"
-          href={resolve('/[lang=lang]', { lang: data.lang })}
-        >
+        <Button href={resolve('/[lang=lang]', { lang: data.lang })} intent="committed">
           {data.copy['about.browseAction']}
-        </a>
-        <a
-          class="hv-control vision-secondary"
+        </Button>
+        <!-- Grandfathered deliberate tone override: a one-off hero flourish (a ghost button - no
+             fill, snow-raised border and text - against the dark basalt vision panel), the same
+             kind of exception AchievementShare's size overrides carry. Not a pattern to
+             replicate elsewhere. -->
+        <Button
           href={resolve('/[lang=lang]/suggest', { lang: data.lang })}
+          class="vision-secondary"
         >
           {data.copy['about.suggestAction']}
-        </a>
+        </Button>
       </div>
     </section>
 
@@ -261,7 +257,14 @@
     margin-top: 1.8rem;
   }
 
-  .hero-actions .hv-control:not([data-intent]) {
+  /* Button renders its own <a> in a separate component, and data-intent is fully retired, so the
+     old attribute-presence selector (":not([data-intent])" picking out the neutral CTA) is
+     re-anchored as an explicit hook class instead - ancestor-scoped under .hero-actions, never a
+     bare :global(). Documented call-site flourish: Button's own neutral intent already resolves
+     border-border-strong to basalt (--hv-border-strong IS --hv-color-basalt), so this is
+     currently a no-op restating the default rather than a visible override - kept anyway to
+     preserve the original rule's intent 1:1 rather than silently dropping it. */
+  .hero-actions :global(.hero-secondary) {
     border-color: var(--hv-color-basalt);
   }
 
@@ -504,7 +507,10 @@
     gap: 0.7rem;
   }
 
-  .vision-secondary {
+  /* Button renders its own <a> in a separate component; the hook is ancestor-scoped under
+     .vision-actions, never a bare :global(). See the grandfathered-override comment at the call
+     site above. */
+  .vision-actions :global(.vision-secondary) {
     border-color: var(--hv-color-snow-raised);
     background: transparent;
     color: var(--hv-color-snow-raised);

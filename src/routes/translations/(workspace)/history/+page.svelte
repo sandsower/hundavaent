@@ -1,11 +1,13 @@
 <script lang="ts">
   import {
+    Button,
     Eyebrow,
     Meta,
     PageHeader,
     PageShell,
     PageTitle,
-    Panel
+    Panel,
+    Status
   } from '@hundavaent/design-system';
   import type { PageProps } from './$types';
 
@@ -61,9 +63,9 @@
           {/if}
         </div>
         {#if data.workspace.currentRevision === revision.revisionNumber}
-          <span class="hv-status" data-status="success">Current</span>
+          <Status tone="success">Current</Status>
         {:else if data.workspace.pendingCount > 0 || !data.workspace.currentRevision}
-          <span class="hv-status" data-status="attention">Restore unavailable</span>
+          <Status tone="attention">Restore unavailable</Status>
         {:else}
           <form method="POST" action="?/restore">
             <input type="hidden" name="targetRevision" value={revision.revisionNumber} />
@@ -72,8 +74,8 @@
               <input type="checkbox" name="confirm" value="restore" required />
               Confirm
             </label>
-            <button class="hv-control" type="submit"
-              >Restore revision {revision.revisionNumber}</button
+            <Button intent="neutral" type="submit"
+              >Restore revision {revision.revisionNumber}</Button
             >
           </form>
         {/if}
