@@ -596,7 +596,7 @@
     <Notice
       tone="error"
       as="section"
-      class="message notice-stack"
+      class="message grid gap-[0.5rem]"
       role="alert"
       tabindex={-1}
       id={publishAlertId}

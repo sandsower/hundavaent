@@ -146,6 +146,22 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Unavailable' }).hasAttribute('disabled')).toBe(true);
   });
 
+  it('dims a disabled button and swaps the cursor, keeping the intent tone', () => {
+    render(Button, { disabled: true, intent: 'committed', children: label('Not ready') });
+    const button = screen.getByRole('button', { name: 'Not ready' });
+    const style = getComputedStyle(button);
+    // Guard against the vacuous-pin class: opacity/cursor must differ from an enabled sibling's
+    // resolved values, not merely equal some expected string both states could collapse to.
+    expect(style.opacity).toBe('0.55');
+    expect(style.cursor).toBe('not-allowed');
+    render(Button, { intent: 'committed', children: label('Ready') });
+    const enabled = getComputedStyle(screen.getByRole('button', { name: 'Ready' }));
+    expect(enabled.opacity).toBe('1');
+    expect(enabled.cursor).toBe('pointer');
+    // The tone survives disabling - dimming, not de-toning, is the affordance.
+    expect(style.backgroundColor).toBe(enabled.backgroundColor);
+  });
+
   it('merges a caller class alongside its own generated classes, appended last', () => {
     render(Button, { class: 'call-site-hook', children: label('Glued') });
     const classes = screen.getByRole('button', { name: 'Glued' }).className.trim().split(/\s+/);

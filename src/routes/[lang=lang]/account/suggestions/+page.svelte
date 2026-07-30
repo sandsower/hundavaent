@@ -112,7 +112,7 @@
     {#if data.nextCursor}
       <Button
         intent="primary"
-        class="next"
+        class="suggestions-next"
         href={resolve(
           `/[lang=lang]/account/suggestions?cursorTime=${encodeURIComponent(data.nextCursor.submittedAt)}&cursorId=${encodeURIComponent(data.nextCursor.suggestionId)}`,
           { lang: data.lang }
@@ -121,7 +121,7 @@
     {/if}
     {#if data.hasPrevious}
       <Button
-        class="previous"
+        class="suggestions-previous"
         href={resolve('/[lang=lang]/account/suggestions', { lang: data.lang })}
         >{data.copy['suggestion.previousPage']}</Button
       >
@@ -174,12 +174,12 @@
   }
 
   /* Both render through Button (a child component), so the margin hooks need :global(). */
-  :global(.next),
-  :global(.previous) {
+  :global(.suggestions-next),
+  :global(.suggestions-previous) {
     margin-top: 0.75rem;
   }
 
-  :global(.previous) {
+  :global(.suggestions-previous) {
     margin-left: 0.5rem;
   }
 

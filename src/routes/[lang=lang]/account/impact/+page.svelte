@@ -536,7 +536,7 @@
   <Button
     href={resolve('/[lang=lang]/account', { lang: data.lang })}
     intent="quiet"
-    class="back-link"
+    class="impact-back-link"
   >
     {data.copy['account.navSignedIn']}
   </Button>
@@ -1115,7 +1115,7 @@
 
   /* Both render through Button (a child component), so the layout hooks need :global(). */
   :global(.recognition-link),
-  :global(.back-link) {
+  :global(.impact-back-link) {
     justify-self: start;
   }
 

@@ -221,7 +221,7 @@
   <Button
     href={resolve('/[lang=lang]/account', { lang: data.lang })}
     intent="quiet"
-    class="back-link"
+    class="achievements-back-link"
   >
     {data.copy['account.navSignedIn']}
   </Button>
@@ -320,7 +320,7 @@
 
   /* Renders through Button (a child component), so the layout hook needs :global(); the fjord
      border/text this used to hand-roll is now Button's quiet intent. */
-  :global(.back-link) {
+  :global(.achievements-back-link) {
     justify-self: start;
   }
 </style>

@@ -94,8 +94,15 @@
   // double ownership is a known/deferred inconsistency, not a bug to fix now - see the matching
   // comment at app.css's :focus-visible rule. Settling it (retiring one side) is planned for the
   // primitives retirement phase of this migration, not before.
+  // The disabled pair codifies the affordance the surveyed call sites converged on (account's
+  // .disabled-fade hook, the candidate review shell's button:disabled rule): dimmed to 0.55 with
+  // a not-allowed cursor, tone kept. Before this Button had no disabled styling at all, so a
+  // disabled committed/danger action rendered full-strength with a pointer cursor -
+  // indistinguishable from ready. Anchors carry no :disabled, so the variants are inert in link
+  // mode, which is correct (there is no disabled link). Call sites with a deliberately different
+  // disabled affordance (CheckInControl's cursor: wait at 0.72) out-rank these with scoped rules.
   const base =
-    'inline-flex min-h-control items-center justify-center border [font-family:inherit] [font-size:inherit] [line-height:inherit] font-extrabold no-underline cursor-pointer transition-transform duration-[var(--hv-motion-instant)] ease-settle not-disabled:not-aria-pressed:hover:-translate-y-px not-disabled:active:scale-[0.97] focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]';
+    'inline-flex min-h-control items-center justify-center border [font-family:inherit] [font-size:inherit] [line-height:inherit] font-extrabold no-underline cursor-pointer transition-transform duration-[var(--hv-motion-instant)] ease-settle not-disabled:not-aria-pressed:hover:-translate-y-px not-disabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-[0.55] focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]';
 
   // Each intent is a complete border/background/text triple, not an override layered on the base
   // classes: Tailwind resolves two utilities that touch the same CSS property (say
@@ -136,7 +143,11 @@
   } as const;
 
   // A pressed Button always reads as committed. The two states are visually identical today, and
-  // pressed is the more specific signal, so it wins over whatever intent was passed.
+  // pressed is the more specific signal, so it wins over whatever intent was passed. Note the
+  // latent interaction this creates for the danger intents: a pressed danger toggle would render
+  // signal, not danger. No call site combines pressed with a danger intent today (pressed is used
+  // only with neutral); if one ever needs to, this precedence has to be revisited rather than
+  // worked around at the call site.
   const visualIntent = $derived(pressed === true ? 'committed' : intent);
   const isRound = $derived(shape === 'round');
 

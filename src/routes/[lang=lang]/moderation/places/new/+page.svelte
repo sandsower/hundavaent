@@ -489,7 +489,7 @@
      approved to simplify away in this migration - Field intentionally carries no opinion on it,
      the same reach-through sign-in/+page.svelte's `form :global(label)` documents. */
   .field-grid :global(label) {
-    font-weight: 800;
+    font-weight: 750;
   }
 
   form :global(fieldset > legend) {
@@ -552,6 +552,12 @@
 
     .field-grid :global(.wide) {
       grid-column: auto;
+    }
+
+    /* Buttons render through the package component, so the full-width mobile treatment the page
+       always had reaches them through :global(). */
+    form :global(button) {
+      width: 100%;
     }
   }
 </style>

@@ -155,7 +155,7 @@
       </PageHeader>
 
       {#if errorCode}
-        <Notice tone="error" as="p" class="message error" role="alert">
+        <Notice tone="error" as="p" class="account-message" role="alert">
           {errorCode === 'authentication_required'
             ? data.copy['account.authenticationRequired']
             : data.copy['account.authUnavailable']}
@@ -337,7 +337,7 @@
               <h2 id="deletion-heading">{data.copy['account.deletionHeading']}</h2>
               <p>{data.copy['account.deletionExplanation']}</p>
               {#if deletionRequested}
-                <Notice tone="success" as="p" class="message success" role="status">
+                <Notice tone="success" as="p" class="account-message" role="status">
                   {data.copy['account.deletionRequested']}
                 </Notice>
               {:else if !deletionArmed}
@@ -408,8 +408,10 @@
     opacity: 0.55;
   }
 
-  /* Renders through Notice (a child component), so the hook class needs :global(). */
-  :global(.message) {
+  /* Renders through Notice (a child component), so the hook class needs :global(). Page-unique
+     name: bare :global(.message) leaked this typography into the moderation review panels'
+     message Notices whenever this route's CSS was loaded first. */
+  :global(.account-message) {
     margin: 0;
     font-weight: 700;
     line-height: 1.45;

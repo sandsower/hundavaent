@@ -132,8 +132,10 @@
   }
 
   /* .collection now renders through Panel (a child component), so the hook needs :global() -
-     Panel's own border/radius/shadow/background/padding stay untouched; this only adds layout. */
-  :global(.collection) {
+     Panel's own border/radius/shadow/background/padding stay untouched; this only adds layout.
+     Anchored through the locally-hashed .collection-list rather than left bare so the generic
+     name cannot leak once this component's CSS is injected app-wide. */
+  .collection-list :global(.collection) {
     display: grid;
     gap: 0.85rem;
   }

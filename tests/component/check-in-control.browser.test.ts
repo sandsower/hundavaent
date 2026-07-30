@@ -58,7 +58,9 @@ describe('CheckInControl', () => {
 
     const link = screen.getByRole('link', { name: label });
     // Button owns the control look itself now; it never renders the retired hv-control class or
-    // data-intent.
+    // data-intent. These absence pins prove only the retirement - the positive contract (the
+    // control actually looking like a control) is pinned by button.browser.test.ts against the
+    // resolved tokens, which is where it belongs now that the component is the codification.
     expect(link.classList.contains('hv-control')).toBe(false);
     expect(link.getAttribute('data-intent')).toBeNull();
   });
