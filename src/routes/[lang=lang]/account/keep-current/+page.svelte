@@ -61,9 +61,15 @@
     <div class="header-icon" aria-hidden="true">
       <ImpactPillarIcon kind="recognition" size="large" />
     </div>
-    <Eyebrow>{data.copy['trustedVerification.eyebrow']}</Eyebrow>
-    <PageTitle>{data.copy['trustedVerification.title']}</PageTitle>
-    <Meta>{data.copy['trustedVerification.intro']}</Meta>
+    <!-- The one header that keeps a heading-group wrapper: .trusted-header lays its three bands
+         out as columns (icon | heading | actions, see the grid-template-columns rule below), so
+         the eyebrow/title/intro must stay one grid item. gap-panel inside reproduces the old
+         hv-page-heading rhythm. -->
+    <div class="grid gap-panel">
+      <Eyebrow>{data.copy['trustedVerification.eyebrow']}</Eyebrow>
+      <PageTitle>{data.copy['trustedVerification.title']}</PageTitle>
+      <Meta>{data.copy['trustedVerification.intro']}</Meta>
+    </div>
     <div class="flex flex-wrap items-center gap-actions">
       <Button href={resolve('/[lang=lang]/account', { lang: data.lang })}>
         {data.copy['trustedVerification.backToAccount']}
