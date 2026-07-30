@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { resolve } from '$app/paths';
+  import { Button, Field, Input, Select, Textarea } from '@hundavaent/design-system';
   import { formatLocalizedDate } from '$i18n/date';
   import {
     localizeAccessArea,
@@ -54,9 +55,9 @@
       <p class="hv-meta">{data.copy['trustedVerification.intro']}</p>
     </div>
     <div class="hv-page-actions">
-      <a class="hv-control" href={resolve('/[lang=lang]/account', { lang: data.lang })}>
+      <Button href={resolve('/[lang=lang]/account', { lang: data.lang })}>
         {data.copy['trustedVerification.backToAccount']}
-      </a>
+      </Button>
     </div>
   </header>
 
@@ -195,16 +196,16 @@
                   <input type="hidden" name="commandId" value={data.taskRequestIds[task.taskId]} />
 
                   {#if task.taskKind === 'dog_amenities'}
-                    <label class="hv-stack">
-                      {data.copy['trustedVerification.amenitiesLabel']}
-                      <input
-                        class="hv-field"
+                    <Field
+                      label={data.copy['trustedVerification.amenitiesLabel']}
+                      hint={data.copy['trustedVerification.amenitiesHelp']}
+                    >
+                      <Input
                         name="amenities"
                         placeholder={data.copy['trustedVerification.amenitiesPlaceholder']}
                         required
                       />
-                      <span class="hv-meta">{data.copy['trustedVerification.amenitiesHelp']}</span>
-                    </label>
+                    </Field>
                   {:else}
                     <p class="confirmation">
                       <span aria-hidden="true">✓</span>
@@ -212,12 +213,18 @@
                     </p>
                   {/if}
 
+                  <!-- Not migrated to FormSection on purpose: this fieldset carries only
+                       .hv-form-section (no .hv-panel), a grid+gap layout with no border, padding,
+                       background, or shadow. FormSection always renders the full panel look
+                       (primitives.css's .hv-form-section.hv-panel pair), so wrapping this one
+                       would add a border/shadow/background that is not part of today's baseline -
+                       a real visual regression, not one of the two approved deltas. Left as the
+                       native fieldset+legend pair; only its controls move to Field/Select/Input. -->
                   <fieldset class="hv-form-section">
                     <legend>{data.copy['evidenceField.section']}</legend>
                     <div class="hv-grid" data-columns="2">
-                      <label class="hv-stack">
-                        {data.copy['evidenceField.kind']}
-                        <select class="hv-field" name="evidenceKind" required>
+                      <Field label={data.copy['evidenceField.kind']}>
+                        <Select name="evidenceKind" required>
                           <option value="direct_observation">
                             {data.copy['evidence.directObservation']}
                           </option>
@@ -230,50 +237,37 @@
                           <option value="public_record">{data.copy['evidence.publicRecord']}</option
                           >
                           <option value="other">{data.copy['evidence.other']}</option>
-                        </select>
-                      </label>
-                      <label class="hv-stack">
-                        {data.copy['evidenceField.label']}
-                        <input class="hv-field" name="evidenceSourceLabel" required />
-                      </label>
+                        </Select>
+                      </Field>
+                      <Field label={data.copy['evidenceField.label']}>
+                        <Input name="evidenceSourceLabel" required />
+                      </Field>
                     </div>
                     <div class="hv-grid" data-columns="2">
-                      <label class="hv-stack">
-                        {data.copy['evidenceField.url']}
-                        <input class="hv-field" name="evidenceUrl" type="url" />
-                      </label>
-                      <label class="hv-stack">
-                        {data.copy['evidenceField.citation']}
-                        <input class="hv-field" name="evidenceCitation" />
-                      </label>
+                      <Field label={data.copy['evidenceField.url']}>
+                        <Input name="evidenceUrl" type="url" />
+                      </Field>
+                      <Field label={data.copy['evidenceField.citation']}>
+                        <Input name="evidenceCitation" />
+                      </Field>
                     </div>
-                    <label class="hv-stack">
-                      {data.copy['evidenceField.observedAt']}
-                      <input
-                        class="hv-field"
-                        name="evidenceObservedAt"
-                        type="datetime-local"
-                        required
-                      />
-                    </label>
+                    <Field label={data.copy['evidenceField.observedAt']}>
+                      <Input name="evidenceObservedAt" type="datetime-local" required />
+                    </Field>
                   </fieldset>
 
-                  <label class="hv-stack">
-                    {data.copy['trustedVerification.explanationLabel']}
-                    <textarea class="hv-field" name="explanation" rows="3" required></textarea>
-                    <span class="hv-meta">{data.copy['trustedVerification.privacyNote']}</span>
-                  </label>
-
-                  <button
-                    class="hv-control"
-                    data-intent="primary"
-                    type="submit"
-                    disabled={submittingTaskId !== null}
+                  <Field
+                    label={data.copy['trustedVerification.explanationLabel']}
+                    hint={data.copy['trustedVerification.privacyNote']}
                   >
+                    <Textarea name="explanation" required></Textarea>
+                  </Field>
+
+                  <Button intent="primary" type="submit" disabled={submittingTaskId !== null}>
                     {submittingTaskId === task.taskId
                       ? data.copy['trustedVerification.sending']
                       : data.copy['trustedVerification.submit']}
-                  </button>
+                  </Button>
                 </form>
               </details>
             </article>

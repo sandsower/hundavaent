@@ -3,6 +3,7 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { tick } from 'svelte';
 
+  import { Button, Field, Input } from '@hundavaent/design-system';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
@@ -46,24 +47,13 @@
     {/if}
 
     <form method="POST" use:enhance={enhanceSignIn} aria-busy={submitting}>
-      <label for="translation-password">Shared password</label>
-      <input
-        id="translation-password"
-        class="hv-field"
-        name="password"
-        type="password"
-        autocomplete="current-password"
-        required
-      />
+      <Field label="Shared password">
+        <Input name="password" type="password" autocomplete="current-password" required />
+      </Field>
       <input type="hidden" name="redirectTo" value={form?.redirectTo ?? data.redirectTo} />
-      <button
-        class="hv-control"
-        data-intent="primary"
-        type="submit"
-        disabled={submitting || form?.throttled}
-      >
+      <Button intent="primary" type="submit" disabled={submitting || form?.throttled}>
         {submitting ? 'Opening…' : 'Open workspace'}
-      </button>
+      </Button>
     </form>
   </section>
 </main>
@@ -119,12 +109,10 @@
     gap: 0.65rem;
   }
 
-  label {
+  /* Field renders its own <label>, crossing this component's scoping boundary; :global() reaches
+     it purely on the literal element. Weight 850 is the one thing not approved to change in this
+     migration. */
+  form :global(label) {
     font-weight: 850;
-  }
-
-  input,
-  button {
-    min-height: 3.1rem;
   }
 </style>

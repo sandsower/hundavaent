@@ -4,6 +4,7 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { untrack } from 'svelte';
 
+  import { Button, Choice, Field, FormSection, Input } from '@hundavaent/design-system';
   import SuggestionLocationPicker from '$lib/map/SuggestionLocationPicker.svelte';
   import { createMapLibreAdapter, emptyMapLibreStyle } from '$lib/map/maplibre-adapter';
   import type { MapAdapter } from '$lib/map/types';
@@ -96,9 +97,9 @@
       <p class="hv-meta">{data.copy['suggestion.intro']}</p>
     </div>
     <div class="hv-page-actions">
-      <a class="hv-control" href={resolve('/[lang=lang]/account/suggestions', { lang: data.lang })}>
+      <Button href={resolve('/[lang=lang]/account/suggestions', { lang: data.lang })}>
         {data.copy['suggestion.myTitle']}
-      </a>
+      </Button>
     </div>
   </header>
 
@@ -113,11 +114,12 @@
       <div class="hv-notice sign-in-gate" data-tone="info" role="alert">
         <span>{data.copy['suggestion.signInRequired']}</span>
         <!-- A full navigation (not a client-side route transition) keeps the account page's own
-             sign-in handoff deterministic instead of racing the SPA router's async goto(). -->
-        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- signInUrl is server-built by accountUrl() -->
-        <a class="hv-control" data-intent="primary" href={data.signInUrl} data-sveltekit-reload>
+             sign-in handoff deterministic instead of racing the SPA router's async goto(). The
+             eslint-disable for svelte/no-navigation-without-resolve now lives inside Button.svelte
+             itself, next to the anchor the rule actually inspects. -->
+        <Button intent="primary" href={data.signInUrl} data-sveltekit-reload>
           {data.copy['suggestion.signInAction']}
-        </a>
+        </Button>
       </div>
     {:else if errorMessage}
       <p class="hv-notice" data-tone="error" role="alert">{errorMessage}</p>
@@ -129,13 +131,18 @@
         <input type="hidden" name="purpose" value="dog_access_destination" />
         <input type="hidden" name="submissionProfile" value="minimal-v1" />
 
-        <div class="hv-form-section hv-panel">
-          <label class="hv-stack">
-            {data.copy['suggestion.placeName']}
-            <input class="hv-field" name="name" required />
-          </label>
-        </div>
+        <FormSection>
+          <Field label={data.copy['suggestion.placeName']}>
+            <Input name="name" required />
+          </Field>
+        </FormSection>
 
+        <!-- Not migrated to FormSection on purpose: the enhance guard focuses this fieldset
+             directly (locationRegion?.focus(), below) when the pin question is blocked, and that
+             needs a real DOM node. bind:this on a component binds the component instance (its
+             exports), not the element it renders - FormSection exposes no such ref today - so
+             wrapping this one would silently break the "focus the blocked question" behavior
+             rather than merely change its look. Left as the native fieldset+legend pair. -->
         <fieldset
           class="hv-form-section hv-panel"
           role="region"
@@ -154,26 +161,19 @@
           />
         </fieldset>
 
-        <fieldset class="hv-form-section hv-panel">
-          <legend>{data.copy['suggestion.welcomeArea']}</legend>
+        <FormSection legend={data.copy['suggestion.welcomeArea']}>
           <div class="choices">
             {#each welcomeAreas as area (area.value)}
-              <label class="choice">
-                <input type="radio" name="accessArea" value={area.value} required />
-                <span>{data.copy[area.key]}</span>
-              </label>
+              <Choice type="radio" name="accessArea" value={area.value} required>
+                {data.copy[area.key]}
+              </Choice>
             {/each}
           </div>
-        </fieldset>
+        </FormSection>
 
-        <button
-          class="hv-control"
-          data-intent="primary"
-          type="submit"
-          disabled={submitting || submissionUnavailable}
-        >
+        <Button intent="primary" type="submit" disabled={submitting || submissionUnavailable}>
           {submitting ? data.copy['suggestion.sending'] : data.copy['suggestion.submit']}
-        </button>
+        </Button>
       </fieldset>
     </form>
   {/if}
@@ -188,8 +188,12 @@
   }
 
   /* Sending is not a fourth question, so it stands off from the three rather than queueing behind
-     them at the same interval. */
-  .answer-boundary > button[type='submit'] {
+     them at the same interval. Button renders its own <button> from inside Button.svelte, so
+     Svelte's scoped CSS never decorates it - it is not this file's element, even though it ends
+     up as this fieldset's direct DOM child. The selector re-anchors on .answer-boundary (locally
+     authored, scoped) and reaches through :global() for the part Button owns, the same pattern
+     Field/Textarea's own comments describe for reach-through to component internals. */
+  .answer-boundary > :global(button[type='submit']) {
     margin-block-start: var(--hv-space-panel);
   }
 
@@ -204,20 +208,5 @@
   .choices {
     display: grid;
     gap: 0.5rem;
-  }
-
-  .choice {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.6rem;
-    align-items: center;
-    min-height: var(--hv-control-height);
-    color: var(--hv-color-basalt);
-    font-weight: 800;
-  }
-
-  .choice input {
-    width: 1.25rem;
-    height: 1.25rem;
   }
 </style>

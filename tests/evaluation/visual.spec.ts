@@ -819,6 +819,9 @@ for (const locale of ['is', 'en'] as const) {
         name: locale === 'is' ? 'Veldu hvar staðurinn er' : 'Choose where the place is'
       })
     ).toBeVisible();
+    // The suggestion form is fully on design-system form primitives; the retired data-intent
+    // vocabulary must not reappear on migrated surfaces.
+    await expect(page.locator('main [data-intent]')).toHaveCount(0);
     await capture(page, evidence, `suggestion-form-${locale}-desktop.png`);
 
     const suggestionId = await provisionLocalSuggestionFixture(evaluationModerator.email);

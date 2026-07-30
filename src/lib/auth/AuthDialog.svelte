@@ -4,7 +4,7 @@
   import { page } from '$app/state';
   import { onMount } from 'svelte';
 
-  import { Dialog, Button, Notice } from '@hundavaent/design-system';
+  import { Dialog, Button, Notice, Field, Input } from '@hundavaent/design-system';
   import type { Catalogue, Locale } from '$i18n';
   import { postHogAnalytics } from '$lib/analytics/posthog';
   import { passwordlessResendCooldownSeconds } from '$lib/auth/resend';
@@ -19,10 +19,12 @@
 
   let { lang, copy, providers, initialRequest = null }: Props = $props();
   let dialogOpen = $state(false);
-  // Bound directly rather than queried off a dialog element reference (Dialog no longer exposes
-  // one to its consumer) - useDifferentEmail's queueMicrotask still runs after Svelte's own state-
-  // driven DOM update, the same timing the old dialog.querySelector relied on.
-  let emailInput = $state<HTMLInputElement>();
+  // Bound to the form rather than the email input directly: Input now renders the native
+  // <input> a component boundary deeper than this file can bind:this straight to, so
+  // useDifferentEmail queries it off the form the same way the old dialog.querySelector did
+  // before Dialog stopped exposing its own element. The queueMicrotask still runs after Svelte's
+  // own state-driven DOM update, the same timing that reach relied on.
+  let emailFormElement = $state<HTMLFormElement>();
   let request = $state<AuthRequest>({ origin: 'header' });
   let email = $state('');
   let sent = $state(false);
@@ -201,7 +203,12 @@
     sent = false;
     error = null;
     stopResendTimer();
-    queueMicrotask(() => emailInput?.focus());
+    // Scoped to the email input by type, not the form's first input of any kind: a future
+    // hidden or auxiliary input inserted before the Field would silently steal this focus
+    // target, and the old bind:this on the exact element could never miss.
+    queueMicrotask(() =>
+      emailFormElement?.querySelector<HTMLInputElement>('input[type="email"]')?.focus()
+    );
   }
 
   function fallbackRequest(url: URL): AuthRequest | null {
@@ -275,22 +282,21 @@
 
       {#if providers.email}
         <form
+          bind:this={emailFormElement}
           onsubmit={(event) => {
             event.preventDefault();
             void continueWith('email');
           }}
         >
-          <label for="auth-email">{copy['account.emailLabel']}</label>
-          <input
-            id="auth-email"
-            class="hv-field"
-            type="email"
-            bind:value={email}
-            bind:this={emailInput}
-            autocomplete="email"
-            inputmode="email"
-            required
-          />
+          <Field label={copy['account.emailLabel']}>
+            <Input
+              type="email"
+              bind:value={email}
+              autocomplete="email"
+              inputmode="email"
+              required
+            />
+          </Field>
           <p class="passwordless">{copy['auth.noPassword']}</p>
           <Button intent="primary" type="submit" disabled={submitting}>
             {copy['auth.sendLink']}
@@ -399,13 +405,12 @@
     gap: 0.65rem;
   }
 
-  label {
+  /* Field renders its own <label>, crossing this component's scoping boundary the same way
+     .facebook below crosses Button's - :global() reaches it purely on the literal element.
+     Weight 850 is the one thing not approved to change in this migration: Field's label carries
+     no weight utility of its own precisely so a surface like this keeps its heavier treatment. */
+  form :global(label) {
     font-weight: 850;
-  }
-
-  input {
-    width: 100%;
-    padding: 0.75rem 0.85rem;
   }
 
   /* Button renders its own <button> in a separate component, so Svelte's scoped CSS cannot reach

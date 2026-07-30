@@ -3,6 +3,7 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { tick, untrack } from 'svelte';
 
+  import { Button, Field, Input } from '@hundavaent/design-system';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
@@ -50,21 +51,21 @@
     {/if}
 
     <form method="POST" use:enhance={enhanceSignIn} aria-busy={submitting}>
-      <label for="moderator-email">{data.copy['moderation.emailLabel']}</label>
-      <input
-        id="moderator-email"
-        name="email"
-        type="email"
-        autocomplete="email"
-        inputmode="email"
-        required
-        bind:value={email}
-        aria-describedby="sign-in-privacy"
-      />
+      <Field label={data.copy['moderation.emailLabel']}>
+        <Input
+          name="email"
+          type="email"
+          autocomplete="email"
+          inputmode="email"
+          required
+          bind:value={email}
+          aria-describedby="sign-in-privacy"
+        />
+      </Field>
       <input type="hidden" name="returnTo" value={form?.returnTo ?? data.returnTo} />
-      <button type="submit" disabled={submitting}>
+      <Button intent="primary" type="submit" class="mt-[0.4rem]" disabled={submitting}>
         {submitting ? data.copy['moderation.sendingLink'] : data.copy['moderation.sendLink']}
-      </button>
+      </Button>
     </form>
 
     <p id="sign-in-privacy" class="privacy">
@@ -135,49 +136,17 @@
     gap: 0.65rem;
   }
 
-  label {
+  /* Field renders its own <label>, crossing this component's scoping boundary; :global() reaches
+     it purely on the literal element. Weight 800 is the one thing not approved to change in this
+     migration. */
+  form :global(label) {
     font-weight: 800;
   }
 
-  input[type='email'] {
-    min-height: 3.25rem;
-    box-sizing: border-box;
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--hv-border-strong);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    color: inherit;
-    font: inherit;
-  }
-
-  input[type='email']:focus-visible,
-  button:focus-visible,
   .message:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
     outline-offset: 3px;
     box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
-  button {
-    min-height: 3.25rem;
-    margin-top: 0.4rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-basalt);
-    color: var(--hv-color-snow-raised);
-    font: inherit;
-    font-weight: 850;
-    cursor: pointer;
-    box-shadow: none;
-  }
-
-  button:active:not(:disabled) {
-    background: var(--hv-color-fjord);
-  }
-
-  button:disabled {
-    cursor: wait;
-    opacity: 0.7;
   }
 
   .message {

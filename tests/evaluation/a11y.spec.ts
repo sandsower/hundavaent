@@ -704,6 +704,9 @@ test('Member sign-in is keyboard-operable and Axe-clean in both product language
     await email.focus();
     await page.keyboard.press('Tab');
     await expect(dialog.getByRole('button', { name: scenario.send })).toBeFocused();
+    // The sign-in dialog is fully on design-system primitives (Dialog, Field, Input, Button);
+    // the retired data-intent vocabulary must not reappear anywhere inside it.
+    await expect(dialog.locator('[data-intent]')).toHaveCount(0);
     await expectNoSeriousAxeViolations(page, evidence);
   }
 });
@@ -818,6 +821,9 @@ test('Correction, Report, and Moderator review forms are keyboard-operable and A
   await page.getByLabel('What are you correcting?').focus();
   await page.keyboard.press('Tab');
   await expect(page.getByLabel('Choose the detail')).toBeFocused();
+  // The correction form is fully on design-system form primitives; the retired data-intent
+  // vocabulary must not reappear on migrated surfaces.
+  await expect(page.locator('main [data-intent]')).toHaveCount(0);
   await expectNoSeriousAxeViolations(page, evidence);
 
   // Deliberately the bare URL, which is what "Something else is wrong" on the card links to and
@@ -836,6 +842,8 @@ test('Correction, Report, and Moderator review forms are keyboard-operable and A
   await page.getByLabel('What kind of problem is this?').focus();
   await page.keyboard.press('Tab');
   await expect(page.getByLabel('This is a Safety Concern')).toBeFocused();
+  // Same retirement pin as the correction form above: the report form is fully migrated.
+  await expect(page.locator('main [data-intent]')).toHaveCount(0);
   await expectNoSeriousAxeViolations(page, evidence);
 
   const reviewFlagId = await provisionLocalPlaceFlagReviewFixture(evaluationModerator.email);
@@ -1349,6 +1357,9 @@ test('the private weekly roundup is keyboard-operable, responsive, and Axe-clean
     await expect(emailInterest).toBeChecked();
 
     const save = page.getByRole('button', { name: scenario.save });
+    // The preferences form is on design-system primitives now (Choice, Button); the retired
+    // data-intent vocabulary must not reappear on its controls.
+    await expect(save).not.toHaveAttribute('data-intent');
     await save.focus();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: scenario.populatedTitle })).toBeVisible();

@@ -4,12 +4,25 @@
    themselves move into this package in a later phase, at which point this file can import from
    within the package instead of reaching back into src/. */
 
-@layer hundavaent.tokens, hundavaent.primitives, theme, base, components, utilities;
+@layer hundavaent.base, hundavaent.tokens, hundavaent.primitives, theme, base, components, utilities;
 
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/source-serif-4';
 @import '../../../src/lib/design-system/tokens.css';
 @import '../src/theme.css';
+
+/* Mirrors app.css's hundavaent.base reset exactly: without it, a form control story renders in
+   the UA's default font instead of Inter and every visual judgement made against Storybook is
+   made against the wrong render. Layered and first, same as the app, so it normalises without
+   outranking anything that declares a font on purpose. */
+@layer hundavaent.base {
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
 
 :root {
   color-scheme: light;
