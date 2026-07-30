@@ -43,6 +43,29 @@
 
 <Story name="Committed" args={{ intent: 'committed' }}>Committed</Story>
 
+<Story name="Quiet" args={{ intent: 'quiet' }}>Quiet</Story>
+
+<Story name="Danger" args={{ intent: 'danger' }}>Danger</Story>
+
+<Story name="Danger Quiet" args={{ intent: 'danger-quiet' }}>Danger Quiet</Story>
+
+<!-- All six intents side by side, for a single at-a-glance comparison. Six independent Buttons,
+     not one Button re-rendered six times, so each keeps its own onclick call in the actions
+     panel. -->
+<Story name="All Intents">
+  {#snippet template(args)}
+    {@const { children, ...rest } = args}
+    <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
+      <Button {...rest} intent="neutral">Neutral</Button>
+      <Button {...rest} intent="primary">Primary</Button>
+      <Button {...rest} intent="committed">Committed</Button>
+      <Button {...rest} intent="quiet">Quiet</Button>
+      <Button {...rest} intent="danger">Danger</Button>
+      <Button {...rest} intent="danger-quiet">Danger Quiet</Button>
+    </div>
+  {/snippet}
+</Story>
+
 <Story name="Pressed On" args={{ pressed: true }}>Selected</Story>
 
 <Story name="Pressed Off" args={{ pressed: false }}>Not selected</Story>
@@ -57,6 +80,19 @@
   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
     <path
       d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"
+      fill="currentColor"
+    />
+  </svg>
+</Story>
+
+<!-- The `round` shape prop, exercised directly (rather than through the hand-rolled
+     .favourite-icon-toggle class further down): rounded-full, zero padding, and width/height tied
+     to --hv-control-height via shapeClasses, matching the icon family surveyed from
+     SelectedPlaceCard's .icon-action and SharePlaceControl's .icon-control. -->
+<Story name="Round" args={{ shape: 'round', 'aria-label': 'Share this place' }}>
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <path
+      d="M18 8a3 3 0 1 0-2.83-4H15a3 3 0 0 0 .05 3.41L8.9 10.7a3 3 0 1 0 0 2.6l6.15 3.29A3 3 0 1 0 15.83 15L9.68 11.71a3.07 3.07 0 0 0 0-2.42L15.83 6a3 3 0 0 0 2.17 2Z"
       fill="currentColor"
     />
   </svg>
