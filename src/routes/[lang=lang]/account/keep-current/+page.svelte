@@ -194,7 +194,7 @@
                     </div>
                   {/if}
                 </dl>
-                <Meta>{data.copy['trustedVerification.accessHint']}</Meta>
+                <Meta class="my-[1em]">{data.copy['trustedVerification.accessHint']}</Meta>
               {:else}
                 <p>{data.copy['trustedVerification.amenitiesHint']}</p>
               {/if}

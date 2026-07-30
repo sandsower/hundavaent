@@ -1133,7 +1133,7 @@
   }
 
   /* Re-anchored: .outcome-card now sits on each row's Panel class prop. */
-  :global(.outcome-card) {
+  .outcome-list :global(.outcome-card) {
     display: grid;
     grid-template-columns: auto minmax(0, 1.15fr) minmax(14rem, 0.85fr);
     gap: clamp(0.8rem, 2.5vw, 1.35rem);
@@ -1142,7 +1142,7 @@
     padding: 0.95rem 1.05rem;
   }
 
-  :global(.outcome-card[data-outcome-state='revoked']) {
+  .outcome-list :global(.outcome-card[data-outcome-state='revoked']) {
     background: color-mix(in srgb, var(--hv-color-basalt-muted) 4%, var(--hv-color-snow-raised));
   }
 
@@ -1291,7 +1291,7 @@
       grid-auto-rows: auto;
     }
 
-    :global(.outcome-card) {
+    .outcome-list :global(.outcome-card) {
       grid-template-columns: auto minmax(0, 1fr);
       min-height: 0;
     }

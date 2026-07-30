@@ -129,7 +129,7 @@
     <PageTitle>{data.copy['achievements.title']}</PageTitle>
 
     {#if data.achievements.enabled}
-      <Meta class="intro">{data.copy['achievements.intro']}</Meta>
+      <Meta class="achievements-intro">{data.copy['achievements.intro']}</Meta>
     {/if}
   </PageHeader>
 
@@ -221,7 +221,7 @@
 </PageShell>
 
 <style>
-  :global(.intro) {
+  :global(.achievements-intro) {
     max-width: 46ch;
   }
 

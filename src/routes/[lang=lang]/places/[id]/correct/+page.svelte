@@ -192,7 +192,7 @@
                    The blank one is named for review and a Moderator fills it before it applies.
                    This hint sits below the pair rather than inside one Field's hint, exactly as
                    it did before migration: it is not about either box alone. -->
-              <Meta>{data.copy['correction.localeOptional']}</Meta>
+              <Meta class="my-[1em]">{data.copy['correction.localeOptional']}</Meta>
             {:else if targetField === 'opening_hours'}
               <Field label={data.copy['correction.openingHoursJson']}>
                 <Textarea name="fieldValueJson"></Textarea>
@@ -310,7 +310,7 @@
           <Field label={data.copy['correction.explanation']}>
             <Textarea name="explanation" required></Textarea>
           </Field>
-          <Meta>{data.copy['correction.dataUseNotice']}</Meta>
+          <Meta class="my-[1em]">{data.copy['correction.dataUseNotice']}</Meta>
         </FormSection>
 
         <Button intent="primary" type="submit" disabled={submitting || submissionUnavailable}>

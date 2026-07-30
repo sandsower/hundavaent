@@ -121,7 +121,11 @@
   </PageHeader>
 
   {#if savedPlaces.length === 0 && data.isFirstPage}
-    <Panel as="section" class="empty-state grid gap-context" aria-labelledby="saved-empty-title">
+    <Panel
+      as="section"
+      class="saved-empty-state grid gap-context"
+      aria-labelledby="saved-empty-title"
+    >
       <h2 id="saved-empty-title" data-saved-empty-heading tabindex="-1">
         {data.copy['favourite.emptyTitle']}
       </h2>
@@ -137,7 +141,7 @@
   {:else if savedPlaces.length === 0}
     <Panel
       as="section"
-      class="empty-state grid gap-context"
+      class="saved-empty-state grid gap-context"
       aria-labelledby="saved-page-empty-title"
     >
       <h2 id="saved-page-empty-title" data-saved-empty-heading tabindex="-1">
@@ -265,14 +269,14 @@
     justify-content: end;
   }
 
-  :global(.empty-state) {
+  :global(.saved-empty-state) {
     max-width: 34rem;
     margin-top: calc(var(--hv-space-context) * 1.5);
     padding: var(--hv-space-panel);
   }
 
-  :global(.empty-state) h2,
-  :global(.empty-state) p {
+  :global(.saved-empty-state) h2,
+  :global(.saved-empty-state) p {
     margin: 0;
   }
 

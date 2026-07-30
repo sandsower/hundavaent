@@ -188,7 +188,7 @@
           <Field label={data.copy['report.explanation']}>
             <Textarea name="explanation" required></Textarea>
           </Field>
-          <Meta>{data.copy['report.dataUseNotice']}</Meta>
+          <Meta class="my-[1em]">{data.copy['report.dataUseNotice']}</Meta>
         </FormSection>
 
         <Button intent="primary" type="submit" disabled={submitting || submissionUnavailable}>

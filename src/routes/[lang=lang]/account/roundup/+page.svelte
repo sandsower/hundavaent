@@ -132,7 +132,7 @@
     <header class="state-heading">
       <div>
         {#if data.roundup.status !== 'unavailable'}
-          <Eyebrow class="week">
+          <Eyebrow>
             {weekLabel(data.roundup.week.startsOn, data.roundup.week.endsOn)}
           </Eyebrow>
         {/if}
@@ -213,7 +213,12 @@
 <style>
   /* Re-anchored: .roundup-shell now sits on PageShell's class prop, and .roundup-header on the
      hero Panel's - neither literal element exists in this template anymore. */
-  :global(.roundup-shell) {
+  /* The width override must out-rank PageShell's own scoped .shell rule (two classes of
+     specificity); a bare :global(.roundup-shell) at one class silently loses and the page
+     grows to the 72rem wide container. main + the doubled class computes to 0-2-1 and wins
+     deterministically. The custom-property line needs no rank (nothing else sets it), but it
+     rides along rather than splitting the rule. */
+  :global(main.roundup-shell.roundup-shell) {
     --hv-space-context: 1.25rem;
     width: min(100%, 66rem);
     margin-inline: auto;

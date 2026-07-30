@@ -146,9 +146,9 @@
   {#if data.member}
     <Panel as="section" class="account-card grid gap-context" aria-labelledby="account-title">
       <PageHeader>
-        <Eyebrow class="eyebrow">{data.copy['site.name']}</Eyebrow>
+        <Eyebrow>{data.copy['site.name']}</Eyebrow>
         <PageTitle id="account-title">{data.copy['account.signedInTitle']}</PageTitle>
-        <Meta class="intro">{data.copy['account.signedInIntro']}</Meta>
+        <Meta class="account-intro">{data.copy['account.signedInIntro']}</Meta>
       </PageHeader>
 
       {#if errorCode}
@@ -396,7 +396,7 @@
     font-size: 1.2rem;
   }
 
-  :global(.intro) {
+  :global(.account-intro) {
     max-width: 46ch;
   }
 

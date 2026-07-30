@@ -99,7 +99,7 @@
 <PageShell as="section" mode="operations" class="workspace" aria-labelledby="translations-title">
   <header class="workspace-header">
     <div>
-      <Eyebrow>Hundavænt workspace</Eyebrow>
+      <Eyebrow class="my-[1em]">Hundavænt workspace</Eyebrow>
       <h1 id="translations-title">Translations</h1>
       <p>Update Icelandic and English as equal languages. Drafts stay private until publishing.</p>
     </div>

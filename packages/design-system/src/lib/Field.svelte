@@ -53,7 +53,10 @@
   // carries no weight or size utility: Regime-A public forms render labels at body weight today
   // and baseline-first migration keeps that; a surface with a deliberately heavier label keeps
   // it via its own scoped hook, not through this primitive.
-  const classes = $derived(['grid gap-context', className].filter(Boolean).join(' '));
+  // min-w-0 because Fields sit as items in columned grids (the correction form's paired-name
+  // rows): a grid item's default min-width of auto lets one long unbreakable label word push
+  // the item past its track, which the old .hv-grid > * { min-width: 0 } rule prevented.
+  const classes = $derived(['grid gap-context min-w-0', className].filter(Boolean).join(' '));
 </script>
 
 <div class={classes}>

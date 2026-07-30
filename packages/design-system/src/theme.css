@@ -92,7 +92,10 @@
 /* Plain @theme, never inline: breakpoints compile into @media prelude text, where var() cannot
    appear, so this one mapping must carry a literal. The value restates --hv-content-narrow (42rem)
    - the same threshold Dialog's bottom-sheet switch uses - and a change to one must visit the
-   other; there is no mechanism that keeps them aligned. */
+   other; there is no mechanism that keeps them aligned.
+   Boundary semantics: max-narrow: compiles to (width < 42rem), exclusive, where the retired
+   hv-grid media query was (max-width: 42rem), inclusive - behavior differs only at exactly
+   672px, accepted with the migration. */
 @theme {
   --breakpoint-narrow: 42rem;
 }

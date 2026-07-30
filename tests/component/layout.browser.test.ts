@@ -49,6 +49,16 @@ describe('PageShell', () => {
     // both strictly below the wide container's 72rem.
     expect(Number.parseFloat(getComputedStyle(shell as Element).width)).toBeLessThanOrEqual(672);
   });
+
+  it('carries the section rhythm as its own top padding', () => {
+    const { container } = render(PageShell, { props: { children: child('Body') } });
+
+    const shell = container.querySelector('main');
+    expect(shell).not.toBeNull();
+    expect(getComputedStyle(shell as Element).paddingBlockStart).toBe(
+      resolvedProperty('padding-block-start', 'var(--hv-space-section)')
+    );
+  });
 });
 
 describe('PageHeader', () => {
@@ -125,5 +135,34 @@ describe('Panel', () => {
     expect(getComputedStyle(panel as Element).paddingBlockStart).toBe(
       resolvedProperty('padding-block-start', 'var(--hv-space-panel)')
     );
+  });
+
+  it('retunes the padded inset when it sits inside an operations shell', () => {
+    // The behavior PageShell's unconditional data-ui-mode exists to serve: utilities carry the
+    // var() reference to the element (the @theme inline doctrine), so the operations retune of
+    // --hv-space-panel (1rem -> 0.75rem) must reach a padded Panel through the shell boundary.
+    const host = document.createElement('div');
+    host.dataset.uiMode = 'operations';
+    document.body.append(host);
+    try {
+      const probe = document.createElement('div');
+      probe.style.setProperty('padding-block-start', 'var(--hv-space-panel)');
+      host.append(probe);
+      const expected = getComputedStyle(probe).getPropertyValue('padding-block-start');
+      probe.remove();
+
+      render(Panel, {
+        props: { padded: true, children: child('Queue row') },
+        target: host
+      });
+
+      const panel = host.querySelector('div.rounded-panel') ?? host.firstElementChild;
+      expect(panel).not.toBeNull();
+      expect(getComputedStyle(panel as Element).paddingBlockStart).toBe(expected);
+      // And the retune is real: the operations inset differs from the Member-mode one.
+      expect(expected).not.toBe(resolvedProperty('padding-block-start', 'var(--hv-space-panel)'));
+    } finally {
+      host.remove();
+    }
   });
 });

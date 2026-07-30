@@ -133,13 +133,13 @@
     margin-block: calc(var(--hv-space-context) * 1.5);
   }
 
-  :global(.outcome-card) {
+  .outcome-list :global(.outcome-card) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.75rem var(--hv-space-panel);
   }
 
-  :global(.outcome-card.highlighted) {
+  .outcome-list :global(.outcome-card.highlighted) {
     border-color: var(--hv-color-fjord);
     box-shadow: 0 0 0 2px var(--hv-color-fjord-soft);
   }
@@ -156,7 +156,7 @@
     color: var(--hv-color-basalt-muted);
   }
 
-  :global(.outcome-card > .hv-status) {
+  .outcome-list :global(.outcome-card > .hv-status) {
     align-self: start;
     justify-self: end;
   }
@@ -171,11 +171,11 @@
   }
 
   @media (max-width: 38rem) {
-    :global(.outcome-card) {
+    .outcome-list :global(.outcome-card) {
       grid-template-columns: 1fr;
     }
 
-    :global(.outcome-card > .hv-status) {
+    .outcome-list :global(.outcome-card > .hv-status) {
       justify-self: start;
     }
   }

@@ -37,7 +37,7 @@
   <PageHeader>
     <Eyebrow>{data.copy['site.name']}</Eyebrow>
     <PageTitle>{data.copy['contributor.title']}</PageTitle>
-    <Meta class="intro">{data.copy['contributor.intro']}</Meta>
+    <Meta class="status-intro">{data.copy['contributor.intro']}</Meta>
   </PageHeader>
 
   <Panel
@@ -46,7 +46,7 @@
     class="status-card grid gap-panel min-w-0"
     aria-labelledby="status-heading"
   >
-    <Eyebrow class="eyebrow" id="status-heading">{data.copy['site.name']}</Eyebrow>
+    <Eyebrow id="status-heading">{data.copy['site.name']}</Eyebrow>
     <strong
       class={`tier hv-status ${data.contributor.status}`}
       data-status={data.contributor.status === 'trusted_contributor' ? 'verified' : undefined}
@@ -80,7 +80,7 @@
 </PageShell>
 
 <style>
-  :global(.intro) {
+  :global(.status-intro) {
     max-width: 46ch;
   }
 

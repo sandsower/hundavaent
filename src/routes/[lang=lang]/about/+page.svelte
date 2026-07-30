@@ -16,7 +16,7 @@
   <PageShell as="div" class="about-shell">
     <section class="hero" aria-labelledby="about-title">
       <div class="hero-copy">
-        <Eyebrow>{data.copy['about.heroEyebrow']}</Eyebrow>
+        <Eyebrow class="my-[1em]">{data.copy['about.heroEyebrow']}</Eyebrow>
         <h1 id="about-title">{data.copy['about.heroTitle']}</h1>
         <p class="lede">{data.copy['about.heroLede']}</p>
         <p class="hero-story">{data.copy['about.heroStory']}</p>
@@ -193,9 +193,12 @@
     background: var(--hv-color-snow);
   }
 
-  /* .about-shell now lives on PageShell's own root element, outside this file's scope hash -
-     the class is unique to this page (grep-verified), so a fully-global anchor is safe. */
-  :global(.about-shell) {
+  /* .about-shell now lives on PageShell's own root element, outside this file's scope hash.
+     Anchored under the locally-authored .about-page (which keeps its hash) rather than fully
+     global: PageShell's own scoped .shell rule computes to two classes of specificity, and a
+     bare :global(.about-shell) at one class silently loses this padding-top override to the
+     component's padding-block. The hashed ancestor lifts this to three classes and wins. */
+  .about-page :global(.about-shell) {
     padding-top: clamp(1.5rem, 4vw, 3.5rem);
   }
 
