@@ -1,71 +1,15 @@
 @layer hundavaent.primitives {
+  /* What remains of this file serves the surfaces still awaiting migration (discovery,
+     moderation, achievements internals, personal-history, roundup internals); each rule is
+     deleted with the phase that retires its last class-attribute user, and the whole file goes
+     with phase 7. The page-shell/header/heading/title family and the grid and form-section
+     rules retired with phase 4 - their codifications live in @hundavaent/design-system
+     (PageShell, PageHeader, PageTitle) and the documented utility recipes. */
   /* Every primitive is guarded by "ancestor-or-self carries a ui mode" rather than by a plain
-     descendant combinator. Page shells put data-ui-mode and their primitive classes on the same
-     element, and a descendant-only guard silently skips exactly those elements: the class is
-     present, the rule never matches, and the layout falls back to block flow with no error
-     anywhere. The guard sits inside :where() so it stays specificity-free. */
-  /* The shell hugs the viewport edge on a narrow screen, so its inset is the shared edge token
-     rather than a private 1rem. A hard-coded value here put page content 4px off the site header
-     it sits directly beneath, which is the sort of misalignment nobody names and everybody sees. */
-  :where([data-ui-mode], [data-ui-mode] *).hv-page-shell {
-    width: min(100% - var(--hv-space-edge) * 2, var(--hv-content-wide));
-    margin-inline: auto;
-    padding-block: var(--hv-space-section) 4rem;
-  }
-
-  :where([data-ui-mode], [data-ui-mode] *).hv-page-shell[data-width='narrow'] {
-    width: min(100% - var(--hv-space-edge) * 2, var(--hv-content-narrow));
-  }
-
-  :where([data-ui-mode], [data-ui-mode] *).hv-page-shell[data-width='wide'] {
-    width: min(100% - var(--hv-space-edge) * 2, var(--hv-content-wide));
-  }
-
-  :where([data-ui-mode], [data-ui-mode] *).hv-page-header {
-    display: grid;
-    gap: 0.5rem;
-  }
-
-  /* The header is a band, not a paragraph: whatever follows it opens a new section of the page and
-     takes the section rhythm rather than the browser's default zero. Shells that are already a
-     stack carry one gap of their own and are left with it rather than given a second. */
-  :where([data-ui-mode], [data-ui-mode] *).hv-page-shell:not(.hv-stack) > .hv-page-header {
-    margin-block-end: var(--hv-space-section);
-  }
-
-  /* Descendant, not child. The direct-child form skipped every header that groups its eyebrow,
-     title and intro into a wrapper - which is most of them - and left a display title carrying
-     48px of user-agent margin on each side that no stylesheet asked for. */
-  :where([data-ui-mode], [data-ui-mode] *).hv-page-header :where(h1, h2, p) {
-    margin-block: 0;
-  }
-
-  /* The name for the grouping those wrappers always were. With the margin reset reaching inside
-     them, the block needs its own rhythm rather than inheriting the header's collapsed one. The
-     page title sets line-height below 1, so its box clips the descenders and any gap measured off
-     that box reads several pixels tighter than it computes - 0.5rem left the intro touching the
-     tail of a "g". */
-  :where([data-ui-mode], [data-ui-mode] *).hv-page-heading {
-    display: grid;
-    gap: var(--hv-space-panel);
-  }
-
-  /* Actions are a separate band from the titling block, so they stand off further than the lines
-     within it do from each other. */
-  :where([data-ui-mode], [data-ui-mode] *).hv-page-header > .hv-page-actions {
-    margin-block-start: 0.5rem;
-  }
-
-  :where([data-ui-mode], [data-ui-mode] *).hv-page-title {
-    max-width: 18ch;
-    color: var(--hv-color-basalt);
-    font-family: var(--hv-font-display);
-    font-size: clamp(2.4rem, 7vw, 4.5rem);
-    font-weight: 650;
-    line-height: 0.98;
-    letter-spacing: -0.035em;
-  }
-
+     descendant combinator: a surface that puts data-ui-mode and a primitive class on the same
+     element would be silently skipped by a descendant-only guard - the class present, the rule
+     never matching, the layout falling back to block flow with no error anywhere. The guard sits
+     inside :where() so it stays specificity-free. */
   :where([data-ui-mode], [data-ui-mode] *).hv-page-actions {
     display: flex;
     flex-wrap: wrap;
@@ -78,31 +22,6 @@
     gap: var(--hv-space-context);
   }
 
-  :where([data-ui-mode], [data-ui-mode] *).hv-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
-    gap: var(--hv-space-context);
-  }
-
-  :where([data-ui-mode], [data-ui-mode] *).hv-grid > * {
-    min-width: 0;
-  }
-
-  :where([data-ui-mode], [data-ui-mode] *).hv-grid[data-columns='2'] {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  :where([data-ui-mode], [data-ui-mode] *).hv-grid[data-columns='3'] {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  :where([data-ui-mode], [data-ui-mode] *).hv-form-section {
-    display: grid;
-    min-inline-size: 0;
-    gap: var(--hv-space-panel);
-  }
-
-  :where([data-ui-mode], [data-ui-mode] *).hv-form-section.hv-panel,
   :where([data-ui-mode], [data-ui-mode] *).hv-list-card {
     padding: var(--hv-space-panel);
   }
@@ -259,10 +178,4 @@
     box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
-  @media (max-width: 42rem) {
-    :where([data-ui-mode], [data-ui-mode] *).hv-grid[data-columns='2'],
-    :where([data-ui-mode], [data-ui-mode] *).hv-grid[data-columns='3'] {
-      grid-template-columns: 1fr;
-    }
-  }
 }
