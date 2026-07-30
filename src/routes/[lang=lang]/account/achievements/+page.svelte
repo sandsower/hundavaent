@@ -2,7 +2,14 @@
   import { enhance } from '$app/forms';
   import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
-  import { Eyebrow, Meta, PageHeader, PageShell, PageTitle, Panel } from '@hundavaent/design-system';
+  import {
+    Eyebrow,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle,
+    Panel
+  } from '@hundavaent/design-system';
   import type { SubmitFunction } from '@sveltejs/kit';
 
   import { formatLocalizedDate } from '$i18n/date';

@@ -8,8 +8,7 @@ import { describe, expect, it } from 'vitest';
 import '../../src/app.css';
 
 // createRawSnippet render() needs a single root element, so every child is wrapped in a span.
-const child = (text: string) =>
-  createRawSnippet(() => ({ render: () => `<span>${text}</span>` }));
+const child = (text: string) => createRawSnippet(() => ({ render: () => `<span>${text}</span>` }));
 
 // Probe-element token resolution, the button.browser.test.ts pattern: parity with the token,
 // never a hardcoded literal that drifts when tokens.css changes.

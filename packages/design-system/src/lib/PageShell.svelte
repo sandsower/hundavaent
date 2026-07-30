@@ -38,9 +38,9 @@
 
   // The width variant is a scoped class rather than a data attribute: the old data-width
   // vocabulary retires with .hv-page-shell, and nothing outside this component should key on it.
-  const classes = $derived(['shell', width === 'narrow' && 'narrow', className]
-    .filter(Boolean)
-    .join(' '));
+  const classes = $derived(
+    ['shell', width === 'narrow' && 'narrow', className].filter(Boolean).join(' ')
+  );
 </script>
 
 <svelte:element this={as} class={classes} data-ui-mode={mode} {...rest}>

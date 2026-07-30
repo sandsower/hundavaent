@@ -5,7 +5,14 @@
   import { localizeFlagTarget } from '$i18n/structured-place';
   import { applyWeeklyRhythmRecognition } from '$lib/member-activity/client';
   import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
-  import { Eyebrow, Meta, PageHeader, PageShell, PageTitle, Panel } from '@hundavaent/design-system';
+  import {
+    Eyebrow,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle,
+    Panel
+  } from '@hundavaent/design-system';
 
   import type { PageProps } from './$types';
 

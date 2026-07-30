@@ -6,7 +6,14 @@
   import type { PageProps } from './$types';
   import { applyWeeklyRhythmRecognition } from '$lib/member-activity/client';
   import WeeklyRhythmAcknowledgement from '$lib/member-activity/WeeklyRhythmAcknowledgement.svelte';
-  import { Eyebrow, Meta, PageHeader, PageShell, PageTitle, Panel } from '@hundavaent/design-system';
+  import {
+    Eyebrow,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle,
+    Panel
+  } from '@hundavaent/design-system';
 
   let { data }: PageProps = $props();
   const name = (item: (typeof data.suggestions)[number]) =>

@@ -6,7 +6,14 @@
   import FavouriteControl from '$lib/favourites/FavouriteControl.svelte';
   import { subscribeToFavouriteInvalidation } from '$lib/favourites/sync';
   import type { FavouriteAvailability } from '$server/favourites/favourites';
-  import { Eyebrow, Meta, PageHeader, PageShell, PageTitle, Panel } from '@hundavaent/design-system';
+  import {
+    Eyebrow,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle,
+    Panel
+  } from '@hundavaent/design-system';
 
   import type { PageProps } from './$types';
 
@@ -146,7 +153,10 @@
       </a>
     </Panel>
   {:else}
-    <ul class="saved-list grid gap-context m-0 p-0 list-none" aria-label={data.copy['favourite.savedTitle']}>
+    <ul
+      class="saved-list grid gap-context m-0 p-0 list-none"
+      aria-label={data.copy['favourite.savedTitle']}
+    >
       {#each savedPlaces as place (place.placeId)}
         <Panel
           as="li"

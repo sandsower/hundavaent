@@ -1,6 +1,13 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
-  import { Eyebrow, Meta, PageHeader, PageShell, PageTitle, Panel } from '@hundavaent/design-system';
+  import {
+    Eyebrow,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle,
+    Panel
+  } from '@hundavaent/design-system';
   import { formatLocalizedDate } from '$i18n/date';
   import type { MessageKey } from '$i18n';
   import AchievementBadge from '$lib/achievements/AchievementBadge.svelte';
@@ -33,7 +40,12 @@
     <Meta class="intro">{data.copy['contributor.intro']}</Meta>
   </PageHeader>
 
-  <Panel as="section" padded class="status-card grid gap-panel min-w-0" aria-labelledby="status-heading">
+  <Panel
+    as="section"
+    padded
+    class="status-card grid gap-panel min-w-0"
+    aria-labelledby="status-heading"
+  >
     <Eyebrow class="eyebrow" id="status-heading">{data.copy['site.name']}</Eyebrow>
     <strong
       class={`tier hv-status ${data.contributor.status}`}

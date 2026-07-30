@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { Eyebrow, Meta, PageHeader, PageShell, PageTitle, Panel } from '@hundavaent/design-system';
+  import {
+    Eyebrow,
+    Meta,
+    PageHeader,
+    PageShell,
+    PageTitle,
+    Panel
+  } from '@hundavaent/design-system';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();

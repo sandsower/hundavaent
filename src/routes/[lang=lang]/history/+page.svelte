@@ -43,7 +43,10 @@
     <Meta>{data.copy['history.intro']}</Meta>
   </PageHeader>
 
-  <nav class="history-tabs flex flex-wrap items-center gap-actions" aria-label={data.copy['history.title']}>
+  <nav
+    class="history-tabs flex flex-wrap items-center gap-actions"
+    aria-label={data.copy['history.title']}
+  >
     <!-- eslint-disable svelte/no-navigation-without-resolve -->
     <a
       class="hv-control"

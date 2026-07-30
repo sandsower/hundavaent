@@ -18,9 +18,7 @@
   <div style="padding: 2rem;">A card whose padding belongs to the call site.</div>
 </Story>
 
-<Story name="Padded" args={{ padded: true }}>
-  A list card at the shared panel inset.
-</Story>
+<Story name="Padded" args={{ padded: true }}>A list card at the shared panel inset.</Story>
 
 <!-- as in practice: sections, articles, list items, and header heroes all carry the surface. -->
 <Story name="As list item" args={{ as: 'li', padded: true }}>

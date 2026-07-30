@@ -11,7 +11,8 @@
     children: Snippet;
   }
 
-  type Props = PageTitleOwnProps & Omit<HTMLAttributes<HTMLHeadingElement>, keyof PageTitleOwnProps>;
+  type Props = PageTitleOwnProps &
+    Omit<HTMLAttributes<HTMLHeadingElement>, keyof PageTitleOwnProps>;
 
   let { as = 'h1', class: className = '', children, ...rest }: Props = $props();
 

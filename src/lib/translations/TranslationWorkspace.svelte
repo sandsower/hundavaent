@@ -96,12 +96,7 @@
   }
 </script>
 
-<PageShell
-  as="section"
-  mode="operations"
-  class="workspace"
-  aria-labelledby="translations-title"
->
+<PageShell as="section" mode="operations" class="workspace" aria-labelledby="translations-title">
   <header class="workspace-header">
     <div>
       <Eyebrow>Hundavænt workspace</Eyebrow>
