@@ -71,6 +71,7 @@
   --spacing-panel: var(--hv-space-panel);
   --spacing-edge: var(--hv-space-edge);
   --spacing-section: var(--hv-space-section);
+  --spacing-actions: var(--hv-space-actions);
   --spacing-control: var(--hv-control-height);
 
   --radius-control: var(--hv-radius-control);
@@ -86,4 +87,12 @@
   --ease-settle: var(--hv-ease-settle);
   --ease-exit: var(--hv-ease-exit);
   --ease-overshoot: var(--hv-ease-overshoot);
+}
+
+/* Plain @theme, never inline: breakpoints compile into @media prelude text, where var() cannot
+   appear, so this one mapping must carry a literal. The value restates --hv-content-narrow (42rem)
+   - the same threshold Dialog's bottom-sheet switch uses - and a change to one must visit the
+   other; there is no mechanism that keeps them aligned. */
+@theme {
+  --breakpoint-narrow: 42rem;
 }
