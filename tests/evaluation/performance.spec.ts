@@ -177,7 +177,7 @@ test('the floating public access details meet the route budget without failed re
   expect(response?.status()).toBe(200);
   const selectedCard = page.getByRole('complementary', { name: 'Selected place' });
   await expect(selectedCard).toBeVisible();
-  await selectedCard.locator('details.hv-disclosure > summary').click();
+  await selectedCard.locator('details[data-complete-details] > summary').click();
   await expect(selectedCard.getByRole('heading', { name: 'Dog access' })).toBeVisible();
   await page.waitForLoadState('networkidle');
 

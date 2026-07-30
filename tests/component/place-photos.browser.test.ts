@@ -4,6 +4,15 @@ import { describe, expect, it } from 'vitest';
 import { catalogues } from '$i18n';
 import PlacePhotos from '$lib/discovery/PlacePhotos.svelte';
 
+// PlacePhotos' root carries the Panel.svelte utility recipe directly (border-border-subtle
+// rounded-panel bg-snow-raised shadow-raised) rather than the retired hv-panel class, so the
+// panel-recipe pin below asserts computed style instead of a class name - the phase-2 precedent
+// used for FavouriteControl/Button. app.css is the app's real CSS entrypoint and pulls in both
+// the plain --hv-* custom properties (tokens.css) and the Tailwind utility layer the recipe is
+// built from, the same way button.browser.test.ts and access-symbols.browser.test.ts already
+// load it for their own computed-style assertions.
+import '../../src/app.css';
+
 const placeId = '79300000-0000-4000-8000-000000000001';
 const photo = {
   mediaId: 'media-photo-approved',
@@ -70,8 +79,14 @@ describe('PlacePhotos', () => {
       copy: catalogues.en
     });
 
-    const gallery = container.querySelector('[data-photos-section]');
-    expect(gallery?.classList.contains('hv-panel')).toBe(true);
+    const gallery = container.querySelector<HTMLElement>('[data-photos-section]');
+    expect(gallery).toBeTruthy();
+    // The panel-recipe pin: PlacePhotos' root wears Panel.svelte's utility recipe directly
+    // rather than the retired hv-panel class, so this asserts the raised panel surface actually
+    // renders (non-none shadow, non-zero radius) rather than checking for a class name.
+    const style = getComputedStyle(gallery!);
+    expect(style.boxShadow).not.toBe('none');
+    expect(Number.parseFloat(style.borderRadius)).toBeGreaterThan(0);
     expect(gallery?.getAttribute('data-surface')).toBe('media-gallery');
     expect(container.querySelector('[data-photo-frame="image-led"]')).toBeTruthy();
   });

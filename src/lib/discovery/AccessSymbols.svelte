@@ -566,9 +566,9 @@
     min-height: 2rem;
     align-items: center;
     padding: 0.28rem 0.65rem 0.28rem 0.4rem;
-    border: 1px solid var(--hv-access-symbol-border, var(--hv-color-basalt, #1e2d31));
+    border: 1px solid var(--hv-access-symbol-border);
     border-radius: 999px;
-    background: var(--hv-access-area, #dce7e1);
+    background: var(--hv-access-area);
     color: var(--hv-color-basalt);
     font: inherit;
     /* The lift is motion, so it collapses under reduced motion; the border and shadow are
@@ -587,23 +587,23 @@
   }
 
   .symbol.restraint {
-    background: var(--hv-access-restraint, #f7dd9a);
+    background: var(--hv-access-restraint);
   }
   .symbol.permission {
-    background: var(--hv-access-permission, #cfe5ed);
+    background: var(--hv-access-permission);
   }
   .symbol.dogs {
-    background: var(--hv-access-eligibility, #f3d4be);
+    background: var(--hv-access-eligibility);
   }
   .symbol.timing {
-    background: var(--hv-access-timing, #d9d5e9);
+    background: var(--hv-access-timing);
   }
   .symbol.special {
-    background: var(--hv-access-special, #f1d7bd);
+    background: var(--hv-access-special);
   }
   .symbol.not-stated {
-    background: var(--hv-access-unknown, #e4e7e5);
-    color: var(--hv-access-unknown-foreground, #5b6563);
+    background: var(--hv-access-unknown);
+    color: var(--hv-access-unknown-foreground);
   }
 
   .symbol:hover,
@@ -655,11 +655,11 @@
     overflow: auto;
     padding: 0.5rem 0.65rem;
     border: 0;
-    border-radius: var(--hv-radius-control, 0.35rem);
-    background: var(--hv-color-basalt, #1e2d31);
+    border-radius: var(--hv-radius-control);
+    background: var(--hv-color-basalt);
     box-shadow: 0 0.55rem 1.5rem rgb(30 45 49 / 22%);
-    color: var(--hv-color-snow-raised, #fbfcf9);
-    font-family: var(--hv-font-ui, var(--font-sans, sans-serif));
+    color: var(--hv-color-snow-raised);
+    font-family: var(--hv-font-ui);
     font-size: 0.75rem;
     font-weight: 700;
     line-height: 1.35;
@@ -691,10 +691,9 @@
   .persistent-detail {
     margin: 0;
     padding: 0.6rem 0.7rem;
-    border-inline-start: 0.3rem solid
-      var(--hv-access-detail-accent, var(--hv-color-signal, #f2c94c));
+    border-inline-start: 0.3rem solid var(--hv-access-detail-accent);
     border-radius: 0.4rem;
-    background: var(--hv-color-snow-raised, #fbfcf9);
+    background: var(--hv-color-snow-raised);
     font-size: 0.78rem;
     line-height: 1.4;
     /* The detail carries text, so the reveal is transform-only: words arrive at full contrast

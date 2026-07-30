@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
 
-  import { Button } from '@hundavaent/design-system';
+  import { Button, Status } from '@hundavaent/design-system';
   import type { Catalogue } from '$i18n';
   import { postHogAnalytics } from '$lib/analytics/posthog';
   import { requestAuthentication } from '$lib/auth/controller';
@@ -148,9 +148,9 @@
     </Button>
   {/if}
   {#if failed}
-    <span class="error hv-status" data-status="error" role="alert">
+    <Status tone="error" class="error" role="alert">
       {copy['favourite.failed']}
-    </span>
+    </Status>
   {/if}
 </div>
 
@@ -307,7 +307,11 @@
     opacity: 0.72;
   }
 
-  .error {
+  /* Status renders its span inside a child component, so Svelte's scoped CSS cannot reach it
+     directly - same reasoning as .favourite-action :global(.favourite-toggle) above. The .error
+     class is guaranteed to land on that rendered element because we pass it through Status's
+     class prop ourselves. */
+  .favourite-action :global(.error) {
     max-width: 18rem;
   }
 </style>

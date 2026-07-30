@@ -40,11 +40,7 @@
   }: Props = $props();
 </script>
 
-<section
-  id="discovery-results"
-  class="results-tray hv-panel"
-  aria-labelledby="discovery-results-heading"
->
+<section id="discovery-results" class="results-tray" aria-labelledby="discovery-results-heading">
   <div class="tray-heading">
     <h3 id="discovery-results-heading">{sliceLabel ?? copy['directory.resultsTitle']}</h3>
     <p>
@@ -87,10 +83,6 @@
   .results-tray {
     min-height: 100%;
     padding: 1rem;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
   }
 
   .tray-heading {

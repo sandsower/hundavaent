@@ -1,4 +1,9 @@
 <script lang="ts">
+  // A five-star radiogroup: choosing a score pops the stars up to it in a left-to-right cascade,
+  // while a score that arrives already set (page load, or inherited from another Rating) renders
+  // static - see the pop()/choose() comments below for why recognition is scoped to the moment of
+  // choosing. Zero imports, token-riding scoped styles: the purity that let this promote out of
+  // src/lib/discovery/StarRating.svelte into the design system unchanged.
   interface Props {
     label: string;
     value: number | null;
@@ -133,6 +138,8 @@
   }
   button:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
+    /* 1px, not the canonical 3px ring offset used elsewhere: the star row is dense (five 2rem
+       circles at a 0.08rem gap), and the wider offset made adjacent rings visually collide. */
     outline-offset: 1px;
   }
 </style>

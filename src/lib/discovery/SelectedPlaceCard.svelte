@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
 
+  import { Button, Disclosure, Notice } from '@hundavaent/design-system';
   import type { Catalogue, Locale, MessageKey } from '$i18n';
   import type { PlaceCategory } from '$domain/place';
   import { formatDogAmenities, formatOpeningHoursRows } from '$i18n/structured-place';
@@ -361,8 +362,13 @@
   />
 {/snippet}
 
+<!-- Of Panel.svelte's surface set this full-bleed card keeps only the raised background - the
+     old hv-panel pairing neutralized its border/radius/shadow in the .selected-place rule below,
+     so those utilities would be dead weight here (the DiscoveryResults treatment: carry only what
+     renders). The one live utility rides directly on the locally-authored element rather than a
+     <Panel> wrapper so the scoped root rules keep matching. -->
 <aside
-  class="hv-panel selected-place"
+  class="selected-place bg-snow-raised"
   aria-label={copy['directory.selectedPlace']}
   data-overlay="place"
 >
@@ -406,9 +412,9 @@
       </a>
       <!-- eslint-enable svelte/no-navigation-without-resolve -->
       <SharePlaceControl placeId={place.placeId} placeName={place.name} {lang} {copy} />
-      <button
+      <Button
         data-selected-place-close
-        class="hv-control close"
+        class="close"
         type="button"
         aria-label={copy['directory.closeSelectedPlace']}
         onclick={onClose}
@@ -416,7 +422,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M6 6l12 12M18 6 6 18" />
         </svg>
-      </button>
+      </Button>
     </div>
   </div>
 
@@ -517,27 +523,24 @@
     />
 
     {#if loading && !profile}
-      <p class="hv-notice details-status loading-status" data-tone="info" role="status">
+      <Notice as="p" tone="info" class="details-status loading-status" role="status">
         <span class="paw-trail" data-paw-trail aria-hidden="true">
           <PawMark />
           <PawMark />
           <PawMark />
         </span>
         {copy['place.loadingDetails']}
-      </p>
+      </Notice>
     {:else if loadFailed && !profile}
-      <div class="hv-notice details-status" data-tone="error" role="alert">
+      <Notice tone="error" class="details-status" role="alert">
         <p>{copy['place.detailsUnavailable']}</p>
-        <button class="hv-control" type="button" onclick={onRetry}>{copy['common.retry']}</button>
-      </div>
+        <Button type="button" onclick={onRetry}>{copy['common.retry']}</Button>
+      </Notice>
     {:else if profile}
-      <details class="hv-disclosure" bind:this={completeDetails}>
-        <summary>
+      <Disclosure bind:element={completeDetails} data-complete-details>
+        {#snippet summary()}
           <span>{copy['place.showPracticalDetails']}</span>
-          <svg class="summary-chevron" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </summary>
+        {/snippet}
         <div class="complete-details">
           <section aria-labelledby={`access-${place.placeId}`}>
             <h3 id={`access-${place.placeId}`}>{copy['place.accessHeading']}</h3>
@@ -627,7 +630,7 @@
             onSubmitted={recordSubmitted}
           />
         </div>
-      </details>
+      </Disclosure>
     {/if}
   </div>
 </aside>
@@ -639,9 +642,6 @@
     flex-direction: column;
     max-height: none;
     overflow: hidden;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
   }
 
   .card-body {
@@ -657,7 +657,18 @@
     margin: 0.7rem var(--hv-space-panel) 0;
   }
 
-  .card-body > * {
+  /* Svelte scopes a bare universal selector the same as any other compound selector segment: an
+     unqualified `.card-body > *` compiles to require ITS OWN hash class on the child too, which
+     the Notice- and Disclosure-rendered root elements never carry (they carry their own
+     component's hash instead of this one), so the entry animation silently stopped reaching the
+     notices and the disclosure once those migrated onto package primitives. The two package-
+     rendered roots are enumerated rather than swept up with a `> :global(*)` because that
+     wildcard would also newly animate the PlacePhotos and InlineRating roots, which never
+     matched the scoped `> *` on main either - restoring the baseline means restoring exactly
+     the set that animated before, nothing more. */
+  .card-body > *,
+  .card-body > :global(.details-status),
+  .card-body > :global([data-complete-details]) {
     animation: detail-content-enter var(--hv-motion-quick) var(--hv-ease-settle) both;
   }
 
@@ -671,12 +682,16 @@
     }
   }
 
-  .details-status {
+  /* Notice renders its element (the `as="p"`/default div) in a child component, so the
+     details-status/loading-status classes passed through its `class` prop land on a node scoped
+     CSS cannot reach directly - anchored through .card-body (locally authored) with :global() on
+     the Notice-rendered class, per the ancestor-scoped-:global pattern (FavouriteControl.svelte). */
+  .card-body :global(.details-status) {
     margin: 0.45rem 0 0;
     font-weight: 700;
   }
 
-  .loading-status {
+  .card-body :global(.loading-status) {
     display: flex;
     gap: 0.6rem;
     align-items: center;
@@ -736,7 +751,8 @@
      sent from; it is never in the tab order. */
   .pending-correction:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 2px;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   .timing-link {
@@ -754,7 +770,8 @@
 
   .timing-link:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 2px;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   .member-actions {
@@ -858,7 +875,8 @@
 
   .icon-action:focus-visible {
     outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 2px;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
   }
 
   .welcome-answer {
@@ -876,39 +894,14 @@
     text-transform: uppercase;
   }
 
-  details {
+  /* Card-local spacing above the disclosure, not something Disclosure.svelte owns - re-anchored
+     through .card-body (locally authored) with :global() on the data-complete-details marker,
+     since Disclosure now renders the <details> element itself. The summary/chevron rules that
+     used to live here (summary, summary::-webkit-details-marker, .summary-chevron,
+     details[open] > summary .summary-chevron) are retired: Disclosure.svelte codifies all four
+     verbatim (see its own comments) and renders its own chevron. */
+  .card-body :global([data-complete-details]) {
     margin-top: 0.75rem;
-  }
-
-  /* The default disclosure marker is the browser's, not the card's. The summary lays out as a
-     full-width row with its own chevron, so the whole line reads and presses as one control. */
-  summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding: 0.85rem 0;
-    list-style: none;
-  }
-
-  summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .summary-chevron {
-    width: 1.05rem;
-    height: 1.05rem;
-    flex: none;
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 2.1;
-    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
-  }
-
-  details[open] > summary .summary-chevron {
-    transform: rotate(180deg);
   }
 
   .complete-details {
@@ -1039,7 +1032,12 @@
     font-weight: 700;
   }
 
-  .close {
+  /* Button renders its own <button> element in a child component, so scoped CSS cannot reach it
+     directly - anchored through .heading-actions (locally authored) with :global() on the
+     Button-rendered class, per the ancestor-scoped-:global pattern (FavouriteControl.svelte). No
+     transform/transition override here: Button now owns this control's hover lift and active
+     squish (phase 5 sanctioned change). */
+  .heading-actions :global(.close) {
     display: grid;
     width: 2.5rem;
     height: 2.5rem;
@@ -1049,7 +1047,7 @@
     place-items: center;
   }
 
-  .close svg {
+  .heading-actions :global(.close svg) {
     width: 1.15rem;
     fill: none;
     stroke: currentColor;
@@ -1057,7 +1055,12 @@
     stroke-width: 1.9;
   }
 
-  .details-status p {
+  /* Svelte only allows :global() as the leading or trailing segment of a selector, not the
+     middle, so the whole ".details-status p" chain sits inside one :global() (the same shape as
+     FavouriteControl's `:global(.favourite-toggle[aria-pressed='true'] svg)`) rather than keeping
+     a hash on the trailing `p` - even though that `p` is itself locally authored inside Notice's
+     children. */
+  .card-body :global(.details-status p) {
     margin-block: 0 0.65rem;
   }
 </style>

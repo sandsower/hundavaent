@@ -244,7 +244,7 @@ test('public discovery and floating access details are keyboard-operable and Axe
   await page.keyboard.press('Enter');
   await expect(symbolButtons.first()).toHaveAttribute('aria-expanded', 'true');
   await page.waitForTimeout(250);
-  const completeDetails = selectedCard.locator('details.hv-disclosure');
+  const completeDetails = selectedCard.locator('details[data-complete-details]');
   await expect(completeDetails).toHaveAttribute('open', '');
   await expect(selectedCard.getByRole('heading', { name: 'Dog access' })).toBeVisible();
   const disclosure = completeDetails.locator(':scope > summary');
