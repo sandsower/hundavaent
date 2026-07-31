@@ -1,4 +1,4 @@
-import { isLocale, type Locale } from './index';
+import { isLocale, type Locale } from './locale';
 
 export function replaceLocaleInUrl(currentUrl: string | URL, targetLocale: Locale): `/${string}` {
   const url =
