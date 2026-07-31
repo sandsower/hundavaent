@@ -96,20 +96,26 @@
 </div>
 
 <style>
+  /* Each medal sits centred over its own caption rather than beside it. Side by side, the badge
+     column plus a wrapping label made the four rungs different heights and clipped the longest
+     threshold line; stacked, the row keeps its rhythm at any width. */
   .cell {
     display: grid;
-    grid-template-columns: 3.4rem minmax(0, 1fr);
-    gap: 0.75rem;
-    min-height: 6rem;
-    align-items: center;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.55rem;
+    min-width: 0;
+    justify-items: center;
     border: 1px solid color-mix(in srgb, var(--hv-color-fjord) 22%, transparent);
     border-radius: 0.9rem;
-    padding: 0.7rem 0.8rem;
+    padding: 1rem 0.7rem 0.85rem;
+    text-align: center;
   }
 
   .cell[data-tier-state='locked'] {
     border-style: dashed;
     background: transparent;
+    /* Rungs ahead recede rather than compete with the one being worked on. */
+    opacity: 0.62;
   }
 
   .cell[data-tier-state='started'] {
@@ -128,15 +134,17 @@
 
   .tier-copy {
     display: grid;
+    width: 100%;
     min-width: 0;
     gap: 0.4rem;
     align-content: center;
+    justify-items: center;
   }
 
   .tier-label {
     margin: 0;
     color: var(--hv-color-basalt-muted);
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 900;
     letter-spacing: 0.09em;
     text-transform: uppercase;
@@ -146,7 +154,8 @@
     color: var(--hv-color-moss);
   }
 
-  /* Weight increases across the row, so the four rungs read as a progression without colour. */
+  /* Letter-spacing increases across the row, so the four rungs read as a progression without
+     colour. */
   .cell[data-achievement-tier='silver'] .tier-label {
     letter-spacing: 0.11em;
   }
@@ -164,6 +173,7 @@
     font-size: 0.8rem;
     font-weight: 700;
     line-height: 1.35;
+    overflow-wrap: anywhere;
   }
 
   .detail.muted {
@@ -172,6 +182,7 @@
   }
 
   .track {
+    width: 100%;
     height: 0.4rem;
     border-radius: 999px;
     overflow: hidden;

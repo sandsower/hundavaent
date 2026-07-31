@@ -72,9 +72,7 @@
           state="earned"
         />
       </span>
-      <svg class="trail" viewBox="0 0 240 144" fill="none">
-        <path d="M12 109c28 17 36-10 60-5s40 28 64 9c18-16 43-12 74 12" />
-      </svg>
+      <span class="orbit"></span>
       <span class="paw"><PawMark active={true} /></span>
     </div>
   </div>
@@ -82,8 +80,10 @@
     <p class="eyebrow">{copy['achievements.celebrationEyebrow']}</p>
     <h2>{name}</h2>
     <p class="description">{description}</p>
-    <p class="earned">{earnedLine}</p>
-    <AchievementShare card={shareCard} {copy} />
+    <div class="celebration-meta">
+      <p class="earned">{earnedLine}</p>
+      <AchievementShare card={shareCard} {copy} />
+    </div>
   </div>
 </section>
 
@@ -91,10 +91,13 @@
   .celebration {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(7.5rem, 0.72fr) minmax(0, 1.28fr);
-    min-height: 12rem;
+    grid-template-columns: minmax(10.5rem, 0.85fr) minmax(0, 1.15fr);
+    gap: 1.5rem;
+    align-items: center;
+    min-height: 0;
     border: 1px solid color-mix(in srgb, var(--hv-color-brand-paw) 34%, transparent);
     border-radius: 1.5rem;
+    padding: 1.6rem;
     overflow: hidden;
     background: linear-gradient(
       135deg,
@@ -106,22 +109,23 @@
 
   .art {
     display: grid;
-    min-height: 12rem;
+    min-height: 10.5rem;
     place-items: center;
   }
 
-  /* Every decorative layer shares this fixed coordinate system. The card's grid can change shape
-     without separating the trail endpoint from its paw or sliding the path through the badge. */
+  /* Every decorative layer shares this fixed coordinate system, now square and centred: the halo,
+     the badge, the orbit and the paw are all measured from the scene's centre, so the card's grid
+     can change shape without separating the paw from the ring it sits on. */
   .scene {
     position: relative;
-    width: min(15rem, calc(100% - 1rem));
-    aspect-ratio: 5 / 3;
+    width: min(12.5rem, 100%);
+    aspect-ratio: 1;
   }
 
   .halo {
     position: absolute;
-    top: 0.25rem;
-    left: 40%;
+    top: calc(50% - 3rem);
+    left: 50%;
     width: 6rem;
     height: 6rem;
     border: 1px solid color-mix(in srgb, var(--hv-color-brand-paw) 24%, transparent);
@@ -135,29 +139,33 @@
 
   .achievement-icon {
     position: absolute;
-    top: 0.7rem;
-    left: 40%;
+    top: calc(50% - 2.55rem);
+    left: 50%;
     width: 5.1rem;
     height: 5.1rem;
     transform: translateX(-50%);
   }
 
-  .trail {
+  /* A dashed orbit concentric with the halo, echoing the rosette's own dashed rings and the dashed
+     locked tier cells. The wavy trail line it replaces spoke a different visual language from
+     everything else on the page, and cut across the halo on its way past. */
+  .orbit {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    color: var(--hv-color-fjord);
-    stroke: currentColor;
-    stroke-width: 3;
-    stroke-dasharray: 5 7;
-    stroke-linecap: round;
+    top: 50%;
+    left: 50%;
+    width: 9.6rem;
+    height: 9.6rem;
+    border: 2px dashed color-mix(in srgb, var(--hv-color-fjord) 42%, transparent);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
   }
 
+  /* On the orbit, lower right - the same ring the dashes travel, so the stamp reads as having
+     walked it. */
   .paw {
     position: absolute;
-    top: 86.8056%;
-    left: 87.5%;
+    top: calc(50% + 3.4rem);
+    left: calc(50% + 3.4rem);
     display: grid;
     width: 1.8rem;
     height: 1.8rem;
@@ -176,14 +184,16 @@
   }
 
   .copy {
+    display: grid;
+    gap: 0.5rem;
+    align-content: center;
     align-self: center;
-    padding: 2rem 2rem 2rem 1rem;
+    justify-items: start;
+    max-width: 28rem;
+    padding: 0.4rem 0.4rem 0.4rem 0;
   }
 
-  .eyebrow,
-  h2,
-  .description,
-  .earned {
+  .copy > :global(*) {
     margin: 0;
   }
 
@@ -196,7 +206,7 @@
   }
 
   h2 {
-    margin-block-start: 0.35rem;
+    margin-block-start: 0.1rem;
     font-family: var(--hv-font-display);
     font-size: clamp(1.5rem, 4vw, 2.25rem);
     line-height: 1.05;
@@ -210,14 +220,24 @@
     line-height: 1.48;
   }
 
+  /* Date and Share read as one caption row under the title, so the card ends on a single line
+     instead of two stacked scraps. */
+  .celebration-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--hv-space-actions);
+    align-items: center;
+    margin-block-start: 0.35rem;
+  }
+
   .earned {
-    margin-block-start: 0.8rem;
+    margin: 0;
     font-size: 0.86rem;
     font-weight: 800;
   }
 
   /* The choreography rides the token families, so reduced motion collapses every travelling
-     entry on its own while the fade halves keep breathing: the halo, icon, and paw still
+     entry on its own while the fade halves keep breathing: the halo, icon, orbit and paw still
      appear, they just stop moving. Anything that both moves and fades runs as two entries,
      one per family (see tokens.css). The card and its words are transform-only. */
   .celebration {
@@ -240,9 +260,12 @@
         var(--hv-ease-settle) both;
   }
 
-  .trail path {
-    animation: achievement-trail-draws var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 4)
-      var(--hv-ease-settle) both;
+  .orbit {
+    animation:
+      achievement-orbit-settles var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 4)
+        var(--hv-ease-settle) both,
+      achievement-icon-appears var(--hv-fade-considered) calc(var(--hv-motion-stagger) * 4)
+        var(--hv-ease-settle) both;
   }
 
   .paw {
@@ -298,12 +321,12 @@
     }
   }
 
-  @keyframes achievement-trail-draws {
+  @keyframes achievement-orbit-settles {
     from {
-      stroke-dashoffset: 42;
+      transform: translate(-50%, -50%) scale(0.82) rotate(-12deg);
     }
     to {
-      stroke-dashoffset: 0;
+      transform: translate(-50%, -50%) scale(1) rotate(0deg);
     }
   }
 
@@ -328,6 +351,8 @@
   @media (max-width: 34rem) {
     .celebration {
       grid-template-columns: 1fr;
+      gap: 0.75rem;
+      padding: 1.25rem;
     }
 
     .art {
@@ -335,8 +360,14 @@
     }
 
     .copy {
-      padding: 0.5rem 1.25rem 1.5rem;
+      justify-items: center;
+      max-width: none;
+      padding: 0 0 0.5rem;
       text-align: center;
+    }
+
+    .celebration-meta {
+      justify-content: center;
     }
 
     .description {

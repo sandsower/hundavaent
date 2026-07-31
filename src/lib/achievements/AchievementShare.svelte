@@ -17,14 +17,15 @@
   let busy = $state(false);
   let feedback = $state('');
 
-  // This dialog's head row holds an eyebrow + h2 next to a close button, so it owns the h2
-  // itself and points Dialog's labelledby path at it (Dialog.svelte's TitleProps comment) -
-  // the accessible name becomes the share title rather than the eyebrow above it.
+  // This dialog's head row holds the h2 next to a close button, so it owns the h2 itself and
+  // points Dialog's labelledby path at it (Dialog.svelte's TitleProps comment).
   const titleId = $props.id();
 
   const preview = $derived(
     `data:image/svg+xml;charset=utf-8,${encodeURIComponent(createAchievementShareSvg(card))}`
   );
+  // Still sent as the share sheet's text, but no longer shown or copyable on its own: the image
+  // is the thing being shared, and the caption travels with it.
   const caption = $derived(`${card.name}\n${card.description}\n#Hundavaent`);
 
   function openDialog(): void {
@@ -68,15 +69,6 @@
     }
   }
 
-  async function copyCaption(): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(caption);
-      feedback = copy['achievements.share.copied'];
-    } catch {
-      feedback = copy['achievements.share.error'];
-    }
-  }
-
   function downloadFile(file: File): void {
     const url = URL.createObjectURL(file);
     const anchor = document.createElement('a');
@@ -95,10 +87,7 @@
   <Dialog bind:open size="wide" unpadded labelledby={titleId} onclose={() => (feedback = '')}>
     <div class="dialog-body">
       <div class="dialog-head">
-        <div>
-          <p class="eyebrow">{copy['achievements.share.eyebrow']}</p>
-          <h2 id={titleId}>{copy['achievements.share.title']}</h2>
-        </div>
+        <h2 id={titleId}>{copy['achievements.share.title']}</h2>
         <Button
           shape="round"
           class="share-close"
@@ -108,7 +97,6 @@
       </div>
 
       <img class="preview" src={preview} alt={copy['achievements.share.previewAlt']} />
-      <p class="privacy">{copy['achievements.share.privacy']}</p>
 
       <div class="actions">
         <Button intent="primary" disabled={busy} onclick={share}>
@@ -116,9 +104,6 @@
         </Button>
         <Button disabled={busy} onclick={download}>
           {copy['achievements.share.download']}
-        </Button>
-        <Button disabled={busy} onclick={copyCaption}>
-          {copy['achievements.share.copy']}
         </Button>
       </div>
 
@@ -158,27 +143,16 @@
   .dialog-head {
     display: flex;
     gap: 1rem;
-    align-items: start;
+    align-items: center;
     justify-content: space-between;
   }
 
-  .eyebrow,
   h2,
-  .privacy,
   .feedback {
     margin: 0;
   }
 
-  .eyebrow {
-    color: var(--hv-color-moss);
-    font-size: 0.74rem;
-    font-weight: 900;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
   h2 {
-    margin-block-start: 0.2rem;
     font-family: var(--hv-font-display);
     font-size: clamp(1.35rem, 4vw, 1.8rem);
   }
@@ -195,7 +169,6 @@
     border-radius: 0.85rem;
   }
 
-  .privacy,
   .feedback {
     color: var(--hv-color-basalt-muted);
     font-size: 0.85rem;
