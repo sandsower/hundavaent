@@ -1,0 +1,16 @@
+/* Single compiled stylesheet for every design-sync card: the same token layer and generated
+   utilities the app and Storybook ship, built once and inlined into each static card rather than
+   re-resolved per file. The explicit layer order mirrors app.css and preview.css - without it,
+   priority would fall to first-declaration order, which puts theme.css's `base` block above
+   `utilities`, the reverse of every real surface. */
+@layer hundavaent.base, hundavaent.tokens, theme, base, components, utilities;
+
+@import '../../../src/lib/design-system/tokens.css';
+@import '../src/theme.css';
+
+/* theme.css's own `@source './'` only scans packages/design-system/src/, so it never sees the
+   card files this generator authors under design-sync/ - a few of them (page-scaffold,
+   operations-mode) deliberately use the documented utility recipes (`grid gap-context`,
+   `flex flex-wrap items-center gap-actions`) verbatim rather than restating them as scoped CSS, so
+   this extra source root is required for those utilities to exist in the compiled output. */
+@source '../design-sync';

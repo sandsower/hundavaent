@@ -35,25 +35,25 @@
     ...rest
   }: Props = $props();
 
-  // The exact utility codification of .hv-disclosure's own rule (primitives.css:164-167): a
+  // The exact utility codification of the retired legacy .hv-disclosure primitive's own rule: a
   // single 1px top border in the subtle border colour, nothing else on the root. Known
   // asterisk: the source rule used the logical border-block-start; border-t is physical. They
   // are identical for every writing mode this product ships - revisit if an RTL or vertical
   // locale ever lands.
   const base = 'border-t border-border-subtle';
 
-  // The exact utility codification of .hv-disclosure > summary (primitives.css:168-172) plus
+  // The exact utility codification of the retired legacy .hv-disclosure > summary primitive plus
   // SelectedPlaceCard's own hand-rolled `summary` rule (SelectedPlaceCard.svelte ~884-894): the
   // full-width flex row (no width utility needed - a flex-display block-level box already fills
   // its container), its gap and block-only padding, fjord colour, the 850 weight (font-[850] -
   // the same arbitrary-value idiom Eyebrow.svelte already uses for this exact non-standard
   // weight), pointer cursor, and marker suppression via list-none (list-style-type only - the
   // ::-webkit-details-marker half needs the scoped style block below, since Tailwind's utility
-  // layer has no selector for that pseudo-element). The focus-visible set below is one complete
-  // match of primitives.css's summary:focus-visible rule (168-172): Button.svelte's canonical
-  // ring utilities plus the rounded-control radius that rule adds on top of it.
+  // layer has no selector for that pseudo-element). The ring itself is not declared here - it
+  // comes from theme.css's global `@layer base` rule. Only the focus radius shaping, a real local
+  // delta from that shared ring, is declared below.
   const summaryClasses =
-    'flex items-center justify-between gap-2 py-[0.85rem] px-0 text-fjord font-[850] cursor-pointer list-none focus-visible:rounded-control focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]';
+    'flex items-center justify-between gap-2 py-[0.85rem] px-0 text-fjord font-[850] cursor-pointer list-none focus-visible:rounded-control';
 
   // The exact utility codification of SelectedPlaceCard's .summary-chevron (~899-909): a fixed
   // 1.05rem square that never shrinks in the flex row, an outlined (not filled) stroke path, the

@@ -9,5 +9,11 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte", ".storybook/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.svelte",
+    ".storybook/**/*.ts",
+    "design-sync/**/*.ts",
+    "design-sync/**/*.svelte"
+  ]
 }

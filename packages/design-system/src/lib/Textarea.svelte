@@ -43,7 +43,7 @@
   // rounded-control still applies: the shipped textarea rides the same radius token as every
   // other control, baseline-first.
   const base =
-    'w-full min-w-0 min-h-[6rem] resize-y border border-border-strong rounded-control bg-snow-raised px-[0.8rem] py-[0.55rem] text-basalt [font-family:inherit] [font-size:inherit] [line-height:inherit] placeholder:text-basalt-muted disabled:bg-snow disabled:text-basalt-muted aria-invalid:border-danger focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]';
+    'w-full min-w-0 min-h-[6rem] resize-y border border-border-strong rounded-control bg-snow-raised px-[0.8rem] py-[0.55rem] text-basalt [font-family:inherit] [font-size:inherit] [line-height:inherit] placeholder:text-basalt-muted disabled:bg-snow disabled:text-basalt-muted aria-invalid:border-danger';
 
   const classes = $derived([base, className].filter(Boolean).join(' '));
 </script>

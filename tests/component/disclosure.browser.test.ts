@@ -3,10 +3,10 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { createRawSnippet, type Snippet } from 'svelte';
 import { describe, expect, it } from 'vitest';
 
-// app.css is the app's real CSS entrypoint: it imports both tokens.css/primitives.css (the legacy
-// .hv-disclosure baseline this component codifies) and @hundavaent/design-system/theme.css (the
-// Tailwind utility layer Disclosure is built from) - the same dual load button.browser.test.ts and
-// notice-status.browser.test.ts rely on for their own assertions.
+// app.css is the app's real CSS entrypoint: it imports tokens.css and @hundavaent/design-system/theme.css
+// (the Tailwind utility layer Disclosure is built from). The legacy primitives.css stylesheet and
+// its .hv-disclosure baseline are deleted, not merely empty - this is the same dual load
+// button.browser.test.ts and notice-status.browser.test.ts rely on for their own assertions.
 import '../../src/app.css';
 
 function label(text: string) {

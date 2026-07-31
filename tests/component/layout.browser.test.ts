@@ -22,7 +22,7 @@ function resolvedProperty(property: string, value: string): string {
 }
 
 describe('PageShell', () => {
-  it('renders a main landmark carrying the ui mode for descendants still on hv-* primitives', () => {
+  it('renders a main landmark carrying the ui mode for the tokens.css [data-ui-mode] retune', () => {
     const { container } = render(PageShell, { props: { children: child('Body') } });
 
     const shell = container.querySelector('main');

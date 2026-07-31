@@ -40,10 +40,10 @@
     rest.onchange?.(event);
   }
 
-  // The exact utility codification of suggest/+page.svelte's .choice (primitives.css:209-222):
-  // the auto/1fr grid, the 0.6rem gap, centered items, the control min-height token, weight 800,
-  // and basalt ink. cursor-pointer sits on the whole row (not just the input) because the label
-  // wrap below makes the entire row the hit target, not only the control.
+  // The exact utility codification of suggest/+page.svelte's .choice, once part of the retired
+  // legacy stylesheet: the auto/1fr grid, the 0.6rem gap, centered items, the control min-height
+  // token, weight 800, and basalt ink. cursor-pointer sits on the whole row (not just the input)
+  // because the label wrap below makes the entire row the hit target, not only the control.
   const classes = $derived(
     [
       'grid grid-cols-[auto_1fr] gap-[0.6rem] items-center min-h-control text-basalt font-extrabold cursor-pointer',
