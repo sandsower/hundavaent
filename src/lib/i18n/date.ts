@@ -1,4 +1,4 @@
-import type { Locale } from './index';
+import type { Locale } from './locale';
 
 const monthNames: Record<Locale, readonly string[]> = {
   is: [

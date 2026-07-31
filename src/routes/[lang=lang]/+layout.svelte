@@ -31,6 +31,15 @@
   import type { LayoutProps } from './$types';
 
   let { data, children }: LayoutProps = $props();
+
+  // The server renders <html lang> exactly once (app.html's %lang%), so a client-side switch
+  // between /is and /en leaves assistive tech announcing in the previous language. The document
+  // element sits above every component, and this layout is the locale boundary, so it owns the
+  // attribute after hydration.
+  $effect(() => {
+    document.documentElement.lang = data.lang;
+  });
+
   let currentHash = $state('');
   let hydrated = $state(false);
   let weeklyRhythm = $state<WeeklyRhythm>({ status: 'unavailable' });
