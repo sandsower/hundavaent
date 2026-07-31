@@ -20,9 +20,9 @@
 
   let { legend, class: className = '', children, ...rest }: Props = $props();
 
-  // The exact utility codification of the shipped .hv-form-section.hv-panel pair
-  // (primitives.css:99-129): the grid + panel gap, the panel padding, the 1px subtle border, the
-  // panel radius, the raised surface, and the raised shadow.
+  // The exact utility codification of the retired legacy .hv-form-section.hv-panel pair: the
+  // grid + panel gap, the panel padding, the 1px subtle border, the panel radius, the raised
+  // surface, and the raised shadow.
   const classes = $derived(
     [
       'grid min-w-0 gap-panel p-panel border border-border-subtle rounded-panel bg-snow-raised shadow-raised',

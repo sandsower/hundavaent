@@ -17,16 +17,16 @@
 
 <Story name="Verified" args={{ tone: 'verified' }}>Verified</Story>
 
-<!-- selected is a pixel-identical alias of verified in primitives.css - kept as its own Story so
-     the redundancy is visible rather than hidden. -->
+<!-- selected was a pixel-identical alias of verified in the retired legacy stylesheet - kept as
+     its own Story so the redundancy is visible rather than hidden. -->
 <Story name="Selected" args={{ tone: 'selected' }}>Selected</Story>
 
 <Story name="Success" args={{ tone: 'success' }}>Approved</Story>
 
 <Story name="Error" args={{ tone: 'error' }}>Rejected</Story>
 
-<!-- attention is a pixel-identical alias of error in primitives.css - a knowingly-kept redundancy,
-     shown as its own Story for the same reason. -->
+<!-- attention was a pixel-identical alias of error in the retired legacy stylesheet - a
+     knowingly-kept redundancy, shown as its own Story for the same reason. -->
 <Story name="Attention" args={{ tone: 'attention' }}>Needs attention</Story>
 
 <Story name="All Tones">

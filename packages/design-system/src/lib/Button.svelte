@@ -59,12 +59,12 @@
     ...rest
   }: Props = $props();
 
-  // The exact utility codification of .hv-control (primitives.css ~131-176): min-height, the 1px
-  // border (width/style only - see below), weight 800, no underline, and the focus-visible ring +
-  // offset shadow. Border colour, background, text colour, radius, and padding are deliberately
-  // absent here - they come from intentClasses and shapeClasses below, each as a single matched
-  // set, never layered on top of this or on top of each other. This is more than the original
-  // two-property split: border colour lives in intentClasses (a `quiet` intent needs
+  // The exact utility codification of the retired legacy .hv-control primitive: min-height, the
+  // 1px border (width/style only - see below), weight 800, and no underline. Border colour,
+  // background, text colour, radius, and padding are deliberately absent here - they come from
+  // intentClasses and shapeClasses below, each as a single matched set, never layered on top of
+  // this or on top of each other. This is more than the original two-property split: border
+  // colour lives in intentClasses (a `quiet` intent needs
   // border-fjord, not border-border-strong, alongside its own background/text), and radius+padding
   // live in shapeClasses (a `round` Button needs rounded-full and zero padding, not
   // rounded-control's pill radius and fixed inset). `base` keeps only the unqualified `border`
@@ -86,14 +86,8 @@
   // every surveyed call site. Anchors carry no :disabled attribute, so not-disabled resolves true
   // there, which is the correct outcome - a link-mode Button still gets the lift.
   //
-  // The trailing focus-visible:* utilities below currently have no visible effect in the app: src/app.css
-  // carries an unlayered global `:focus-visible` rule (outline, offset, and the same offset box-shadow)
-  // that beats these layered Tailwind utilities wherever both apply, and today the two happen to be
-  // set to identical values, so nothing looks wrong. In Storybook, preview.css does not repeat that
-  // global rule, so these utilities are the only thing rendering Button's focus ring there. This
-  // double ownership is a known/deferred inconsistency, not a bug to fix now - see the matching
-  // comment at app.css's :focus-visible rule. Settling it (retiring one side) is planned for the
-  // primitives retirement phase of this migration, not before.
+  // The focus ring is not Button's to declare: theme.css's `@layer base` rule is the single owner
+  // for both the app and Storybook, so no focus-visible utilities appear in this string.
   // The disabled pair codifies the affordance the surveyed call sites converged on (account's
   // .disabled-fade hook, the candidate review shell's button:disabled rule): dimmed to 0.55 with
   // a not-allowed cursor, tone kept. Before this Button had no disabled styling at all, so a
@@ -102,7 +96,7 @@
   // mode, which is correct (there is no disabled link). Call sites with a deliberately different
   // disabled affordance (CheckInControl's cursor: wait at 0.72) out-rank these with scoped rules.
   const base =
-    'inline-flex min-h-control items-center justify-center border [font-family:inherit] [font-size:inherit] [line-height:inherit] font-extrabold no-underline cursor-pointer transition-transform duration-[var(--hv-motion-instant)] ease-settle not-disabled:not-aria-pressed:hover:-translate-y-px not-disabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-[0.55] focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]';
+    'inline-flex min-h-control items-center justify-center border [font-family:inherit] [font-size:inherit] [line-height:inherit] font-extrabold no-underline cursor-pointer transition-transform duration-[var(--hv-motion-instant)] ease-settle not-disabled:not-aria-pressed:hover:-translate-y-px not-disabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-[0.55]';
 
   // Each intent is a complete border/background/text triple, not an override layered on the base
   // classes: Tailwind resolves two utilities that touch the same CSS property (say

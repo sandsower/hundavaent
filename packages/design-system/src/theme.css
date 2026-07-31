@@ -1,7 +1,7 @@
-/* The Tailwind side of the design language. Theme and utilities only: preflight is deliberately
-   absent for the whole migration window, because its resets would reflow every surface that
-   still styles itself and the migration's proof is pixel parity. Revisit once nothing else is
-   left to reset.
+/* The Tailwind side of the design language. Theme, utilities, and a single base rule: preflight
+   is deliberately absent for the whole migration window, because its resets would reflow every
+   surface that still styles itself and the migration's proof is pixel parity. Revisit once
+   nothing else is left to reset.
 
    Every mapping references the live --hv-* custom property rather than restating its value, so
    there is exactly one source of truth and, just as load-bearing: [data-ui-mode='operations']
@@ -18,6 +18,21 @@
    to inlining the reference) would silently freeze every utility to Member mode. */
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
+
+/* Single focus-ring owner for every focusable element in any surface that imports this file - the
+   app and Storybook both do, so this is the one place the ring is declared. It lives in
+   `@layer base` deliberately: Tailwind's `focus-visible:*` utilities and unlayered scoped
+   component styles both carry higher cascade weight than anything in `base`, so either can
+   still out-rank this rule on purpose. Rating's own `:focus-visible` rule is exactly that case -
+   it is unlayered with higher specificity, keeps a deliberate 1px offset difference from the
+   values below, and wins without needing an override mechanism. */
+@layer base {
+  :focus-visible {
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--hv-focus-offset);
+  }
+}
 
 /* This file ships inside the package, so the app's own source scan never reaches the component
    sources sitting next to it (they resolve under node_modules, which scanning ignores). */

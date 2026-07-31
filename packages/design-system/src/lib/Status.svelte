@@ -19,8 +19,8 @@
 
   let { tone, class: className = '', children, ...rest }: Props = $props();
 
-  // The exact utility codification of .hv-status's shared rule (primitives.css:186-193): inline
-  // chip layout, the 1px strong border, the control radius, the fixed 0.3rem/0.5rem block/inline
+  // The exact utility codification of the retired legacy .hv-status primitive's shared rule:
+  // inline chip layout, the 1px strong border, the control radius, the fixed 0.3rem/0.5rem block/inline
   // padding, the 0.75rem size, and weight 800. Background and text colour are deliberately absent
   // here - they come from toneClasses below as a single matched set, never layered on top, for the
   // same Tailwind same-specificity reason Button's base/intentClasses split calls out.
@@ -33,15 +33,15 @@
   // (fjord-soft, no text colour override) rather than being folded into `base`.
   const toneClasses: Record<'untoned' | Tone, string> = {
     untoned: 'bg-fjord-soft',
-    // verified and selected are pixel-identical in primitives.css (a single shared selector) -
-    // kept as two complete entries here rather than aliased, so either tone name reads as
-    // first-class.
+    // verified and selected were pixel-identical in the retired legacy stylesheet (a single
+    // shared selector) - kept as two complete entries here rather than aliased, so either tone
+    // name reads as first-class.
     verified: 'bg-signal text-basalt',
     selected: 'bg-signal text-basalt',
     success: 'bg-success-soft text-success',
-    // error and attention are also pixel-identical in primitives.css - a knowingly-kept
-    // redundancy (two separate selectors resolving to the same declarations), pinned rather than
-    // collapsed so the codification stays a faithful mirror of the source.
+    // error and attention were also pixel-identical in the retired legacy stylesheet - a
+    // knowingly-kept redundancy (two separate selectors resolving to the same declarations),
+    // pinned rather than collapsed so the codification stays a faithful mirror of the source.
     error: 'bg-danger-soft text-danger',
     attention: 'bg-danger-soft text-danger'
   };

@@ -144,7 +144,7 @@
 
   {#if errorMessage}
     <p
-      class="border rounded-panel p-panel border-danger bg-danger-soft text-danger font-extrabold focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+      class="border rounded-panel p-panel border-danger bg-danger-soft text-danger font-extrabold"
       role="alert"
       tabindex="-1"
       bind:this={errorElement}
@@ -164,7 +164,7 @@
         </p>
         <p class="mb-0">
           <a
-            class="text-fjord font-extrabold focus-visible:rounded-control focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+            class="text-fjord font-extrabold focus-visible:rounded-control"
             href={resolve('/[lang=lang]/moderation/places/[id]', {
               lang: data.lang,
               id: form.placeId

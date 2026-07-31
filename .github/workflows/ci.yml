@@ -30,6 +30,7 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm check
+      - run: pnpm --filter @hundavaent/design-system check
       - run: pnpm test:unit
       - run: pnpm build
 

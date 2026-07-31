@@ -1,12 +1,10 @@
-/* Declared before anything loads so the order is set by intent, not import accident: Tailwind
-   utilities must beat the hv-* primitives for the whole migration window, or a migrated
-   component sitting inside an unmigrated shell resolves its styles by source-order luck. */
-@layer hundavaent.base, hundavaent.tokens, hundavaent.primitives, theme, base, components, utilities;
+/* Declared before anything loads so the order is set by intent, not import accident: this list
+   names every layer the app sequences. */
+@layer hundavaent.base, hundavaent.tokens, theme, base, components, utilities;
 
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/source-serif-4';
 @import '$lib/design-system/tokens.css';
-@import '$lib/design-system/primitives.css';
 @import '@hundavaent/design-system/theme.css';
 
 :root {
@@ -60,19 +58,6 @@ a {
 ::selection {
   background: var(--hv-color-signal, #f2c94c);
   color: var(--hv-color-basalt, #1e2d31);
-}
-
-/* Unlayered on purpose, which means it beats every layered rule including the design-system
-   Button's own focus-visible:* Tailwind utilities (Button.svelte, near the `base` class string) -
-   the two currently carry identical values, so this shadowing is invisible in the app today.
-   Storybook's preview.css deliberately does not repeat this rule, so Button's own utilities are
-   what render its focus ring there. This double ownership is known and deferred, not a bug: it
-   gets settled (one side retired) in the primitives retirement phase of the design-system
-   migration, not before. */
-:focus-visible {
-  outline: 3px solid var(--hv-focus-ring, #2f6f86);
-  outline-offset: 3px;
-  box-shadow: 0 0 0 2px var(--hv-focus-offset, #fbfcf9);
 }
 
 /* Place pin: an anchored teardrop whose tail sits on the coordinate. The name
@@ -200,11 +185,10 @@ a {
   box-shadow: var(--hv-shadow-raised, 0 0.7rem 1.8rem rgb(30 45 49 / 12%));
 }
 
+/* The ring itself comes from the design-system's global focus-visible rule; only the tighter
+   corner radius is local shaping for this pin. */
 .hundavaent-marker:focus-visible {
   border-radius: 0.8rem;
-  outline: 3px solid var(--hv-focus-ring, #2f6f86);
-  outline-offset: 3px;
-  box-shadow: 0 0 0 2px var(--hv-focus-offset, #fbfcf9);
 }
 
 /* The reader's own position: a passive dot, never a control. It sits under the place pins

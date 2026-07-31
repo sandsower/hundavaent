@@ -47,7 +47,7 @@
   // baseline-first migration ships the browser's own affordance rather than a bespoke one, and
   // revisiting that is a deliberate later call, not an oversight in this primitive.
   const base =
-    'w-full min-w-0 min-h-control border border-border-strong rounded-control bg-snow-raised px-[0.8rem] py-[0.55rem] text-basalt [font-family:inherit] [font-size:inherit] [line-height:inherit] disabled:bg-snow disabled:text-basalt-muted aria-invalid:border-danger focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-focus-ring focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]';
+    'w-full min-w-0 min-h-control border border-border-strong rounded-control bg-snow-raised px-[0.8rem] py-[0.55rem] text-basalt [font-family:inherit] [font-size:inherit] [line-height:inherit] disabled:bg-snow disabled:text-basalt-muted aria-invalid:border-danger';
 
   const classes = $derived([base, className].filter(Boolean).join(' '));
 </script>

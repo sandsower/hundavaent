@@ -25,8 +25,8 @@
 
   let { tone, as = 'div', class: className = '', children, ...rest }: Props = $props();
 
-  // The exact utility codification of .hv-notice's shared rule (primitives.css:216-221): a 1px
-  // border, the panel radius, and the panel padding. Border colour and background are deliberately
+  // The exact utility codification of the retired legacy .hv-notice primitive's shared rule: a
+  // 1px border, the panel radius, and the panel padding. Border colour and background are deliberately
   // absent here - they come from toneClasses below as a single matched set, never layered on top
   // of this, for the same Tailwind same-specificity reason Button's base/intentClasses split calls
   // out.
@@ -41,8 +41,9 @@
     untoned: 'border-border-subtle bg-fjord-soft',
     info: 'border-fjord bg-fjord-soft',
     verified: 'border-basalt bg-signal-soft',
-    // attention and error are pixel-identical in primitives.css (a single shared selector) - kept
-    // as two complete entries here rather than aliased, so either tone name reads as first-class.
+    // attention and error were pixel-identical in the retired legacy stylesheet (a single shared
+    // selector) - kept as two complete entries here rather than aliased, so either tone name
+    // reads as first-class.
     attention: 'border-danger bg-danger-soft text-danger',
     error: 'border-danger bg-danger-soft text-danger',
     success: 'border-success bg-success-soft text-success'

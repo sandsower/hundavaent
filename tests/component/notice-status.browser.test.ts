@@ -3,10 +3,10 @@ import { render, screen } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { describe, expect, it } from 'vitest';
 
-// app.css is the app's real CSS entrypoint: it imports both tokens.css/primitives.css (the legacy
-// .hv-notice/.hv-status baseline these components codify) and @hundavaent/design-system/theme.css
-// (the Tailwind utility layer Notice/Status are built from) - the same dual load button.browser.test.ts
-// relies on for its own computed-style assertions.
+// app.css is the app's real CSS entrypoint: it imports tokens.css and @hundavaent/design-system/theme.css
+// (the Tailwind utility layer Notice/Status are built from). The legacy primitives.css stylesheet
+// and its .hv-notice/.hv-status baseline are deleted, not merely empty - this is the same dual
+// load button.browser.test.ts relies on for its own computed-style assertions.
 import '../../src/app.css';
 
 function label(text: string) {
@@ -63,9 +63,10 @@ function resolvedPadding(token: string): string {
 
 // The legacy-parity tests that rendered a live .hv-notice/.hv-status probe against the real
 // primitives.css cascade retired with the rules themselves (phase 6 deleted the last legacy
-// class users, so the baseline no longer exists to compare against). The direct token-resolution
-// pins below are now the codification's contract - each resolves its token through a probe
-// element, never a bare equality that could collapse to an inherited default.
+// class users, so the baseline no longer existed to compare against; the by-then-empty
+// primitives.css stylesheet was itself deleted in the follow-up pass). The direct
+// token-resolution pins below are now the codification's contract - each resolves its token
+// through a probe element, never a bare equality that could collapse to an inherited default.
 
 describe('Notice', () => {
   it('resolves the untoned base to border-border-subtle and bg-fjord-soft', () => {

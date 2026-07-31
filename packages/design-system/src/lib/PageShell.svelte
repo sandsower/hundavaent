@@ -11,10 +11,10 @@
         `section`. */
     as?: string;
     /** Emitted as `data-ui-mode` unconditionally. The attribute is load-bearing twice over: the
-        operations retune in tokens.css keys on it, and every unmigrated hv-* primitive rule in
-        the shell's subtree is guarded by "ancestor-or-self carries a ui mode" - a shell that
-        stopped emitting it would silently un-style its own descendants (the failure mode the
-        guard's comment in primitives.css describes). A nested duplicate (about) is harmless:
+        operations retune in tokens.css keys on it, and every retired hv-* legacy rule that once
+        lived in the shell's subtree was guarded by "ancestor-or-self carries a ui mode" - a shell
+        that stopped emitting it would silently un-style its own descendants (the failure mode
+        that guard existed to prevent). A nested duplicate (about) is harmless:
         the inner attribute re-declares the same custom properties. */
     mode?: Mode;
     /** Content measure. Wide is the default the old data-width vocabulary implied when absent. */
@@ -48,11 +48,12 @@
 </svelte:element>
 
 <style>
-  /* The exact recipe of .hv-page-shell (primitives.css): hug the viewport at the shared edge
-     inset, cap at the content container, centre, and carry the page's own block padding. Scoped
-     style rather than utilities because the width is a min() over two token references - the
-     same reason Dialog keeps a style block - and var() resolves here at the element, so the
-     operations edge/section retunes flow through exactly as the primitive class's did. */
+  /* The exact recipe of the retired legacy .hv-page-shell primitive: hug the viewport at the
+     shared edge inset, cap at the content container, centre, and carry the page's own block
+     padding. Scoped style rather than utilities because the width is a min() over two token
+     references - the same reason Dialog keeps a style block - and var() resolves here at the
+     element, so the operations edge/section retunes flow through exactly as the primitive
+     class's did. */
   .shell {
     width: min(100% - var(--hv-space-edge) * 2, var(--hv-content-wide));
     margin-inline: auto;
