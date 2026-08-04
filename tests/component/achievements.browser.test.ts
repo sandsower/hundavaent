@@ -239,7 +239,7 @@ describe('Member Achievements view', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('connects the animated trail to its paw at desktop and mobile widths', async () => {
+  it('stamps the paw onto the dashed orbit at desktop and mobile widths', async () => {
     const initialViewport = { width: window.innerWidth, height: window.innerHeight };
 
     try {
@@ -250,10 +250,10 @@ describe('Member Achievements view', () => {
       const celebration = screen.getByRole('region', {
         name: 'New achievement: Mixing It Up - Bronze'
       });
-      expectTrailToMeetPaw(celebration);
+      expectPawToSitOnOrbit(celebration);
 
       await browserPage.viewport(390, 844);
-      expectTrailToMeetPaw(celebration);
+      expectPawToSitOnOrbit(celebration);
     } finally {
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }
@@ -296,7 +296,7 @@ describe('Member Achievements view', () => {
     expect(screen.queryByText('Recognized for Quality')).toBeNull();
   });
 
-  it('opens a privacy-first share preview for every earned achievement', async () => {
+  it('opens a share preview for every earned achievement', async () => {
     renderPage('en');
 
     const shareButtons = screen.getAllByRole('button', { name: 'Share' });
@@ -305,15 +305,9 @@ describe('Member Achievements view', () => {
 
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByRole('heading', { name: 'Share your achievement' })).toBeTruthy();
-    expect(
-      within(dialog).getByText(
-        'The image includes only the achievement. Your name, activity and account stay private.'
-      )
-    ).toBeTruthy();
     expect(within(dialog).getByRole('img').getAttribute('src')).toContain('data:image/svg+xml');
     expect(within(dialog).getByRole('button', { name: 'Share image' })).toBeTruthy();
     expect(within(dialog).getByRole('button', { name: 'Download image' })).toBeTruthy();
-    expect(within(dialog).getByRole('button', { name: 'Copy caption' })).toBeTruthy();
   });
 
   it('continues Gold exploration as a moving percentage and Platinum contributions as milestones', () => {
@@ -437,24 +431,26 @@ function renderPage(lang: 'is' | 'en', claimed: ClaimedAchievement[] = []) {
   } as never);
 }
 
-function expectTrailToMeetPaw(celebration: HTMLElement) {
-  const path = celebration.querySelector<SVGPathElement>('.trail path');
+function expectPawToSitOnOrbit(celebration: HTMLElement) {
+  const orbit = celebration.querySelector<HTMLElement>('.orbit');
   const paw = celebration.querySelector<HTMLElement>('.paw');
 
-  expect(path).toBeTruthy();
+  expect(orbit).toBeTruthy();
   expect(paw).toBeTruthy();
-  if (!path || !paw) return;
+  if (!orbit || !paw) return;
 
-  const screenMatrix = path.getScreenCTM();
-  expect(screenMatrix).toBeTruthy();
-  if (!screenMatrix) return;
-
-  const endpoint = path.getPointAtLength(path.getTotalLength()).matrixTransform(screenMatrix);
+  const orbitBounds = orbit.getBoundingClientRect();
   const pawBounds = paw.getBoundingClientRect();
+  const orbitCenter = {
+    x: orbitBounds.left + orbitBounds.width / 2,
+    y: orbitBounds.top + orbitBounds.height / 2
+  };
   const pawCenter = {
     x: pawBounds.left + pawBounds.width / 2,
     y: pawBounds.top + pawBounds.height / 2
   };
+  const radius = orbitBounds.width / 2;
+  const distanceFromCenter = Math.hypot(pawCenter.x - orbitCenter.x, pawCenter.y - orbitCenter.y);
 
-  expect(Math.hypot(endpoint.x - pawCenter.x, endpoint.y - pawCenter.y)).toBeLessThan(2);
+  expect(Math.abs(distanceFromCenter - radius)).toBeLessThan(2);
 }

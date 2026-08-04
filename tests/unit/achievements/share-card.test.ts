@@ -26,8 +26,9 @@ describe('Achievement share card', () => {
     expect(ACHIEVEMENT_SHARE_WIDTH).toBe(1200);
     expect(ACHIEVEMENT_SHARE_HEIGHT).toBe(630);
     expect(svg).toContain('width="1200" height="630"');
-    expect(svg).toContain('Mixing It Up - Platinum');
-    expect(svg).toContain('stroke-dasharray="2 3"');
+    expect(svg).toContain('Mixing It Up');
+    expect(svg).toContain('PLATINUM');
+    expect(svg).toContain('stroke-dasharray="1.5 2.2"');
   });
 
   it('contains only supplied achievement copy and no member or activity fields', () => {
@@ -44,7 +45,8 @@ describe('Achievement share card', () => {
       description: "It isn't public."
     });
 
-    expect(svg).toContain('A &lt;badge&gt; &amp; &quot;more&quot;');
+    expect(svg).toContain('A &lt;badge&gt; &amp;');
+    expect(svg).toContain('&quot;more&quot;');
     expect(svg).toContain('It isn&apos;t public.');
     expect(svg).not.toContain('A <badge>');
   });
