@@ -217,7 +217,7 @@ describe('private impact record', () => {
     expect(
       within(document.querySelector('[data-achievement-kind="earned"]') as HTMLElement).getByRole(
         'heading',
-        { name: 'Earned' }
+        { name: 'Already earned' }
       )
     ).toBeTruthy();
     expect(

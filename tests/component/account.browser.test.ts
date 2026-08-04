@@ -58,10 +58,9 @@ describe('Member account', () => {
     expect(screen.getByRole('link', { name: 'Open my places' }).getAttribute('href')).toBe(
       '/en/history'
     );
-    // The trail panel is the achievements door; without facts it carries the plain label.
-    expect(screen.getByRole('link', { name: 'My Achievements' }).getAttribute('href')).toBe(
-      '/en/account/achievements'
-    );
+    // The featured card only mentions Achievements when a tier is genuinely close; without
+    // facts it says nothing about them at all.
+    expect(screen.queryByRole('link', { name: /Achievement/ })).toBeNull();
     // The recap is hub-hidden until the member base grows; the route stays direct-only.
     expect(screen.queryByRole('link', { name: 'Open my recap' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Weekly recap' })).toBeNull();
@@ -120,9 +119,15 @@ describe('Member account', () => {
     expect(screen.queryByText(/places saved/)).toBeNull();
     expect(screen.queryByText(/Last visit/)).toBeNull();
     expect(screen.queryByText(/awaiting review/)).toBeNull();
-    // Without facts the achievements door never teases; it keeps the plain label.
+    // Without facts the featured card never teases or even mentions Achievements.
     expect(screen.queryByText(/next Achievement/)).toBeNull();
-    expect(screen.getByRole('link', { name: 'My Achievements' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /Achievement/ })).toBeNull();
+    // And without a snapshot the card falls back to the standing promise about the record.
+    expect(
+      screen.getByText(
+        'A private, lasting record of the ways you have helped Hundavænt stay useful.'
+      )
+    ).toBeTruthy();
   });
 
   it('requires a second confirming step before a deletion request is submittable', async () => {
@@ -241,55 +246,98 @@ describe('Member account', () => {
     expect(screen.getByRole('link', { name: 'See my impact' })).toBeTruthy();
   });
 
-  it('shows the private eight-week trail oldest-to-newest with neutral open weeks', () => {
+  it('leads the featured card with the confirmed count and one live outcome as proof', () => {
     render(AccountPage, {
       params: { lang: 'en' },
       data: signedInData({
-        weeklyRhythmHistory: {
+        impactSnapshot: {
           status: 'available',
-          weeks: [
-            { startsOn: '2026-05-25', endsOn: '2026-05-31', current: false, active: false },
-            { startsOn: '2026-06-01', endsOn: '2026-06-07', current: false, active: true },
-            { startsOn: '2026-06-08', endsOn: '2026-06-14', current: false, active: false },
-            { startsOn: '2026-06-15', endsOn: '2026-06-21', current: false, active: true },
-            { startsOn: '2026-06-22', endsOn: '2026-06-28', current: false, active: true },
-            { startsOn: '2026-06-29', endsOn: '2026-07-05', current: false, active: false },
-            { startsOn: '2026-07-06', endsOn: '2026-07-12', current: false, active: true },
-            { startsOn: '2026-07-13', endsOn: '2026-07-19', current: true, active: true }
-          ]
+          value: {
+            confirmedContributions: 3,
+            recentOutcomes: [
+              // A revoked outcome is not proof of anything, even when it is the most recent.
+              {
+                contributionId: '94800000-0000-4000-8000-000000000401',
+                kind: 'accepted_suggestion',
+                state: 'revoked',
+                confirmedAt: '2026-07-22T10:00:00Z',
+                revokedAt: '2026-07-23T10:00:00Z',
+                subjectPlaceId: '94800000-0000-4000-8000-000000000201',
+                placeName: 'Gamla búðin',
+                availability: 'inactive',
+                successorPlaceId: null,
+                successorName: null,
+                successorAvailable: false,
+                suggestionId: '94800000-0000-4000-8000-000000000301',
+                placeFlagId: null
+              },
+              {
+                contributionId: '94800000-0000-4000-8000-000000000402',
+                kind: 'applied_correction',
+                state: 'confirmed',
+                confirmedAt: '2026-07-20T10:00:00Z',
+                revokedAt: null,
+                subjectPlaceId: '94800000-0000-4000-8000-000000000202',
+                placeName: 'Hlemmur Mathöll',
+                availability: 'available',
+                successorPlaceId: null,
+                successorName: null,
+                successorAvailable: false,
+                suggestionId: null,
+                placeFlagId: '94800000-0000-4000-8000-000000000302'
+              }
+            ]
+          }
         }
       }),
       form: null
     } as never);
 
-    const history = document.querySelector('[data-weekly-rhythm-history]');
-    expect(history?.getAttribute('data-state')).toBe('available');
-    const weeks = [...(history?.querySelectorAll('[data-week-start]') ?? [])];
-    expect(weeks).toHaveLength(8);
-    expect(weeks[0]?.getAttribute('data-week-start')).toBe('2026-05-25');
-    expect(weeks[7]?.getAttribute('data-week-start')).toBe('2026-07-13');
-    expect(weeks[0]?.getAttribute('data-state')).toBe('open');
-    expect(weeks[7]?.getAttribute('data-state')).toBe('active');
-    expect(screen.getByText('Your eight-week trail')).toBeTruthy();
-    expect(screen.getByText('This week')).toBeTruthy();
-    expect(screen.queryByText(/failed|missed|reset/i)).toBeNull();
+    expect(screen.getByText('3')).toBeTruthy();
+    expect(screen.getByText('confirmed useful contributions')).toBeTruthy();
+    expect(screen.getByText(/Your Correction to Hlemmur Mathöll is live/)).toBeTruthy();
+    expect(screen.getByText('20 July 2026')).toBeTruthy();
+    expect(screen.queryByText(/Gamla búðin/)).toBeNull();
+    // With a live snapshot the card leads with evidence, not the standing promise.
+    expect(
+      screen.queryByText(
+        'A private, lasting record of the ways you have helped Hundavænt stay useful.'
+      )
+    ).toBeNull();
   });
 
-  it('keeps weekly history failure private and reassuring', () => {
+  it('uses singular wording for a single confirmed contribution', () => {
+    render(AccountPage, {
+      params: { lang: 'en' },
+      data: signedInData({
+        impactSnapshot: {
+          status: 'available',
+          value: { confirmedContributions: 1, recentOutcomes: [] }
+        }
+      }),
+      form: null
+    } as never);
+
+    expect(screen.getByText('1')).toBeTruthy();
+    expect(screen.getByText('confirmed useful contribution')).toBeTruthy();
+    expect(screen.queryByText('confirmed useful contributions')).toBeNull();
+  });
+
+  it('keeps an impact snapshot failure private and falls back to the localized promise', () => {
     render(AccountPage, {
       params: { lang: 'is' },
       data: signedInData({
         lang: 'is',
         copy: catalogues.is,
         returnTo: '/is',
-        weeklyRhythmHistory: { status: 'unavailable' }
+        impactSnapshot: { status: 'unavailable' }
       }),
       form: null
     } as never);
 
-    expect(screen.getByRole('heading', { name: 'Átta vikna slóðin þín' })).toBeTruthy();
     expect(
-      screen.getByText('Það tekur augnablik að hlaða slóðina þína. Virknin þín er áfram varðveitt.')
+      screen.getByText('Varanlegt einkayfirlit yfir það sem þú hefur gert Hundavænt gagnlegra.')
     ).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Sjá áhrifin mín' })).toBeTruthy();
   });
 });

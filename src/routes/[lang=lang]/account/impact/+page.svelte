@@ -137,7 +137,6 @@
       <span class="orbit orbit-two"></span>
     </div>
     <div class="hero-copy">
-      <Eyebrow>{data.copy['impact.eyebrow']}</Eyebrow>
       <PageTitle id="impact-title">{data.copy['impact.title']}</PageTitle>
       <p class="intro">{data.copy['impact.intro']}</p>
       <p class="private-note">
@@ -208,7 +207,6 @@
     <header class="section-heading">
       <ImpactPillarIcon kind="outcome" size="small" />
       <div>
-        <Eyebrow>{data.copy['impact.outcomesEyebrow']}</Eyebrow>
         <h2 id="outcomes-title">{data.copy['impact.outcomesTitle']}</h2>
         <p>{data.copy['impact.outcomesIntro']}</p>
       </div>
@@ -279,7 +277,6 @@
     <header class="section-heading participation-heading">
       <ImpactPillarIcon kind="rhythm" size="small" />
       <div>
-        <Eyebrow>{data.copy['impact.participationEyebrow']}</Eyebrow>
         <h2 id="participation-title">{data.copy['impact.participationTitle']}</h2>
         <p>{data.copy['impact.participationIntro']}</p>
       </div>
@@ -291,7 +288,6 @@
           <span class="pillar-heading">
             <ImpactPillarIcon kind="rhythm" />
             <span>
-              <Eyebrow as="span">{data.copy['impact.pillar.rhythm.eyebrow']}</Eyebrow>
               <span class="pillar-title" role="heading" aria-level="3">
                 {data.copy['impact.pillar.rhythm.title']}
               </span>
@@ -320,7 +316,6 @@
           <span class="pillar-heading">
             <ImpactPillarIcon kind="exploration" />
             <span>
-              <Eyebrow as="span">{data.copy['impact.pillar.exploration.eyebrow']}</Eyebrow>
               <span class="pillar-title" role="heading" aria-level="3">
                 {data.copy['impact.pillar.exploration.title']}
               </span>
@@ -355,7 +350,6 @@
           <span class="pillar-heading">
             <ImpactPillarIcon kind="knowledge" />
             <span>
-              <Eyebrow as="span">{data.copy['impact.pillar.knowledge.eyebrow']}</Eyebrow>
               <span class="pillar-title" role="heading" aria-level="3">
                 {data.copy['impact.pillar.knowledge.title']}
               </span>
@@ -399,7 +393,6 @@
           <span class="pillar-heading">
             <ImpactPillarIcon kind="contribution" />
             <span>
-              <Eyebrow as="span">{data.copy['impact.pillar.contribution.eyebrow']}</Eyebrow>
               <span class="pillar-title" role="heading" aria-level="3">
                 {data.copy['impact.pillar.contribution.title']}
               </span>
@@ -421,28 +414,30 @@
               <dd>{number(data.impact.revokedContributions)}</dd>
             </div>
           </dl>
-          {#if data.contributor.status === 'available'}
-            <div class="status-line">
-              <span>{data.copy['impact.currentStatus']}</span>
-              <Status
-                tone={data.contributor.value.status === 'trusted_contributor'
-                  ? 'verified'
-                  : undefined}
-              >
-                {data.copy[contributorKey(data.contributor.value.status)]}
-              </Status>
-            </div>
-          {:else}
+          <!-- The row itself is the door to the status page. It sits outside the availability
+               branch: this is the only navigation entry, and its own load handles a degraded
+               status fact. -->
+          <a
+            class="status-line"
+            href={resolve('/[lang=lang]/account/contributor-status', { lang: data.lang })}
+          >
+            <span>{data.copy['impact.currentStatus']}</span>
+            <span class="status-line-value">
+              {#if data.contributor.status === 'available'}
+                <Status
+                  tone={data.contributor.value.status === 'trusted_contributor'
+                    ? 'verified'
+                    : undefined}
+                >
+                  {data.copy[contributorKey(data.contributor.value.status)]}
+                </Status>
+              {/if}
+              <span class="status-line-chevron" aria-hidden="true">→</span>
+            </span>
+          </a>
+          {#if data.contributor.status !== 'available'}
             <p class="integrity-note">{data.copy['impact.statusUnavailable']}</p>
           {/if}
-          <!-- Outside the availability branch: this is the only navigation entry to the status
-               page, and its own load handles a degraded status fact. -->
-          <Button
-            href={resolve('/[lang=lang]/account/contributor-status', { lang: data.lang })}
-            class="status-detail-link"
-          >
-            {data.copy['contributor.nav']}
-          </Button>
         </div>
       </Panel>
     </div>
@@ -452,7 +447,6 @@
     <header class="section-heading">
       <ImpactPillarIcon kind="recognition" size="small" />
       <div>
-        <Eyebrow>{data.copy['impact.recognitionEyebrow']}</Eyebrow>
         <h2 id="recognition-title">{data.copy['impact.recognitionTitle']}</h2>
         <p>{data.copy['impact.recognitionIntro']}</p>
       </div>
@@ -476,7 +470,9 @@
                       progress={1}
                     />
                   </span>
-                  <strong>{achievementName(achievement)}</strong>
+                  <span class="achievement-copy"
+                    ><strong>{achievementName(achievement)}</strong></span
+                  >
                 </li>
               {/each}
             </ul>
@@ -588,38 +584,49 @@
     );
   }
 
+  /* The headline number is the page's whole point, so the block gets one measure and one left
+     edge: the numeral is optically aligned to the text below it (a lining digit's side bearing
+     otherwise leaves it looking indented), and the provenance caption sits under a rule rather
+     than floating as a third ragged paragraph. */
   .impact-summary {
     display: grid;
-    min-width: 11.5rem;
-    gap: 0.25rem;
+    min-width: 13rem;
+    max-width: 15.5rem;
     align-self: stretch;
     align-content: center;
-    padding-left: clamp(1rem, 2.5vw, 2rem);
+    padding-left: clamp(1.25rem, 3vw, 2.25rem);
     border-left: 1px solid color-mix(in srgb, var(--hv-color-moss) 25%, transparent);
   }
 
   .impact-summary strong {
+    margin-left: -0.055em;
     color: var(--hv-color-moss-ink);
     font-family: var(--hv-font-display);
-    font-size: clamp(3rem, 7vw, 4.75rem);
+    font-size: clamp(3.25rem, 6vw, 4.5rem);
     font-weight: 950;
-    line-height: 0.9;
+    line-height: 0.85;
+    letter-spacing: -0.03em;
   }
 
   .impact-summary span {
-    max-width: 15ch;
+    max-width: none;
+    margin-top: 0.45rem;
     color: var(--hv-color-moss-ink);
-    font-size: 0.9rem;
+    font-size: 0.92rem;
     font-weight: 850;
-    line-height: 1.2;
+    line-height: 1.25;
+    text-wrap: pretty;
   }
 
   .impact-summary small {
-    max-width: 19ch;
-    margin-top: 0.55rem;
+    max-width: none;
+    margin-top: 0.85rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid color-mix(in srgb, var(--hv-color-moss) 22%, transparent);
     color: var(--hv-color-basalt-muted);
     font-size: 0.76rem;
-    line-height: 1.35;
+    line-height: 1.4;
+    text-wrap: pretty;
   }
 
   /* Re-anchored: .trusted-celebration now sits on the section Panel's class prop. */
@@ -808,10 +815,13 @@
     --impact-tone: var(--hv-color-fjord);
   }
 
+  /* Each pillar keeps its own height. Grid otherwise stretched a closed pillar to match the
+     open one beside it, which reads as a large empty card rather than as whitespace. */
   .pillar-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
+    align-items: start;
   }
 
   /* Re-anchored: .pillar (and its per-kind modifiers) now sit on each details Panel's class
@@ -890,34 +900,50 @@
     line-height: 1.1;
   }
 
+  /* One chip shape for all four pillars. The labels run from "active weeks" to "confirmed
+     useful", so letting each chip size to its own text gave four cards with four different chip
+     widths and no shared edge - a fixed width and centred content line the numerals up across
+     the grid instead, and stretch keeps the rhythm pillar's pair matched when one label wraps. */
   .pillar-snapshot {
     display: flex;
-    gap: 0.55rem;
+    gap: 0.5rem;
     justify-content: flex-end;
+    align-items: stretch;
   }
 
   .pillar-snapshot > span {
     display: grid;
-    min-width: 5.25rem;
-    gap: 0.15rem;
-    padding: 0.65rem 0.8rem;
+    width: 7rem;
+    flex: 0 0 auto;
+    gap: 0.35rem;
+    align-content: center;
+    justify-items: center;
+    padding: 0.8rem 0.75rem;
     border-radius: var(--hv-radius-control);
     background: color-mix(in srgb, var(--impact-tone) 8%, var(--hv-color-snow-raised));
+    text-align: center;
   }
 
   .pillar-snapshot strong {
     color: color-mix(in srgb, var(--impact-tone) 78%, black);
     font-family: var(--hv-font-display);
-    font-size: 1.65rem;
+    font-size: 1.55rem;
     font-weight: 950;
-    line-height: 0.9;
+    line-height: 1;
   }
 
+  /* Two label lines are always reserved, so a chip whose label wraps stays the same height as
+     one whose label does not - the pair in the rhythm pillar and the two cards in each row all
+     match. */
   .pillar-snapshot small {
+    display: grid;
+    min-height: 2.5em;
+    place-content: center;
     color: var(--hv-color-basalt-muted);
     font-size: 0.7rem;
     font-weight: 750;
-    line-height: 1.2;
+    line-height: 1.25;
+    text-wrap: balance;
   }
 
   .summary-chevron {
@@ -944,11 +970,19 @@
     line-height: 1.5;
   }
 
+  /* The metric tiles read the same way round as the snapshot chips - figure first, label under
+     it, centred - so the page has one stat treatment instead of two. The dl keeps dt before dd
+     for semantics; column-reverse only swaps the paint order. A lone metric sizes to a sensible
+     tile rather than taking a third of the row or stretching across the whole of it. */
   .metrics {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.65rem;
     margin: 0;
+  }
+
+  .metrics:has(> div:only-child) {
+    grid-template-columns: minmax(9rem, 13rem);
   }
 
   .metrics.two-up {
@@ -958,25 +992,32 @@
   .metrics div {
     display: flex;
     min-width: 0;
-    flex-direction: column;
-    gap: 0.2rem;
-    padding: 0.9rem;
+    flex-direction: column-reverse;
+    gap: 0.45rem;
+    align-items: center;
+    justify-content: center;
+    padding: 1.05rem 0.9rem;
     border-radius: var(--hv-radius-control);
     background: color-mix(in srgb, var(--impact-tone) 8%, var(--hv-color-snow-raised));
+    text-align: center;
   }
 
   .metrics dt {
+    display: grid;
+    min-height: 2.5em;
+    place-content: center;
     color: var(--hv-color-basalt-muted);
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     font-weight: 750;
     line-height: 1.25;
+    text-wrap: balance;
   }
 
   .metrics dd {
     margin: 0;
     color: color-mix(in srgb, var(--impact-tone) 78%, black);
     font-family: var(--hv-font-display);
-    font-size: clamp(1.7rem, 5vw, 2.4rem);
+    font-size: clamp(1.9rem, 4vw, 2.2rem);
     font-weight: 900;
     line-height: 1;
   }
@@ -1012,6 +1053,35 @@
     font-weight: 900;
   }
 
+  /* The status row is itself the door to the contributor-status page; it keeps .status-line's
+     shared layout rule above. */
+  .status-line {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .status-line-value {
+    display: flex;
+    gap: 0.55rem;
+    align-items: center;
+  }
+
+  .status-line-chevron {
+    color: var(--hv-color-fjord);
+    font-weight: 900;
+    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
+  }
+
+  .status-line:hover .status-line-chevron {
+    transform: translateX(0.15rem);
+  }
+
+  .status-line:focus-visible {
+    border-radius: var(--hv-radius-control);
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 2px;
+  }
+
   .integrity-note {
     margin: 0;
     color: var(--hv-color-basalt-muted);
@@ -1034,57 +1104,88 @@
     gap: 1rem;
   }
 
+  /* Each group titles itself and draws its own rule, so the split between what is earned and
+     what is still ahead reads as two labelled shelves rather than two loose piles of cards. The
+     0.78rem uppercase micro-label it replaces was quieter than the card names beneath it. */
   .achievement-group {
     display: grid;
     min-width: 0;
-    gap: 0.65rem;
+    gap: 0.85rem;
     align-content: start;
   }
 
   .achievement-group h3 {
+    display: flex;
+    gap: 0.6rem;
+    align-items: baseline;
     margin: 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.78rem;
-    font-weight: 900;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    padding-bottom: 0.55rem;
+    border-bottom: 1px solid var(--hv-border-subtle);
+    color: var(--hv-color-basalt);
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
   }
 
+  .achievement-group h3::before {
+    flex: 0 0 auto;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: var(--hv-color-moss);
+    content: '';
+    transform: translateY(-0.1em);
+  }
+
+  .achievement-group[data-achievement-kind='upcoming'] h3::before {
+    background: none;
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--hv-color-moss) 55%, white);
+  }
+
+  /* All four cards are one size. Left to itself the strip sized each card to its own content,
+     so an earned card (name only) sat shorter than an upcoming one (name, bar, count) and a
+     name that wrapped made its card taller than its neighbour. Every card now reserves two name
+     lines and a shared height, whether or not it has a progress bar to show. */
   .achievement-strip {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.65rem;
+    gap: 0.7rem;
   }
 
   .achievement-strip li {
     display: flex;
     min-width: 0;
-    gap: 0.6rem;
+    min-height: 6.6rem;
+    gap: 0.8rem;
     align-items: center;
-    padding: 0.75rem;
+    padding: 0.9rem 1rem;
     border: 1px solid var(--hv-border-subtle);
     border-radius: var(--hv-radius-control);
     background: var(--hv-color-snow-raised);
   }
 
-  .achievement-strip strong,
   .achievement-strip small {
     display: block;
-  }
-
-  .achievement-strip strong {
-    line-height: 1.2;
+    color: var(--hv-color-basalt-muted);
   }
 
   .achievement-copy {
     display: grid;
     min-width: 0;
     flex: 1;
-    gap: 0.25rem;
+    gap: 0.35rem;
+    align-content: center;
   }
 
-  .achievement-strip small {
-    color: var(--hv-color-basalt-muted);
+  /* Two name lines are reserved in BOTH kinds of card, so the earned strip and the upcoming
+     strip line up rung for rung. */
+  .achievement-copy strong {
+    display: grid;
+    min-height: 2.4em;
+    align-content: center;
+    line-height: 1.2;
+    text-wrap: pretty;
   }
 
   .achievement-strip progress {
@@ -1107,7 +1208,8 @@
     background: var(--hv-color-moss);
   }
 
-  .achievement-icon {
+  /* Scoped to .recognition so it cannot reach the achievements page's icons. */
+  :global(.recognition) .achievement-icon {
     flex: 0 0 auto;
     width: 2.8rem;
     height: 2.8rem;
@@ -1117,11 +1219,6 @@
   :global(.recognition-link),
   :global(.impact-back-link) {
     justify-self: start;
-  }
-
-  :global(.status-detail-link) {
-    justify-self: start;
-    margin-top: 0.8rem;
   }
 
   .outcomes {
@@ -1364,11 +1461,6 @@
     .metrics.two-up,
     .achievement-strip {
       grid-template-columns: 1fr 1fr;
-    }
-
-    .achievement-strip li {
-      align-items: flex-start;
-      flex-direction: column;
     }
   }
 

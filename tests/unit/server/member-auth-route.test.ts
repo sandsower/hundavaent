@@ -687,18 +687,22 @@ describe('Member auth routes', () => {
     });
   });
 
-  it('loads the private eight-week rhythm for the signed-in account', async () => {
-    const weeks = Array.from({ length: 8 }, (_, index) => {
-      const startsOn = new Date(Date.UTC(2026, 4, 25 + index * 7));
-      const endsOn = new Date(startsOn);
-      endsOn.setUTCDate(startsOn.getUTCDate() + 6);
-      return {
-        starts_on: startsOn.toISOString().slice(0, 10),
-        ends_on: endsOn.toISOString().slice(0, 10),
-        current: index === 7,
-        active: index === 6 || index === 7
-      };
-    });
+  it('loads the narrowed impact snapshot for the signed-in account', async () => {
+    const outcomeRow = {
+      contribution_id: '3f2a8b1c-4d5e-4f6a-8b9c-0d1e2f3a4b5c',
+      kind: 'applied_correction',
+      state: 'confirmed',
+      confirmed_at: '2026-07-20T12:00:00Z',
+      revoked_at: null,
+      subject_place_id: '9a8b7c6d-5e4f-4a3b-9c8d-7e6f5a4b3c2d',
+      place_name: 'Hlemmur Mathöll',
+      availability: 'available',
+      successor_place_id: null,
+      successor_name: null,
+      successor_available: false,
+      suggestion_id: null,
+      place_flag_id: '1b2c3d4e-5f6a-4b8c-9d0e-1f2a3b4c5d6e'
+    };
     const rpc = vi.fn(async (name: string) => {
       if (name === 'get_current_member_account') {
         return {
@@ -713,7 +717,29 @@ describe('Member auth routes', () => {
         };
       }
       if (name === 'has_current_user_role') return { data: false, error: null };
-      if (name === 'list_current_member_weekly_rhythm') return { data: weeks, error: null };
+      if (name === 'get_my_impact_record') {
+        return {
+          data: [
+            {
+              member_since: '2026-01-02T12:00:00Z',
+              active_weeks: 8,
+              active_months: 3,
+              credited_places: 14,
+              credited_category_groups: 5,
+              credited_municipalities: 4,
+              valid_ratings: 7,
+              submissions_total: 6,
+              pending_submissions: 1,
+              rejected_submissions: 1,
+              resolved_without_contribution: 2,
+              confirmed_contributions: 3,
+              revoked_contributions: 1,
+              recent_outcomes: [outcomeRow]
+            }
+          ],
+          error: null
+        };
+      }
       if (name === 'list_trusted_verification_tasks') {
         return { data: null, error: { code: '42501' } };
       }
@@ -740,7 +766,7 @@ describe('Member auth routes', () => {
 
     const loaded = await accountLoad({
       locals: {
-        requestId: 'request-weekly-rhythm-history',
+        requestId: 'request-impact-snapshot',
         supabase: {
           auth: {
             getUser: async () => ({
@@ -762,29 +788,34 @@ describe('Member auth routes', () => {
     } as never);
     if (!loaded) throw new Error('Expected authenticated account data');
 
-    expect(loaded).toMatchObject({
-      member: { email: 'member@example.is' },
-      weeklyRhythmHistory: {
-        status: 'available'
+    // The hub ships only the two fields its featured card renders, never the whole record.
+    expect(loaded.impactSnapshot).toEqual({
+      status: 'available',
+      value: {
+        confirmedContributions: 3,
+        recentOutcomes: [
+          {
+            contributionId: '3f2a8b1c-4d5e-4f6a-8b9c-0d1e2f3a4b5c',
+            kind: 'applied_correction',
+            state: 'confirmed',
+            confirmedAt: '2026-07-20T12:00:00Z',
+            revokedAt: null,
+            subjectPlaceId: '9a8b7c6d-5e4f-4a3b-9c8d-7e6f5a4b3c2d',
+            placeName: 'Hlemmur Mathöll',
+            availability: 'available',
+            successorPlaceId: null,
+            successorName: null,
+            successorAvailable: false,
+            suggestionId: null,
+            placeFlagId: '1b2c3d4e-5f6a-4b8c-9d0e-1f2a3b4c5d6e'
+          }
+        ]
       }
     });
-    expect(loaded.weeklyRhythmHistory).toMatchObject({
-      status: 'available',
-      weeks: expect.arrayContaining([
-        { startsOn: '2026-05-25', endsOn: '2026-05-31', current: false, active: false }
-      ])
-    });
-    expect(loaded.weeklyRhythmHistory).toMatchObject({
-      status: 'available',
-      weeks: expect.arrayContaining([
-        { startsOn: '2026-07-06', endsOn: '2026-07-12', current: false, active: true },
-        { startsOn: '2026-07-13', endsOn: '2026-07-19', current: true, active: true }
-      ])
-    });
-    expect(
-      loaded.weeklyRhythmHistory.status === 'available' ? loaded.weeklyRhythmHistory.weeks : []
-    ).toHaveLength(8);
-    expect(rpc).toHaveBeenCalledWith('list_current_member_weekly_rhythm');
+    expect(rpc).toHaveBeenCalledWith('get_my_impact_record', { requested_locale: 'en' });
+    // The rhythm trail left the hub with the redesign; its read must not ride along.
+    expect(rpc).not.toHaveBeenCalledWith('list_current_member_weekly_rhythm');
+    expect(loaded).not.toHaveProperty('weeklyRhythmHistory');
   });
 
   it('aggregates private card facts and degrades each one independently', async () => {
@@ -932,9 +963,9 @@ describe('Member auth routes', () => {
         }
       }
     });
-    // The rhythm and trusted-verification RPCs rejected above, so the same load must carry
+    // The impact and trusted-verification RPCs rejected above, so the same load must carry
     // every fact-independent failure as its own 'unavailable' rather than failing the page.
-    expect(loaded.weeklyRhythmHistory).toEqual({ status: 'unavailable' });
+    expect(loaded.impactSnapshot).toEqual({ status: 'unavailable' });
     expect(loaded.trustedVerification).toEqual({ status: 'unavailable' });
   });
 
