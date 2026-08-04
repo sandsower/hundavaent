@@ -114,8 +114,6 @@
   .cell[data-tier-state='locked'] {
     border-style: dashed;
     background: transparent;
-    /* Rungs ahead recede rather than compete with the one being worked on. */
-    opacity: 0.62;
   }
 
   .cell[data-tier-state='started'] {
