@@ -3,8 +3,6 @@
   import { resolve } from '$app/paths';
   import {
     Button,
-    Eyebrow,
-    Meta,
     Notice,
     PageHeader,
     PageShell,
@@ -15,11 +13,11 @@
   import type { SubmitFunction } from '@sveltejs/kit';
 
   import { formatLocalizedDate } from '$i18n/date';
+  import type { MessageKey } from '$i18n';
   import ImpactPillarIcon from '$lib/impact/ImpactPillarIcon.svelte';
-  import WeeklyRhythmTrail from '$lib/member-activity/WeeklyRhythmTrail.svelte';
-  import type { WeeklyRhythmHistory } from '$lib/member-activity/types';
+  import type { ImpactContributionKind, ImpactOutcome } from '$server/impact/impact-record';
 
-  import type { AccountFacts } from './+page.server';
+  import type { AccountFacts, ImpactSnapshot } from './+page.server';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
@@ -43,13 +41,6 @@
 
   const errorCode = $derived(form && 'error' in form ? form.error : data.authStatus);
   const successCode = $derived(form && 'success' in form ? form.success : null);
-  const weeklyRhythmHistory = $derived(
-    (
-      data as typeof data & {
-        weeklyRhythmHistory?: WeeklyRhythmHistory;
-      }
-    ).weeklyRhythmHistory ?? ({ status: 'unavailable' } as const)
-  );
   const trustedVerification = $derived(
     (
       data as typeof data & {
@@ -74,11 +65,48 @@
       achievements: { status: 'unavailable' }
     }
   );
+  const impactSnapshot: ImpactSnapshot = $derived(
+    (data as typeof data & { impactSnapshot?: ImpactSnapshot }).impactSnapshot ?? {
+      status: 'unavailable'
+    }
+  );
 
-  // The door teases only when the nudge is true: one qualifying action away from the nearest
-  // tier, with progress already underway. Everything else keeps the plain label - three rounds
-  // of copy showed that any attempt to surface the mechanics here confuses more than it helps.
-  const achievementsDoorLabel = $derived.by(() => {
+  const number = (value: number): string => new Intl.NumberFormat(data.lang).format(value);
+  const contributionKindKey = (kind: ImpactContributionKind): MessageKey =>
+    `impact.outcome.kind.${kind}` as MessageKey;
+
+  // The card leads with the one number the record is about. Same copy keys as the impact record
+  // itself, so the hub and the page it opens never disagree about what the count is called.
+  const confirmedLabel = $derived.by(() => {
+    if (impactSnapshot.status !== 'available') return null;
+    return impactSnapshot.value.confirmedContributions === 1
+      ? data.copy['impact.primaryConfirmedOne']
+      : data.copy['impact.primaryConfirmed'];
+  });
+
+  // One concrete outcome as evidence: the most recent contribution that is still confirmed. A
+  // revoked one is not proof of anything, and the record itself is the place for the full list.
+  const proofOutcome = $derived.by((): ImpactOutcome | null => {
+    if (impactSnapshot.status !== 'available') return null;
+    return (
+      impactSnapshot.value.recentOutcomes.find(
+        (outcome) => outcome.state === 'confirmed' && outcome.placeName
+      ) ?? null
+    );
+  });
+
+  const proofLine = $derived.by(() => {
+    const outcome = proofOutcome;
+    if (!outcome?.placeName) return null;
+    return data.copy['account.impactProof']
+      .replace('{kind}', data.copy[contributionKindKey(outcome.kind)])
+      .replace('{place}', outcome.placeName);
+  });
+
+  // Forward-looking, and only when it is true: one qualifying action away from the nearest tier,
+  // with progress already underway. Never a streak, and never the plain label dressed up as news -
+  // when there is nothing close, the card simply does not mention Achievements.
+  const achievementsNudge = $derived.by(() => {
     const fact = accountFacts.achievements;
     if (
       fact.status === 'available' &&
@@ -88,7 +116,7 @@
     ) {
       return data.copy['account.achievementsClose'];
     }
-    return data.copy['achievements.nav'];
+    return null;
   });
 
   const savedFact = $derived.by(() => {
@@ -149,9 +177,7 @@
   {#if data.member}
     <Panel as="section" class="account-card grid gap-context" aria-labelledby="account-title">
       <PageHeader>
-        <Eyebrow>{data.copy['site.name']}</Eyebrow>
         <PageTitle id="account-title">{data.copy['account.signedInTitle']}</PageTitle>
-        <Meta class="account-intro">{data.copy['account.signedInIntro']}</Meta>
       </PageHeader>
 
       {#if errorCode}
@@ -162,39 +188,62 @@
         </Notice>
       {/if}
 
-      <WeeklyRhythmTrail
-        history={weeklyRhythmHistory}
-        lang={data.lang}
-        copy={data.copy}
-        achievementsHref={resolve('/[lang=lang]/account/achievements', { lang: data.lang })}
-        achievementsLabel={achievementsDoorLabel}
-      />
-
       <div class="account-home grid gap-context">
+        <!-- The featured card: the subject, the count, one piece of evidence, the way in. Not
+             data-linked - it carries two destinations, and a whole-card hit area would route
+             the nudge's own clicks to the record instead. -->
         <Panel
           as="section"
           padded
           class="account-destination impact"
-          data-linked
           aria-labelledby="impact-heading"
         >
-          <span class="impact-icon" aria-hidden="true">
-            <ImpactPillarIcon kind="recognition" size="small" />
-          </span>
-          <div>
-            <div class="destination-heading">
-              <h2 id="impact-heading">{data.copy['account.impactHeading']}</h2>
-              {#if trustedVerificationFeedback.status === 'available' && trustedVerificationFeedback.value.hasUnread}
-                <Status>{data.copy['account.newBadge']}</Status>
-              {/if}
-            </div>
+          <div class="impact-topline">
+            <span class="impact-icon" aria-hidden="true">
+              <ImpactPillarIcon kind="recognition" size="small" />
+            </span>
+            <h2 id="impact-heading">{data.copy['account.impactHeading']}</h2>
+            {#if trustedVerificationFeedback.status === 'available' && trustedVerificationFeedback.value.hasUnread}
+              <Status>{data.copy['account.newBadge']}</Status>
+            {/if}
+          </div>
+
+          {#if impactSnapshot.status === 'available' && confirmedLabel}
+            <p class="impact-headline">
+              <strong>{number(impactSnapshot.value.confirmedContributions)}</strong>
+              <span>{confirmedLabel}</span>
+            </p>
+          {:else}
             <p>{data.copy['account.impactIntro']}</p>
+          {/if}
+
+          {#if proofLine && proofOutcome}
+            <p class="impact-proof">
+              <span class="proof-mark" aria-hidden="true">✓</span>
+              <span>
+                {proofLine}
+                <span class="proof-date">
+                  {formatLocalizedDate(proofOutcome.confirmedAt, data.lang)}
+                </span>
+              </span>
+            </p>
+          {/if}
+
+          <div class="impact-actions">
             <Button
+              intent="primary"
               href={resolve('/[lang=lang]/account/impact', { lang: data.lang })}
-              class="card-link"
             >
               {data.copy['account.impactLink']}
             </Button>
+            {#if achievementsNudge}
+              <a
+                class="achievements-nudge"
+                href={resolve('/[lang=lang]/account/achievements', { lang: data.lang })}
+              >
+                {achievementsNudge}&nbsp;<span aria-hidden="true">→</span>
+              </a>
+            {/if}
           </div>
         </Panel>
 
@@ -386,17 +435,9 @@
     font-size: 1.2rem;
   }
 
-  :global(.account-intro) {
-    max-width: 46ch;
-  }
-
   form {
     display: grid;
     gap: 0.65rem;
-  }
-
-  dt {
-    font-weight: 850;
   }
 
   /* Button owns its own disabled treatment, which differs from this page's dimmed-fade look;
@@ -417,21 +458,51 @@
     line-height: 1.45;
   }
 
+  /* Identity ledger: label left, value right, hairline between - the same shape the impact
+     record uses for its own label/value lists. The two-column grid it replaced put a long
+     email on its own wrapped line while short values floated mid-panel. */
   dl {
     display: grid;
     margin: 0;
-    gap: var(--hv-space-panel);
+    gap: 0;
   }
 
   dl div {
-    display: grid;
-    grid-template-columns: minmax(8rem, 0.45fr) 1fr;
-    gap: 0.8rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 1.25rem;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-block: 0.75rem;
+    border-bottom: 1px solid var(--hv-border-subtle);
+  }
+
+  /* Both end rows keep their padding, so the list sits evenly inside the panel instead of
+     hugging the bottom edge while the top has the heading's breathing room. */
+  dl div:first-of-type {
+    padding-top: 0.35rem;
+  }
+
+  dl div:last-of-type {
+    padding-bottom: 0.35rem;
+    border-bottom: 0;
+  }
+
+  dt {
+    color: var(--hv-color-basalt-muted);
+    font-size: 0.88rem;
+    font-weight: 750;
   }
 
   dd {
     margin: 0;
+    font-weight: 850;
     overflow-wrap: anywhere;
+    text-align: end;
+  }
+
+  :global(.identity) {
+    padding: clamp(1.35rem, 3.2vw, 1.9rem);
   }
 
   :global(.account-destination) {
@@ -476,10 +547,8 @@
   }
 
   /* The whole card is one link target: the card's single control stretches an invisible hit
-     area across the panel. Cards with several destinations (contributions) stay button-only,
-     so a card never looks tappable while routing only part of its surface. .card-link now
-     renders through Button, so it needs its own :global() too; the positioned ancestor stays
-     .account-destination (position: relative, above), unaffected by the Button migration. */
+     area across the panel. Cards with several destinations (impact, contributions) stay
+     button-only, so a card never looks tappable while routing only part of its surface. */
   :global(.account-destination[data-linked]) :global(.card-link)::after {
     position: absolute;
     inset: 0;
@@ -499,12 +568,12 @@
   }
 
   /* Impact is the one featured card; every other destination renders as a plain panel so the
-     accent actually directs attention instead of competing with two other tinted cards. */
+     accent actually directs attention instead of competing with two other tinted cards. One
+     column, not the icon-gutter grid: the gutter reserved empty space beside the figure, the
+     proof and the actions all the way down the card. */
   :global(.account-destination.impact) {
     --impact-tone: var(--hv-color-moss);
 
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
     border-color: color-mix(in srgb, var(--hv-color-moss) 30%, var(--hv-border-subtle));
     background: linear-gradient(105deg, rgb(79 143 104 / 12%) 0%, var(--hv-color-snow-raised) 38%);
   }
@@ -524,10 +593,108 @@
     place-items: center;
   }
 
-  .destination-heading {
+  /* Read top to bottom: the subject, the count, the evidence, the way in. These rules sit
+     after the shared .account-destination p rules on purpose - equal specificity, later
+     source order, so the figure and the proof strip keep their own margins. */
+  .impact-topline {
     display: flex;
-    gap: 0.65rem;
+    gap: 0.7rem;
     align-items: center;
+  }
+
+  /* The figure reads as one line of text rather than a display numeral: at 3rem+ it fought
+     the title, which is indented behind its icon. Sized closer to the label, the row scans as
+     one statement on the same left edge as the proof strip and the actions below. */
+  p.impact-headline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.5rem;
+    align-items: baseline;
+    margin-top: 0.75rem;
+    color: var(--hv-color-moss-ink);
+  }
+
+  p.impact-headline strong {
+    margin-left: -0.03em;
+    font-family: var(--hv-font-display);
+    font-size: 2.15rem;
+    font-weight: 950;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  p.impact-headline span {
+    font-size: 1rem;
+    font-weight: 850;
+    line-height: 1.3;
+  }
+
+  /* The proof sits in its own tinted strip, so one real outcome reads as evidence rather than
+     as a third paragraph of card copy. */
+  p.impact-proof {
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+    margin-top: 0.95rem;
+    margin-bottom: 0;
+    padding: 0.65rem 0.8rem;
+    border-radius: var(--hv-radius-control);
+    background: color-mix(in srgb, var(--hv-color-moss) 9%, white);
+    color: var(--hv-color-basalt);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .proof-mark {
+    display: grid;
+    width: 1.35rem;
+    height: 1.35rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--hv-color-moss) 22%, white);
+    color: var(--hv-color-moss-ink);
+    font-size: 0.72rem;
+    font-weight: 950;
+  }
+
+  .proof-date {
+    display: block;
+    margin-top: 0.1rem;
+    color: var(--hv-color-basalt-muted);
+    font-weight: 750;
+  }
+
+  .impact-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem 1.1rem;
+    align-items: center;
+    margin-top: var(--hv-space-panel);
+  }
+
+  /* The secondary door to recognition. A quiet text link, not a second button: the card leads
+     with one primary destination, and this line is forward-looking on purpose - a goal, never
+     a streak. */
+  .achievements-nudge {
+    color: var(--hv-color-moss-ink);
+    font-size: 0.88rem;
+    font-weight: 850;
+    line-height: 1.35;
+    text-decoration: none;
+    text-wrap: pretty;
+  }
+
+  .achievements-nudge:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .achievements-nudge:focus-visible {
+    border-radius: var(--hv-radius-control);
+    outline: 3px solid var(--hv-focus-ring);
+    outline-offset: 3px;
   }
 
   :global(.account-destination.moderation) {
@@ -575,11 +742,6 @@
   @media (max-width: 32rem) {
     :global(.account-card) {
       padding: var(--hv-space-context);
-    }
-
-    dl div {
-      grid-template-columns: 1fr;
-      gap: 0.15rem;
     }
   }
 </style>

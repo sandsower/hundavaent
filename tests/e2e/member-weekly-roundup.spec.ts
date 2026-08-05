@@ -20,16 +20,18 @@ test('a Member can shape a bilingual roundup without activating weekly rhythm or
   const email = `weekly-roundup-${Date.now()}@example.invalid`;
   await signInMember(page, email);
 
-  await page.goto('/en/account');
-  await expect(page.locator('[data-weekly-rhythm-history] .current')).toHaveAttribute(
-    'data-state',
-    'open'
-  );
+  // The trail lives on the impact record's rhythm pillar since the hub redesign. Signing in
+  // must not have activated the current week.
+  await expectCurrentWeekOpen(page);
 
   // The recap has no account-hub entry while the member base is small; the route is direct-only.
   await page.goto('/en/account/roundup');
   await expect(page).toHaveURL('/en/account/roundup');
   await expect(page.getByRole('heading', { name: 'Choose where your trail begins' })).toBeVisible();
+  // The checkboxes must not be ticked before Svelte finishes hydrating: hydration re-renders
+  // the form and silently wipes any pre-hydration checkbox state, so the save then persists
+  // only the boxes ticked afterwards.
+  await waitForHydration(page);
   const mailboxBeforePreferences = await mailboxCount(request);
 
   await page.getByRole('checkbox', { name: 'Reykjavík' }).check();
@@ -95,11 +97,7 @@ test('a Member can shape a bilingual roundup without activating weekly rhythm or
   ).toBeVisible();
   await expect(page.getByRole('link', { name: 'Skoða alla staði' })).toHaveAttribute('href', '/is');
 
-  await page.goto('/en/account');
-  await expect(page.locator('[data-weekly-rhythm-history] .current')).toHaveAttribute(
-    'data-state',
-    'open'
-  );
+  await expectCurrentWeekOpen(page);
 });
 
 test('Visitors cannot reach or call private roundup surfaces', async ({ page, request }) => {
@@ -143,6 +141,16 @@ async function signInMember(page: Page, email: string): Promise<void> {
   await page.getByRole('dialog').getByRole('button', { name: 'Send me a sign-in link' }).click();
   await page.goto(await waitForLocalMagicLink(email));
   await waitForHydration(page);
+}
+
+// The trail renders on the impact record's rhythm pillar; opening the details reveals it.
+async function expectCurrentWeekOpen(page: Page): Promise<void> {
+  await page.goto('/en/account/impact');
+  await page.locator('[data-impact-pillar="rhythm"] summary').click();
+  await expect(page.locator('[data-weekly-rhythm-history] .current')).toHaveAttribute(
+    'data-state',
+    'open'
+  );
 }
 
 async function mailboxCount(request: APIRequestContext): Promise<number> {

@@ -733,10 +733,8 @@ test('private Favourite actions and the saved view are keyboard-operable and Axe
   }, evaluationFixtureIds.places.published);
   await page.goto('/en/account');
   await waitForHydration(page);
-  const weeklyRhythmHistory = page.locator('[data-weekly-rhythm-history]');
-  await expect(weeklyRhythmHistory).toHaveAttribute('data-state', 'available');
-  await expect(weeklyRhythmHistory.locator('[data-week-start]')).toHaveCount(8);
-  await expect(page.locator('[data-weekly-rhythm-indicator][data-state="active"]')).toBeVisible();
+  // The hub leads with the featured impact card; the rhythm trail lives on the impact record.
+  await expect(page.getByRole('link', { name: 'See my impact' })).toBeVisible();
   await expectNoSeriousAxeViolations(page, evidence);
 
   await page.goto('/en/favorites');

@@ -24,7 +24,11 @@ import { hasOptionalRole } from '$server/auth/role-capability';
 import { isValidEmail, normalizeMemberReturnTo } from '$server/auth/return-to';
 import { AuthenticationExpiredError, getMemberSession } from '$server/auth/session';
 import { listFavouriteIds } from '$server/favourites/favourites';
-import { getWeeklyRhythmHistory } from '$server/member-activity/weekly-rhythm';
+import {
+  getMyImpactRecord,
+  type ImpactRecord,
+  type ImpactRpcClient
+} from '$server/impact/impact-record';
 import { listPersonalCheckIns } from '$server/personal-history/personal-history';
 import { listMemberSuggestions, type SuggestionRpcClient } from '$server/suggestions/suggestions';
 import {
@@ -54,6 +58,13 @@ export interface AccountFacts {
       }
     | { status: 'unavailable' };
 }
+
+// Degradable in the same shape as the rest of the account facts: the hub must render when the
+// impact RPC is down. Narrowed to the two fields the featured card uses so the hub does not
+// ship the whole record over the wire.
+export type ImpactSnapshot =
+  | { status: 'available'; value: Pick<ImpactRecord, 'confirmedContributions' | 'recentOutcomes'> }
+  | { status: 'unavailable' };
 
 // The card fact is the single nearest tier across all collections: within a collection the
 // nearest unearned tier is the one with the smallest target, and across collections the member
@@ -169,22 +180,22 @@ export function _createLoad(
     const trustedClient = locals.supabase as unknown as TrustedVerificationRpcClient;
     const [
       canModerate,
-      weeklyRhythmHistory,
       trustedTasks,
       trustedFeedback,
       favouriteIds,
       latestCheckIns,
       memberSuggestions,
-      achievements
+      achievements,
+      impact
     ] = await Promise.all([
       hasOptionalRole(locals.supabase, 'moderator'),
-      getWeeklyRhythmHistory(locals.supabase),
       listTrustedVerificationTasks(trustedClient, lang, 1),
       getMyTrustedVerificationFeedback(trustedClient),
       listFavouriteIds(locals.supabase),
       listPersonalCheckIns(locals.supabase, lang, { limit: 1 }),
       listMemberSuggestions(locals.supabase as unknown as SuggestionRpcClient, null, 50),
-      getMyAchievements(locals.supabase as unknown as AchievementRpcClient)
+      getMyAchievements(locals.supabase as unknown as AchievementRpcClient),
+      getMyImpactRecord(locals.supabase as unknown as ImpactRpcClient, lang)
     ]);
 
     const accountFacts: AccountFacts = {
@@ -238,7 +249,18 @@ export function _createLoad(
       providers,
       canModerate,
       accountFacts,
-      weeklyRhythmHistory,
+      // A failed read is NOT an error here - unlike the impact route, this page has four other
+      // destinations to show. The card falls back to account.impactIntro.
+      impactSnapshot:
+        impact.status === 'success'
+          ? {
+              status: 'available' as const,
+              value: {
+                confirmedContributions: impact.value.confirmedContributions,
+                recentOutcomes: impact.value.recentOutcomes
+              }
+            }
+          : ({ status: 'unavailable' } as const),
       trustedVerification:
         trustedTasks.status === 'success'
           ? { status: 'available' as const, hasTasks: trustedTasks.value.length > 0 }

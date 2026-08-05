@@ -608,6 +608,18 @@ for (const locale of ['is', 'en'] as const) {
     await capture(page, evidence, `saved-places-${locale}-desktop.png`);
 
     await page.goto(`/${locale}/account`);
+    await expect(
+      page.getByRole('link', { name: locale === 'is' ? 'Sjá áhrifin mín' : 'See my impact' })
+    ).toBeVisible();
+    await capture(page, evidence, `account-hub-${locale}-desktop.png`);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await capture(page, evidence, `account-hub-${locale}-mobile.png`);
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    // The eight-week trail lives on the impact record's rhythm pillar since the hub redesign.
+    await page.goto(`/${locale}/account/impact`);
+    await page.locator('[data-impact-pillar="rhythm"] summary').click();
     const weeklyRhythmHistory = page.locator('[data-weekly-rhythm-history]');
     await expect(weeklyRhythmHistory).toHaveAttribute('data-state', 'available');
     await expect(weeklyRhythmHistory.locator('[data-week-start]')).toHaveCount(8);
