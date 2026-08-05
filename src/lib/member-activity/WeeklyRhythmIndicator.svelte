@@ -9,7 +9,7 @@
 </script>
 
 <span
-  class="weekly-rhythm-indicator"
+  class="weekly-rhythm-indicator absolute -top-[0.48rem] -right-[0.48rem] grid place-items-center w-[1.35rem] h-[1.35rem] border-2 border-snow-raised rounded-full bg-snow-raised text-basalt-muted pointer-events-none drop-shadow-[0_1px_1px_rgb(30_45_49_/_22%)] [&.active]:bg-signal [&.active]:text-basalt"
   class:active
   data-weekly-rhythm-indicator
   data-state={active ? 'active' : 'open'}
@@ -19,27 +19,6 @@
 </span>
 
 <style>
-  .weekly-rhythm-indicator {
-    position: absolute;
-    top: -0.48rem;
-    right: -0.48rem;
-    display: grid;
-    width: 1.35rem;
-    height: 1.35rem;
-    border: 2px solid var(--hv-color-snow-raised);
-    border-radius: 999px;
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt-muted);
-    filter: drop-shadow(0 1px 1px rgb(30 45 49 / 22%));
-    place-items: center;
-    pointer-events: none;
-  }
-
-  .weekly-rhythm-indicator.active {
-    background: var(--hv-color-signal);
-    color: var(--hv-color-basalt);
-  }
-
   .weekly-rhythm-indicator :global(svg) {
     width: 0.78rem;
     height: 0.78rem;

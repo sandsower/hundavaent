@@ -50,20 +50,26 @@
 </script>
 
 <div
-  class="acknowledgement"
+  class="acknowledgement grid w-full grid-cols-[2.8rem_minmax(0,1fr)] gap-x-[0.7rem] gap-y-0 py-3 px-[0.85rem] border border-[color-mix(in_srgb,var(--hv-color-fjord)_48%,var(--hv-border-subtle))] rounded-control bg-snow-raised text-basalt shadow-raised pointer-events-none"
   data-weekly-rhythm-acknowledgement
   data-recognition-action={recognition.action}
   data-activated-week={recognition.activatedCurrentWeek}
   role="status"
   aria-live="polite"
 >
-  <div class="trail-motif" aria-hidden="true">
-    <svg class="action-icon" viewBox="0 0 24 24">
+  <div
+    class="trail-motif relative grid row-[1/span_2] grid-cols-[0.85rem_minmax(0.25rem,1fr)_1.05rem] items-center text-fjord"
+    aria-hidden="true"
+  >
+    <svg
+      class="action-icon w-[0.85rem] fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] stroke-[1.7]"
+      viewBox="0 0 24 24"
+    >
       {#if recognition.action === 'favourite'}
         <path d="M12 20.2 4.2 12.8A5.2 5.2 0 0 1 11.6 5.5L12 6l.4-.5a5.2 5.2 0 0 1 7.4 7.3Z" />
       {:else if recognition.action === 'check_in'}
         <path d="M12 21s6-5.5 6-11A6 6 0 0 0 6 10c0 5.5 6 11 6 11Z" />
-        <circle cx="12" cy="10" r="2.1" />
+        <circle cx="12" cy="10" r="2.1" class="fill-fjord-soft" />
       {:else if recognition.action === 'rating'}
         <path d="m12 3 2.6 5.3 5.9.9-4.3 4.2 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.2 5.9-.9Z" />
       {:else if recognition.action === 'suggestion'}
@@ -75,87 +81,19 @@
         <path d="M6 21V4m0 1h11l-2 4 2 4H6" />
       {/if}
     </svg>
-    <span class="trail"></span>
+    <span class="trail h-px border-t-2 border-dotted border-current origin-left"></span>
     <PawMark active />
   </div>
-  <span class="title">
+  <span class="title min-w-0 font-display text-[0.95rem] font-[750] leading-tight">
     {recognition.activatedCurrentWeek ? copy['weeklyRhythm.activatedTitle'] : message.title}
   </span>
-  <span class="detail">{message.detail}</span>
+  <span
+    class="detail min-w-0 overflow-hidden mt-[0.12rem] text-basalt-muted text-[0.74rem] font-bold leading-tight text-ellipsis whitespace-nowrap"
+    >{message.detail}</span
+  >
 </div>
 
 <style>
-  .acknowledgement {
-    display: grid;
-    width: 100%;
-    grid-template-columns: 2.8rem minmax(0, 1fr);
-    padding: 0.75rem 0.85rem;
-    border: 1px solid color-mix(in srgb, var(--hv-color-fjord) 48%, var(--hv-border-subtle));
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-raised);
-    color: var(--hv-color-basalt);
-    gap: 0 0.7rem;
-    pointer-events: none;
-  }
-
-  .trail-motif {
-    position: relative;
-    display: grid;
-    grid-row: 1 / span 2;
-    grid-template-columns: 0.85rem minmax(0.25rem, 1fr) 1.05rem;
-    align-items: center;
-    color: var(--hv-color-fjord);
-  }
-
-  .action-icon {
-    width: 0.85rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 1.7;
-  }
-
-  .action-icon circle {
-    fill: var(--hv-color-fjord-soft);
-  }
-
-  .trail {
-    height: 1px;
-    border-top: 2px dotted currentColor;
-    transform-origin: left center;
-  }
-
-  .trail-motif :global(.paw-mark) {
-    width: 1.05rem;
-    transform: rotate(11deg);
-    transform-origin: center;
-  }
-
-  .title,
-  .detail {
-    min-width: 0;
-  }
-
-  .title {
-    font-family: var(--hv-font-display);
-    font-size: 0.95rem;
-    font-weight: 750;
-    line-height: 1.25;
-  }
-
-  .detail {
-    overflow: hidden;
-    margin-top: 0.12rem;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.74rem;
-    font-weight: 700;
-    line-height: 1.25;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   /* Slides without fading so accessibility scans never sample the copy in a
      half-transparent state. */
   @keyframes acknowledgement-arrives {
@@ -241,6 +179,12 @@
   .trail {
     animation: trail-draws var(--hv-motion-considered) calc(var(--hv-motion-stagger) * 3)
       var(--hv-ease-settle) both;
+  }
+
+  .trail-motif :global(.paw-mark) {
+    width: 1.05rem;
+    transform: rotate(11deg);
+    transform-origin: center;
   }
 
   .trail-motif :global(.paw-mark) {

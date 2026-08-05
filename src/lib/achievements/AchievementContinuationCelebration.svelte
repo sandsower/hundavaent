@@ -32,11 +32,16 @@
   });
 </script>
 
+<!-- Not <Panel>: this card needs a moss-tinted gradient background, which Panel's contract
+     cannot carry (its border/radius/shadow/background ship as one matched set that callers must
+     not override - see Panel.svelte's class-prop doc comment). The panel recipe is reproduced
+     here as scoped token CSS instead, on the caller's own element (the SelectedPlaceCard
+     precedent: carry only the tokens that render, rather than fighting the primitive). -->
 <section
-  class="continuation"
+  class="continuation grid grid-cols-[5.5rem_minmax(0,_1fr)] items-center gap-4 border border-[color-mix(in_srgb,_var(--hv-color-moss)_34%,_transparent)] rounded-panel bg-[linear-gradient(135deg,_color-mix(in_srgb,_var(--hv-color-moss)_10%,_white),_var(--hv-color-snow-raised))] shadow-raised max-[30rem]:grid-cols-[4.5rem_minmax(0,_1fr)]"
   aria-label={copy['achievements.celebrationRegion'].replace('{name}', name)}
 >
-  <span class="badge">
+  <span class="badge block w-22 max-[30rem]:w-18">
     <AchievementBadge
       achievementKey={`contributions_${continuation.milestone}`}
       collection="contributions"
@@ -44,72 +49,12 @@
       state="earned"
     />
   </span>
-  <div class="copy">
-    <p class="eyebrow">{copy['achievements.celebrationEyebrow']}</p>
-    <h2>{name}</h2>
-    <p>{description}</p>
+  <div class="copy grid gap-[0.45rem]">
+    <p class="eyebrow m-0 text-[0.72rem] font-black tracking-widest uppercase text-moss">
+      {copy['achievements.celebrationEyebrow']}
+    </p>
+    <h2 class="m-0 font-display text-[clamp(1.25rem,_4vw,_1.65rem)]">{name}</h2>
+    <p class="m-0">{description}</p>
     <AchievementShare card={shareCard} {copy} />
   </div>
 </section>
-
-<style>
-  /* Not <Panel>: this card needs a moss-tinted gradient background, which Panel's contract
-     cannot carry (its border/radius/shadow/background ship as one matched set that callers must
-     not override - see Panel.svelte's class-prop doc comment). The panel recipe is reproduced
-     here as scoped token CSS instead, on the caller's own element (the SelectedPlaceCard
-     precedent: carry only the tokens that render, rather than fighting the primitive). */
-  .continuation {
-    display: grid;
-    grid-template-columns: 5.5rem minmax(0, 1fr);
-    gap: 1rem;
-    align-items: center;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    box-shadow: var(--hv-shadow-raised);
-    border-color: color-mix(in srgb, var(--hv-color-moss) 34%, transparent);
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--hv-color-moss) 10%, white),
-      var(--hv-color-snow-raised)
-    );
-  }
-
-  .badge {
-    display: block;
-    width: 5.5rem;
-  }
-
-  .copy {
-    display: grid;
-    gap: 0.45rem;
-  }
-
-  .eyebrow,
-  h2,
-  p {
-    margin: 0;
-  }
-
-  .eyebrow {
-    color: var(--hv-color-moss);
-    font-size: 0.72rem;
-    font-weight: 900;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  h2 {
-    font-family: var(--hv-font-display);
-    font-size: clamp(1.25rem, 4vw, 1.65rem);
-  }
-
-  @media (max-width: 30rem) {
-    .continuation {
-      grid-template-columns: 4.5rem minmax(0, 1fr);
-    }
-
-    .badge {
-      width: 4.5rem;
-    }
-  }
-</style>

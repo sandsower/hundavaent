@@ -58,26 +58,40 @@
 </script>
 
 {#if collections.length > 0}
-  <section class="collections grid gap-context" aria-labelledby="achievement-collections-heading">
+  <section
+    class="collections grid gap-context [--hv-space-context:1rem]"
+    aria-labelledby="achievement-collections-heading"
+  >
     <header class="section-header">
-      <h2 id="achievement-collections-heading">{copy['achievements.collectionsTitle']}</h2>
-      <p class="spacing-note">{copy['achievements.spacingNote']}</p>
+      <h2
+        id="achievement-collections-heading"
+        class="m-0 font-display text-[clamp(1.35rem,_4vw,_1.8rem)]"
+      >
+        {copy['achievements.collectionsTitle']}
+      </h2>
+      <p
+        class="spacing-note max-w-[52ch] mx-0 mt-[0.35rem] mb-0 text-[0.88rem] leading-normal text-basalt-muted"
+      >
+        {copy['achievements.spacingNote']}
+      </p>
     </header>
 
-    <ul class="collection-list grid gap-context m-0 p-0 list-none">
+    <ul class="collection-list grid gap-context m-0 p-0 list-none [--hv-space-context:0.85rem]">
       {#each collections as collection (collection.key)}
         <Panel as="li" padded class="collection" aria-label={collectionName(collection.head, lang)}>
-          <div class="collection-head">
-            <h3>{collectionName(collection.head, lang)}</h3>
+          <div class="collection-head flex items-baseline justify-between min-w-0 gap-3">
+            <h3 class="m-0 font-display text-[1.08rem] leading-[1.2]">
+              {collectionName(collection.head, lang)}
+            </h3>
             {#if collection.key === 'explorer_places' && collection.goldEarned && collection.progress?.total}
               {@const percentage = Math.floor(
                 (100 * collection.progress.current) / Math.max(collection.progress.total, 15)
               )}
-              <p class="continuation">
+              <p class="continuation m-0 text-[0.82rem] font-extrabold text-end text-moss">
                 {copy['achievements.coverage'].replace('{percentage}', String(percentage))}
               </p>
             {:else if collection.key === 'contributions' && collection.platinumEarned && collection.progress?.nextMilestone}
-              <p class="continuation">
+              <p class="continuation m-0 text-[0.82rem] font-extrabold text-end text-moss">
                 {copy['achievements.contributionContinuation']
                   .replace('{current}', String(collection.progress.current))
                   .replace('{next}', String(collection.progress.nextMilestone))}
@@ -85,7 +99,7 @@
             {/if}
           </div>
 
-          <div class="tier-row">
+          <div class="tier-row grid grid-cols-[repeat(auto-fit,_minmax(7.5rem,_1fr))] gap-[0.7rem]">
             {#each collection.tiers as entry (entry.key)}
               <AchievementTierCell
                 {entry}
@@ -102,35 +116,6 @@
 {/if}
 
 <style>
-  .collections {
-    --hv-space-context: 1rem;
-  }
-
-  .section-header h2,
-  .section-header p {
-    margin: 0;
-  }
-
-  .section-header h2 {
-    font-family: var(--hv-font-display);
-    font-size: clamp(1.35rem, 4vw, 1.8rem);
-  }
-
-  .section-header p {
-    max-width: 52ch;
-    margin-block-start: 0.35rem;
-    color: var(--hv-color-basalt-muted);
-    line-height: 1.5;
-  }
-
-  .spacing-note {
-    font-size: 0.88rem;
-  }
-
-  .collection-list {
-    --hv-space-context: 0.85rem;
-  }
-
   /* .collection now renders through Panel (a child component), so the hook needs :global() -
      Panel's own border/radius/shadow/background/padding stay untouched; this only adds layout.
      Anchored through the locally-hashed .collection-list rather than left bare so the generic
@@ -138,34 +123,5 @@
   .collection-list :global(.collection) {
     display: grid;
     gap: 0.85rem;
-  }
-
-  .collection-head {
-    display: flex;
-    gap: 0.75rem;
-    align-items: baseline;
-    justify-content: space-between;
-    min-width: 0;
-  }
-
-  h3 {
-    margin: 0;
-    font-family: var(--hv-font-display);
-    font-size: 1.08rem;
-    line-height: 1.2;
-  }
-
-  .continuation {
-    margin: 0;
-    color: var(--hv-color-moss);
-    font-size: 0.82rem;
-    font-weight: 800;
-    text-align: end;
-  }
-
-  .tier-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
-    gap: 0.7rem;
   }
 </style>
