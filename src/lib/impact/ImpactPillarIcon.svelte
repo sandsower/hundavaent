@@ -1,4 +1,11 @@
 <script lang="ts">
+  /**
+   * Artwork is Lucide (ISC) - https://github.com/lucide-icons/lucide - vendored as path data,
+   * the same library and convention the map markers already use (src/lib/map/marker-icons.ts).
+   * Lucide's contract is a 24-unit grid with a 2px stroke and round caps, so every mark is
+   * single-weight line art: the tinted tile carries the colour, no glyph needs a fill or an
+   * accent of its own.
+   */
   type ImpactIcon =
     'rhythm' | 'exploration' | 'knowledge' | 'contribution' | 'recognition' | 'outcome';
 
@@ -6,35 +13,47 @@
 </script>
 
 <span class={`impact-icon ${size}`} data-impact-icon={kind} aria-hidden="true">
-  <svg viewBox="0 0 64 64" role="presentation">
+  <svg viewBox="0 0 24 24" role="presentation">
     {#if kind === 'rhythm'}
-      <path class="soft" d="M13 43c8-20 19-29 38-25-9 4-14 11-17 21-7-4-14-3-21 4Z" />
-      <path d="M15 45c8-13 18-20 32-22M27 34l3 10M38 27l4 8" />
-      <circle class="accent" cx="16" cy="45" r="4" />
-      <circle class="accent" cx="48" cy="22" r="4" />
+      <!-- lucide/calendar-check -->
+      <path d="M8 2v3" />
+      <path d="M16 2v3" />
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M3 9h18" />
+      <path d="m9 15 2 2 4-4" />
     {:else if kind === 'exploration'}
-      <path class="soft" d="M10 17l14-6 16 6 14-6v36l-14 6-16-6-14 6V17Z" />
-      <path d="M24 12v35m16-29v35M15 25c7 3 13 2 18-3s11-6 17-3" />
-      <circle class="accent" cx="34" cy="22" r="4" />
-    {:else if kind === 'knowledge'}
-      <path class="soft" d="M13 16h27c6 0 11 5 11 11v21H24c-6 0-11-5-11-11V16Z" />
-      <path d="M21 25h22M21 33h17M21 41h10" />
-      <path class="accent" d="m40 42 5 5 9-12" />
-    {:else if kind === 'contribution'}
-      <path class="soft" d="M13 13h38v31H34L23 53v-9H13V13Z" />
-      <path d="M22 24h20M22 32h13" />
-      <path class="accent" d="m39 39 4 4 8-10" />
-    {:else if kind === 'recognition'}
+      <!-- lucide/compass -->
+      <circle cx="12" cy="12" r="10" />
       <path
-        class="soft"
-        d="m32 9 7 6 9-1 1 9 6 7-6 7-1 9-9-1-7 6-7-6-9 1-1-9-6-7 6-7 1-9 9 1 7-6Z"
+        d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"
       />
-      <path class="accent" d="m23 31 6 6 13-15" />
+    {:else if kind === 'knowledge'}
+      <!-- lucide/message-square-quote -->
+      <path d="M14 14a2 2 0 0 0 2-2V8h-2" />
+      <path
+        d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"
+      />
+      <path d="M8 14a2 2 0 0 0 2-2V8H8" />
+    {:else if kind === 'contribution'}
+      <!-- lucide/sprout -->
+      <path
+        d="M14 9.536V7a4 4 0 0 1 4-4h1.5a.5.5 0 0 1 .5.5V5a4 4 0 0 1-4 4 4 4 0 0 0-4 4c0 2 1 3 1 5a5 5 0 0 1-1 3"
+      />
+      <path d="M4 9a5 5 0 0 1 8 4 5 5 0 0 1-8-4" />
+      <path d="M5 21h14" />
+    {:else if kind === 'recognition'}
+      <!-- lucide/award -->
+      <path
+        d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"
+      />
+      <circle cx="12" cy="8" r="6" />
     {:else}
-      <path class="soft" d="M13 11h38v42H13z" />
-      <path d="M21 22h22M21 31h18M21 40h12" />
-      <circle class="accent" cx="45" cy="42" r="7" />
-      <path class="accent-line" d="m42 42 2 2 4-5" />
+      <!-- lucide/map-pin-check -->
+      <path
+        d="M19.43 12.935c.357-.967.57-1.955.57-2.935a8 8 0 0 0-16 0c0 4.993 5.539 10.193 7.399 11.799a1 1 0 0 0 1.202 0 32.197 32.197 0 0 0 .813-.728"
+      />
+      <circle cx="12" cy="10" r="3" />
+      <path d="m16 18 2 2 4-4" />
     {/if}
   </svg>
 </span>
@@ -61,39 +80,17 @@
   }
 
   svg {
-    width: 78%;
-    height: 78%;
-    overflow: visible;
+    width: 60%;
+    height: 60%;
   }
 
   path,
-  circle {
+  circle,
+  rect {
     fill: none;
     stroke: currentColor;
-    stroke-width: 3;
+    stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
-  }
-
-  .soft {
-    fill: color-mix(in srgb, var(--impact-tone, var(--hv-color-moss)) 16%, white);
-    stroke-width: 2.2;
-  }
-
-  .accent {
-    fill: var(--impact-tone, var(--hv-color-moss));
-    stroke: white;
-    stroke-width: 2.5;
-  }
-
-  path.accent {
-    fill: none;
-    stroke: var(--impact-tone, var(--hv-color-moss));
-    stroke-width: 4;
-  }
-
-  .accent-line {
-    stroke: white;
-    stroke-width: 2;
   }
 </style>
