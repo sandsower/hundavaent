@@ -102,7 +102,7 @@
 
   {#if achievementsHref && achievementsLabel}
     <!-- The caller resolves the href; this display component owns no routes. -->
-    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+    <!-- eslint-disable svelte/no-navigation-without-resolve -->
     <a
       class="achievements-door justify-self-start font-[850] no-underline text-fjord after:absolute after:inset-0 after:rounded-panel after:content-[''] focus-visible:rounded-control focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px]"
       data-achievements-door
@@ -110,6 +110,7 @@
     >
       {achievementsLabel}
     </a>
+    <!-- eslint-enable svelte/no-navigation-without-resolve -->
   {/if}
 </section>
 
