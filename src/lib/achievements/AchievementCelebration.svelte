@@ -55,15 +55,22 @@
 </script>
 
 <section
-  class="celebration"
+  class="celebration relative grid overflow-hidden grid-cols-[minmax(10.5rem,_0.85fr)_minmax(0,_1.15fr)] items-center min-h-0 gap-6 p-[1.6rem] border border-[color-mix(in_srgb,_var(--hv-color-brand-paw)_34%,_transparent)] rounded-[1.5rem] bg-[linear-gradient(135deg,_color-mix(in_srgb,_var(--hv-color-brand-paw)_10%,_white),_var(--hv-color-snow-raised)_64%)] shadow-[0_1.15rem_2.8rem_rgb(30_45_49_/_12%)] max-[34rem]:grid-cols-[1fr] max-[34rem]:gap-3 max-[34rem]:p-5"
   data-achievement-celebration
   data-reduced-motion={reducedMotion}
   aria-label={regionLabel}
 >
-  <div class="art" aria-hidden="true">
-    <div class="scene">
-      <span class="halo"></span>
-      <span class="achievement-icon">
+  <div class="art grid place-items-center min-h-42 max-[34rem]:min-h-38" aria-hidden="true">
+    <!-- Every decorative layer shares this fixed coordinate system, now square and centred: the halo,
+         the badge, the orbit and the paw are all measured from the scene's centre, so the card's grid
+         can change shape without separating the paw from the ring it sits on. -->
+    <div class="scene relative w-[min(12.5rem,_100%)] aspect-square">
+      <span
+        class="halo absolute top-[calc(50%_-_3rem)] left-1/2 w-24 h-24 border border-[color-mix(in_srgb,_var(--hv-color-brand-paw)_24%,_transparent)] rounded-full bg-[color-mix(in_srgb,_var(--hv-color-signal)_22%,_white)] shadow-[0_0_0_0.8rem_color-mix(in_srgb,_var(--hv-color-signal)_10%,_transparent),_0_0_0_1.6rem_color-mix(in_srgb,_var(--hv-color-brand-paw)_5%,_transparent)] transform-[translateX(-50%)]"
+      ></span>
+      <span
+        class="achievement-icon absolute top-[calc(50%_-_2.55rem)] left-1/2 w-[5.1rem] h-[5.1rem] transform-[translateX(-50%)]"
+      >
         <AchievementBadge
           achievementKey={achievement.key}
           collection={achievement.entry === 'tier' ? achievement.collection : null}
@@ -72,168 +79,52 @@
           state="earned"
         />
       </span>
-      <span class="orbit"></span>
-      <span class="paw"><PawMark active={true} /></span>
+      <!-- A dashed orbit concentric with the halo, echoing the rosette's own dashed rings and the dashed
+           locked tier cells. The wavy trail line it replaces spoke a different visual language from
+           everything else on the page, and cut across the halo on its way past. -->
+      <span
+        class="orbit absolute top-1/2 left-1/2 w-[9.6rem] h-[9.6rem] border-2 border-dashed border-[color-mix(in_srgb,_var(--hv-color-fjord)_42%,_transparent)] rounded-full transform-[translate(-50%,-50%)]"
+      ></span>
+      <!-- On the orbit, lower right - the same ring the dashes travel, so the stamp reads as having
+           walked it. -->
+      <span
+        class="paw absolute top-[calc(50%_+_3.4rem)] left-[calc(50%_+_3.4rem)] grid place-items-center w-[1.8rem] h-[1.8rem] p-[0.34rem] rounded-full bg-signal text-basalt origin-center transform-[translate(-50%,-50%)_rotate(9deg)]"
+        ><PawMark active={true} /></span
+      >
     </div>
   </div>
-  <div class="copy">
-    <p class="eyebrow">{copy['achievements.celebrationEyebrow']}</p>
-    <h2>{name}</h2>
-    <p class="description">{description}</p>
-    <div class="celebration-meta">
-      <p class="earned">{earnedLine}</p>
+  <div
+    class="copy grid content-center self-center justify-items-start max-w-112 gap-2 p-[0.4rem] pl-0 max-[34rem]:justify-items-center max-[34rem]:max-w-none max-[34rem]:p-0 max-[34rem]:pb-2 max-[34rem]:text-center"
+  >
+    <p class="eyebrow m-0 text-[0.74rem] font-black tracking-[0.11em] uppercase text-brand-paw-ink">
+      {copy['achievements.celebrationEyebrow']}
+    </p>
+    <!-- The source declared a 0.1rem margin-block-start here, but it never rendered: the old
+         .copy > * { margin: 0 } out-ranked the bare h2 selector, so the offset was dead CSS.
+         Converted to the rendered value (m-0) to keep pixel parity. -->
+    <h2 class="m-0 font-display text-[clamp(1.5rem,_4vw,_2.25rem)] leading-[1.05] text-balance">
+      {name}
+    </h2>
+    <p
+      class="description m-0 max-w-[34ch] [margin-block-start:0.65rem] leading-[1.48] text-basalt-muted max-[34rem]:[margin-inline:auto]"
+    >
+      {description}
+    </p>
+    <!-- Date and Share read as one caption row under the title, so the card ends on a single line
+         instead of two stacked scraps. -->
+    <div
+      class="celebration-meta m-0 flex flex-wrap items-center gap-actions [margin-block-start:0.35rem] max-[34rem]:justify-center"
+    >
+      <p class="earned m-0 text-[0.86rem] font-extrabold">{earnedLine}</p>
       <AchievementShare card={shareCard} {copy} />
     </div>
   </div>
 </section>
 
 <style>
-  .celebration {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(10.5rem, 0.85fr) minmax(0, 1.15fr);
-    gap: 1.5rem;
-    align-items: center;
-    min-height: 0;
-    border: 1px solid color-mix(in srgb, var(--hv-color-brand-paw) 34%, transparent);
-    border-radius: 1.5rem;
-    padding: 1.6rem;
-    overflow: hidden;
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--hv-color-brand-paw) 10%, white),
-      var(--hv-color-snow-raised) 64%
-    );
-    box-shadow: 0 1.15rem 2.8rem rgb(30 45 49 / 12%);
-  }
-
-  .art {
-    display: grid;
-    min-height: 10.5rem;
-    place-items: center;
-  }
-
-  /* Every decorative layer shares this fixed coordinate system, now square and centred: the halo,
-     the badge, the orbit and the paw are all measured from the scene's centre, so the card's grid
-     can change shape without separating the paw from the ring it sits on. */
-  .scene {
-    position: relative;
-    width: min(12.5rem, 100%);
-    aspect-ratio: 1;
-  }
-
-  .halo {
-    position: absolute;
-    top: calc(50% - 3rem);
-    left: 50%;
-    width: 6rem;
-    height: 6rem;
-    border: 1px solid color-mix(in srgb, var(--hv-color-brand-paw) 24%, transparent);
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--hv-color-signal) 22%, white);
-    box-shadow:
-      0 0 0 0.8rem color-mix(in srgb, var(--hv-color-signal) 10%, transparent),
-      0 0 0 1.6rem color-mix(in srgb, var(--hv-color-brand-paw) 5%, transparent);
-    transform: translateX(-50%);
-  }
-
-  .achievement-icon {
-    position: absolute;
-    top: calc(50% - 2.55rem);
-    left: 50%;
-    width: 5.1rem;
-    height: 5.1rem;
-    transform: translateX(-50%);
-  }
-
-  /* A dashed orbit concentric with the halo, echoing the rosette's own dashed rings and the dashed
-     locked tier cells. The wavy trail line it replaces spoke a different visual language from
-     everything else on the page, and cut across the halo on its way past. */
-  .orbit {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 9.6rem;
-    height: 9.6rem;
-    border: 2px dashed color-mix(in srgb, var(--hv-color-fjord) 42%, transparent);
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-  }
-
-  /* On the orbit, lower right - the same ring the dashes travel, so the stamp reads as having
-     walked it. */
-  .paw {
-    position: absolute;
-    top: calc(50% + 3.4rem);
-    left: calc(50% + 3.4rem);
-    display: grid;
-    width: 1.8rem;
-    height: 1.8rem;
-    border-radius: 50%;
-    background: var(--hv-color-signal);
-    color: var(--hv-color-basalt);
-    padding: 0.34rem;
-    place-items: center;
-    transform: translate(-50%, -50%) rotate(9deg);
-    transform-origin: center;
-  }
-
   .paw :global(svg) {
     width: 100%;
     height: 100%;
-  }
-
-  .copy {
-    display: grid;
-    gap: 0.5rem;
-    align-content: center;
-    align-self: center;
-    justify-items: start;
-    max-width: 28rem;
-    padding: 0.4rem 0.4rem 0.4rem 0;
-  }
-
-  .copy > :global(*) {
-    margin: 0;
-  }
-
-  .eyebrow {
-    color: var(--hv-color-brand-paw-ink);
-    font-size: 0.74rem;
-    font-weight: 900;
-    letter-spacing: 0.11em;
-    text-transform: uppercase;
-  }
-
-  h2 {
-    margin-block-start: 0.1rem;
-    font-family: var(--hv-font-display);
-    font-size: clamp(1.5rem, 4vw, 2.25rem);
-    line-height: 1.05;
-    text-wrap: balance;
-  }
-
-  .description {
-    max-width: 34ch;
-    margin-block-start: 0.65rem;
-    color: var(--hv-color-basalt-muted);
-    line-height: 1.48;
-  }
-
-  /* Date and Share read as one caption row under the title, so the card ends on a single line
-     instead of two stacked scraps. */
-  .celebration-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--hv-space-actions);
-    align-items: center;
-    margin-block-start: 0.35rem;
-  }
-
-  .earned {
-    margin: 0;
-    font-size: 0.86rem;
-    font-weight: 800;
   }
 
   /* The choreography rides the token families, so reduced motion collapses every travelling
@@ -345,33 +236,6 @@
     }
     to {
       opacity: 1;
-    }
-  }
-
-  @media (max-width: 34rem) {
-    .celebration {
-      grid-template-columns: 1fr;
-      gap: 0.75rem;
-      padding: 1.25rem;
-    }
-
-    .art {
-      min-height: 9.5rem;
-    }
-
-    .copy {
-      justify-items: center;
-      max-width: none;
-      padding: 0 0 0.5rem;
-      text-align: center;
-    }
-
-    .celebration-meta {
-      justify-content: center;
-    }
-
-    .description {
-      margin-inline: auto;
     }
   }
 </style>

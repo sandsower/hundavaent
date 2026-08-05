@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
+// The label's hiding now rides the sr-only utility, which only exists where the Tailwind
+// build is loaded - scoped CSS used to travel with the component module, utilities do not.
+import '../../src/app.css';
+
 import AchievementUnreadIndicator from '$lib/achievements/AchievementUnreadIndicator.svelte';
 
 describe('AchievementUnreadIndicator', () => {

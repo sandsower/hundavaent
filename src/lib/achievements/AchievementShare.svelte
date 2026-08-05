@@ -79,15 +79,25 @@
   }
 </script>
 
-<div class="share">
+<!-- Button renders its own <button> inside a child component, so this component's scoped CSS
+     cannot reach it directly - reachable only through this ancestor anchor with the actual
+     target selector wrapped in :global(), the same pattern FavouriteControl.svelte uses for
+     .favourite-toggle. The trigger and close classes are guaranteed to land on Button's rendered
+     element because we pass them through Button's class prop ourselves. The anchor is
+     display: contents so it stays a selector-only wrapper: the pre-migration root was the bare
+     trigger button itself, and a block box here would wrap the inline-flex Button in a line box,
+     nudging the three grid-track call sites (celebration/tier-cell/continuation) a few pixels. -->
+<div class="share contents">
   <Button class="share-trigger" onclick={openDialog}>
     {copy['achievements.share.action']}
   </Button>
 
   <Dialog bind:open size="wide" unpadded labelledby={titleId} onclose={() => (feedback = '')}>
-    <div class="dialog-body">
-      <div class="dialog-head">
-        <h2 id={titleId}>{copy['achievements.share.title']}</h2>
+    <div class="dialog-body grid gap-4 p-[clamp(1rem,_4vw,_1.5rem)]">
+      <div class="dialog-head flex items-center justify-between gap-4">
+        <h2 id={titleId} class="m-0 font-display text-[clamp(1.35rem,_4vw,_1.8rem)]">
+          {copy['achievements.share.title']}
+        </h2>
         <Button
           shape="round"
           class="share-close"
@@ -96,9 +106,13 @@
         >
       </div>
 
-      <img class="preview" src={preview} alt={copy['achievements.share.previewAlt']} />
+      <img
+        class="preview block w-full border border-border-subtle rounded-[0.85rem]"
+        src={preview}
+        alt={copy['achievements.share.previewAlt']}
+      />
 
-      <div class="actions">
+      <div class="actions flex flex-wrap gap-[0.6rem]">
         <Button intent="primary" disabled={busy} onclick={share}>
           {copy['achievements.share.share']}
         </Button>
@@ -108,7 +122,9 @@
       </div>
 
       {#if feedback}
-        <p class="feedback" aria-live="polite">{feedback}</p>
+        <p class="feedback m-0 text-[0.85rem] leading-[1.45] text-basalt-muted" aria-live="polite">
+          {feedback}
+        </p>
       {/if}
     </div>
   </Dialog>
@@ -123,10 +139,6 @@
      display: contents so it stays a selector-only wrapper: the pre-migration root was the bare
      trigger button itself, and a block box here would wrap the inline-flex Button in a line box,
      nudging the three grid-track call sites (celebration/tier-cell/continuation) a few pixels. */
-  .share {
-    display: contents;
-  }
-
   .share :global(.share-trigger) {
     width: fit-content;
     min-height: 2rem;
@@ -134,50 +146,8 @@
     font-size: 0.76rem;
   }
 
-  .dialog-body {
-    display: grid;
-    gap: 1rem;
-    padding: clamp(1rem, 4vw, 1.5rem);
-  }
-
-  .dialog-head {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  h2,
-  .feedback {
-    margin: 0;
-  }
-
-  h2 {
-    font-family: var(--hv-font-display);
-    font-size: clamp(1.35rem, 4vw, 1.8rem);
-  }
-
   .share :global(.share-close) {
     font-size: 1.5rem;
     line-height: 1;
-  }
-
-  .preview {
-    display: block;
-    width: 100%;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: 0.85rem;
-  }
-
-  .feedback {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.85rem;
-    line-height: 1.45;
-  }
-
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
   }
 </style>

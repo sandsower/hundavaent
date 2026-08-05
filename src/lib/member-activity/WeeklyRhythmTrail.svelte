@@ -18,22 +18,38 @@
   let { history, lang, copy, achievementsHref, achievementsLabel }: Props = $props();
 </script>
 
+<!-- Not <Panel>: this surface needs a bespoke border colour (a fjord-tinted mix), which Panel's
+     contract cannot carry (its border/radius/shadow/background ship as one matched set that
+     callers must not override - see Panel.svelte's class-prop doc comment). The panel recipe is
+     reproduced here as scoped token CSS instead, on the caller's own element (the
+     SelectedPlaceCard precedent: carry only the tokens that render). -->
 <section
-  class="weekly-rhythm"
+  class="weekly-rhythm relative grid col-span-full @container overflow-hidden p-panel gap-context border border-[color-mix(in_srgb,var(--hv-color-fjord)_36%,var(--hv-border-subtle))] rounded-panel bg-snow-raised shadow-raised has-[.achievements-door]:transition-[border-color] has-[.achievements-door]:duration-[var(--hv-fade-quick)] @max-[42rem]:p-panel [@media(hover:hover)]:has-[.achievements-door]:hover:border-fjord"
   data-weekly-rhythm-history
   data-state={history.status}
   aria-labelledby="weekly-rhythm-heading"
 >
-  <div class="rhythm-copy">
+  <div class="rhythm-copy max-w-[37rem]">
     <Eyebrow>{copy['weeklyRhythm.privateEyebrow']}</Eyebrow>
-    <h2 id="weekly-rhythm-heading">{copy['weeklyRhythm.historyTitle']}</h2>
-    <p>{copy['weeklyRhythm.historyIntro']}</p>
+    <h2 id="weekly-rhythm-heading" class="m-0 mt-[0.12rem] text-[1.3rem]">
+      {copy['weeklyRhythm.historyTitle']}
+    </h2>
+    <p class="m-0 mt-[0.28rem] text-basalt-muted leading-[1.45]">
+      {copy['weeklyRhythm.historyIntro']}
+    </p>
   </div>
 
   {#if history.status === 'available'}
-    <ol class="trail" aria-label={copy['weeklyRhythm.historyLabel']}>
+    <!-- Two columns of four. Below this the week range needs the full cell width, so the
+         per-week state caption is dropped rather than allowed to wrap under it. -->
+    <!-- Four rows of two: the narrowest the trail ever gets, inside a pillar on a small screen. -->
+    <ol
+      class="trail grid grid-cols-8 m-0 p-0 list-none @max-[42rem]:grid-cols-4 @max-[42rem]:gap-y-[1.1rem] @max-[22rem]:grid-cols-2"
+      aria-label={copy['weeklyRhythm.historyLabel']}
+    >
       {#each history.weeks as week (week.startsOn)}
         <li
+          class="group relative grid min-w-0 grid-rows-[2.2rem_auto] justify-items-center text-basalt-muted"
           class:active={week.active}
           class:current={week.current}
           data-week-start={week.startsOn}
@@ -42,24 +58,35 @@
             week.active ? copy['weeklyRhythm.activeWeek'] : copy['weeklyRhythm.openWeek']
           }${week.current ? `. ${copy['weeklyRhythm.currentWeek']}` : ''}`}
         >
-          <span class="trail-segment" aria-hidden="true"></span>
-          <span class="node" aria-hidden="true">
+          <span
+            class="trail-segment absolute top-4 right-1/2 -left-1/2 border-t-2 border-dotted border-[color-mix(in_srgb,var(--hv-color-fjord)_54%,transparent)] group-[:first-child]:hidden @max-[42rem]:group-[:nth-child(5)]:hidden @max-[22rem]:group-[:nth-child(odd)]:hidden"
+            aria-hidden="true"
+          ></span>
+          <span
+            class="node z-[1] grid w-[2.05rem] h-[2.05rem] border-2 border-[color-mix(in_srgb,var(--hv-color-fjord)_45%,var(--hv-border-subtle))] rounded-full bg-snow-raised place-items-center group-[.active]:border-fjord group-[.active]:bg-fjord-soft group-[.active]:text-fjord group-[.current]:shadow-[0_0_0_3px_var(--hv-color-signal)]"
+            aria-hidden="true"
+          >
             {#if week.active}
               <PawMark active />
             {:else}
-              <span class="open-node"></span>
+              <span class="open-node w-[0.42rem] h-[0.42rem] rounded-full bg-current opacity-55"
+              ></span>
             {/if}
           </span>
-          <span class="week-copy" aria-hidden="true">
-            <span class="week-range">
+          <span class="week-copy grid min-w-0 mt-[0.4rem] text-center" aria-hidden="true">
+            <!-- Captions sit at the 12px floor: anything smaller reads as decoration, not dates. -->
+            <span class="week-range text-xs font-[850] leading-tight">
               {formatLocalizedWeekRange(week.startsOn, week.endsOn, lang)}
             </span>
-            <span class="week-state">
+            <span class="week-state mt-[0.15rem] text-[0.72rem] leading-[1.2] @max-[42rem]:hidden">
               {week.active ? copy['weeklyRhythm.activeWeek'] : copy['weeklyRhythm.openWeek']}
             </span>
           </span>
           {#if week.current}
-            <span class="current-label" aria-hidden="true">
+            <span
+              class="current-label mt-[0.3rem] py-[0.12rem] px-[0.4rem] rounded-full bg-signal text-basalt text-[0.7rem] font-black"
+              aria-hidden="true"
+            >
               {copy['weeklyRhythm.currentWeek']}
             </span>
           {/if}
@@ -76,148 +103,17 @@
   {#if achievementsHref && achievementsLabel}
     <!-- The caller resolves the href; this display component owns no routes. -->
     <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-    <a class="achievements-door" data-achievements-door href={achievementsHref}>
+    <a
+      class="achievements-door justify-self-start font-[850] no-underline text-fjord after:absolute after:inset-0 after:rounded-panel after:content-[''] focus-visible:rounded-control focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px]"
+      data-achievements-door
+      href={achievementsHref}
+    >
       {achievementsLabel}
     </a>
   {/if}
 </section>
 
 <style>
-  /* Not <Panel>: this surface needs a bespoke border colour (a fjord-tinted mix), which Panel's
-     contract cannot carry (its border/radius/shadow/background ship as one matched set that
-     callers must not override - see Panel.svelte's class-prop doc comment). The panel recipe is
-     reproduced here as scoped token CSS instead, on the caller's own element (the
-     SelectedPlaceCard precedent: carry only the tokens that render). */
-  .weekly-rhythm {
-    position: relative;
-    display: grid;
-    grid-column: 1 / -1;
-    /* The trail is laid out against its own width, not the viewport's. It renders both as a
-       full-width panel on the account home and inside a narrow pillar on the impact record,
-       where eight columns leave roughly 59px per week and the date captions wrap to three
-       lines. A container query keeps one component correct in both places. */
-    container-type: inline-size;
-    overflow: hidden;
-    padding: var(--hv-space-panel);
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    box-shadow: var(--hv-shadow-raised);
-    border-color: color-mix(in srgb, var(--hv-color-fjord) 36%, var(--hv-border-subtle));
-    background: var(--hv-color-snow-raised);
-    gap: var(--hv-space-context);
-  }
-
-  .rhythm-copy {
-    max-width: 37rem;
-  }
-
-  .rhythm-copy :is(p, h2) {
-    margin: 0;
-  }
-
-  .rhythm-copy h2 {
-    margin-top: 0.12rem;
-    font-size: 1.3rem;
-  }
-
-  .rhythm-copy > p:last-child {
-    margin-top: 0.28rem;
-    color: var(--hv-color-basalt-muted);
-    line-height: 1.45;
-  }
-
-  .trail {
-    display: grid;
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .trail li {
-    position: relative;
-    display: grid;
-    min-width: 0;
-    grid-template-rows: 2.2rem auto;
-    justify-items: center;
-    color: var(--hv-color-basalt-muted);
-  }
-
-  .trail-segment {
-    position: absolute;
-    top: 1rem;
-    right: 50%;
-    left: -50%;
-    border-top: 2px dotted color-mix(in srgb, var(--hv-color-fjord) 54%, transparent);
-  }
-
-  li:first-child .trail-segment {
-    display: none;
-  }
-
-  .node {
-    z-index: 1;
-    display: grid;
-    width: 2.05rem;
-    height: 2.05rem;
-    border: 2px solid color-mix(in srgb, var(--hv-color-fjord) 45%, var(--hv-border-subtle));
-    border-radius: 999px;
-    background: var(--hv-color-snow-raised);
-    place-items: center;
-  }
-
-  .active .node {
-    border-color: var(--hv-color-fjord);
-    background: var(--hv-color-fjord-soft);
-    color: var(--hv-color-fjord);
-  }
-
-  .current .node {
-    box-shadow: 0 0 0 3px var(--hv-color-signal);
-  }
-
-  .node :global(svg) {
-    width: 1.05rem;
-  }
-
-  .open-node {
-    width: 0.42rem;
-    height: 0.42rem;
-    border-radius: 999px;
-    background: currentColor;
-    opacity: 0.55;
-  }
-
-  .week-copy {
-    display: grid;
-    min-width: 0;
-    margin-top: 0.4rem;
-    text-align: center;
-  }
-
-  /* Captions sit at the 12px floor: anything smaller reads as decoration, not dates. */
-  .week-range {
-    font-size: 0.75rem;
-    font-weight: 850;
-    line-height: 1.25;
-  }
-
-  .week-state {
-    margin-top: 0.15rem;
-    font-size: 0.72rem;
-    line-height: 1.2;
-  }
-
-  .current-label {
-    margin-top: 0.3rem;
-    padding: 0.12rem 0.4rem;
-    border-radius: 999px;
-    background: var(--hv-color-signal);
-    color: var(--hv-color-basalt);
-    font-size: 0.7rem;
-    font-weight: 900;
-  }
-
   /* .unavailable now renders through Notice (a child component), so the hook needs :global() -
      Notice's own border/radius/background/padding stay untouched; this only adds layout.
      Ancestor-scoped under .weekly-rhythm (never a bare :global()), matching the rest of this
@@ -229,73 +125,13 @@
     align-items: center;
   }
 
-  /* The link stretches its hit area across the whole panel: the trail is display-only, so the
-     panel can safely act as one door without swallowing any other interactive element. */
-  .achievements-door {
-    justify-self: start;
-    color: var(--hv-color-fjord);
-    font-weight: 850;
-    text-decoration: none;
-  }
-
-  .achievements-door::after {
-    position: absolute;
-    inset: 0;
-    border-radius: var(--hv-radius-panel);
-    content: '';
-  }
-
-  .achievements-door:focus-visible {
-    border-radius: var(--hv-radius-control);
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-  }
-
-  .weekly-rhythm:has(.achievements-door) {
-    transition: border-color var(--hv-fade-quick) ease;
-  }
-
-  @media (hover: hover) {
-    .weekly-rhythm:has(.achievements-door):hover {
-      border-color: var(--hv-color-fjord);
-    }
-  }
-
   .weekly-rhythm :global(.unavailable svg) {
     width: 1.25rem;
     flex: 0 0 auto;
     color: var(--hv-color-fjord);
   }
 
-  /* Two columns of four. Below this the week range needs the full cell width, so the
-     per-week state caption is dropped rather than allowed to wrap under it. */
-  @container (max-width: 42rem) {
-    .weekly-rhythm {
-      padding: var(--hv-space-panel);
-    }
-
-    .trail {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      row-gap: 1.1rem;
-    }
-
-    .trail li:nth-child(5) .trail-segment {
-      display: none;
-    }
-
-    .week-state {
-      display: none;
-    }
-  }
-
-  /* Four rows of two: the narrowest the trail ever gets, inside a pillar on a small screen. */
-  @container (max-width: 22rem) {
-    .trail {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .trail li:nth-child(odd) .trail-segment {
-      display: none;
-    }
+  .node :global(svg) {
+    width: 1.05rem;
   }
 </style>

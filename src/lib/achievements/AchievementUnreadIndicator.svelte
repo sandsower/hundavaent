@@ -10,53 +10,21 @@
 </script>
 
 {#if visible}
-  <span class="unread" data-achievement-unread-indicator>
-    <span class="mark" aria-hidden="true">
+  <span
+    class="unread inline-grid flex-none place-items-center w-[1.22rem] h-[1.22rem] ms-[0.1rem] border-2 border-snow-raised rounded-[999px] bg-brand-paw text-[white] drop-shadow-[0_1px_1px_rgb(30_45_49_/_22%)] pointer-events-none"
+    data-achievement-unread-indicator
+  >
+    <span class="mark grid place-items-center w-[0.68rem] h-[0.68rem]" aria-hidden="true">
       <PawMark active={true} />
     </span>
-    <span class="visually-hidden">{label}</span>
+    <span class="visually-hidden sr-only">{label}</span>
   </span>
 {/if}
 
 <style>
-  .unread {
-    display: inline-grid;
-    flex: 0 0 auto;
-    width: 1.22rem;
-    height: 1.22rem;
-    border: 2px solid var(--hv-color-snow-raised);
-    border-radius: 999px;
-    margin-inline-start: 0.1rem;
-    background: var(--hv-color-brand-paw);
-    color: white;
-    filter: drop-shadow(0 1px 1px rgb(30 45 49 / 22%));
-    place-items: center;
-    pointer-events: none;
-  }
-
-  .mark {
-    display: grid;
-    width: 0.68rem;
-    height: 0.68rem;
-    place-items: center;
-  }
-
   .mark :global(svg) {
     width: 100%;
     height: 100%;
-  }
-
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    padding: 0;
-    border: 0;
-    margin: -1px;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 
   .unread {

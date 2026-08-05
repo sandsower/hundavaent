@@ -8,7 +8,7 @@
 </script>
 
 <svg
-  class={`paw-mark ${className}`}
+  class={`paw-mark block fill-transparent stroke-current stroke-[1.35] [&.active]:fill-current ${className}`}
   class:active
   viewBox="0 0 32 32"
   aria-hidden="true"
@@ -20,17 +20,3 @@
   <ellipse cx="19.6" cy="7.9" rx="3.1" ry="4.1" transform="rotate(9 19.6 7.9)" />
   <ellipse cx="25.2" cy="13.6" rx="3.2" ry="4.1" transform="rotate(24 25.2 13.6)" />
 </svg>
-
-<style>
-  .paw-mark {
-    display: block;
-    fill: transparent;
-    stroke: currentColor;
-    stroke-width: 1.35;
-  }
-
-  .paw-mark.active {
-    fill: currentColor;
-    stroke: currentColor;
-  }
-</style>
