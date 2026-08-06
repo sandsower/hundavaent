@@ -9,7 +9,7 @@
 </script>
 
 <svg
-  class="roundup-icon"
+  class="roundup-icon size-10 overflow-visible [&.large]:size-18 [&.small]:size-[1.4rem]"
   class:small={size === 'small'}
   class:large={size === 'large'}
   viewBox="0 0 64 64"
@@ -42,7 +42,7 @@
     />
     <path d="M27 24h10" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
   {:else}
-    <g class="paw">
+    <g class="paw [transform-origin:32px_28px]">
       <ellipse cx="32" cy="31" rx="8" ry="7" fill="currentColor" />
       <ellipse cx="21" cy="25" rx="4" ry="5" fill="currentColor" />
       <ellipse cx="28" cy="18" rx="4" ry="5" fill="currentColor" />
@@ -51,7 +51,7 @@
     </g>
     {#if kind === 'new'}
       <path
-        class="spark"
+        class="spark [transform-origin:50px_13px]"
         d="M50 8v10M45 13h10"
         stroke="currentColor"
         stroke-width="3"
@@ -59,7 +59,7 @@
       />
     {:else if kind === 'updated'}
       <path
-        class="spark"
+        class="spark [transform-origin:50px_13px]"
         d="M48 10a7 7 0 1 1-2 12M48 10v7h-7"
         stroke="currentColor"
         stroke-width="3"
@@ -71,22 +71,6 @@
 </svg>
 
 <style>
-  .roundup-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-    overflow: visible;
-  }
-
-  .roundup-icon.small {
-    width: 1.4rem;
-    height: 1.4rem;
-  }
-
-  .roundup-icon.large {
-    width: 4.5rem;
-    height: 4.5rem;
-  }
-
   /* Every piece both moves and fades, so each runs as two entries, one per family: reduced
      motion stills the travel while the trail, paw, and spark keep appearing (see tokens.css). */
   .roundup-icon .trail {
@@ -96,7 +80,6 @@
   }
 
   .roundup-icon .paw {
-    transform-origin: 32px 28px;
     animation:
       paw-settle var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 2) var(--hv-ease-settle)
         both,
@@ -105,7 +88,6 @@
   }
 
   .roundup-icon .spark {
-    transform-origin: 50px 13px;
     animation:
       spark-turn var(--hv-motion-celebrate) calc(var(--hv-motion-stagger) * 4) var(--hv-ease-settle)
         both,
