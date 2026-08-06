@@ -71,12 +71,21 @@
       {copy['history.mapTruncated'].replace('{count}', String(limit))}
     </Notice>
   {/if}
-  <div class="map-view">
+  <div
+    class="map-view grid grid-cols-[minmax(0,1fr)_20rem] gap-context [margin-top:calc(var(--hv-space-context)*1.5)] max-[45rem]:grid-cols-[1fr]"
+  >
     <Panel class="map-surface">
       {#if mappablePlaces.length === 0}
-        <section class="map-empty grid gap-context" aria-labelledby="history-map-withheld-title">
-          <h2 id="history-map-withheld-title" tabindex="-1">{copy['history.emptyMapTitle']}</h2>
-          <p>{copy['history.emptyMapBody']}</p>
+        <!-- gap-context remains as an existing class, but its gap never rendered.
+             The scoped .map-empty gap of 0.5rem won, so gap-2! preserves that rendered winner. -->
+        <section
+          class="map-empty grid place-content-center min-h-96 gap-context gap-2! p-6 text-center"
+          aria-labelledby="history-map-withheld-title"
+        >
+          <h2 id="history-map-withheld-title" tabindex="-1" class="m-0">
+            {copy['history.emptyMapTitle']}
+          </h2>
+          <p class="m-0">{copy['history.emptyMapBody']}</p>
         </section>
       {:else}
         <MapSurface
@@ -94,7 +103,7 @@
           onCameraChange={(nextCamera) => (camera = nextCamera)}
         >
           {#snippet failureContent()}
-            <div class="map-failure">
+            <div class="map-failure grid place-content-center h-full gap-2 p-6 text-center">
               <p>{copy['directory.mapUnavailableTitle']}</p>
               <p>{copy['directory.mapUnavailableBody']}</p>
             </div>
@@ -102,7 +111,10 @@
         </MapSurface>
       {/if}
     </Panel>
-    <ul class="grid gap-context m-0 p-0 list-none map-list" aria-label={copy['history.tabMap']}>
+    <ul
+      class="grid gap-context m-0 p-0 list-none map-list content-start"
+      aria-label={copy['history.tabMap']}
+    >
       {#each places as place (place.placeId)}
         <Panel
           as="li"
@@ -140,13 +152,6 @@
     margin: calc(var(--hv-space-context) * 1.5) 0 0;
   }
 
-  .map-view {
-    display: grid;
-    margin-top: calc(var(--hv-space-context) * 1.5);
-    gap: var(--hv-space-context);
-    grid-template-columns: minmax(0, 1fr) 20rem;
-  }
-
   /* Panel renders its own element inside a child component, so this component's scoped CSS
      cannot reach it directly - the actual target selector is wrapped in :global() and anchored
      through .map-view, the ancestor idiom FavouriteControl.svelte uses for its own
@@ -154,33 +159,6 @@
   .map-view :global(.map-surface) {
     min-height: 24rem;
     overflow: hidden;
-  }
-
-  .map-failure {
-    display: grid;
-    height: 100%;
-    padding: 1.5rem;
-    place-content: center;
-    gap: 0.5rem;
-    text-align: center;
-  }
-
-  .map-empty {
-    display: grid;
-    min-height: 24rem;
-    padding: 1.5rem;
-    place-content: center;
-    gap: 0.5rem;
-    text-align: center;
-  }
-
-  .map-empty h2,
-  .map-empty p {
-    margin: 0;
-  }
-
-  .map-list {
-    align-content: start;
   }
 
   /* Same child-component reasoning as .map-surface above, anchored through .map-list. Button's
@@ -219,11 +197,5 @@
   :global(.map-empty-state) h2,
   :global(.map-empty-state) p {
     margin: 0;
-  }
-
-  @media (max-width: 45rem) {
-    .map-view {
-      grid-template-columns: 1fr;
-    }
   }
 </style>
