@@ -107,7 +107,7 @@
 </script>
 
 <div
-  class="favourite-action"
+  class="favourite-action grid gap-[0.4rem]"
   data-ui-mode="place"
   data-favourite-place={placeId}
   data-state={failed ? 'error' : submitting ? 'busy' : favourite ? 'selected' : 'idle'}
@@ -119,13 +119,19 @@
       aria-label={accessibleLabel}
       aria-busy={submitting}
       disabled={submitting}
-      class={justSaved ? 'favourite-toggle just-saved' : 'favourite-toggle'}
+      class={justSaved
+        ? 'favourite-toggle just-saved group/favourite-toggle'
+        : 'favourite-toggle group/favourite-toggle'}
       onclick={(event) =>
         // Button's onclick typing spans both the <button> and <a> render modes it supports;
         // this branch never passes href, so the target is always a real HTMLButtonElement.
         applyDesiredState(event.currentTarget as HTMLButtonElement)}
     >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
+      <svg
+        class="relative [z-index:1] w-[1.2rem] fill-transparent stroke-current [stroke-linejoin:round] [stroke-width:1.8] transition-[fill] duration-[var(--hv-fade-quick)] ease-linear group-aria-pressed/favourite-toggle:fill-current"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
         <path
           d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"
         />
@@ -135,12 +141,16 @@
     <!-- Exact local return context is assembled by the discovery owner. -->
     <Button
       href={signInHref}
-      class="favourite-toggle"
+      class="favourite-toggle group/favourite-toggle"
       data-state="signed-out"
       onclick={openSignIn}
       aria-label={copy['favourite.signInToSave'].replace('{name}', placeName)}
     >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
+      <svg
+        class="relative [z-index:1] w-[1.2rem] fill-transparent stroke-current [stroke-linejoin:round] [stroke-width:1.8] transition-[fill] duration-[var(--hv-fade-quick)] ease-linear group-aria-pressed/favourite-toggle:fill-current"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
         <path
           d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"
         />
@@ -155,11 +165,6 @@
 </div>
 
 <style>
-  .favourite-action {
-    display: grid;
-    gap: 0.4rem;
-  }
-
   /* Button renders its own element (button or a) inside a child component, so Svelte's scoped
      CSS cannot reach it directly - these rules stay reachable only through .favourite-action as
      the ancestor anchor, with the actual target selector wrapped in :global(). The .favourite-toggle
@@ -206,21 +211,6 @@
        (rather than compounds) with Button's translate-based hover lift, which lives on a
        different property entirely. */
     scale: 0.92;
-  }
-
-  .favourite-action :global(svg) {
-    position: relative;
-    z-index: 1;
-    width: 1.2rem;
-    fill: transparent;
-    stroke: currentColor;
-    stroke-linejoin: round;
-    stroke-width: 1.8;
-    transition: fill var(--hv-fade-quick) linear;
-  }
-
-  .favourite-action :global(.favourite-toggle[aria-pressed='true'] svg) {
-    fill: currentColor;
   }
 
   /* The bloom sits behind the heart and reads as warmth spreading out from it. It is capped at

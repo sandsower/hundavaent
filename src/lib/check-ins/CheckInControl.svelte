@@ -195,7 +195,7 @@
 </script>
 
 <section
-  class="check-in"
+  class="check-in grid mt-3 gap-2 pt-3 border-t border-border-subtle"
   data-state={semanticState}
   aria-busy={semanticState === 'busy'}
   aria-label={copy['checkIn.title'].replace('{name}', placeName)}
@@ -225,7 +225,10 @@
         : copy['checkIn.success'].replace('{name}', placeName)}
     </Status>
     {#if effectiveCheckedInAt}
-      <p class="result-time" class:arrived={justCommitted}>
+      <p
+        class="result-time m-0 text-[0.82rem] text-basalt-muted"
+        class:arrived={justCommitted}
+      >
         {copy['checkIn.successAt'].replace('{time}', formatCheckInTime(effectiveCheckedInAt, lang))}
       </p>
     {/if}
@@ -234,8 +237,12 @@
       {copy['checkIn.placeUnavailable']}
     </Status>
   {:else}
-    <p class="explanation">{copy['checkIn.timeExplanation']}</p>
-    <p class="explanation">{copy['checkIn.privacyExplanation']}</p>
+    <p class="explanation m-0 text-[0.82rem] text-basalt-muted">
+      {copy['checkIn.timeExplanation']}
+    </p>
+    <p class="explanation m-0 text-[0.82rem] text-basalt-muted">
+      {copy['checkIn.privacyExplanation']}
+    </p>
 
     {#if locationOutcomeMessage}
       <Status role="status" data-status="info" class="check-in-status">
@@ -249,7 +256,7 @@
       </Status>
     {/if}
 
-    <div class="actions">
+    <div class="actions mt-1 grid gap-2">
       <Button
         intent="primary"
         class="check-in-control"
@@ -274,33 +281,15 @@
             ? copy['checkIn.locationRequesting']
             : copy['checkIn.locationAssistAction']}
         </Button>
-        <p class="location-explanation">{copy['checkIn.locationAssistExplanation']}</p>
+        <p class="location-explanation m-0 text-[0.75rem] text-basalt-muted">
+          {copy['checkIn.locationAssistExplanation']}
+        </p>
       {/if}
     </div>
   {/if}
 </section>
 
 <style>
-  .check-in {
-    display: grid;
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--hv-border-subtle);
-    gap: 0.5rem;
-  }
-
-  .explanation {
-    margin: 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.82rem;
-  }
-
-  .actions {
-    display: grid;
-    margin-top: 0.25rem;
-    gap: 0.5rem;
-  }
-
   /* Button and Status each render their own element inside a child component, so this
      component's scoped CSS cannot reach them directly - the actual target selectors are wrapped
      in :global() and anchored through .check-in, the idiom FavouriteControl.svelte uses for its
@@ -338,12 +327,6 @@
     }
   }
 
-  .location-explanation {
-    margin: 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.75rem;
-  }
-
   /* Anchors the old .check-in > .hv-status rule to the hook class every Status usage in this
      component now carries. */
   .check-in > :global(.check-in-status) {
@@ -353,12 +336,6 @@
 
   .check-in :global(.result) {
     font-weight: 900;
-  }
-
-  .result-time {
-    margin: 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.82rem;
   }
 
   .check-in :global(a.check-in-control) {

@@ -228,24 +228,48 @@
   unpadded
   onclose={handleClosed}
 >
-  <button class="close" type="button" aria-label={copy['auth.close']} onclick={close}>
-    <svg viewBox="0 0 20 20" aria-hidden="true">
+  <button
+    class="close absolute top-[0.85rem] right-[0.85rem] z-1 grid size-[2.4rem] cursor-pointer place-items-center rounded-[50%] [border:0] bg-transparent text-inherit hover:bg-fjord-soft focus-visible:outline-[3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+    type="button"
+    aria-label={copy['auth.close']}
+    onclick={close}
+  >
+    <svg
+      class="size-[1.1rem] fill-none stroke-current [stroke-linecap:round] [stroke-width:1.8]"
+      viewBox="0 0 20 20"
+      aria-hidden="true"
+    >
       <path d="M5 5l10 10M15 5L5 15" />
     </svg>
   </button>
 
   {#if sent}
-    <div class="dialog-content sent-state">
-      <p class="eyebrow">{copy['site.name']}</p>
-      <h2 id="auth-dialog-title">{copy['auth.checkEmail']}</h2>
-      <p>{copy['auth.sentTo'].replace('{email}', email)}</p>
-      <div class="sent-actions">
-        <button type="button" class="text-action" onclick={useDifferentEmail}>
+    <div
+      class="dialog-content sent-state grid gap-4 p-4 max-narrow:pb-[max(1rem,env(safe-area-inset-bottom))]"
+    >
+      <p class="eyebrow text-[0.78rem] font-[900] tracking-[0.08em] uppercase text-fjord">
+        {copy['site.name']}
+      </p>
+      <h2
+        id="auth-dialog-title"
+        class="m-0 pr-8 font-display text-[clamp(1.65rem,5vw,2rem)] leading-[1.05]"
+      >
+        {copy['auth.checkEmail']}
+      </h2>
+      <p class="leading-[1.55] text-basalt-muted">
+        {copy['auth.sentTo'].replace('{email}', email)}
+      </p>
+      <div class="sent-actions flex flex-wrap gap-x-[1.1rem] gap-y-3">
+        <button
+          type="button"
+          class="text-action cursor-pointer [border:0] bg-transparent p-0 [font:inherit] [font-weight:850] text-fjord underline disabled:cursor-not-allowed disabled:opacity-60"
+          onclick={useDifferentEmail}
+        >
           {copy['auth.differentEmail']}
         </button>
         <button
           type="button"
-          class="text-action"
+          class="text-action cursor-pointer [border:0] bg-transparent p-0 [font:inherit] [font-weight:850] text-fjord underline disabled:cursor-not-allowed disabled:opacity-60"
           disabled={resendSeconds > 0 || submitting}
           onclick={() => continueWith('email')}
         >
@@ -256,10 +280,19 @@
       </div>
     </div>
   {:else}
-    <div class="dialog-content">
-      <p class="eyebrow">{copy['site.name']}</p>
-      <h2 id="auth-dialog-title">{title}</h2>
-      <p class="benefits">{copy['auth.benefits']}</p>
+    <div
+      class="dialog-content grid gap-4 p-4 max-narrow:pb-[max(1rem,env(safe-area-inset-bottom))]"
+    >
+      <p class="eyebrow text-[0.78rem] font-[900] tracking-[0.08em] uppercase text-fjord">
+        {copy['site.name']}
+      </p>
+      <h2
+        id="auth-dialog-title"
+        class="m-0 pr-8 font-display text-[clamp(1.65rem,5vw,2rem)] leading-[1.05]"
+      >
+        {title}
+      </h2>
+      <p class="benefits leading-[1.55] text-basalt-muted">{copy['auth.benefits']}</p>
 
       {#if error}
         <Notice tone="error" as="p" role="alert">{error}</Notice>
@@ -277,11 +310,16 @@
       {/if}
 
       {#if providers.facebook && providers.email}
-        <p class="divider"><span>{copy['auth.or']}</span></p>
+        <p
+          class="divider flex items-center gap-3 text-[0.8rem] text-basalt-muted before:h-px before:flex-1 before:bg-border-subtle before:content-[''] after:h-px after:flex-1 after:bg-border-subtle after:content-['']"
+        >
+          <span>{copy['auth.or']}</span>
+        </p>
       {/if}
 
       {#if providers.email}
         <form
+          class="grid gap-actions"
           bind:this={emailFormElement}
           onsubmit={(event) => {
             event.preventDefault();
@@ -297,7 +335,9 @@
               required
             />
           </Field>
-          <p class="passwordless">{copy['auth.noPassword']}</p>
+          <p class="passwordless text-[0.82rem] leading-[1.45] text-basalt-muted">
+            {copy['auth.noPassword']}
+          </p>
           <Button intent="primary" type="submit" disabled={submitting}>
             {copy['auth.sendLink']}
           </Button>
@@ -308,11 +348,13 @@
         <Notice tone="info" as="p">{copy['account.authUnavailable']}</Notice>
       {/if}
 
-      <p class="legal">
+      <p
+        class="legal mt-[0.15rem] text-center text-[0.82rem] leading-[1.45] text-basalt-muted"
+      >
         {copy['auth.legalPrefix']}
-        <a href={resolve('/[lang=lang]/terms', { lang })}>{copy['auth.termsLink']}</a>
+        <a class="font-[750] text-inherit" href={resolve('/[lang=lang]/terms', { lang })}>{copy['auth.termsLink']}</a>
         {copy['auth.legalJoin']}
-        <a href={resolve('/[lang=lang]/privacy', { lang })}>{copy['auth.privacyLink']}</a>.
+        <a class="font-[750] text-inherit" href={resolve('/[lang=lang]/privacy', { lang })}>{copy['auth.privacyLink']}</a>.
       </p>
     </div>
   {/if}
@@ -325,17 +367,6 @@
      block that used to live here. Everything below styles .dialog-content and inward, which
      Dialog does not own and which tests/component/auth-dialog.browser.test.ts:147 pins. */
 
-  .dialog-content {
-    display: grid;
-    gap: 1rem;
-    padding: 1rem;
-  }
-
-  h2,
-  p {
-    margin: 0;
-  }
-
   /* Notice (error/info) renders its own <p> in a separate component, so it never carries this
      component's scoped attribute and the plain `p { margin: 0 }` rule above cannot reach it -
      without preflight (theme.css) the browser's default 1em block margin would otherwise land on
@@ -343,66 +374,6 @@
      component boundary the same way the Button migration below does. */
   .dialog-content :global(p) {
     margin: 0;
-  }
-
-  h2 {
-    padding-right: 2rem;
-    font-family: var(--hv-font-display);
-    font-size: clamp(1.65rem, 5vw, 2rem);
-    line-height: 1.05;
-  }
-
-  .eyebrow {
-    color: var(--hv-color-fjord);
-    font-size: 0.78rem;
-    font-weight: 900;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .benefits,
-  .sent-state > p:not(.eyebrow) {
-    color: var(--hv-color-basalt-muted);
-    line-height: 1.55;
-  }
-
-  .close {
-    position: absolute;
-    z-index: 1;
-    top: 0.85rem;
-    right: 0.85rem;
-    display: grid;
-    width: 2.4rem;
-    height: 2.4rem;
-    border: 0;
-    border-radius: 50%;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    place-items: center;
-  }
-
-  .close:hover {
-    background: var(--hv-color-fjord-soft);
-  }
-
-  .close:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 2px;
-  }
-
-  .close svg {
-    width: 1.1rem;
-    height: 1.1rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-width: 1.8;
-  }
-
-  form {
-    display: grid;
-    gap: 0.65rem;
   }
 
   /* Field renders its own <label>, crossing this component's scoping boundary the same way
@@ -441,66 +412,5 @@
 
   :global(.auth-dialog .facebook span) {
     font-size: 1.3rem;
-  }
-
-  button:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-
-  .passwordless,
-  .legal {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.82rem;
-    line-height: 1.45;
-  }
-
-  .legal {
-    margin-top: 0.15rem;
-    text-align: center;
-  }
-
-  .legal a {
-    color: inherit;
-    font-weight: 750;
-  }
-
-  .divider {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.8rem;
-  }
-
-  .divider::before,
-  .divider::after {
-    height: 1px;
-    flex: 1;
-    background: var(--hv-border-subtle);
-    content: '';
-  }
-
-  .sent-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem 1.1rem;
-  }
-
-  .text-action {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--hv-color-fjord);
-    font: inherit;
-    font-weight: 850;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  @media (max-width: 42rem) {
-    .dialog-content {
-      padding: 1rem 1rem max(1rem, env(safe-area-inset-bottom));
-    }
   }
 </style>
