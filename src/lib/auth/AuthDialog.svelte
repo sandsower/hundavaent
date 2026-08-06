@@ -229,7 +229,7 @@
   onclose={handleClosed}
 >
   <button
-    class="close absolute top-[0.85rem] right-[0.85rem] z-1 grid size-[2.4rem] cursor-pointer place-items-center rounded-[50%] [border:0] bg-transparent text-inherit hover:bg-fjord-soft focus-visible:outline-[3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+    class="close absolute top-[0.85rem] right-[0.85rem] z-1 grid size-[2.4rem] cursor-pointer place-items-center rounded-[50%] [border:0] bg-transparent text-inherit hover:bg-fjord-soft focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
     type="button"
     aria-label={copy['auth.close']}
     onclick={close}
@@ -262,14 +262,14 @@
       <div class="sent-actions flex flex-wrap gap-x-[1.1rem] gap-y-3">
         <button
           type="button"
-          class="text-action cursor-pointer [border:0] bg-transparent p-0 [font:inherit] [font-weight:850] text-fjord underline disabled:cursor-not-allowed disabled:opacity-60"
+          class="text-action cursor-pointer [border:0] bg-transparent p-0 [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] text-fjord underline disabled:cursor-not-allowed disabled:opacity-60"
           onclick={useDifferentEmail}
         >
           {copy['auth.differentEmail']}
         </button>
         <button
           type="button"
-          class="text-action cursor-pointer [border:0] bg-transparent p-0 [font:inherit] [font-weight:850] text-fjord underline disabled:cursor-not-allowed disabled:opacity-60"
+          class="text-action cursor-pointer [border:0] bg-transparent p-0 [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] text-fjord underline disabled:cursor-not-allowed disabled:opacity-60"
           disabled={resendSeconds > 0 || submitting}
           onclick={() => continueWith('email')}
         >
@@ -348,13 +348,17 @@
         <Notice tone="info" as="p">{copy['account.authUnavailable']}</Notice>
       {/if}
 
-      <p
-        class="legal mt-[0.15rem] text-center text-[0.82rem] leading-[1.45] text-basalt-muted"
-      >
+      <!-- The original .legal margin-top: 0.15rem never rendered: the more-specific
+           .dialog-content :global(p) margin reset below won. Keep the rendered zero margin. -->
+      <p class="legal text-center text-[0.82rem] leading-[1.45] text-basalt-muted">
         {copy['auth.legalPrefix']}
-        <a class="font-[750] text-inherit" href={resolve('/[lang=lang]/terms', { lang })}>{copy['auth.termsLink']}</a>
+        <a class="font-[750] text-inherit" href={resolve('/[lang=lang]/terms', { lang })}
+          >{copy['auth.termsLink']}</a
+        >
         {copy['auth.legalJoin']}
-        <a class="font-[750] text-inherit" href={resolve('/[lang=lang]/privacy', { lang })}>{copy['auth.privacyLink']}</a>.
+        <a class="font-[750] text-inherit" href={resolve('/[lang=lang]/privacy', { lang })}
+          >{copy['auth.privacyLink']}</a
+        >.
       </p>
     </div>
   {/if}
