@@ -173,10 +173,7 @@
   {#if outcomeMessage}
     <!-- Every outcome here is a refusal, and a refusal in the muted ink reads as a caption. It
          wears the danger ink the notices use instead. -->
-    <p
-      class="outcome m-0 text-[0.75rem] leading-[1.35] font-[750] text-danger"
-      data-photo-outcome
-    >
+    <p class="outcome m-0 text-[0.75rem] leading-[1.35] font-[750] text-danger" data-photo-outcome>
       {outcomeMessage}
     </p>
   {:else if confirmed}

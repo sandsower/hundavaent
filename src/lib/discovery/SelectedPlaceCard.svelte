@@ -288,7 +288,11 @@
            Every affordance on that Condition says pending, not just the one already sent. -->
       <!-- Focusable only so this card can land the Member on the line that replaced the editor they just
            sent from; it is never in the tab order. -->
-      <p class="pending-correction m-[0.45rem_0_0] text-[0.75rem] font-[750] leading-[1.35] text-basalt-muted focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]" data-correction-pending tabindex="-1">
+      <p
+        class="pending-correction m-[0.45rem_0_0] text-[0.75rem] font-[750] leading-[1.35] text-basalt-muted focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+        data-correction-pending
+        tabindex="-1"
+      >
         {copy['inlineCorrection.pending']}
       </p>
     {:else if dimension === 'timing'}
@@ -332,7 +336,11 @@
   {#if mobilityPending}
     <!-- A pending wheelchair Correction proposes the whole fact, so the one affordance the panel
          holds says pending rather than inviting a second claim beside the first. -->
-    <p class="pending-correction m-[0.45rem_0_0] text-[0.75rem] font-[750] leading-[1.35] text-basalt-muted focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]" data-correction-pending tabindex="-1">
+    <p
+      class="pending-correction m-[0.45rem_0_0] text-[0.75rem] font-[750] leading-[1.35] text-basalt-muted focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+      data-correction-pending
+      tabindex="-1"
+    >
       {copy['inlineCorrection.pending']}
     </p>
   {:else}
@@ -374,10 +382,16 @@
   aria-label={copy['directory.selectedPlace']}
   data-overlay="place"
 >
-  <div class="card-heading sticky z-1 top-0 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 p-panel border-b border-border-subtle bg-snow-raised">
+  <div
+    class="card-heading sticky z-1 top-0 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 p-panel border-b border-border-subtle bg-snow-raised"
+  >
     <div class="summary grid gap-[0.2rem]">
-      <h2 class="m-0 font-display text-[clamp(1.35rem,4vw,1.75rem)] font-[650] leading-[1.1]">{place.name}</h2>
-      <span class="text-[0.82rem] font-[700] text-basalt-muted">{copy[categoryKeys[place.category]]} · {place.locality}</span>
+      <h2 class="m-0 font-display text-[clamp(1.35rem,4vw,1.75rem)] font-[650] leading-[1.1]">
+        {place.name}
+      </h2>
+      <span class="text-[0.82rem] font-[700] text-basalt-muted"
+        >{copy[categoryKeys[place.category]]} · {place.locality}</span
+      >
     </div>
     <div class="heading-actions flex items-start gap-[0.4rem]">
       <FavouriteControl
@@ -431,7 +445,10 @@
     <WeeklyRhythmAcknowledgement subjectName={place.name} {recognition} {copy} />
   {/if}
 
-  <div class="card-body min-h-0 overflow-y-auto overscroll-contain pt-0 px-panel pb-panel" data-card-scroll-body>
+  <div
+    class="card-body min-h-0 overflow-y-auto overscroll-contain pt-0 px-panel pb-panel"
+    data-card-scroll-body
+  >
     <!-- The published photos and the affordance are one surface, so the strip renders whenever the
          profile has photos. When it has none, the list's own summary photo still stands (it is
          what a reader saw a moment ago in the results) and the surface renders beside it holding
@@ -441,7 +458,10 @@
       {@render photoSurface(profile.photos)}
     {:else}
       {#if place.primaryPhoto}
-        <figure class="summary-photo overflow-hidden m-[0_0_0.8rem] border border-border-subtle rounded-panel bg-fjord-soft" data-summary-photo>
+        <figure
+          class="summary-photo overflow-hidden m-[0_0_0.8rem] border border-border-subtle rounded-panel bg-fjord-soft"
+          data-summary-photo
+        >
           <RefreshablePlaceImage
             placeId={place.placeId}
             mediaId={place.primaryPhoto.mediaId}
@@ -472,7 +492,12 @@
       class="welcome-answer grid gap-[0.55rem] py-[0.35rem]"
       aria-labelledby={`welcome-${place.placeId}`}
     >
-      <h3 class="text-[0.78rem] font-[850] tracking-[0.06em] uppercase text-basalt" id={`welcome-${place.placeId}`}>{copy['place.welcomeQuestion']}</h3>
+      <h3
+        class="text-[0.78rem] font-[850] tracking-[0.06em] uppercase text-basalt"
+        id={`welcome-${place.placeId}`}
+      >
+        {copy['place.welcomeQuestion']}
+      </h3>
       <AccessSymbols
         placeName={place.name}
         conditions={profile?.accessConditions ?? place.accessConditions}
@@ -487,7 +512,9 @@
       class="mobility-access grid justify-items-start gap-[0.45rem] my-[0.65rem]"
       aria-labelledby={`mobility-${place.placeId}`}
     >
-      <h3 class="m-0 text-[0.78rem] tracking-[0.06em] uppercase" id={`mobility-${place.placeId}`}>{copy['wheelchairAccessibility.heading']}</h3>
+      <h3 class="m-0 text-[0.78rem] tracking-[0.06em] uppercase" id={`mobility-${place.placeId}`}>
+        {copy['wheelchairAccessibility.heading']}
+      </h3>
       <WheelchairAccessibilityBadge
         state={profile?.wheelchairAccessibility ?? place.wheelchairAccessibility}
         {copy}
@@ -528,7 +555,11 @@
         <!-- A trail of paw prints filling one after another while the details load. The fill rides the
              fade family, so the trail keeps padding along for Members who prefer reduced motion: colour
              changes in place, nothing travels. The tilts are static. -->
-        <span class="paw-trail inline-flex flex-none gap-1 text-brand-paw" data-paw-trail aria-hidden="true">
+        <span
+          class="paw-trail inline-flex flex-none gap-1 text-brand-paw"
+          data-paw-trail
+          aria-hidden="true"
+        >
           <PawMark />
           <PawMark />
           <PawMark />
@@ -550,10 +581,20 @@
             <!-- The details sections carry the same quiet uppercase labels as the card's own sections
                  (the welcome answer, the mobility badge), so the disclosure reads as more of the card
                  rather than a different document. -->
-            <h3 class="m-0 text-[0.78rem] font-[850] tracking-[0.06em] uppercase text-basalt" id={`access-${place.placeId}`}>{copy['place.accessHeading']}</h3>
-            <ol class:single={profile.accessConditions.length === 1} class="conditions group/conditions grid list-none gap-[0.55rem] m-[0.45rem_0_0] p-0">
+            <h3
+              class="m-0 text-[0.78rem] font-[850] tracking-[0.06em] uppercase text-basalt"
+              id={`access-${place.placeId}`}
+            >
+              {copy['place.accessHeading']}
+            </h3>
+            <ol
+              class:single={profile.accessConditions.length === 1}
+              class="conditions group/conditions grid list-none gap-[0.55rem] m-[0.45rem_0_0] p-0"
+            >
               {#each profile.accessConditions as condition, index (condition.id)}
-                <li class="condition-card p-[0.8rem] border border-border-subtle rounded-panel bg-snow-raised group-[.single]/conditions:p-0 group-[.single]/conditions:border-0 group-[.single]/conditions:bg-transparent">
+                <li
+                  class="condition-card p-[0.8rem] border border-border-subtle rounded-panel bg-snow-raised group-[.single]/conditions:p-0 group-[.single]/conditions:border-0 group-[.single]/conditions:bg-transparent"
+                >
                   {#if profile.accessConditions.length > 1}
                     <strong
                       >{copy['place.conditionLabel'].replace('{number}', String(index + 1))}</strong
@@ -584,7 +625,9 @@
           </section>
 
           <section class="pt-[0.8rem] border-t border-border-subtle">
-            <h3 class="m-0 text-[0.78rem] font-[850] tracking-[0.06em] uppercase text-basalt">{copy['place.openingHours']}</h3>
+            <h3 class="m-0 text-[0.78rem] font-[850] tracking-[0.06em] uppercase text-basalt">
+              {copy['place.openingHours']}
+            </h3>
             {#if Object.keys(profile.openingHours).length > 0}
               <ul class="opening-hours grid list-none gap-[0.2rem] my-[0.3rem] p-0 leading-[1.4]">
                 {#each formatOpeningHoursRows(profile.openingHours, copy) as row (row.key)}
@@ -596,7 +639,9 @@
             {/if}
           </section>
           <section class="pt-[0.8rem] border-t border-border-subtle">
-            <h3 class="m-0 text-[0.78rem] font-[850] tracking-[0.06em] uppercase text-basalt">{copy['place.amenities']}</h3>
+            <h3 class="m-0 text-[0.78rem] font-[850] tracking-[0.06em] uppercase text-basalt">
+              {copy['place.amenities']}
+            </h3>
             <p>
               {profile.dogAmenities.length > 0
                 ? formatDogAmenities(profile.dogAmenities, copy)
@@ -612,11 +657,18 @@
               <nav class="place-links flex flex-wrap gap-3" aria-label={copy['place.usefulLinks']}>
                 {#if profile.websiteUrl}
                   <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external place URL -->
-                  <a class="text-[0.82rem] font-[800] text-fjord focus-visible:rounded-control focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]" href={profile.websiteUrl} rel="noreferrer">{copy['place.website']}</a>
+                  <a
+                    class="text-[0.82rem] font-[800] text-fjord focus-visible:rounded-control focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+                    href={profile.websiteUrl}
+                    rel="noreferrer">{copy['place.website']}</a
+                  >
                 {/if}
                 {#if profile.phone}
                   <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external tel URL -->
-                  <a class="text-[0.82rem] font-[800] text-fjord focus-visible:rounded-control focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]" href={`tel:${profile.phone.replaceAll(' ', '')}`}>
+                  <a
+                    class="text-[0.82rem] font-[800] text-fjord focus-visible:rounded-control focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+                    href={`tel:${profile.phone.replaceAll(' ', '')}`}
+                  >
                     {copy['place.phone']} · {profile.phone}
                   </a>
                 {/if}

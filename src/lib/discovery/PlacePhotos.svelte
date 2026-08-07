@@ -103,8 +103,10 @@
     <h3
       id="place-photos-heading"
       class="m-[0_0_0.65rem] font-display text-[1.05rem] leading-[1.15] text-basalt [&.visually-hidden]:absolute [&.visually-hidden]:size-px [&.visually-hidden]:overflow-hidden [&.visually-hidden]:p-0 [&.visually-hidden]:[clip:rect(0,0,0,0)] [&.visually-hidden]:whitespace-nowrap [&.visually-hidden]:border-0"
-      class:visually-hidden={featured}>{copy['place.photos.title']}</h3
+      class:visually-hidden={featured}
     >
+      {copy['place.photos.title']}
+    </h3>
     <!-- A photo can have no provenance links, so the horizontal scroll container itself must stay
          keyboard-focusable for arrow-key scrolling (WCAG 2.1.1,
          axe scrollable-region-focusable). Svelte's blanket warning does not model this
@@ -119,7 +121,9 @@
         aria-labelledby={featured && !strip ? undefined : 'place-photos-heading'}
         tabindex={featured && !strip ? undefined : 0}
       >
-        <ul class="flex gap-[0.8rem] m-0 p-0 list-none snap-x snap-proximity group-[.featured:not(.strip)]/photos:w-full">
+        <ul
+          class="flex gap-[0.8rem] m-0 p-0 list-none snap-x snap-proximity group-[.featured:not(.strip)]/photos:w-full"
+        >
           {#each visiblePhotos as photo (photo.mediaId)}
             <li class="flex-none snap-start group-[.featured:not(.strip)]/photos:w-full">
               <figure
@@ -159,8 +163,7 @@
                       class="w-fit font-[750] text-fjord [text-decoration-thickness:1px] [text-underline-offset:0.15em] focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
                       href={photo.licenseUrl}
                       target="_blank"
-                      rel="noreferrer"
-                      >{photo.licenseReference}</a
+                      rel="noreferrer">{photo.licenseReference}</a
                     >
                   {:else}
                     <span>{photo.licenseReference}</span>
@@ -193,7 +196,10 @@
                       loading="lazy"
                     />
                   {:else}
-                    <p class="unavailable grid h-full place-items-center m-0 p-2 text-center text-[0.75rem] font-[700] text-basalt-muted" data-photo-preview-missing>
+                    <p
+                      class="unavailable grid h-full place-items-center m-0 p-2 text-center text-[0.75rem] font-[700] text-basalt-muted"
+                      data-photo-preview-missing
+                    >
                       {copy['place.photos.previewUnavailable']}
                     </p>
                   {/if}
@@ -202,7 +208,10 @@
                   class="grid gap-[0.28rem] p-[0.65rem] text-[0.78rem] leading-[1.35] text-basalt-muted group-[.featured]/photos:flex group-[.featured]/photos:flex-wrap group-[.featured]/photos:gap-[0.2rem_0.65rem] group-[.featured]/photos:py-[0.45rem] group-[.featured]/photos:px-3 group-[.featured]/photos:text-[0.7rem]"
                   data-photo-provenance
                 >
-                  <span class="badge w-fit py-[0.16rem] px-[0.45rem] rounded-control bg-fjord-soft text-[0.72rem] font-[850] text-basalt" data-photo-badge>
+                  <span
+                    class="badge w-fit py-[0.16rem] px-[0.45rem] rounded-control bg-fjord-soft text-[0.72rem] font-[850] text-basalt"
+                    data-photo-badge
+                  >
                     {photo.approvalState === 'pending'
                       ? copy['place.photos.pendingBadge']
                       : copy['place.photos.publishedBadge']}
@@ -220,14 +229,23 @@
            subject. The dashed frame says what belongs here and invites the first one. -->
       <!-- One tight row: on the compact answer card this surface sits above the map, so the invite
            cannot afford the height of a stacked empty state. -->
-      <div class="empty-invite flex flex-wrap items-center gap-x-[0.6rem] gap-y-[0.4rem] py-[0.55rem] px-3 border-[1.5px] border-dashed border-border-subtle rounded-panel" data-photo-empty-invite>
-        <svg class="size-[1.3rem] flex-none fill-none stroke-current stroke-[1.6] [stroke-linecap:round] [stroke-linejoin:round] text-basalt-muted" viewBox="0 0 24 24" aria-hidden="true">
+      <div
+        class="empty-invite flex flex-wrap items-center gap-x-[0.6rem] gap-y-[0.4rem] py-[0.55rem] px-3 border-[1.5px] border-dashed border-border-subtle rounded-panel"
+        data-photo-empty-invite
+      >
+        <svg
+          class="size-[1.3rem] flex-none fill-none stroke-current stroke-[1.6] [stroke-linecap:round] [stroke-linejoin:round] text-basalt-muted"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
           <path
             d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"
           />
           <circle cx="12" cy="13" r="3" />
         </svg>
-        <p class="m-0 flex-[1_1_8rem] text-[0.78rem] font-[700] text-basalt-muted">{copy['place.photos.emptyInvite']}</p>
+        <p class="m-0 flex-[1_1_8rem] text-[0.78rem] font-[700] text-basalt-muted">
+          {copy['place.photos.emptyInvite']}
+        </p>
         <PlacePhotoContribution {placeId} {placeName} {copy} {signedIn} {announce} {onSubmitted} />
       </div>
     {:else if contributable}
@@ -236,7 +254,12 @@
   </section>
 
   {#if contributable}
-    <p class="visually-hidden absolute size-px overflow-hidden p-0 m-[-1px] [clip:rect(0,0,0,0)] whitespace-nowrap border-0" role="status" aria-live="polite" data-photo-announcement>
+    <p
+      class="visually-hidden absolute size-px overflow-hidden p-0 m-[-1px] [clip:rect(0,0,0,0)] whitespace-nowrap border-0"
+      role="status"
+      aria-live="polite"
+      data-photo-announcement
+    >
       {announcement}
     </p>
   {/if}

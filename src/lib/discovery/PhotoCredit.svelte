@@ -11,7 +11,9 @@
     $props();
 </script>
 
-<span class="photo-credit flex min-w-0 items-baseline gap-1 overflow-hidden text-ellipsis whitespace-nowrap text-[0.68rem] leading-[1.25] text-basalt-muted">
+<span
+  class="photo-credit flex min-w-0 items-baseline gap-1 overflow-hidden text-ellipsis whitespace-nowrap text-[0.68rem] leading-[1.25] text-basalt-muted"
+>
   <!-- eslint-disable svelte/no-navigation-without-resolve -- externally supplied photo and license links -->
   {#if attributionUrl || sourceUrl}
     <a

@@ -302,8 +302,7 @@
     <button
       class="retry justify-self-end py-[0.15rem] px-[0.35rem] border-0 bg-transparent text-[0.72rem] text-fjord underline cursor-pointer"
       type="button"
-      onclick={() => (failed ? enqueue(failed) : load())}
-      >{copy['common.retry']}</button
+      onclick={() => (failed ? enqueue(failed) : load())}>{copy['common.retry']}</button
     >
   {/if}
 
@@ -328,8 +327,7 @@
             <button
               class="reset justify-self-end py-[0.15rem] px-[0.35rem] border-0 bg-transparent text-[0.72rem] text-fjord underline cursor-pointer"
               type="button"
-              onclick={() => resetCategory(category)}
-              >{copy['rating.inline.reset']}</button
+              onclick={() => resetCategory(category)}>{copy['rating.inline.reset']}</button
             >
           {/if}
         </div>

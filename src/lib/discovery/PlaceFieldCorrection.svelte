@@ -172,10 +172,7 @@
       </p>
     {/if}
     {#if amenitiesOverCap}
-      <p
-        class="hint m-0 text-[0.72rem] leading-[1.35] text-basalt-muted"
-        data-correction-cap
-      >
+      <p class="hint m-0 text-[0.72rem] leading-[1.35] text-basalt-muted" data-correction-cap>
         {copy['inlineCorrection.amenitiesCap']
           .replace('{count}', String(memberAmenityMaximumCount))
           .replace('{length}', String(memberFieldTextMaximumLength))}

@@ -53,7 +53,9 @@
     >
       {sliceLabel ?? copy['directory.resultsTitle']}
     </h3>
-    <p class="m-0 text-[0.7rem] font-black tracking-[0.08em] uppercase text-fjord whitespace-nowrap">
+    <p
+      class="m-0 text-[0.7rem] font-black tracking-[0.08em] uppercase text-fjord whitespace-nowrap"
+    >
       {places.length === 1
         ? copy['directory.resultCountOne']
         : copy['directory.resultCountMany'].replace('{count}', String(places.length))}
@@ -83,8 +85,7 @@
     />
   {:else}
     <div class="empty grid gap-1 py-3">
-      <span class="empty-paw w-6 mb-[0.2rem] text-basalt-muted" aria-hidden="true"
-        ><PawMark /></span
+      <span class="empty-paw w-6 mb-[0.2rem] text-basalt-muted" aria-hidden="true"><PawMark /></span
       >
       <strong>{copy['directory.noResultsTitle']}</strong>
       <span>{copy['directory.noResultsBody']}</span>
