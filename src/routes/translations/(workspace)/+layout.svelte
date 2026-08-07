@@ -33,120 +33,66 @@
   });
 </script>
 
-<header class="workspace-navigation" data-ui-mode="operations">
+<header
+  class="workspace-navigation flex gap-3 items-center justify-between min-h-16 py-[0.65rem] px-[clamp(1rem,3vw,2rem)] border-b border-b-border-subtle bg-snow-raised max-narrow:flex-wrap"
+  data-ui-mode="operations"
+>
   <a
-    class="brand"
+    class="brand font-display text-[1.2rem] font-bold no-underline text-basalt max-narrow:w-[calc(100%_-_4rem)]"
     href={resolve('/translations')}
     onclick={(event) => void guardLink(event, resolve('/translations'))}>Hundavænt translations</a
   >
-  <nav aria-label="Translation workspace">
+  <nav
+    class="flex gap-1 max-narrow:order-3 max-narrow:grid max-narrow:w-full max-narrow:grid-cols-3"
+    aria-label="Translation workspace"
+  >
     <a
+      class="inline-flex items-center min-h-10 py-[0.45rem] px-[0.65rem] border border-transparent rounded-control bg-transparent [font-family:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-extrabold text-basalt max-narrow:justify-center"
       href={resolve('/translations')}
       onclick={(event) => void guardLink(event, resolve('/translations'))}>Editor</a
     >
     <a
+      class="inline-flex items-center min-h-10 py-[0.45rem] px-[0.65rem] border border-transparent rounded-control bg-transparent [font-family:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-extrabold text-basalt aria-disabled:opacity-[0.55] max-narrow:justify-center"
       href={resolve('/translations/review')}
       aria-disabled={saveCoordinator.hasBlocking}
       onclick={(event) => void guardLink(event, resolve('/translations/review'))}>Review</a
     >
     <a
+      class="inline-flex items-center min-h-10 py-[0.45rem] px-[0.65rem] border border-transparent rounded-control bg-transparent [font-family:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-extrabold text-basalt aria-disabled:opacity-[0.55] max-narrow:justify-center"
       href={resolve('/translations/history')}
       aria-disabled={saveCoordinator.hasBlocking}
       onclick={(event) => void guardLink(event, resolve('/translations/history'))}>History</a
     >
   </nav>
   <form method="POST" action={resolve('/translations/logout')} onsubmit={guardLock}>
-    <button type="submit">Lock</button>
+    <button
+      class="inline-flex items-center min-h-10 py-[0.45rem] px-[0.65rem] border border-border-strong rounded-control bg-transparent [font-family:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-extrabold text-basalt"
+      type="submit">Lock</button
+    >
   </form>
 </header>
 
+<!-- Lives on Notice's rendered root now, outside this file's scope hash. Bare :global with a
+     layout-unique name, per the rootless-hook precedent (.saved-card and friends). -->
 {#if saveCoordinator.problemCount > 0}
-  <Notice as="p" tone="error" role="alert" class="workspace-save-warning">
+  <Notice
+    as="p"
+    tone="error"
+    role="alert"
+    class="workspace-save-warning my-3 mx-auto w-[min(calc(100%_-_2rem),78rem)]"
+  >
     Resolve {saveCoordinator.problemCount} translation save problem{saveCoordinator.problemCount ===
     1
       ? ''
       : 's'} before leaving the editor.
   </Notice>
 {:else if saveCoordinator.hasUnsettled}
-  <Notice as="p" role="status" class="workspace-save-warning"
+  <Notice
+    as="p"
+    role="status"
+    class="workspace-save-warning my-3 mx-auto w-[min(calc(100%_-_2rem),78rem)]"
     >Saving edits before navigation…</Notice
   >
 {/if}
 
 {@render children()}
-
-<style>
-  .workspace-navigation {
-    display: flex;
-    min-height: 4rem;
-    padding: 0.65rem clamp(1rem, 3vw, 2rem);
-    border-bottom: 1px solid var(--hv-border-subtle);
-    gap: 0.75rem;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--hv-color-snow-raised);
-  }
-
-  /* Lives on Notice's rendered root now, outside this file's scope hash. Bare :global with a
-     layout-unique name, per the rootless-hook precedent (.saved-card and friends). */
-  :global(.workspace-save-warning) {
-    margin: 0.75rem auto;
-    width: min(calc(100% - 2rem), 78rem);
-  }
-
-  [aria-disabled='true'] {
-    opacity: 0.55;
-  }
-
-  .brand {
-    color: var(--hv-color-basalt);
-    font-family: var(--hv-font-display);
-    font-size: 1.2rem;
-    font-weight: 700;
-    text-decoration: none;
-  }
-
-  nav {
-    display: flex;
-    gap: 0.25rem;
-  }
-
-  nav a,
-  button {
-    min-height: 2.5rem;
-    display: inline-flex;
-    padding: 0.45rem 0.65rem;
-    border: 1px solid transparent;
-    border-radius: var(--hv-radius-control);
-    align-items: center;
-    background: transparent;
-    color: var(--hv-color-basalt);
-    font: inherit;
-    font-weight: 800;
-  }
-
-  button {
-    border-color: var(--hv-border-strong);
-  }
-
-  @media (max-width: 42rem) {
-    .workspace-navigation {
-      flex-wrap: wrap;
-    }
-
-    .brand {
-      width: calc(100% - 4rem);
-    }
-
-    nav {
-      order: 3;
-      width: 100%;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-    }
-
-    nav a {
-      justify-content: center;
-    }
-  }
-</style>

@@ -30,7 +30,12 @@
   <title>Review translations | Hundavænt</title>
 </svelte:head>
 
-<PageShell mode="operations" class="review" aria-labelledby="review-title">
+<!-- .review now lives on PageShell's own <main> root, outside this file's scope hash. The bare
+     class is NOT unique repo-wide (ModerationWorkspace.svelte has a `<section class="review">`),
+     so this is tag-qualified rather than a bare :global. The hardcoded `1rem` is kept literal
+     (not swapped for a gap-panel/gap-context recipe utility) because --hv-space-panel retunes to
+     0.75rem under operations mode, which this page always renders in. -->
+<PageShell mode="operations" class="review grid gap-4" aria-labelledby="review-title">
   <PageHeader class="mb-section">
     <Eyebrow>Publication review</Eyebrow>
     <PageTitle id="review-title">Review translations</PageTitle>
@@ -53,7 +58,10 @@
 
   {#if invalidEntries.length > 0}
     <Notice as="section" tone="error" aria-labelledby="validation-title">
-      <h2 id="validation-title">Fix {invalidEntries.length} keys before publishing</h2>
+      <!-- This still matches every literal h2/h3/p left in the file (the header's eyebrow/meta
+           moved to components that already carry their own m-0/margin resets, so losing them
+           here is a no-op, not a regression). -->
+      <h2 class="mt-0" id="validation-title">Fix {invalidEntries.length} keys before publishing</h2>
       <ul>
         {#each invalidEntries.slice(0, 20) as entry (entry.key)}
           <li>
@@ -67,21 +75,46 @@
     </Notice>
   {/if}
 
-  <p class="summary"><strong>{changedEntries.length}</strong> keys have unpublished changes.</p>
+  <p class="summary m-0"><strong>{changedEntries.length}</strong> keys have unpublished changes.</p>
 
-  <div class="change-list">
+  <div class="change-list grid gap-3">
     {#each changedEntries as entry (entry.key)}
-      <Panel as="article" class="change-card">
-        <h2>{entry.key}</h2>
-        <div class="changes">
+      <!-- .change-card now lives on Panel's root <article>, outside this file's scope hash. Bare
+           class is unique repo-wide (grep-verified). -->
+      <Panel as="article" class="change-card p-4">
+        <!-- Descendant combinator, not child: Svelte's unused-selector check cannot prove a `>`
+             relationship holds across a component boundary (the <h2> is a child of <Panel> in this
+             file's own template, not provably a DOM child of the <article> Panel renders), so `>`
+             here was flagged as unused even though it matched at runtime. A descendant combinator
+             is equivalent in this markup - .change-card's only other heading level is h3. -->
+        <h2
+          class="mt-0 [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace] text-[1rem] [overflow-wrap:anywhere]"
+        >
+          {entry.key}
+        </h2>
+        <div class="changes grid grid-cols-2 gap-4 max-narrow:grid-cols-1">
           {#each locales as locale (locale)}
             {#if entry.changed[locale]}
               <section
                 aria-label={`${locale === 'is' ? 'Icelandic' : 'English'} change for ${entry.key}`}
               >
-                <h3>{locale === 'is' ? 'Icelandic' : 'English'}</h3>
-                <p class="before"><span>Published</span>{entry.published[locale]}</p>
-                <p class="after"><span>New</span>{entry.draft[locale]}</p>
+                <h3 class="mt-0">{locale === 'is' ? 'Icelandic' : 'English'}</h3>
+                <p
+                  class="before mt-0 min-h-12 p-[0.65rem] rounded-control bg-snow whitespace-pre-wrap"
+                >
+                  <span
+                    class="block mb-[0.2rem] text-[0.72rem] font-[850] uppercase text-basalt-muted"
+                    >Published</span
+                  >{entry.published[locale]}
+                </p>
+                <p
+                  class="after mt-0 min-h-12 p-[0.65rem] rounded-control bg-signal-soft whitespace-pre-wrap"
+                >
+                  <span
+                    class="block mb-[0.2rem] text-[0.72rem] font-[850] uppercase text-basalt-muted"
+                    >New</span
+                  >{entry.draft[locale]}
+                </p>
               </section>
             {/if}
           {/each}
@@ -92,7 +125,11 @@
     {/each}
   </div>
 
-  <Panel class="publication-actions">
+  <!-- .publication-actions now lives on Panel's root, outside this file's scope hash. Bare class is
+       unique repo-wide (grep-verified). -->
+  <Panel
+    class="publication-actions sticky bottom-0 flex gap-3 items-center justify-end p-3 max-narrow:right-0 max-narrow:left-0"
+  >
     <Button intent="neutral" href={resolve('/translations')}>Back to editing</Button>
     <form method="POST" action="?/publish">
       <input
@@ -111,102 +148,3 @@
   </Panel>
 </PageShell>
 
-<style>
-  /* .review now lives on PageShell's own <main> root, outside this file's scope hash. The bare
-     class is NOT unique repo-wide (ModerationWorkspace.svelte has a `<section class="review">`),
-     so this is tag-qualified rather than a bare :global. The hardcoded `1rem` is kept literal
-     (not swapped for a gap-panel/gap-context recipe utility) because --hv-space-panel retunes to
-     0.75rem under operations mode, which this page always renders in. */
-  :global(main.review) {
-    display: grid;
-    gap: 1rem;
-  }
-
-  .summary {
-    margin: 0;
-  }
-
-  .change-list {
-    display: grid;
-    gap: 0.75rem;
-  }
-
-  /* .change-card now lives on Panel's root <article>, outside this file's scope hash. Bare class
-     is unique repo-wide (grep-verified). */
-  :global(.change-card) {
-    padding: 1rem;
-  }
-
-  /* This still matches every literal h2/h3/p left in the file (the header's eyebrow/meta moved
-     to components that already carry their own m-0/margin resets, so losing them here is a
-     no-op, not a regression). */
-  h2,
-  h3,
-  p {
-    margin-top: 0;
-  }
-
-  /* Descendant combinator, not child: Svelte's unused-selector check cannot prove a `>`
-     relationship holds across a component boundary (the <h2> is a child of <Panel> in this
-     file's own template, not provably a DOM child of the <article> Panel renders), so `>` here
-     was flagged as unused even though it matched at runtime. A descendant combinator is
-     equivalent in this markup - .change-card's only other heading level is h3. */
-  :global(.change-card) h2 {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 1rem;
-    overflow-wrap: anywhere;
-  }
-
-  .changes {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-  }
-
-  .changes p {
-    min-height: 3rem;
-    padding: 0.65rem;
-    border-radius: var(--hv-radius-control);
-    white-space: pre-wrap;
-  }
-
-  .changes p span {
-    display: block;
-    margin-bottom: 0.2rem;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.72rem;
-    font-weight: 850;
-    text-transform: uppercase;
-  }
-
-  .before {
-    background: var(--hv-color-snow);
-  }
-
-  .after {
-    background: var(--hv-color-signal-soft);
-  }
-
-  /* .publication-actions now lives on Panel's root, outside this file's scope hash. Bare class is
-     unique repo-wide (grep-verified). */
-  :global(.publication-actions) {
-    position: sticky;
-    bottom: 0;
-    display: flex;
-    padding: 0.75rem;
-    gap: 0.75rem;
-    align-items: center;
-    justify-content: flex-end;
-  }
-
-  @media (max-width: 42rem) {
-    .changes {
-      grid-template-columns: 1fr;
-    }
-
-    :global(.publication-actions) {
-      right: 0;
-      left: 0;
-    }
-  }
-</style>
