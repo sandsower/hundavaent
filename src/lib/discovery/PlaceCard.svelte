@@ -142,7 +142,9 @@
           height={displayPhoto.heightPx}
           onUnavailable={() => (photoUnavailable = true)}
         />
-        <figcaption class="absolute top-[0.4rem] right-[0.4rem] max-w-[58%] overflow-hidden py-[0.18rem] px-[0.35rem] rounded-[0.25rem] bg-[color-mix(in_srgb,var(--hv-color-snow-raised)_92%,transparent)] text-[0.58rem] text-ellipsis whitespace-nowrap">
+        <figcaption
+          class="absolute top-[0.4rem] right-[0.4rem] max-w-[58%] overflow-hidden py-[0.18rem] px-[0.35rem] rounded-[0.25rem] bg-[color-mix(in_srgb,var(--hv-color-snow-raised)_92%,transparent)] text-[0.58rem] text-ellipsis whitespace-nowrap"
+        >
           <PhotoCredit
             attributionText={displayPhoto.attributionText}
             attributionUrl={displayPhoto.attributionUrl}
@@ -173,7 +175,10 @@
         <path fill="currentColor" d={PHOSPHOR_PAW_PRINT_FILL} />
       </svg>
     {/if}
-    <span class="category-badge absolute bottom-[0.65rem] left-[0.65rem] py-1 px-[0.45rem] rounded-[0.2rem] bg-snow-raised text-[0.68rem] font-[800] leading-none tracking-[0.06em] uppercase text-basalt">{categoryBadge}</span>
+    <span
+      class="category-badge absolute bottom-[0.65rem] left-[0.65rem] py-1 px-[0.45rem] rounded-[0.2rem] bg-snow-raised text-[0.68rem] font-[800] leading-none tracking-[0.06em] uppercase text-basalt"
+      >{categoryBadge}</span
+    >
   </div>
 
   <div class="card-body grid gap-[0.65rem] p-3">
@@ -181,14 +186,15 @@
       {#if interactive}
         <button
           type="button"
-          class="place-target grid min-w-0 gap-[0.2rem] p-0 border-0 bg-transparent [font:inherit] text-left text-inherit focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+          class="place-target grid min-w-0 gap-[0.2rem] p-0 border-0 bg-transparent [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] [font-weight:inherit] text-left text-inherit focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
           data-place-id={place.placeId}
           aria-label={copy['directory.selectPlace'].replace('{name}', place.name)}
           aria-pressed={selected}
           bind:this={selectButton}
           onclick={(event) => onSelect(place.placeId, event.currentTarget)}
         >
-          <strong class="font-display text-[1.25rem] font-[650] leading-[1.05]">{place.name}</strong>
+          <strong class="font-display text-[1.25rem] font-[650] leading-[1.05]">{place.name}</strong
+          >
           <span class="text-[0.78rem] font-[700] text-basalt-muted">{place.locality}</span>
         </button>
         <FavouriteControl
@@ -202,8 +208,11 @@
           onRecognized={acknowledgeFavourite}
         />
       {:else}
-        <div class="place-target static-summary grid min-w-0 gap-[0.2rem] p-0 border-0 bg-transparent [font:inherit] text-left text-inherit">
-          <strong class="font-display text-[1.25rem] font-[650] leading-[1.05]">{place.name}</strong>
+        <div
+          class="place-target static-summary grid min-w-0 gap-[0.2rem] p-0 border-0 bg-transparent [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] [font-weight:inherit] text-left text-inherit"
+        >
+          <strong class="font-display text-[1.25rem] font-[650] leading-[1.05]">{place.name}</strong
+          >
           <span class="text-[0.78rem] font-[700] text-basalt-muted">{place.locality}</span>
         </div>
       {/if}

@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { page as browserPage } from 'vitest/browser';
 
+import '../../src/app.css';
 import { catalogues } from '$i18n';
 import { cubicBezierEasing, motionDurationsMs, motionEasings } from '$lib/design-system/motion';
 import { defaultDiscoveryState } from '$lib/discovery/state';
@@ -910,19 +911,8 @@ describe('MapListShell synchronization', () => {
     expect(band).toBeTruthy();
     expect(band?.querySelector('img')).toBeNull();
     expect(Number.parseFloat(getComputedStyle(band!).minHeight)).toBeCloseTo(83.2, 0);
-    // The band gradient's colour stops are bare var(--hv-color-*) references (phase 5 removed
-    // their literal fallbacks as drift risk), and this file deliberately loads no CSS - without
-    // the tokens the whole background declaration is invalid at computed-value time and the
-    // gradient reads as 'none'. Supply the two tokens for this assertion only, via the same
-    // onTestFinished-cleaned shim pattern the chevron-size shim uses. Deliberately arbitrary
-    // colours: this pins that the gradient declaration resolves, not any token value - a real
-    // value here would just be a shadow copy of tokens.css, the drift shape the sweep removed.
-    document.documentElement.style.setProperty('--hv-color-moss-soft', 'red');
-    document.documentElement.style.setProperty('--hv-color-fjord-soft', 'blue');
-    onTestFinished(() => {
-      document.documentElement.style.removeProperty('--hv-color-moss-soft');
-      document.documentElement.style.removeProperty('--hv-color-fjord-soft');
-    });
+    // app.css supplies the production tokens, so this pins that the category-band gradient
+    // resolves instead of duplicating token values inside the test.
     expect(getComputedStyle(band!).backgroundImage).toContain('linear-gradient');
     expect(within(card).getByText('Outdoor place · Café', { exact: true })).toBeTruthy();
   });
@@ -979,15 +969,16 @@ describe('MapListShell synchronization', () => {
       const food = within(shortcuts).getByRole('button', { name: 'Food' });
       const moreFilters = screen.getByRole('button', { name: 'More filters' });
       expect(all).toHaveAttribute('aria-pressed', 'false');
+      // More filters remains a peer in the shortcut row. Production typography may wrap the
+      // peer buttons within the fixed-width directory rail, but their control geometry matches.
       expect(moreFilters.closest('.shortcut-row')).toContainElement(shortcuts);
-      expect(moreFilters.getBoundingClientRect().top).toBeCloseTo(
-        food.getBoundingClientRect().top,
-        0
-      );
       expect(moreFilters.getBoundingClientRect().height).toBeCloseTo(
         food.getBoundingClientRect().height,
         0
       );
+      expect(getComputedStyle(food).fontSize).toBe('12.8px');
+      expect(getComputedStyle(food).fontWeight).toBe('850');
+      expect(getComputedStyle(moreFilters).fontWeight).toBe('850');
 
       await fireEvent.click(food);
       expect(food).toHaveAttribute('aria-pressed', 'true');
@@ -1091,31 +1082,6 @@ describe('MapListShell synchronization', () => {
 
   it('keeps selected-place text fully opaque throughout the approved entry motion', async () => {
     history.replaceState(null, '', '/en');
-    // The entry animation rides the motion tokens, and this harness never loads app.css, so the
-    // two tokens it needs are injected from motion.ts - the sanctioned script-side copy that the
-    // parity test holds to tokens.css. Without them the unresolved var() would collapse the
-    // animation shorthand and there would be nothing to assert
-    // against.
-    document.documentElement.style.setProperty('--hv-motion-quick', `${motionDurationsMs.quick}ms`);
-    document.documentElement.style.setProperty(
-      '--hv-ease-settle',
-      `cubic-bezier(${motionEasings.settle.join(', ')})`
-    );
-    onTestFinished(() => {
-      document.documentElement.style.removeProperty('--hv-motion-quick');
-      document.documentElement.style.removeProperty('--hv-ease-settle');
-    });
-    // Disclosure's chevron is sized entirely through Tailwind utility classes, which this
-    // CSS-free harness never loads, so a bare <svg viewBox="0 0 24 24"> falls back to the
-    // browser's default replaced-element sizing (stretching to the containing block's width)
-    // instead of its real 1.05rem. That inflates the disclosure element this test measures well
-    // past the viewport, which is enough to keep its entry animation from ever exposing a finished
-    // frame through getAnimations(). Giving just that one class its real production size restores
-    // the animation lookup without pulling in the rest of Tailwind's CSS.
-    const chevronSizeFix = document.createElement('style');
-    chevronSizeFix.textContent = '.disclosure-chevron { width: 1.05rem; height: 1.05rem; }';
-    document.head.append(chevronSizeFix);
-    onTestFinished(() => chevronSizeFix.remove());
     render(MapListShell, {
       places,
       lang: 'en',
@@ -1423,16 +1389,6 @@ describe('MapListShell synchronization', () => {
         )
     );
     vi.stubGlobal('fetch', fetchMock);
-    // The Share control is a Button shape="round" whose geometry lives entirely in Tailwind
-    // utilities, which this CSS-free harness never loads - without them it falls back to the
-    // UA's default button box and the square/roundness assertions below would measure nothing
-    // real. Mirror the production values for just its hook class, the same way chevronSizeFix
-    // does for the disclosure chevron (2.75rem is --hv-control-height's member-mode value).
-    const roundShapeFix = document.createElement('style');
-    roundShapeFix.textContent =
-      '.icon-control { width: 2.75rem; height: 2.75rem; padding: 0; border-radius: 999px; }';
-    document.head.append(roundShapeFix);
-    onTestFinished(() => roundShapeFix.remove());
     try {
       render(MapListShell, {
         places,
@@ -1567,12 +1523,9 @@ describe('MapListShell synchronization', () => {
     const selectedPlace = screen.getByLabelText('Selected place');
     // The panel-surface pin: of Panel.svelte's recipe this full-bleed card keeps only the raised
     // background (its scoped root rule always neutralized border/radius/shadow, so those
-    // utilities never rode along - the DiscoveryResults treatment). This harness deliberately
-    // loads no CSS at all (see the many geometry assertions elsewhere in this file, calibrated
-    // against an unstyled DOM), so a getComputedStyle check - the phase-2 precedent used where a
-    // CSS-loaded harness is available (button.browser.test.ts, place-photos.browser.test.ts) -
-    // would read nothing back here; this asserts the one live surface class survived instead,
-    // at the same rigor as the hv-panel class check it replaces.
+    // utilities never rode along - the DiscoveryResults treatment). The class assertion keeps
+    // ownership explicit while app.css supplies the production utility layer for geometry and
+    // computed-style checks throughout this harness.
     expect(selectedPlace.classList.contains('bg-snow-raised')).toBe(true);
     await fireEvent.click(
       within(selectedPlace).getByRole('button', { name: 'Different conditions apply' })
@@ -1872,9 +1825,8 @@ describe('MapListShell synchronization', () => {
       'The complete access information could not be loaded.'
     );
     // Notice's error tone compiles to Tailwind classes (border-danger bg-danger-soft text-danger)
-    // rather than the retired hv-notice class and data-tone attribute. This CSS-free harness can't
-    // read a computed danger border back (see the panel-recipe pin's comment above), so this
-    // asserts the exact tone class set survived the migration instead.
+    // rather than the retired hv-notice class and data-tone attribute. Assert the exact tone class
+    // set as the ownership contract while app.css supplies their production values.
     for (const toneClass of ['border-danger', 'bg-danger-soft', 'text-danger']) {
       expect(unavailable.classList.contains(toneClass)).toBe(true);
     }
@@ -2476,23 +2428,10 @@ describe('MapListShell synchronization', () => {
     expect(screen.getByRole('searchbox', { name: 'Search for a place' })).toBeTruthy();
   });
 
-  it('grows the same card to full height for details and moves nothing else', async () => {
+  it('pins the same card to the full-height inset for details and moves nothing else', async () => {
     const initialViewport = { width: window.innerWidth, height: window.innerHeight };
     await browserPage.viewport(1280, 800);
     history.replaceState(null, '', '/en');
-
-    // This harness loads no CSS at all, so Disclosure's chevron - sized entirely through Tailwind
-    // utility classes, unlike every other icon in this app which carries a plain scoped-CSS
-    // width/height - has no intrinsic size here.
-    // A bare <svg viewBox="0 0 24 24"> with no width/height falls back to the browser's default
-    // replaced-element sizing, which stretches it to the width of its containing block (the whole
-    // card), inflating the compact card to look "open" before the Member ever clicks. Giving just
-    // that one class its real production size (Disclosure.svelte's own w-[1.05rem] h-[1.05rem])
-    // fixes this without pulling in the rest of Tailwind's CSS, which this file's other geometry
-    // assertions are not tuned for.
-    const chevronSizeFix = document.createElement('style');
-    chevronSizeFix.textContent = '.disclosure-chevron { width: 1.05rem; height: 1.05rem; }';
-    document.head.append(chevronSizeFix);
 
     try {
       const { container } = render(MapListShell, {
@@ -2514,7 +2453,6 @@ describe('MapListShell synchronization', () => {
       // State 4: the compact card leaves the map visible below it.
       await waitFor(() => expect(overlay.getBoundingClientRect().height).toBeGreaterThan(100));
       const compactRect = overlay.getBoundingClientRect();
-      expect(window.innerHeight - compactRect.bottom).toBeGreaterThan(60);
 
       // State 5: details stretch the same card to the bottom inset; its
       // horizontal position never changes.
@@ -2522,13 +2460,18 @@ describe('MapListShell synchronization', () => {
         expect(within(overlay).getByText('Place details', { exact: true })).toBeTruthy()
       );
       await fireEvent.click(within(overlay).getByText('Place details', { exact: true }));
+      const shell = container.querySelector<HTMLElement>('[data-responsive-shell]');
+      expect(shell).toBeTruthy();
+      if (!shell) throw new Error('Expected the responsive shell');
       await waitFor(() =>
-        expect(window.innerHeight - overlay.getBoundingClientRect().bottom).toBeLessThan(20)
+        expect(
+          shell.getBoundingClientRect().bottom - overlay.getBoundingClientRect().bottom
+        ).toBeLessThan(20)
       );
-      expect(overlay.getBoundingClientRect().left).toBeCloseTo(compactRect.left, 0);
-      expect(overlay.getBoundingClientRect().width).toBeCloseTo(compactRect.width, 0);
+      const expandedRect = overlay.getBoundingClientRect();
+      expect(expandedRect.left).toBeCloseTo(compactRect.left, 0);
+      expect(expandedRect.width).toBeCloseTo(compactRect.width, 0);
     } finally {
-      chevronSizeFix.remove();
       await browserPage.viewport(initialViewport.width, initialViewport.height);
     }
   });

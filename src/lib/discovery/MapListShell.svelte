@@ -1043,7 +1043,11 @@
             aria-label={copy['directory.openSearch']}
             onclick={unfoldToSearch}
           >
-            <svg class="w-[1.2rem] h-[1.2rem] stroke-current" viewBox="0 0 24 24" aria-hidden="true">
+            <svg
+              class="w-[1.2rem] h-[1.2rem] stroke-current"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               <circle cx="10.5" cy="10.5" r="6.75" fill="none" stroke-width="2.2" />
               <line x1="15.6" y1="15.6" x2="21" y2="21" stroke-width="2.2" stroke-linecap="round" />
             </svg>
@@ -1157,7 +1161,7 @@
               <span>{copy['directory.noResultsBody']}</span>
               <button
                 type="button"
-                class="justify-self-start mt-[0.35rem] py-2 px-3 border border-basalt rounded-control bg-signal [font:inherit] font-extrabold text-basalt"
+                class="justify-self-start mt-[0.35rem] py-2 px-3 border border-basalt rounded-control bg-signal [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-extrabold text-basalt"
                 onclick={clearFilters}>{copy['directory.clearFilters']}</button
               >
             </div>
@@ -1168,12 +1172,13 @@
       {#if manualFold}
         <button
           type="button"
-          class="focus-places inline-flex items-center self-start mt-auto gap-[0.55rem] py-2 pr-4 pl-[0.55rem] border border-basalt rounded-[999px] bg-basalt [font:inherit] font-[850] text-snow-raised shadow-floating cursor-pointer pointer-events-auto focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+          class="focus-places inline-flex items-center self-start mt-auto gap-[0.55rem] py-2 pr-4 pl-[0.55rem] border border-basalt rounded-[999px] bg-basalt [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] text-snow-raised shadow-floating cursor-pointer pointer-events-auto focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
           onclick={unfoldFromPill}
         >
           <span
             class="focus-count inline-grid place-items-center min-w-6 py-[0.1rem] px-[0.45rem] rounded-[999px] bg-signal text-[0.8rem] font-black text-basalt"
-          >{filteredPlaces.length}</span>
+            >{filteredPlaces.length}</span
+          >
           {focusPillLabel}
         </button>
       {/if}
@@ -1197,8 +1202,7 @@
             class="tab-count inline-grid place-items-center min-w-6 py-[0.1rem] px-[0.45rem] rounded-[999px] bg-signal text-[0.8rem] font-black text-basalt"
             >{resultPlaces.length}</span
           >
-          <span class="tab-chevron text-[1.1rem] font-black leading-none" aria-hidden="true"
-            >›</span
+          <span class="tab-chevron text-[1.1rem] font-black leading-none" aria-hidden="true">›</span
           >
         </button>
       {/if}
@@ -1268,13 +1272,7 @@
               aria-hidden="true"
             >
               <circle cx="12" cy="12" r="4.4" fill="none" />
-              <circle
-                cx="12"
-                cy="12"
-                r="1.3"
-                class="locate-dot fill-current"
-                stroke="none"
-              />
+              <circle cx="12" cy="12" r="1.3" class="locate-dot fill-current" stroke="none" />
               <line x1="12" y1="3" x2="12" y2="6.4" />
               <line x1="12" y1="17.6" x2="12" y2="21" />
               <line x1="3" y1="12" x2="6.4" y2="12" />

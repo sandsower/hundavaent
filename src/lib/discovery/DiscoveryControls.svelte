@@ -120,7 +120,7 @@
       >{copy['directory.searchLabel']}</span
     >
     <input
-      class="min-w-0 min-h-0 flex-1 py-[0.45rem] px-0 border-0 bg-transparent [font:inherit] font-[760] text-basalt focus-visible:outline-none focus-visible:shadow-none"
+      class="min-w-0 min-h-0 flex-1 py-[0.45rem] px-0 border-0 bg-transparent [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-none focus-visible:shadow-none"
       bind:this={searchInput}
       type="search"
       value={filters.query}
@@ -152,22 +152,23 @@
         <button
           type="button"
           data-chip={chip}
-          class="min-h-[2.1rem] py-[0.3rem] px-[0.85rem] border border-border-subtle rounded-[999px] bg-snow-raised [font:inherit] text-[0.8rem] font-[850] tracking-[-0.015em] text-basalt whitespace-nowrap shadow-raised cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle [&.active]:border-fjord [&.active]:bg-fjord [&.active]:text-snow-raised enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
+          class="min-h-[2.1rem] py-[0.3rem] px-[0.85rem] border border-border-subtle rounded-[999px] bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] text-[0.8rem] font-[850] tracking-[-0.015em] text-basalt whitespace-nowrap shadow-raised cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle [&.active]:border-fjord [&.active]:bg-fjord [&.active]:text-snow-raised enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
           class:active
           aria-pressed={active}
           aria-label={label}
           aria-controls="discovery-results"
           onclick={() => onChipToggle(chip)}
         >
-          {label}{#if active}<span class="chip-meta ml-[0.3rem] whitespace-nowrap" aria-hidden="true"
-              >· {resultCount}{resultsOpen ? ' ✕' : ''}</span
+          {label}{#if active}<span
+              class="chip-meta ml-[0.3rem] whitespace-nowrap"
+              aria-hidden="true">· {resultCount}{resultsOpen ? ' ✕' : ''}</span
             >{/if}
         </button>
       {/each}
     </div>
     <button
       type="button"
-      class="filters-button min-h-[2.1rem] py-[0.3rem] px-[0.85rem] border border-border-subtle rounded-[999px] bg-snow-raised [font:inherit] text-[0.8rem] font-[850] tracking-[-0.015em] text-basalt whitespace-nowrap shadow-raised cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle [&.active]:border-fjord [&.active]:bg-fjord [&.active]:text-snow-raised hover:transform-[translateY(-1px)] active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+      class="filters-button min-h-[2.1rem] py-[0.3rem] px-[0.85rem] border border-border-subtle rounded-[999px] bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] text-[0.8rem] font-[850] tracking-[-0.015em] text-basalt whitespace-nowrap shadow-raised cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle [&.active]:border-fjord [&.active]:bg-fjord [&.active]:text-snow-raised hover:transform-[translateY(-1px)] active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
       class:active={count > 0}
       aria-expanded={filtersOpen}
       aria-controls="discovery-filter-sheet"
@@ -207,8 +208,7 @@
       <a
         class="suggest-link inline-block py-[0.4rem] px-[0.85rem] border border-moss rounded-[999px] bg-moss-soft text-[0.85rem] font-extrabold text-basalt no-underline shadow-raised pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle hover:transform-[translateY(-1px)] active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
         href={suggestHref}
-        data-sveltekit-reload
-        >{copy['directory.suggestMissingPlace']}</a
+        data-sveltekit-reload>{copy['directory.suggestMissingPlace']}</a
       >
     </div>
   {/if}
@@ -231,7 +231,7 @@
             class="favorites-only grid items-center col-[1/-1] min-w-0 gap-[0.4rem] text-[0.76rem] font-extrabold text-basalt-muted"
           >
             <input
-              class="w-[1.1rem] min-h-[1.1rem] box-border border border-basalt rounded-control bg-snow-raised [font:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+              class="w-[1.1rem] min-h-[1.1rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
               type="checkbox"
               checked={filters.favoritesOnly}
               onchange={(event) => patchFilters({ favoritesOnly: event.currentTarget.checked })}
@@ -243,7 +243,7 @@
           <span>{copy['directory.categoryFilter']}</span>
           <select
             id="discovery-category-filter"
-            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
+            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             value={filters.category ?? ''}
             onchange={(event) =>
               patchFilters({ category: (value(event) || null) as DiscoveryCategory | null })}
@@ -260,7 +260,7 @@
         <label class="grid min-w-0 gap-[0.4rem] text-[0.76rem] font-extrabold text-basalt-muted">
           <span>{copy['directory.areaFilter']}</span>
           <select
-            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
+            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             value={filters.area ?? ''}
             onchange={(event) => patchFilters({ area: value(event) || null })}
           >
@@ -274,7 +274,7 @@
         <label class="grid min-w-0 gap-[0.4rem] text-[0.76rem] font-extrabold text-basalt-muted">
           <span>{copy['directory.accessFilter']}</span>
           <select
-            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
+            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             value={filters.accessArea ?? ''}
             onchange={(event) =>
               patchFilters({
@@ -292,7 +292,7 @@
         <label class="grid min-w-0 gap-[0.4rem] text-[0.76rem] font-extrabold text-basalt-muted">
           <span>{copy['directory.restraintFilter']}</span>
           <select
-            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
+            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             value={filters.restraintCondition ?? ''}
             onchange={(event) =>
               patchFilters({
@@ -310,7 +310,7 @@
         <label class="grid min-w-0 gap-[0.4rem] text-[0.76rem] font-extrabold text-basalt-muted">
           <span>{copy['directory.permissionFilter']}</span>
           <select
-            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
+            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             value={filters.permissionRequirement ?? ''}
             onchange={(event) =>
               patchFilters({
@@ -328,7 +328,7 @@
         <label class="grid min-w-0 gap-[0.4rem] text-[0.76rem] font-extrabold text-basalt-muted">
           <span>{copy['directory.distanceFilter']}</span>
           <select
-            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
+            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             value={filters.distanceKm ?? ''}
             disabled={locationState !== 'ready'}
             onchange={(event) =>
@@ -352,7 +352,7 @@
         {#if locationState === 'denied' || locationState === 'unavailable'}
           <button
             type="button"
-            class="secondary min-h-control py-[0.45rem] px-3 box-border border border-basalt rounded-control bg-snow-raised [font:inherit] font-[760] text-basalt cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
+            class="secondary min-h-control py-[0.45rem] px-3 box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             onclick={onRetryLocation}
           >
             {copy['directory.tryLocationAgain']}
@@ -360,7 +360,7 @@
         {:else}
           <button
             type="button"
-            class="secondary min-h-control py-[0.45rem] px-3 box-border border border-basalt rounded-control bg-snow-raised [font:inherit] font-[760] text-basalt cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
+            class="secondary min-h-control py-[0.45rem] px-3 box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             disabled={locationState === 'locating'}
             onclick={onUseLocation}
           >
@@ -372,7 +372,7 @@
         {#if count > 0}
           <button
             type="button"
-            class="clear min-h-control py-[0.45rem] px-3 box-border border border-basalt rounded-control bg-snow-raised [font:inherit] font-[760] text-basalt cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
+            class="clear min-h-control py-[0.45rem] px-3 box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             onclick={clearFilters}
           >
             {copy['directory.clearFilters']}
