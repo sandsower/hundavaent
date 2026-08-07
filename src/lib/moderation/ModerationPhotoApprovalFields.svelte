@@ -72,8 +72,8 @@
   );
 </script>
 
-<div class="photo-approval-fields">
-  <div class="essential-fields">
+<div class="photo-approval-fields grid gap-3">
+  <div class="essential-fields grid grid-cols-2 gap-3 max-narrow:grid-cols-[1fr]">
     <Field
       label={copy['moderation.media.simpleRightsLabel']}
       hint={copy['moderation.media.simpleRightsHelp']}
@@ -106,7 +106,7 @@
   </div>
 
   {#if rightsChoice === 'reusable_source'}
-    <div class="reusable-fields">
+    <div class="reusable-fields grid grid-cols-2 gap-3 max-narrow:grid-cols-[1fr]">
       <Field label={copy['moderation.media.reusableLicenseLabel']} class="mod-field">
         <Select name="reusableRightsBasis" required bind:value={reusableRightsBasis}>
           <option value="cc0">CC0 1.0</option>
@@ -139,9 +139,13 @@
     </div>
   {/if}
 
-  <details>
-    <summary>{copy['moderation.media.optionalDetails']}</summary>
-    <div class="optional-fields">
+  <details
+    class="pt-[0.65rem] border-t border-t-[color-mix(in_srgb,var(--hv-color-basalt)_18%,transparent)]"
+  >
+    <summary class="cursor-pointer text-fjord font-extrabold">
+      {copy['moderation.media.optionalDetails']}
+    </summary>
+    <div class="optional-fields grid grid-cols-2 gap-3 mt-3 max-narrow:grid-cols-[1fr]">
       {#if !attributionRequired}
         <Field label={copy['moderation.media.photographerLabel']} class="mod-field">
           <Input
@@ -207,48 +211,11 @@
 </div>
 
 <style>
-  .photo-approval-fields,
-  .essential-fields,
-  .reusable-fields,
-  .optional-fields {
-    display: grid;
-    gap: 0.75rem;
-  }
-
-  .essential-fields,
-  .reusable-fields,
-  .optional-fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   /* Field's own label carries no weight/size utility (baseline-first); this component never had
      bespoke label typography of its own (it relied on the shared bare `label{}` rule this file
      used to define), so nothing to re-anchor beyond min-width:0 - already Field's own default. */
 
-  details {
-    border-top: 1px solid color-mix(in srgb, var(--hv-color-basalt) 18%, transparent);
-    padding-top: 0.65rem;
-  }
-
-  summary {
-    cursor: pointer;
-    color: var(--hv-color-fjord);
-    font-weight: 800;
-  }
-
-  .optional-fields {
-    margin-top: 0.75rem;
-  }
-
   .optional-fields :global(.checkbox-choice) {
     grid-column: 1 / -1;
-  }
-
-  @media (max-width: 42rem) {
-    .essential-fields,
-    .reusable-fields,
-    .optional-fields {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

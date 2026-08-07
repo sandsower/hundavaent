@@ -165,11 +165,15 @@
 <div class="access-conditions-editor">
   <input type="hidden" name="sectionPayload" value={sectionPayload} />
 
-  <div class="condition-list">
+  <div class="condition-list grid gap-[0.7rem]">
     {#each items as condition, index (condition.key)}
-      <fieldset class="condition-card">
-        <legend>{copy['place.conditionLabel'].replace('{number}', String(index + 1))}</legend>
-        <div class="field-grid">
+      <fieldset
+        class="condition-card grid gap-[0.65rem] m-0 p-3 border border-border-subtle rounded-panel bg-snow"
+      >
+        <legend class="px-[0.35rem] py-0 font-[850]">
+          {copy['place.conditionLabel'].replace('{number}', String(index + 1))}
+        </legend>
+        <div class="field-grid grid grid-cols-2 gap-[0.55rem] max-[40rem]:grid-cols-[1fr]">
           <Field label={copy['place.accessArea']} class="mod-field">
             <Select required bind:value={condition.accessArea}>
               <option value="indoors">{copy['access.indoor']}</option>
@@ -253,32 +257,6 @@
 </div>
 
 <style>
-  .condition-list {
-    display: grid;
-    gap: 0.7rem;
-  }
-
-  .condition-card {
-    display: grid;
-    gap: 0.65rem;
-    margin: 0;
-    padding: 0.75rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow);
-  }
-
-  legend {
-    padding: 0 0.35rem;
-    font-weight: 850;
-  }
-
-  .field-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
-  }
-
   /* Field's own label carries no weight/size utility (baseline-first); this file's labels were
      always the reduced 0.78rem/750 treatment, so it is re-anchored here via an ancestor-scoped
      :global() targeting Field's rendered label through the .mod-field hook, never a bare
@@ -302,10 +280,6 @@
   }
 
   @media (max-width: 40rem) {
-    .field-grid {
-      grid-template-columns: 1fr;
-    }
-
     .field-grid :global(.wide) {
       grid-column: auto;
     }

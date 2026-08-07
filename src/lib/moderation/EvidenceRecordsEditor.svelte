@@ -115,11 +115,16 @@
 <div class="evidence-records-editor">
   <input type="hidden" name="sectionPayload" value={sectionPayload} />
 
-  <div class="evidence-list">
+  <div class="evidence-list grid gap-[0.7rem]">
     {#each items as evidence, index (evidence.key)}
-      <fieldset class="evidence-card">
-        <legend>{copy['moderation.evidenceHeading']} {index + 1}</legend>
-        <div class="field-grid">
+      <fieldset
+        class="evidence-card grid gap-[0.65rem] m-0 p-3 border border-border-subtle rounded-panel bg-snow"
+      >
+        <legend class="px-[0.35rem] py-0 font-[850]">
+          {copy['moderation.evidenceHeading']}
+          {index + 1}
+        </legend>
+        <div class="field-grid grid grid-cols-2 gap-[0.55rem] max-[40rem]:grid-cols-[1fr]">
           <Field label={copy['moderation.evidenceKindLabel']} class="mod-field">
             <Select required bind:value={evidence.kind}>
               <option value="official_website">{copy['evidence.officialWebsite']}</option>
@@ -143,8 +148,10 @@
             <Input bind:value={evidence.sourceCitation} />
           </Field>
         </div>
-        <details class="metadata">
-          <summary>{copy['evidenceField.sourceMetadata']}</summary>
+        <details class="metadata p-[0.6rem] border border-border-subtle rounded-control">
+          <summary class="cursor-pointer font-extrabold">
+            {copy['evidenceField.sourceMetadata']}
+          </summary>
           <Field
             label={copy['evidenceField.sourceMetadata']}
             hint={copy['moderation.sourceMetadataHelp']}
@@ -171,32 +178,6 @@
 </div>
 
 <style>
-  .evidence-list {
-    display: grid;
-    gap: 0.7rem;
-  }
-
-  .evidence-card {
-    display: grid;
-    gap: 0.65rem;
-    margin: 0;
-    padding: 0.75rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow);
-  }
-
-  legend {
-    padding: 0 0.35rem;
-    font-weight: 850;
-  }
-
-  .field-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
-  }
-
   /* Field's own label carries no weight/size utility (baseline-first); this file's labels were
      always the reduced 0.78rem/750 treatment, so it is re-anchored here via an ancestor-scoped
      :global() targeting Field's rendered label through the .mod-field hook, never a bare
@@ -209,17 +190,6 @@
 
   .field-grid :global(.wide) {
     grid-column: 1 / -1;
-  }
-
-  .metadata {
-    padding: 0.6rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-  }
-
-  .metadata summary {
-    cursor: pointer;
-    font-weight: 800;
   }
 
   .metadata :global(.mod-field) {
@@ -235,10 +205,6 @@
   }
 
   @media (max-width: 40rem) {
-    .field-grid {
-      grid-template-columns: 1fr;
-    }
-
     .field-grid :global(.wide) {
       grid-column: auto;
     }

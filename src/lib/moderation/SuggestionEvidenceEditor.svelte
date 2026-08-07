@@ -69,7 +69,7 @@
   }
 </script>
 
-<div class="field-grid">
+<div class="field-grid grid grid-cols-2 gap-[0.55rem] max-[40rem]:grid-cols-[1fr]">
   <Field label={copy['suggestion.evidenceKind']} class="compact-field">
     <Select name="evidenceKind" required bind:value={kind}>
       <option value="official_website">{copy['evidence.officialWebsite']}</option>
@@ -97,8 +97,8 @@
       <Textarea rows={3} required bind:value={explanation} />
     </Field>
   {/if}
-  <details class="wide">
-    <summary>{copy['evidenceField.sourceMetadata']}</summary>
+  <details class="wide p-[0.55rem] border border-border-subtle rounded-control">
+    <summary class="cursor-pointer font-extrabold">{copy['evidenceField.sourceMetadata']}</summary>
     <Field label={copy['evidenceField.sourceMetadata']} class="compact-field">
       <Textarea
         name="sourceMetadataJson"
@@ -111,11 +111,6 @@
 </div>
 
 <style>
-  .field-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
-  }
   /* Field renders its own label/control stack inside a child component, so scoped CSS cannot
      reach the label directly - the whole remaining chain after .compact-field is wrapped in one
      :global() (the SelectedPlaceCard ".card-body :global(.details-status p)" precedent), rather
@@ -132,19 +127,7 @@
   .field-grid :global(.wide) {
     grid-column: 1 / -1;
   }
-  details {
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    padding: 0.55rem;
-  }
-  summary {
-    cursor: pointer;
-    font-weight: 800;
-  }
   @media (max-width: 40rem) {
-    .field-grid {
-      grid-template-columns: 1fr;
-    }
     .field-grid :global(.wide) {
       grid-column: auto;
     }

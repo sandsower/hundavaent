@@ -62,8 +62,8 @@
   }
 </script>
 
-<div class="opening-hours-editor">
-  <div class="hours-grid">
+<div class="opening-hours-editor grid gap-[0.65rem]">
+  <div class="hours-grid grid grid-cols-2 gap-[0.55rem] max-[40rem]:grid-cols-[1fr]">
     {#each days as day (day.key)}
       <Field label={copy[day.label]} class="mod-field">
         <Input
@@ -82,8 +82,10 @@
   </div>
 
   {#each extraKeys as key, index (key)}
-    <fieldset class="extra-entry">
-      <legend>
+    <fieldset
+      class="extra-entry grid grid-cols-2 gap-[0.55rem] m-0 p-[0.65rem] border border-border-subtle rounded-control max-[40rem]:grid-cols-[1fr]"
+    >
+      <legend class="px-[0.35rem] py-0 text-[0.8rem] font-extrabold">
         {copy['moderation.openingHoursAdditionalEntry'].replace('{number}', String(index + 1))}
       </legend>
       <Field label={copy['moderation.openingHoursEntryKey']} class="mod-field">
@@ -107,18 +109,6 @@
 </div>
 
 <style>
-  .opening-hours-editor {
-    display: grid;
-    gap: 0.65rem;
-  }
-
-  .hours-grid,
-  .extra-entry {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
-  }
-
   /* Field's own label carries no weight/size utility (baseline-first); this file's labels were
      always the reduced 0.78rem/750 treatment, so it is re-anchored here via an ancestor-scoped
      :global() targeting Field's rendered label through the .mod-field hook, never a bare
@@ -134,25 +124,7 @@
     grid-column: 1 / -1;
   }
 
-  .extra-entry {
-    margin: 0;
-    padding: 0.65rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-  }
-
-  .extra-entry legend {
-    padding: 0 0.35rem;
-    font-size: 0.8rem;
-    font-weight: 800;
-  }
-
   @media (max-width: 40rem) {
-    .hours-grid,
-    .extra-entry {
-      grid-template-columns: 1fr;
-    }
-
     .hours-grid :global(.wide),
     .extra-entry :global(.remove-entry) {
       grid-column: auto;
