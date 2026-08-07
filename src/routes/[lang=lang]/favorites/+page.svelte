@@ -128,10 +128,10 @@
       class="saved-empty-state grid gap-context"
       aria-labelledby="saved-empty-title"
     >
-      <h2 id="saved-empty-title" data-saved-empty-heading tabindex="-1">
+      <h2 id="saved-empty-title" class="m-0" data-saved-empty-heading tabindex="-1">
         {data.copy['favourite.emptyTitle']}
       </h2>
-      <p>{data.copy['favourite.emptyBody']}</p>
+      <p class="m-0">{data.copy['favourite.emptyBody']}</p>
       <Button href={resolve('/[lang=lang]', { lang: data.lang })} intent="primary">
         {data.copy['favourite.backToDiscovery']}
       </Button>
@@ -142,17 +142,17 @@
       class="saved-empty-state grid gap-context"
       aria-labelledby="saved-page-empty-title"
     >
-      <h2 id="saved-page-empty-title" data-saved-empty-heading tabindex="-1">
+      <h2 id="saved-page-empty-title" class="m-0" data-saved-empty-heading tabindex="-1">
         {data.copy['favourite.pageEmptyTitle']}
       </h2>
-      <p>{data.copy['favourite.pageEmptyBody']}</p>
+      <p class="m-0">{data.copy['favourite.pageEmptyBody']}</p>
       <Button href={resolve('/[lang=lang]/favorites', { lang: data.lang })} intent="primary">
         {data.copy['favourite.pageEmptyAction']}
       </Button>
     </Panel>
   {:else}
     <ul
-      class="saved-list grid gap-context m-0 p-0 list-none"
+      class="saved-list grid gap-context m-0 p-0 list-none [margin-block:calc(var(--hv-space-context)*1.5)]!"
       aria-label={data.copy['favourite.savedTitle']}
     >
       {#each savedPlaces as place (place.placeId)}
@@ -163,7 +163,7 @@
           class={`saved-card${place.availability !== 'available' ? ' unavailable' : ''}`}
         >
           <div class="grid gap-context">
-            <h2>{place.name}</h2>
+            <h2 class="m-0">{place.name}</h2>
             <Meta>{place.locality}</Meta>
             <Status
               tone={place.availability === 'available' ? undefined : 'attention'}
@@ -179,12 +179,14 @@
               </Meta>
             {/if}
             {#if place.availability === 'inactive' && place.successorPlaceId && place.successorName}
-              <p class="successor">
+              <p class="successor m-0 font-bold text-basalt-muted">
                 {data.copy['history.successorNote'].replace('{name}', place.successorName)}
               </p>
             {/if}
           </div>
-          <div class="saved-actions flex flex-wrap items-center gap-actions">
+          <div
+            class="saved-actions flex flex-wrap items-center gap-actions content-start justify-end max-[35rem]:justify-stretch"
+          >
             {#if place.availability === 'available'}
               <!-- The helper resolves the localized internal path before adding encoded query data. -->
               <Button href={discoveryPlaceHref(place.placeId)}>
@@ -225,10 +227,6 @@
 <p class="visually-hidden" role="status" aria-live="polite">{announcement}</p>
 
 <style>
-  .saved-list {
-    margin-block: calc(var(--hv-space-context) * 1.5);
-  }
-
   :global(.saved-card) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -239,37 +237,14 @@
     background: var(--hv-color-snow);
   }
 
-  h2 {
-    margin: 0;
-  }
-
-  :global(.saved-card) p {
-    margin: 0;
-  }
-
-  .successor {
-    color: var(--hv-color-basalt-muted);
-    font-weight: 700;
-  }
-
   :global(.saved-card small) {
     max-width: 42ch;
-  }
-
-  .saved-actions {
-    align-content: start;
-    justify-content: end;
   }
 
   :global(.saved-empty-state) {
     max-width: 34rem;
     margin-top: calc(var(--hv-space-context) * 1.5);
     padding: var(--hv-space-panel);
-  }
-
-  :global(.saved-empty-state) h2,
-  :global(.saved-empty-state) p {
-    margin: 0;
   }
 
   /* Button's rendered anchor has no native wrapping ancestor here - the same rootless situation
@@ -281,10 +256,6 @@
   @media (max-width: 35rem) {
     :global(.saved-card) {
       grid-template-columns: 1fr;
-    }
-
-    .saved-actions {
-      justify-content: stretch;
     }
   }
 </style>

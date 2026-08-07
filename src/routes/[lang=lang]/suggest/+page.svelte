@@ -137,7 +137,10 @@
 
     <form class="grid gap-context" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
       <input type="hidden" name="commandId" value={data.commandId} />
-      <fieldset class="answer-boundary grid gap-context" disabled={submissionUnavailable}>
+      <fieldset
+        class="answer-boundary grid min-w-0 gap-context m-0 p-0 border-0"
+        disabled={submissionUnavailable}
+      >
         <input type="hidden" name="purpose" value="dog_access_destination" />
         <input type="hidden" name="submissionProfile" value="minimal-v1" />
 
@@ -174,7 +177,7 @@
         </fieldset>
 
         <FormSection legend={data.copy['suggestion.welcomeArea']}>
-          <div class="choices">
+          <div class="choices grid gap-2">
             {#each welcomeAreas as area (area.value)}
               <Choice type="radio" name="accessArea" value={area.value} required>
                 {data.copy[area.key]}
@@ -192,13 +195,6 @@
 </PageShell>
 
 <style>
-  .answer-boundary {
-    min-width: 0;
-    margin: 0;
-    border: 0;
-    padding: 0;
-  }
-
   /* Sending is not a fourth question, so it stands off from the three rather than queueing behind
      them at the same interval. Button renders its own <button> from inside Button.svelte, so
      Svelte's scoped CSS never decorates it - it is not this file's element, even though it ends
@@ -217,10 +213,5 @@
     gap: 0.75rem;
     align-items: center;
     justify-content: space-between;
-  }
-
-  .choices {
-    display: grid;
-    gap: 0.5rem;
   }
 </style>

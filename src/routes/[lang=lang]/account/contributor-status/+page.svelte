@@ -55,21 +55,28 @@
     >
       {data.copy[statusKey(data.contributor.status)]}
     </Status>
-    <p class="explanation">{data.copy[explanationKey(data.contributor.status)]}</p>
+    <p class="explanation m-0 leading-[1.55]">
+      {data.copy[explanationKey(data.contributor.status)]}
+    </p>
     {#if since}
       <Meta class="since">{since}</Meta>
     {/if}
     {#if data.contributor.status === 'trusted_contributor'}
-      <aside class="trusted-note" aria-labelledby="trusted-note-heading">
-        <span class="trusted-icon">
+      <aside
+        class="trusted-note grid grid-cols-[2.8rem_minmax(0,1fr)] items-center gap-[0.8rem] p-[0.9rem] border border-[color-mix(in_srgb,var(--hv-color-moss)_32%,transparent)] rounded-panel bg-success-soft"
+        aria-labelledby="trusted-note-heading"
+      >
+        <span class="trusted-icon block w-[2.8rem]">
           <AchievementBadge
             achievementKey="sustained_quality_contributor"
             group="contribution_quality"
             state="earned"
           />
         </span>
-        <span>
-          <strong id="trusted-note-heading">{data.copy['contributor.trustedNote.title']}</strong>
+        <span class="grid gap-[0.2rem] leading-[1.45]">
+          <strong id="trusted-note-heading" class="text-moss"
+            >{data.copy['contributor.trustedNote.title']}</strong
+          >
           <span>{data.copy['contributor.trustedNote.body']}</span>
         </span>
       </aside>
@@ -98,37 +105,6 @@
   /* Renders through Status (a child component), so the layout hook needs :global(). */
   :global(.tier) {
     justify-self: start;
-  }
-
-  .explanation {
-    margin: 0;
-    line-height: 1.55;
-  }
-
-  .trusted-note {
-    display: grid;
-    grid-template-columns: 2.8rem minmax(0, 1fr);
-    gap: 0.8rem;
-    align-items: center;
-    border: 1px solid color-mix(in srgb, var(--hv-color-moss) 32%, transparent);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-success-soft);
-    padding: 0.9rem;
-  }
-
-  .trusted-note > span:last-child {
-    display: grid;
-    gap: 0.2rem;
-    line-height: 1.45;
-  }
-
-  .trusted-note strong {
-    color: var(--hv-color-moss);
-  }
-
-  .trusted-icon {
-    display: block;
-    width: 2.8rem;
   }
 
   /* Renders through Button (a child component), so the layout hook needs :global(); the fjord

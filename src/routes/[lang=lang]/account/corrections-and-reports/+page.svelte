@@ -104,7 +104,9 @@
   {#if data.flags.length === 0}
     <Notice tone="info" as="p">{data.copy['flag.empty']}</Notice>
   {:else}
-    <ul class="outcome-list grid gap-context m-0 p-0 list-none">
+    <ul
+      class="outcome-list grid gap-context m-0 p-0 list-none [margin-block:calc(var(--hv-space-context)*1.5)]!"
+    >
       {#each data.flags as item (item.flagId)}
         <Panel
           as="li"
@@ -113,13 +115,17 @@
         >
           <div class="grid gap-context">
             <Eyebrow class="kind-line">{data.copy[kindKey(item.kind)]} · {target(item)}</Eyebrow>
-            <h2>{name(item)}</h2>
+            <h2 class="m-0">{name(item)}</h2>
           </div>
           <Status tone={statusTone(item.outcome)} class="outcome-status">
             {data.copy[statusKey(item.outcome)]}
           </Status>
           {#if data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}
-            <p class="reason">{data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}</p>
+            <p
+              class="reason col-span-full m-0 pt-3 border-t border-t-border-subtle text-basalt-muted"
+            >
+              {data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}
+            </p>
           {/if}
         </Panel>
       {/each}
@@ -146,10 +152,6 @@
 </PageShell>
 
 <style>
-  .outcome-list {
-    margin-block: calc(var(--hv-space-context) * 1.5);
-  }
-
   .outcome-list :global(.outcome-card) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -163,18 +165,6 @@
 
   .outcome-list :global(.outcome-card .kind-line) {
     margin: 0;
-  }
-
-  h2 {
-    margin: 0;
-  }
-
-  .reason {
-    grid-column: 1 / -1;
-    margin: 0;
-    border-top: 1px solid var(--hv-border-subtle);
-    padding-top: 0.75rem;
-    color: var(--hv-color-basalt-muted);
   }
 
   /* Status now renders the chip through a child component; the child combinator needs the
