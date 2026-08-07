@@ -10,32 +10,16 @@
   let { label, disabled = false, children }: Props = $props();
 </script>
 
-<section class="decision-dock" aria-label={label}>
-  <fieldset {disabled}>
+<section
+  class="decision-dock sticky z-[3] bottom-0 min-w-0 py-[0.9rem] px-[1.1rem] border-t border-t-basalt bg-snow-raised shadow-none focus-within:shadow-[inset_0_0_0_3px_var(--hv-focus-ring)]"
+  aria-label={label}
+>
+  <fieldset class="min-w-0 m-0 p-0 border-0" {disabled}>
     {@render children?.()}
   </fieldset>
 </section>
 
 <style>
-  .decision-dock {
-    position: sticky;
-    z-index: 3;
-    bottom: 0;
-    min-width: 0;
-    border-top: 1px solid var(--hv-color-basalt);
-    background: var(--hv-color-snow-raised);
-    padding: 0.9rem 1.1rem;
-    box-shadow: none;
-  }
-  .decision-dock:focus-within {
-    box-shadow: inset 0 0 0 3px var(--hv-focus-ring);
-  }
-  .decision-dock > fieldset {
-    min-width: 0;
-    margin: 0;
-    border: 0;
-    padding: 0;
-  }
   .decision-dock :global(form) {
     display: grid;
     min-width: 0;

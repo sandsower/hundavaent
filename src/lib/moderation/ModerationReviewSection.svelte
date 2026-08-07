@@ -46,75 +46,36 @@
   });
 </script>
 
-<details {id} class="review-section" data-section-state={sectionState} bind:open={expanded}>
-  <summary>
-    <span class="section-heading">
-      <strong>{title}</strong>
-      <span>{summary}</span>
+<!-- Named group, per the nesting rule: these sections sit inside review panels that are
+     themselves converted surfaces, so the state-marker's ancestor-state styling addresses this
+     root by name rather than matching whichever group happens to be nearest. -->
+<details
+  {id}
+  class="review-section group/review-section scroll-m-4 border border-border-subtle rounded-panel bg-snow-raised data-[section-state=warning]:border-signal data-[section-state=blocking]:border-danger"
+  data-section-state={sectionState}
+  bind:open={expanded}
+>
+  <summary
+    class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-[0.8rem] px-[0.9rem] list-none cursor-pointer focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px]"
+  >
+    <span class="section-heading grid gap-[0.18rem]">
+      <strong class="font-display text-[1rem]">{title}</strong>
+      <span class="text-[0.78rem] leading-[1.35] text-basalt-muted">{summary}</span>
     </span>
-    <span class="state-marker" aria-hidden="true"></span>
+    <span
+      class="state-marker w-[0.7rem] h-[0.7rem] rounded-control bg-success group-data-[section-state=warning]/review-section:bg-signal group-data-[section-state=blocking]/review-section:bg-danger"
+      aria-hidden="true"
+    ></span>
   </summary>
-  <div class="section-body">
+  <div class="section-body py-[0.85rem] px-[0.9rem] border-t border-t-border-subtle">
     {@render children?.()}
   </div>
 </details>
 
 <style>
-  .review-section {
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow-raised);
-    scroll-margin: 1rem;
-  }
-  .review-section[data-section-state='warning'] {
-    border-color: var(--hv-color-signal);
-  }
-  .review-section[data-section-state='blocking'] {
-    border-color: var(--hv-color-danger);
-  }
-  summary {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.75rem;
-    align-items: center;
-    padding: 0.8rem 0.9rem;
-    cursor: pointer;
-    list-style: none;
-  }
+  /* stays: a vendor pseudo-element Tailwind has no variant for. `list-none` on the summary above
+     covers the standard ::marker; this is the Safari/WebKit half of the same suppression. */
   summary::-webkit-details-marker {
     display: none;
-  }
-  summary:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-  }
-  .section-heading {
-    display: grid;
-    gap: 0.18rem;
-  }
-  .section-heading strong {
-    font-family: var(--hv-font-display);
-    font-size: 1rem;
-  }
-  .section-heading span {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.78rem;
-    line-height: 1.35;
-  }
-  .state-marker {
-    width: 0.7rem;
-    height: 0.7rem;
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-success);
-  }
-  [data-section-state='warning'] .state-marker {
-    background: var(--hv-color-signal);
-  }
-  [data-section-state='blocking'] .state-marker {
-    background: var(--hv-color-danger);
-  }
-  .section-body {
-    border-top: 1px solid var(--hv-border-subtle);
-    padding: 0.85rem 0.9rem;
   }
 </style>

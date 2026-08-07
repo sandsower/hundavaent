@@ -18,13 +18,24 @@
 </script>
 
 {#if status === 'rejected'}
-  <div class="decision-options single" role="group" aria-label={copy['moderation.reviewTitle']}>
+  <!-- No narrow-width override here, deliberately: `.decision-options.single` (0-2-0) out-ranked
+       the old `@media (max-width: 44rem) .decision-options` rule (0-1-0), so the single-column
+       variant kept its minmax(8rem, 1fr) track at every width. -->
+  <div
+    class="decision-options single grid grid-cols-[minmax(8rem,1fr)] gap-[0.45rem]"
+    role="group"
+    aria-label={copy['moderation.reviewTitle']}
+  >
     <Button class="decision-action" intent="neutral" {disabled} onclick={() => ondecide('reopen')}>
       {copy['moderation.workbench.reopen']}
     </Button>
   </div>
 {:else if status === 'pending' || status === 'needs_information'}
-  <div class="decision-options" role="group" aria-label={copy['moderation.reviewTitle']}>
+  <div
+    class="decision-options grid grid-cols-3 gap-[0.45rem] max-[44rem]:grid-cols-[1fr]"
+    role="group"
+    aria-label={copy['moderation.reviewTitle']}
+  >
     <Button
       class="decision-action"
       intent="committed"
@@ -48,14 +59,6 @@
 {/if}
 
 <style>
-  .decision-options {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.45rem;
-  }
-  .decision-options.single {
-    grid-template-columns: minmax(8rem, 1fr);
-  }
   /* Button renders its own <button> in a separate component, so Svelte's scoped CSS cannot reach
      it directly - the same ancestor-scoped :global() pattern AuthDialog's .facebook rule and
      ModerationReasonDialog's label rule use. The reduced font-size and min-width:0 truncation
@@ -65,10 +68,5 @@
     min-width: 0;
     font-size: 0.76rem;
     line-height: 1.15;
-  }
-  @media (max-width: 44rem) {
-    .decision-options {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

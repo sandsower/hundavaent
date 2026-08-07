@@ -41,14 +41,14 @@
 
 <Dialog {open} size="standard" class="grid gap-[0.7rem]" {oncancel}>
   {#snippet title()}
-    <h2>{titleText}</h2>
+    <h2 class="m-0 font-display text-[1.35rem]">{titleText}</h2>
   {/snippet}
-  <p>{description}</p>
-  <form class="publish-form" onsubmit={submit}>
+  <p class="m-0 leading-[1.4] text-basalt-muted">{description}</p>
+  <form class="publish-form grid gap-[0.7rem]" onsubmit={submit}>
     <Field label={reasonLabel} hint={reasonHelp}>
       <Textarea bind:value={reason} rows={3} required />
     </Field>
-    <div class="actions">
+    <div class="actions flex justify-end gap-[0.55rem]">
       <Button intent="neutral" onclick={oncancel}>{cancelLabel}</Button>
       <Button intent="committed" type="submit">{confirmLabel}</Button>
     </div>
@@ -56,22 +56,6 @@
 </Dialog>
 
 <style>
-  h2,
-  p {
-    margin: 0;
-  }
-  h2 {
-    font-family: var(--hv-font-display);
-    font-size: 1.35rem;
-  }
-  p {
-    color: var(--hv-color-basalt-muted);
-    line-height: 1.4;
-  }
-  .publish-form {
-    display: grid;
-    gap: 0.7rem;
-  }
   /* Field renders its own <label>, crossing this component's scoping boundary the same way
      AuthDialog's `form :global(label)` rule does - :global() reaches it purely on the literal
      element, scoped under this component's hash via the ancestor selector. Field's label carries
@@ -81,10 +65,5 @@
     color: var(--hv-color-basalt-muted);
     font-size: 0.82rem;
     font-weight: 800;
-  }
-  .actions {
-    display: flex;
-    gap: 0.55rem;
-    justify-content: flex-end;
   }
 </style>
