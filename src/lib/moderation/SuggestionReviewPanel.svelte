@@ -353,12 +353,20 @@
   }
 </script>
 
-<div class="review-panel" class:standalone>
+<div
+  class="review-panel grid min-w-0 gap-[0.9rem] data-[standalone=true]:mx-auto data-[standalone=true]:my-8 data-[standalone=true]:w-[min(100%_-_2rem,64rem)] max-[44rem]:data-[standalone=true]:my-2 max-[44rem]:data-[standalone=true]:w-[min(100%_-_1rem,64rem)]"
+  class:standalone
+  data-standalone={standalone}
+>
   {#if standalone}
-    <header>
-      <p class="eyebrow">{data.copy['suggestion.review']}</p>
-      <h1>{data.lang === 'is' ? data.suggestion.nameIs : data.suggestion.nameEn}</h1>
-      <p>
+    <header class="grid gap-[0.55rem]">
+      <p class="eyebrow m-0 text-[0.72rem] font-extrabold tracking-[0.08em] uppercase text-fjord">
+        {data.copy['suggestion.review']}
+      </p>
+      <h1 class="m-0 font-display text-[clamp(2rem,6vw,4rem)] leading-none">
+        {data.lang === 'is' ? data.suggestion.nameIs : data.suggestion.nameEn}
+      </h1>
+      <p class="m-0">
         {data.suggestion.operatorName} · {data.suggestion.addressLine}, {data.suggestion.locality}
       </p>
     </header>
@@ -387,7 +395,7 @@
     >
   {/if}
 
-  <h2 class="readiness-title">{data.copy['suggestion.reviewSummary']}</h2>
+  <h2 class="readiness-title m-0 text-[1rem]">{data.copy['suggestion.reviewSummary']}</h2>
   <ModerationReadinessSummary
     label={data.copy['suggestion.reviewSummary']}
     state={reviewState}
@@ -397,7 +405,7 @@
   />
 
   {#if standalone && decisionStillActionable}
-    <div class="standalone-actions">
+    <div class="standalone-actions sticky z-5 top-[var(--hv-app-header-height,0)]">
       <ModerationActionBar
         label={data.copy['suggestion.resolve']}
         disabled={editingSection !== null}
@@ -415,7 +423,7 @@
     </div>
   {/if}
 
-  <div class="review-sections">
+  <div class="review-sections grid gap-[0.65rem]">
     <ModerationReviewSection
       id="suggestion-identity"
       title={data.copy['suggestion.section.identity']}
@@ -423,7 +431,7 @@
     >
       {#if editingSection === 'identity'}
         <form
-          class="section-form"
+          class="section-form grid grid-cols-2 gap-[0.55rem] max-[44rem]:grid-cols-[1fr]"
           data-section-form="identity"
           method="POST"
           action="?/saveSuggestionSection"
@@ -447,15 +455,21 @@
           {@render sectionActions('identity')}
         </form>
       {:else}
-        <div class="section-view">
-          <dl>
-            <div>
-              <dt>{data.copy['suggestion.operator']}</dt>
-              <dd>{proposal.operator_name}</dd>
+        <div class="section-view grid gap-[0.55rem]">
+          <dl class="grid m-0 gap-[0.45rem]">
+            <div
+              class="grid grid-cols-[minmax(7rem,0.35fr)_1fr] gap-[0.6rem] max-[44rem]:grid-cols-[1fr]"
+            >
+              <dt class="font-extrabold">{data.copy['suggestion.operator']}</dt>
+              <dd class="min-w-0 m-0 wrap-anywhere">{proposal.operator_name}</dd>
             </div>
-            <div>
-              <dt>{data.copy['suggestion.category']}</dt>
-              <dd>{localizePlaceCategory(proposal.category, data.copy)}</dd>
+            <div
+              class="grid grid-cols-[minmax(7rem,0.35fr)_1fr] gap-[0.6rem] max-[44rem]:grid-cols-[1fr]"
+            >
+              <dt class="font-extrabold">{data.copy['suggestion.category']}</dt>
+              <dd class="min-w-0 m-0 wrap-anywhere">
+                {localizePlaceCategory(proposal.category, data.copy)}
+              </dd>
             </div>
           </dl>
           {@render editButton('identity', data.copy['suggestion.section.identity'])}
@@ -470,14 +484,14 @@
     >
       {#if editingSection === 'location'}
         <form
-          class="section-form"
+          class="section-form grid grid-cols-2 gap-[0.55rem] max-[44rem]:grid-cols-[1fr]"
           data-section-form="location"
           method="POST"
           action="?/saveSuggestionSection"
           use:enhance={enhanceSection('location')}
         >
           {@render sectionInputs('location', locationPayload)}
-          <div class="wide">
+          <div class="wide col-span-full max-[44rem]:col-auto">
             <ModerationLocationEditor
               copy={data.copy}
               bind:value={locationValue}
@@ -488,12 +502,12 @@
           {@render sectionActions('location')}
         </form>
       {:else}
-        <div class="section-view">
-          <p>
+        <div class="section-view grid gap-[0.55rem]">
+          <p class="m-0">
             {proposal.location.address_line}, {proposal.location.postal_code}
             {proposal.location.locality}
           </p>
-          <p>{proposal.location.latitude}, {proposal.location.longitude}</p>
+          <p class="m-0">{proposal.location.latitude}, {proposal.location.longitude}</p>
           {@render editButton('location', data.copy['moderation.locationHeading'])}
         </div>
       {/if}
@@ -509,15 +523,17 @@
     >
       {#if editingSection === 'translations'}
         <form
-          class="section-form"
+          class="section-form grid grid-cols-2 gap-[0.55rem] max-[44rem]:grid-cols-[1fr]"
           data-section-form="translations"
           method="POST"
           action="?/saveSuggestionSection"
           use:enhance={enhanceSection('translations')}
         >
           {@render sectionInputs('translations', translationsPayload)}
-          <fieldset>
-            <legend>{data.copy['suggestion.translationIs']}</legend>
+          <fieldset
+            class="col-span-full min-w-0 m-0 p-[0.65rem] border border-border-subtle rounded-control max-[44rem]:col-auto"
+          >
+            <legend class="font-extrabold">{data.copy['suggestion.translationIs']}</legend>
             <Field label={data.copy['suggestion.name']} class="compact-field">
               <Input required bind:value={translationNameIs} />
             </Field>
@@ -525,8 +541,10 @@
               <Textarea required rows={3} bind:value={translationDescriptionIs} />
             </Field>
           </fieldset>
-          <fieldset>
-            <legend>{data.copy['suggestion.translationEn']}</legend>
+          <fieldset
+            class="col-span-full min-w-0 m-0 p-[0.65rem] border border-border-subtle rounded-control max-[44rem]:col-auto"
+          >
+            <legend class="font-extrabold">{data.copy['suggestion.translationEn']}</legend>
             <Field label={data.copy['suggestion.name']} class="compact-field">
               <Input required bind:value={translationNameEn} />
             </Field>
@@ -537,14 +555,16 @@
           {@render sectionActions('translations')}
         </form>
       {:else}
-        <div class="section-view translations">
-          <article lang="is">
+        <div
+          class="section-view translations grid grid-cols-2 gap-[0.55rem] max-[44rem]:grid-cols-[1fr]"
+        >
+          <article lang="is" class="p-[0.65rem] border border-border-subtle rounded-control">
             <strong>{proposal.translations.is.name}</strong>
-            <p>{proposal.translations.is.description}</p>
+            <p class="m-0">{proposal.translations.is.description}</p>
           </article>
-          <article lang="en">
+          <article lang="en" class="p-[0.65rem] border border-border-subtle rounded-control">
             <strong>{proposal.translations.en.name}</strong>
-            <p>{proposal.translations.en.description}</p>
+            <p class="m-0">{proposal.translations.en.description}</p>
           </article>
           {@render editButton(
             'translations',
@@ -561,7 +581,7 @@
     >
       {#if editingSection === 'hours-and-amenities'}
         <form
-          class="section-form"
+          class="section-form grid grid-cols-2 gap-[0.55rem] max-[44rem]:grid-cols-[1fr]"
           data-section-form="hours-and-amenities"
           method="POST"
           action="?/saveSuggestionSection"
@@ -574,13 +594,17 @@
           <Field label={data.copy['suggestion.phone']} class="compact-field">
             <Input type="tel" bind:value={detailsPhone} />
           </Field>
-          <div class="wide editor-group">
-            <h3>{data.copy['suggestion.openingHours']}</h3>
+          <div class="wide editor-group col-span-full max-[44rem]:col-auto">
+            <h3 class="m-0">{data.copy['suggestion.openingHours']}</h3>
             <OpeningHoursEditor copy={data.copy} bind:value={detailsOpeningHours} />
           </div>
-          <fieldset class="wide">
-            <legend>{data.copy['suggestion.amenities']}</legend>
-            {#each detailsDogAmenities as amenity, index (index)}<div class="repeated-row">
+          <fieldset
+            class="wide col-span-full min-w-0 m-0 p-[0.65rem] border border-border-subtle rounded-control max-[44rem]:col-auto"
+          >
+            <legend class="font-extrabold">{data.copy['suggestion.amenities']}</legend>
+            {#each detailsDogAmenities as amenity, index (index)}<div
+                class="repeated-row grid grid-cols-[1fr_auto] gap-[0.45rem] mb-[0.45rem]"
+              >
                 <Input
                   aria-label={data.copy['moderation.amenityLabel'].replace(
                     '{number}',
@@ -599,18 +623,22 @@
           {@render sectionActions('hours-and-amenities')}
         </form>
       {:else}
-        <div class="section-view">
-          <dl>
-            <div>
-              <dt>{data.copy['suggestion.contact']}</dt>
-              <dd>
+        <div class="section-view grid gap-[0.55rem]">
+          <dl class="grid m-0 gap-[0.45rem]">
+            <div
+              class="grid grid-cols-[minmax(7rem,0.35fr)_1fr] gap-[0.6rem] max-[44rem]:grid-cols-[1fr]"
+            >
+              <dt class="font-extrabold">{data.copy['suggestion.contact']}</dt>
+              <dd class="min-w-0 m-0 wrap-anywhere">
                 {proposal.website_url ?? data.copy['common.notAvailable']} · {proposal.phone ??
                   data.copy['common.notAvailable']}
               </dd>
             </div>
-            <div>
-              <dt>{data.copy['suggestion.openingHours']}</dt>
-              <dd>
+            <div
+              class="grid grid-cols-[minmax(7rem,0.35fr)_1fr] gap-[0.6rem] max-[44rem]:grid-cols-[1fr]"
+            >
+              <dt class="font-extrabold">{data.copy['suggestion.openingHours']}</dt>
+              <dd class="min-w-0 m-0 wrap-anywhere">
                 {formatOpeningHours(
                   proposal.opening_hours,
                   data.copy,
@@ -618,9 +646,11 @@
                 )}
               </dd>
             </div>
-            <div>
-              <dt>{data.copy['suggestion.amenities']}</dt>
-              <dd>
+            <div
+              class="grid grid-cols-[minmax(7rem,0.35fr)_1fr] gap-[0.6rem] max-[44rem]:grid-cols-[1fr]"
+            >
+              <dt class="font-extrabold">{data.copy['suggestion.amenities']}</dt>
+              <dd class="min-w-0 m-0 wrap-anywhere">
                 {proposal.dog_amenities.length
                   ? formatDogAmenities(proposal.dog_amenities, data.copy)
                   : data.copy['common.notAvailable']}
@@ -642,7 +672,7 @@
     >
       {#if editingSection === 'access-condition'}
         <form
-          class="section-form wide-form"
+          class="section-form wide-form grid grid-cols-2 gap-[0.55rem] max-[44rem]:grid-cols-[1fr]"
           data-section-form="access-condition"
           method="POST"
           action="?/saveSuggestionSection"
@@ -653,8 +683,8 @@
           {@render sectionActions('access-condition')}
         </form>
       {:else}
-        <div class="section-view">
-          <p>
+        <div class="section-view grid gap-[0.55rem]">
+          <p class="m-0">
             {localizeAccessArea(proposal.access_condition.access_area, data.copy)} · {localizeRestraint(
               proposal.access_condition.restraint_condition,
               data.copy
@@ -672,7 +702,7 @@
     >
       {#if editingSection === 'evidence'}
         <form
-          class="section-form wide-form"
+          class="section-form wide-form grid grid-cols-2 gap-[0.55rem] max-[44rem]:grid-cols-[1fr]"
           data-section-form="evidence"
           method="POST"
           action="?/saveSuggestionSection"
@@ -683,8 +713,8 @@
           {@render sectionActions('evidence')}
         </form>
       {:else}
-        <div class="section-view">
-          <p>
+        <div class="section-view grid gap-[0.55rem]">
+          <p class="m-0">
             <strong>{proposal.evidence.source_label}</strong> ·
             <time datetime={proposal.evidence.observed_at}>{proposal.evidence.observed_at}</time>
           </p>
@@ -694,7 +724,7 @@
               >{proposal.evidence.source_url}</a
             >
           {/if}
-          <p>{proposal.evidence.explanation}</p>
+          <p class="m-0">{proposal.evidence.explanation}</p>
           {@render editButton('evidence', data.copy['suggestion.section.evidence'])}
         </div>
       {/if}
@@ -706,10 +736,12 @@
       summary={data.matches.length ? `${data.matches.length}` : data.copy['suggestion.noMatches']}
       state={data.matches.length ? 'warning' : 'complete'}
     >
-      {#if data.matches.length === 0}<p>{data.copy['suggestion.noMatches']}</p>{:else}<ul
-          class="match-list"
-        >
-          {#each data.matches as match (match.placeId)}<li>
+      {#if data.matches.length === 0}<p class="m-0">
+          {data.copy['suggestion.noMatches']}
+        </p>{:else}<ul class="match-list grid m-0 gap-2 p-0 list-none">
+          {#each data.matches as match (match.placeId)}<li
+              class="grid gap-[0.2rem] pb-2 border-b border-b-border-subtle"
+            >
               <strong
                 >{data.lang === 'is'
                   ? (match.nameIs ?? match.operatorName)
@@ -722,8 +754,12 @@
               >
             </li>{/each}
         </ul>{/if}
-      <fieldset class="identity-decisions">
-        <legend>{data.copy['suggestion.identityDecisions']}</legend>
+      <fieldset
+        class="identity-decisions grid grid-cols-2 min-w-0 m-[0.75rem_0_0] gap-[0.55rem] p-[0.65rem] border border-border-subtle rounded-control max-[44rem]:grid-cols-[1fr]"
+      >
+        <legend class="font-extrabold col-span-full max-[44rem]:col-auto"
+          >{data.copy['suggestion.identityDecisions']}</legend
+        >
         <Field label={data.copy['suggestion.operatorIdentity']} class="compact-field">
           <Select bind:value={operatorIdentityPlaceId}
             ><option value="new">{data.copy['suggestion.newOperatorIdentity']}</option
@@ -754,15 +790,17 @@
         ? data.copy[`contributor.status.${data.contributor.status}` as MessageKey]
         : data.copy['common.notAvailable']}
     >
-      <p class="signal-note">{data.copy['contributor.moderation.signalNote']}</p>
-      {#if data.contributor}<p>
+      <p class="signal-note m-0 text-basalt-muted">
+        {data.copy['contributor.moderation.signalNote']}
+      </p>
+      {#if data.contributor}<p class="m-0">
           <strong>{data.copy[`contributor.status.${data.contributor.status}` as MessageKey]}</strong
           >
         </p>
-        {#if !data.contributor.policyVersion}<p>
+        {#if !data.contributor.policyVersion}<p class="m-0">
             {data.copy['contributor.moderation.policyMissing']}
           </p>{/if}{/if}
-      {#if contributorEvidence.length}<ul>
+      {#if contributorEvidence.length}<ul class="grid m-0 gap-2 p-0 list-none">
           {#each contributorEvidence as item, index (item.contributionId ?? item.flagId ?? index)}<li
             >
               {#if item.contributionId}<span
@@ -779,7 +817,7 @@
                 >{/if}
             </li>{/each}
         </ul>{/if}
-      <div class="context-actions">
+      <div class="context-actions flex flex-wrap justify-end gap-2">
         <Button type="button" intent="neutral" onclick={() => (contributorAction = 'record')}
           >{data.copy['contributor.moderation.flagMember']}</Button
         >{#if activeEvidenceFlagId}<Button
@@ -790,7 +828,7 @@
           >{/if}
       </div>
       {#if contributorAction === 'revoke'}<form
-          class="compact-form"
+          class="compact-form grid gap-[0.55rem]"
           method="POST"
           action="?/revokeContribution"
           use:enhance={enhanceForm}
@@ -805,7 +843,7 @@
           </Field>
           {@render compactActions()}
         </form>{:else if contributorAction === 'record'}<form
-          class="compact-form"
+          class="compact-form grid gap-[0.55rem]"
           method="POST"
           action="?/recordConductFlag"
           use:enhance={enhanceForm}
@@ -829,7 +867,7 @@
           </Field>
           {@render compactActions()}
         </form>{:else if contributorAction === 'clear' && activeEvidenceFlagId}<form
-          class="compact-form"
+          class="compact-form grid gap-[0.55rem]"
           method="POST"
           action="?/clearConductFlag"
           use:enhance={enhanceForm}
@@ -850,7 +888,7 @@
   {#if decisionStillActionable}
     <form
       id="suggestion-decision"
-      class="decision-form"
+      class="decision-form hidden"
       method="POST"
       action="?/decideSuggestion"
       use:enhance={enhanceForm}
@@ -944,7 +982,9 @@
 {/snippet}
 
 {#snippet sectionActions(sectionId: EditableSectionId)}
-  <div class="section-form-actions">
+  <div
+    class="section-form-actions flex flex-wrap justify-end col-span-full gap-2 max-[44rem]:col-auto"
+  >
     <Button type="button" intent="neutral" onclick={() => (editingSection = null)}
       >{data.copy['common.cancel']}</Button
     ><Button type="submit" intent="committed" disabled={savingSection === sectionId}
@@ -964,7 +1004,9 @@
 {/snippet}
 
 {#snippet compactActions()}
-  <div class="section-form-actions">
+  <div
+    class="section-form-actions flex flex-wrap justify-end col-span-full gap-2 max-[44rem]:col-auto"
+  >
     <Button type="button" intent="neutral" onclick={() => (contributorAction = null)}
       >{data.copy['common.cancel']}</Button
     ><Button type="submit" intent="committed">{data.copy['common.save']}</Button>
@@ -972,58 +1014,6 @@
 {/snippet}
 
 <style>
-  .review-panel {
-    display: grid;
-    min-width: 0;
-    gap: 0.9rem;
-  }
-  .review-panel.standalone {
-    width: min(100% - 2rem, 64rem);
-    margin: 2rem auto;
-  }
-  header,
-  .review-sections,
-  .section-view,
-  .section-form,
-  .compact-form {
-    display: grid;
-    gap: 0.55rem;
-  }
-  h1,
-  h2,
-  h3,
-  p {
-    margin: 0;
-  }
-  h1 {
-    font-family: var(--hv-font-display);
-    font-size: clamp(2rem, 6vw, 4rem);
-    line-height: 1;
-  }
-  .eyebrow {
-    color: var(--hv-color-fjord);
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .readiness-title {
-    font-size: 1rem;
-  }
-  .review-sections {
-    gap: 0.65rem;
-  }
-  .standalone-actions {
-    position: sticky;
-    z-index: 5;
-    top: var(--hv-app-header-height, 0);
-  }
-  .section-form {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .section-form > :global(.wide),
-  .section-form > fieldset,
-  .section-form-actions,
   .wide-form > :global(*) {
     grid-column: 1 / -1;
   }
@@ -1040,37 +1030,6 @@
     font-size: 0.78rem;
     font-weight: 800;
   }
-  fieldset {
-    min-width: 0;
-    margin: 0;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    padding: 0.65rem;
-  }
-  legend {
-    font-weight: 800;
-  }
-  dl {
-    display: grid;
-    gap: 0.45rem;
-    margin: 0;
-  }
-  dl div {
-    display: grid;
-    grid-template-columns: minmax(7rem, 0.35fr) 1fr;
-    gap: 0.6rem;
-  }
-  dt {
-    font-weight: 800;
-  }
-  dd {
-    min-width: 0;
-    margin: 0;
-    overflow-wrap: anywhere;
-  }
-  .translations {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   /* Button renders its own <button> inside a child component, so scoped CSS cannot reach it
      directly - .edit-section is guaranteed to land on that rendered element because we pass it
      through Button's class prop ourselves (the FavouriteControl precedent). Button's neutral
@@ -1078,76 +1037,13 @@
   .translations :global(.edit-section) {
     grid-column: 1 / -1;
   }
-  article {
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    padding: 0.65rem;
-  }
-  .section-form-actions,
-  .context-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    justify-content: flex-end;
-  }
   .review-panel :global(.edit-section) {
     justify-self: end;
   }
-  .repeated-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 0.45rem;
-    margin-bottom: 0.45rem;
-  }
-  .match-list,
-  ul {
-    display: grid;
-    gap: 0.5rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .match-list li {
-    display: grid;
-    gap: 0.2rem;
-    border-bottom: 1px solid var(--hv-border-subtle);
-    padding-bottom: 0.5rem;
-  }
-  .identity-decisions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
-    margin-top: 0.75rem;
-  }
-  .identity-decisions legend {
-    grid-column: 1 / -1;
-  }
-  .signal-note {
-    color: var(--hv-color-basalt-muted);
-  }
-  .decision-form {
-    display: none;
-  }
   @media (max-width: 44rem) {
-    .review-panel.standalone {
-      width: min(100% - 1rem, 64rem);
-      margin: 0.5rem auto;
-    }
-    .section-form,
-    .translations,
-    .identity-decisions {
-      grid-template-columns: 1fr;
-    }
-    .section-form > :global(.wide),
-    .section-form > fieldset,
-    .section-form-actions,
     .wide-form > :global(*),
-    .translations :global(.edit-section),
-    .identity-decisions legend {
+    .translations :global(.edit-section) {
       grid-column: auto;
-    }
-    dl div {
-      grid-template-columns: 1fr;
     }
   }
 </style>
