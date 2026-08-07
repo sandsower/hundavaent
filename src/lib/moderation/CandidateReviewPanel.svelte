@@ -583,12 +583,26 @@
   });
 </script>
 
-<div class="review-shell" class:standalone>
+<!-- data-standalone mirrors the class:standalone flag so the standalone-only rules that used to
+     live in `.review-shell.standalone` (and the two `:not(.standalone)` descendant rules) can be
+     expressed as data variants; the class itself stays because the kept :global map-surface hook
+     still selects on it. group/shell is named because converted components nest inside. -->
+<div
+  class="review-shell group/shell w-full min-w-0 data-[standalone=true]:mx-auto data-[standalone=true]:my-0 data-[standalone=true]:w-[min(100%_-_2rem,72rem)] data-[standalone=true]:px-0 data-[standalone=true]:pt-12 data-[standalone=true]:pb-20"
+  class:standalone
+  data-standalone={standalone}
+>
   {#if standalone}
-    <header>
-      <p class="eyebrow">{data.copy['nav.moderation']}</p>
-      <h1>{data.copy['moderation.reviewTitle']}</h1>
-      <p>{data.copy['moderation.reviewIntro']}</p>
+    <header class="box-border min-w-0 max-w-192 mb-4">
+      <p class="eyebrow box-border min-w-0 tracking-[0.12em] uppercase font-[850] text-fjord">
+        {data.copy['nav.moderation']}
+      </p>
+      <h1
+        class="box-border min-w-0 mx-0 my-1 font-display text-[clamp(2rem,6vw,3.5rem)] leading-none tracking-[-0.02em]"
+      >
+        {data.copy['moderation.reviewTitle']}
+      </h1>
+      <p class="box-border min-w-0">{data.copy['moderation.reviewIntro']}</p>
     </header>
   {/if}
 
@@ -601,9 +615,10 @@
       tabindex={-1}
       id={publishAlertId}
     >
-      <strong>{publishError}</strong>
+      <strong class="box-border min-w-0">{publishError}</strong>
       {#if form && 'conflict' in form && form.conflict}
         <a
+          class="box-border min-w-0 font-extrabold text-fjord"
           href={resolve('/[lang=lang]/moderation/places/[id]', {
             lang: data.lang,
             id: data.review.placeId
@@ -617,11 +632,13 @@
 
   {#if succeeded}
     <Notice tone="success" as="section" class="message" role="status">
-      <strong>{data.copy['moderation.published']}</strong>
+      <strong class="box-border min-w-0">{data.copy['moderation.published']}</strong>
     </Notice>
   {/if}
 
-  <h2 class="readiness-title">{data.copy['moderation.checklistTitle']}</h2>
+  <h2 class="readiness-title box-border min-w-0 mx-0 mt-0 mb-[0.45rem] font-display text-[1rem]">
+    {data.copy['moderation.checklistTitle']}
+  </h2>
   <ModerationReadinessSummary
     label={data.copy['moderation.checklistTitle']}
     state={readinessState}
@@ -632,6 +649,7 @@
 
   <form
     id="candidate-publication"
+    class="flex flex-wrap items-end box-border min-w-0 gap-[0.7rem] mt-3 p-3 rounded-panel border border-border-subtle bg-snow-raised"
     bind:this={publicationForm}
     method="POST"
     action="?/publish"
@@ -658,7 +676,9 @@
     >
   {/if}
 
-  {#if standalone && (canDecide || decisionError)}<div class="candidate-actions">
+  {#if standalone && (canDecide || decisionError)}<div
+      class="candidate-actions box-border min-w-0 mt-3"
+    >
       <ModerationActionBar
         label={data.copy['moderation.workbench.candidateActions']}
         disabled={editingSection !== null}
@@ -681,7 +701,7 @@
 
   {#if standalone && canDecide}
     <form
-      class="decision-form"
+      class="decision-form flex flex-wrap items-end box-border min-w-0 gap-[0.7rem] mt-3 p-3 rounded-panel border border-border-subtle bg-snow-raised"
       bind:this={candidateDecisionForm}
       method="POST"
       action="?/decideCandidate"
@@ -699,7 +719,7 @@
     </form>
   {/if}
 
-  <div class="review-sections">
+  <div class="review-sections grid box-border min-w-0 gap-[0.65rem] mt-3">
     <ModerationReviewSection
       id="candidate-overview"
       title={data.copy['moderation.identityHeading']}
@@ -711,7 +731,7 @@
     >
       {#if editingSection === 'identity'}
         <form
-          class="section-form"
+          class="section-form grid grid-cols-2 items-end box-border min-w-0 gap-[0.65rem] mt-0 p-3 rounded-panel border border-border-subtle bg-snow-raised max-[48rem]:grid-cols-[1fr]"
           data-section-form="identity"
           method="POST"
           action="?/saveCandidateSection"
@@ -741,7 +761,9 @@
               <option value="other">{data.copy['category.other']}</option>
             </Select>
           </Field>
-          <div class="section-form-actions">
+          <div
+            class="section-form-actions flex justify-end col-span-full box-border min-w-0 gap-[0.55rem] max-[48rem]:grid max-[48rem]:col-auto"
+          >
             <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
             <Button intent="neutral" type="submit" disabled={savingSection === 'identity'}
               >{saveLabel('identity')}</Button
@@ -749,15 +771,21 @@
           </div>
         </form>
       {:else}
-        <div class="section-view">
-          <section class="place-card" aria-labelledby="place-name">
-            <span class="state">{data.copy[`status.${data.review.lifecycle}` as MessageKey]}</span>
-            <h2 id="place-name">
+        <div class="section-view grid box-border min-w-0 gap-[0.7rem]">
+          <section
+            class="place-card box-border min-w-0 p-[0.85rem] rounded-panel border border-border-subtle bg-snow-raised shadow-none"
+            aria-labelledby="place-name"
+          >
+            <span
+              class="state inline-block box-border min-w-0 px-[0.45rem] py-[0.2rem] rounded-control border border-fjord bg-fjord-soft text-[0.75rem] font-[850] text-basalt"
+              >{data.copy[`status.${data.review.lifecycle}` as MessageKey]}</span
+            >
+            <h2 id="place-name" class="box-border min-w-0 mt-[0.65rem]">
               {data.lang === 'is'
                 ? (data.review.nameIs ?? data.review.nameEn ?? data.review.placeId)
                 : (data.review.nameEn ?? data.review.nameIs ?? data.review.placeId)}
             </h2>
-            <p>
+            <p class="box-border min-w-0">
               {data.review.operatorName} · {localizePlaceCategory(
                 data.review.category as PlaceCategory,
                 data.copy
@@ -782,7 +810,7 @@
     >
       {#if editingSection === 'details'}
         <form
-          class="section-form section-form-wide"
+          class="section-form section-form-wide grid grid-cols-[1fr] items-end box-border min-w-0 gap-[0.65rem] mt-0 p-3 rounded-panel border border-border-subtle bg-snow-raised"
           data-section-form="details"
           method="POST"
           action="?/saveCandidateSection"
@@ -800,14 +828,27 @@
           <Field label={data.copy['moderation.phoneLabel']} class="mod-field">
             <Input type="tel" bind:value={detailsPhone} />
           </Field>
-          <div class="wide editor-group">
-            <h3>{data.copy['place.openingHours']}</h3>
+          <!-- grid-column stays with the kept `.section-form :global(.wide)` hook: the same rule
+               also has to reach Field's rendered div below, so it cannot become a utility here. -->
+          <div
+            class="wide editor-group box-border min-w-0 m-0 p-[0.7rem] rounded-control border border-border-subtle"
+          >
+            <h3 class="box-border min-w-0 mx-0 mt-0 mb-[0.5rem] text-[0.9rem] font-[850]">
+              {data.copy['place.openingHours']}
+            </h3>
             <OpeningHoursEditor copy={data.copy} bind:value={detailsOpeningHours} />
           </div>
-          <fieldset class="wide amenities-editor">
-            <legend>{data.copy['place.amenities']}</legend>
+          <fieldset
+            class="wide amenities-editor grid box-border min-w-0 gap-[0.55rem] m-0 p-[0.7rem] rounded-control border border-border-subtle"
+          >
+            <legend
+              class="box-border min-w-0 mx-0 mt-0 mb-[0.5rem] px-[0.35rem] text-[0.9rem] font-[850]"
+              >{data.copy['place.amenities']}</legend
+            >
             {#each detailsDogAmenities as amenity, index (index)}
-              <div class="repeated-row">
+              <div
+                class="repeated-row grid grid-cols-[minmax(0,1fr)_auto] items-end box-border min-w-0 gap-[0.55rem] max-[48rem]:grid-cols-[1fr]"
+              >
                 <Field
                   label={data.copy['moderation.amenityLabel'].replace(
                     '{number}',
@@ -829,7 +870,9 @@
               {data.copy['moderation.addAmenity']}
             </Button>
           </fieldset>
-          <div class="section-form-actions">
+          <div
+            class="section-form-actions flex justify-end col-span-full box-border min-w-0 gap-[0.55rem] max-[48rem]:grid max-[48rem]:col-auto"
+          >
             <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
             <Button intent="neutral" type="submit" disabled={savingSection === 'details'}
               >{saveLabel('details')}</Button
@@ -837,19 +880,37 @@
           </div>
         </form>
       {:else}
-        <div class="section-view detail-facts">
-          <dl>
-            <div>
-              <dt>{data.copy['moderation.websiteLabel']}</dt>
-              <dd>{data.review.websiteUrl ?? data.copy['common.notAvailable']}</dd>
+        <div class="section-view detail-facts grid box-border min-w-0 gap-[0.7rem]">
+          <dl
+            class="grid grid-cols-2 box-border min-w-0 gap-[0.55rem] m-0 max-[48rem]:grid-cols-[1fr]"
+          >
+            <div
+              class="grid box-border min-w-0 gap-[0.2rem] p-[0.55rem] rounded-control border border-border-subtle"
+            >
+              <dt class="box-border min-w-0 text-[0.75rem] font-bold text-basalt-muted">
+                {data.copy['moderation.websiteLabel']}
+              </dt>
+              <dd class="box-border min-w-0 m-0 wrap-anywhere">
+                {data.review.websiteUrl ?? data.copy['common.notAvailable']}
+              </dd>
             </div>
-            <div>
-              <dt>{data.copy['moderation.phoneLabel']}</dt>
-              <dd>{data.review.phone ?? data.copy['common.notAvailable']}</dd>
+            <div
+              class="grid box-border min-w-0 gap-[0.2rem] p-[0.55rem] rounded-control border border-border-subtle"
+            >
+              <dt class="box-border min-w-0 text-[0.75rem] font-bold text-basalt-muted">
+                {data.copy['moderation.phoneLabel']}
+              </dt>
+              <dd class="box-border min-w-0 m-0 wrap-anywhere">
+                {data.review.phone ?? data.copy['common.notAvailable']}
+              </dd>
             </div>
-            <div>
-              <dt>{data.copy['place.openingHours']}</dt>
-              <dd>
+            <div
+              class="grid box-border min-w-0 gap-[0.2rem] p-[0.55rem] rounded-control border border-border-subtle"
+            >
+              <dt class="box-border min-w-0 text-[0.75rem] font-bold text-basalt-muted">
+                {data.copy['place.openingHours']}
+              </dt>
+              <dd class="box-border min-w-0 m-0 wrap-anywhere">
                 {formatOpeningHours(
                   data.review.openingHours,
                   data.copy,
@@ -857,9 +918,13 @@
                 )}
               </dd>
             </div>
-            <div>
-              <dt>{data.copy['place.amenities']}</dt>
-              <dd>
+            <div
+              class="grid box-border min-w-0 gap-[0.2rem] p-[0.55rem] rounded-control border border-border-subtle"
+            >
+              <dt class="box-border min-w-0 text-[0.75rem] font-bold text-basalt-muted">
+                {data.copy['place.amenities']}
+              </dt>
+              <dd class="box-border min-w-0 m-0 wrap-anywhere">
                 {data.review.dogAmenities.length
                   ? formatDogAmenities(data.review.dogAmenities, data.copy)
                   : data.copy['common.notAvailable']}
@@ -884,7 +949,7 @@
     >
       {#if editingSection === 'wheelchair_accessibility'}
         <form
-          class="section-form section-form-stack"
+          class="section-form section-form-stack grid grid-cols-[1fr] items-end box-border min-w-0 gap-[0.65rem] mt-0 p-3 rounded-panel border border-border-subtle bg-snow-raised"
           method="POST"
           action="?/updateWheelchairAccessibility"
           use:enhance={enhanceWheelchairAccessibility}
@@ -904,8 +969,12 @@
               <option value="unknown">{data.copy['wheelchairAccessibility.unknown']}</option>
             </Select>
           </Field>
-          <p class="field-help">{data.copy['moderation.wheelchairAccessibilityHelp']}</p>
-          <div class="section-form-actions">
+          <p class="field-help box-border min-w-0">
+            {data.copy['moderation.wheelchairAccessibilityHelp']}
+          </p>
+          <div
+            class="section-form-actions flex justify-end col-span-full box-border min-w-0 gap-[0.55rem] max-[48rem]:grid max-[48rem]:col-auto"
+          >
             <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
             <Button intent="neutral" type="submit" disabled={savingWheelchairAccessibility}>
               {savingWheelchairAccessibility
@@ -915,8 +984,8 @@
           </div>
         </form>
       {:else}
-        <div class="section-view">
-          <p>{wheelchairAccessibilityLabel()}</p>
+        <div class="section-view grid box-border min-w-0 gap-[0.7rem]">
+          <p class="box-border min-w-0">{wheelchairAccessibilityLabel()}</p>
           <Button
             intent="neutral"
             class="edit-section"
@@ -945,14 +1014,20 @@
         ? 'complete'
         : 'blocking'}
     >
-      <div class="location-detail">
-        <p>
+      <div
+        class="location-detail grid grid-cols-[minmax(0,1fr)_minmax(22rem,0.85fr)] box-border min-w-0 gap-x-4 gap-y-[0.8rem] group-data-[standalone=false]/shell:grid-cols-[1fr] max-[48rem]:grid-cols-[1fr]"
+      >
+        <p class="col-span-full box-border min-w-0 my-0">
           {data.review.addressLine}, {data.review.postalCode}
           {data.review.locality}
         </p>
-        <p>{data.review.latitude.toFixed(6)}, {data.review.longitude.toFixed(6)}</p>
-        <p><strong>{geometryPrecisionLabel()}</strong></p>
-        <p>{data.review.geometrySource}</p>
+        <p class="col-span-full box-border min-w-0 my-0">
+          {data.review.latitude.toFixed(6)}, {data.review.longitude.toFixed(6)}
+        </p>
+        <p class="col-span-full box-border min-w-0 my-0">
+          <strong class="box-border min-w-0">{geometryPrecisionLabel()}</strong>
+        </p>
+        <p class="col-span-full box-border min-w-0 my-0">{data.review.geometrySource}</p>
         {#if editingSection !== 'location'}
           <MapSurface
             adapter={locationMapAdapter}
@@ -967,7 +1042,7 @@
         {/if}
         {#if editingSection === 'location'}
           <form
-            class="location-correction section-form"
+            class="location-correction section-form grid grid-cols-2 items-end col-2 box-border min-w-0 gap-[0.65rem] mt-0 p-3 rounded-panel border border-border-subtle bg-snow-raised group-data-[standalone=false]/shell:col-1 max-[48rem]:grid-cols-[1fr] max-[48rem]:col-1"
             data-section-form="location"
             method="POST"
             action={data.review.lifecycle === 'published'
@@ -984,7 +1059,10 @@
               <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
               <input type="hidden" name="sectionId" value="location" />
             {/if}
-            <div class="wide">
+            <!-- The retired `.location-correction .wide` rule was dead: it and the kept
+                 `.section-form :global(.wide)` hook both said `grid-column: 1 / -1`, and the
+                 hook's higher specificity always won - so grid placement stays with the hook. -->
+            <div class="wide box-border min-w-0">
               <ModerationLocationEditor
                 copy={data.copy}
                 bind:value={locationValue}
@@ -992,7 +1070,9 @@
                 mapStyleUrl={data.mapStyleUrl}
               />
             </div>
-            <div class="section-form-actions wide">
+            <div
+              class="section-form-actions wide flex justify-end col-span-full box-border min-w-0 gap-[0.55rem] max-[48rem]:grid max-[48rem]:col-auto"
+            >
               <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
               <Button intent="neutral" type="submit" disabled={savingSection === 'location'}
                 >{saveLabel('location')}</Button
@@ -1031,7 +1111,7 @@
     >
       {#if editingSection === 'translations'}
         <form
-          class="section-form"
+          class="section-form grid grid-cols-2 items-end box-border min-w-0 gap-[0.65rem] mt-0 p-3 rounded-panel border border-border-subtle bg-snow-raised max-[48rem]:grid-cols-[1fr]"
           data-section-form="translations"
           method="POST"
           action="?/saveCandidateSection"
@@ -1055,7 +1135,9 @@
           <Field label={data.copy['moderation.descriptionEnLabel']} class="mod-field wide">
             <Textarea required lang="en" bind:value={translationDescriptionEn} />
           </Field>
-          <div class="section-form-actions">
+          <div
+            class="section-form-actions flex justify-end col-span-full box-border min-w-0 gap-[0.55rem] max-[48rem]:grid max-[48rem]:col-auto"
+          >
             <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
             <Button intent="neutral" type="submit" disabled={savingSection === 'translations'}
               >{saveLabel('translations')}</Button
@@ -1063,17 +1145,37 @@
           </div>
         </form>
       {:else}
-        <div class="section-view translation-view">
-          <div class="translation-grid">
-            <article lang="is">
-              <h3>{data.copy['moderation.checkIcelandic']}</h3>
-              <p>{data.review.nameIs ?? data.copy['common.notAvailable']}</p>
-              <p>{data.review.descriptionIs ?? data.copy['common.notAvailable']}</p>
+        <div class="section-view translation-view grid box-border min-w-0 gap-[0.7rem]">
+          <div
+            class="translation-grid grid grid-cols-2 box-border min-w-0 gap-[0.65rem] max-[48rem]:grid-cols-[1fr]"
+          >
+            <article
+              lang="is"
+              class="box-border min-w-0 p-3 rounded-panel border border-border-subtle"
+            >
+              <h3 class="box-border min-w-0 mx-0 mt-0 mb-[0.45rem] text-[0.95rem]">
+                {data.copy['moderation.checkIcelandic']}
+              </h3>
+              <p class="box-border min-w-0">
+                {data.review.nameIs ?? data.copy['common.notAvailable']}
+              </p>
+              <p class="box-border min-w-0">
+                {data.review.descriptionIs ?? data.copy['common.notAvailable']}
+              </p>
             </article>
-            <article lang="en">
-              <h3>{data.copy['moderation.checkEnglish']}</h3>
-              <p>{data.review.nameEn ?? data.copy['common.notAvailable']}</p>
-              <p>{data.review.descriptionEn ?? data.copy['common.notAvailable']}</p>
+            <article
+              lang="en"
+              class="box-border min-w-0 p-3 rounded-panel border border-border-subtle"
+            >
+              <h3 class="box-border min-w-0 mx-0 mt-0 mb-[0.45rem] text-[0.95rem]">
+                {data.copy['moderation.checkEnglish']}
+              </h3>
+              <p class="box-border min-w-0">
+                {data.review.nameEn ?? data.copy['common.notAvailable']}
+              </p>
+              <p class="box-border min-w-0">
+                {data.review.descriptionEn ?? data.copy['common.notAvailable']}
+              </p>
             </article>
           </div>
           <Button
@@ -1098,7 +1200,7 @@
     >
       {#if editingSection === 'access_conditions'}
         <form
-          class="section-form section-form-stack"
+          class="section-form section-form-stack grid grid-cols-[1fr] items-end box-border min-w-0 gap-[0.65rem] mt-0 p-3 rounded-panel border border-border-subtle bg-snow-raised"
           data-section-form="access_conditions"
           method="POST"
           action="?/saveCandidateSection"
@@ -1110,7 +1212,9 @@
           <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
           <input type="hidden" name="sectionId" value="access_conditions" />
           <AccessConditionsEditor copy={data.copy} conditions={data.review.accessConditions} />
-          <div class="section-form-actions">
+          <div
+            class="section-form-actions flex justify-end col-span-full box-border min-w-0 gap-[0.55rem] max-[48rem]:grid max-[48rem]:col-auto"
+          >
             <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
             <Button intent="neutral" type="submit" disabled={savingSection === 'access_conditions'}
               >{saveLabel('access_conditions')}</Button
@@ -1118,11 +1222,16 @@
           </div>
         </form>
       {:else}
-        <div class="section-view">
-          <ol class="review-records">
+        <div class="section-view grid box-border min-w-0 gap-[0.7rem]">
+          <!-- The retired bare `ul`/`li` rules were dead here: `.review-records` and
+               `.review-records > li` outranked every one of their declarations, so only the
+               record treatment below ever rendered. -->
+          <ol class="review-records grid box-border min-w-0 gap-[0.55rem] m-0 p-0 list-none">
             {#each data.review.accessConditions as condition (condition.id)}
-              <li>
-                <strong>{describeCondition(condition)}</strong>
+              <li
+                class="grid grid-cols-[1fr] box-border min-w-0 gap-[0.2rem] p-[0.5rem] rounded-control border border-border-subtle bg-snow"
+              >
+                <strong class="box-border min-w-0">{describeCondition(condition)}</strong>
               </li>
             {/each}
           </ol>
@@ -1148,7 +1257,7 @@
     >
       {#if editingSection === 'evidence_records'}
         <form
-          class="section-form section-form-stack"
+          class="section-form section-form-stack grid grid-cols-[1fr] items-end box-border min-w-0 gap-[0.65rem] mt-0 p-3 rounded-panel border border-border-subtle bg-snow-raised"
           data-section-form="evidence_records"
           method="POST"
           action="?/saveCandidateSection"
@@ -1160,7 +1269,9 @@
           <input type="hidden" name="expectedDraftVersion" value={data.review.draftVersion} />
           <input type="hidden" name="sectionId" value="evidence_records" />
           <EvidenceRecordsEditor copy={data.copy} evidenceRecords={data.review.evidenceRecords} />
-          <div class="section-form-actions">
+          <div
+            class="section-form-actions flex justify-end col-span-full box-border min-w-0 gap-[0.55rem] max-[48rem]:grid max-[48rem]:col-auto"
+          >
             <Button intent="neutral" onclick={cancelEditing}>{data.copy['common.cancel']}</Button>
             <Button intent="neutral" type="submit" disabled={savingSection === 'evidence_records'}
               >{saveLabel('evidence_records')}</Button
@@ -1168,17 +1279,31 @@
           </div>
         </form>
       {:else}
-        <div class="section-view">
-          <ul class="review-records">
+        <div class="section-view grid box-border min-w-0 gap-[0.7rem]">
+          <ul class="review-records grid box-border min-w-0 gap-[0.55rem] m-0 p-0 list-none">
             {#each data.review.evidenceRecords as evidence (evidence.id)}
-              <li class="evidence-record">
-                <strong>{evidence.sourceLabel}</strong>
-                <span>{localizeEvidenceKind(evidence.kind, data.copy)}</span>
-                {#if evidence.sourceUrl}<span class="reference">{evidence.sourceUrl}</span>{/if}
+              <!-- `.evidence-record` restated `.review-records > li`'s display and gap at lower
+                   source order, so it never changed a pixel; the record treatment is the one
+                   below. The spans only need `block` - the retired `li > span` badge rule was
+                   fully undone by `.review-records > li > span`, whose leftover place-items is
+                   inert on a block box. -->
+              <li
+                class="evidence-record grid grid-cols-[1fr] box-border min-w-0 gap-[0.2rem] p-[0.5rem] rounded-control border border-border-subtle bg-snow"
+              >
+                <strong class="box-border min-w-0">{evidence.sourceLabel}</strong>
+                <span class="block box-border min-w-0"
+                  >{localizeEvidenceKind(evidence.kind, data.copy)}</span
+                >
+                {#if evidence.sourceUrl}<span
+                    class="reference block box-border min-w-0 wrap-anywhere text-basalt-muted"
+                    >{evidence.sourceUrl}</span
+                  >{/if}
                 {#if evidence.sourceCitation}
-                  <span class="reference">{evidence.sourceCitation}</span>
+                  <span class="reference block box-border min-w-0 wrap-anywhere text-basalt-muted"
+                    >{evidence.sourceCitation}</span
+                  >
                 {/if}
-                <time datetime={evidence.observedAt}
+                <time datetime={evidence.observedAt} class="box-border min-w-0"
                   >{formatLocalizedDate(evidence.observedAt, data.lang)}</time
                 >
               </li>
@@ -1203,17 +1328,17 @@
         String(data.media.length)
       )}
     >
-      <div class="media-section">
-        <p>{data.copy['moderation.media.intro']}</p>
+      <div class="media-section box-border min-w-0 mt-4">
+        <p class="box-border min-w-0">{data.copy['moderation.media.intro']}</p>
 
         {#if mediaError}
           <Notice tone="error" as="section" class="message" role="alert">
-            <strong>{mediaError}</strong>
+            <strong class="box-border min-w-0">{mediaError}</strong>
           </Notice>
         {/if}
         {#if mediaSucceeded}
           <Notice tone="success" as="section" class="message" role="status">
-            <strong>
+            <strong class="box-border min-w-0">
               {form && 'action' in form && form.action === 'uploadEvidence'
                 ? data.copy['moderation.media.uploadSucceeded']
                 : form && 'action' in form && form.action === 'uploadPhoto'
@@ -1227,38 +1352,67 @@
           </Notice>
         {/if}
 
-        <div class="media-columns">
+        <!-- The retired `@media (max-width: 48rem)` entry for .media-columns was dead: the
+             standalone rule outranked it, and the non-standalone base was already 1fr. -->
+        <div
+          class="media-columns grid grid-cols-[1fr] box-border min-w-0 gap-[0.75rem] mt-3 group-data-[standalone=true]/shell:grid-cols-2"
+        >
           <article
-            class="media-column"
+            class="media-column box-border min-w-0 p-[0.85rem] rounded-panel border border-border-subtle bg-snow-raised shadow-none"
             aria-labelledby="evidence-media-title"
             data-media-column="evidence"
           >
-            <h3 id="evidence-media-title">{data.copy['moderation.media.evidenceTitle']}</h3>
+            <h3 id="evidence-media-title" class="box-border min-w-0 mt-0">
+              {data.copy['moderation.media.evidenceTitle']}
+            </h3>
             {#if evidenceItems.length === 0}
-              <p>{data.copy['moderation.media.evidenceEmpty']}</p>
+              <p class="box-border min-w-0">{data.copy['moderation.media.evidenceEmpty']}</p>
             {:else}
-              <ul class="media-list">
+              <ul
+                class="media-list grid box-border min-w-0 gap-[0.75rem] mx-0 mt-0 mb-5 p-0 list-none"
+              >
                 {#each evidenceItems as item (item.mediaId)}
+                  <!-- data-retired carries the same flag as class:retired so the retired tone can
+                       be a data variant; the retired rule's background restated the base one. -->
                   <li
-                    class="media-item"
+                    class="media-item grid grid-cols-[160px_1fr] box-border min-w-0 gap-[0.65rem] p-[0.6rem] rounded-control border border-border-subtle bg-snow data-[retired=true]:bg-snow data-[retired=true]:opacity-75 max-[48rem]:grid-cols-[1fr]"
                     class:retired={Boolean(item.retiredAt)}
+                    data-retired={Boolean(item.retiredAt)}
                     data-media-item={item.mediaId}
                     data-storage-object-path={item.storageObjectPath}
                   >
                     {#if item.signedUrl}
-                      <img src={item.signedUrl} alt="" width="160" height="120" loading="lazy" />
+                      <img
+                        src={item.signedUrl}
+                        alt=""
+                        width="160"
+                        height="120"
+                        loading="lazy"
+                        class="box-border min-w-0 w-[160px] h-[120px] rounded-control object-cover"
+                      />
                     {/if}
-                    <div class="media-item-body">
-                      {#if item.sourceUrl}<span class="reference">{item.sourceUrl}</span>{/if}
+                    <div class="media-item-body grid content-start box-border min-w-0 gap-[0.4rem]">
+                      {#if item.sourceUrl}<span
+                          class="reference box-border min-w-0 wrap-anywhere text-basalt-muted"
+                          >{item.sourceUrl}</span
+                        >{/if}
                       {#if item.capturedAt}
-                        <time datetime={item.capturedAt}
+                        <time datetime={item.capturedAt} class="box-border min-w-0"
                           >{formatLocalizedDate(item.capturedAt, data.lang)}</time
                         >
                       {/if}
                       {#if item.retiredAt}
-                        <span class="badge">{data.copy['moderation.media.retired']}</span>
+                        <span
+                          class="badge inline-block box-border min-w-0 w-fit px-[0.6rem] py-[0.2rem] rounded-control border border-fjord bg-fjord-soft text-[0.85rem] font-extrabold text-basalt"
+                          >{data.copy['moderation.media.retired']}</span
+                        >
                       {:else}
-                        <form method="POST" action="?/retireMedia" use:enhance={enhanceMedia}>
+                        <form
+                          method="POST"
+                          action="?/retireMedia"
+                          use:enhance={enhanceMedia}
+                          class="flex flex-wrap items-end box-border min-w-0 gap-[0.7rem] m-0 p-[0.5rem] rounded-panel border border-border-subtle bg-snow-raised"
+                        >
                           <input type="hidden" name="placeId" value={data.review.placeId} />
                           <input type="hidden" name="mediaId" value={item.mediaId} />
                           <Button intent="neutral" type="submit"
@@ -1277,10 +1431,12 @@
               action="?/uploadEvidence"
               enctype="multipart/form-data"
               use:enhance={enhanceMedia}
-              class="media-upload-form"
+              class="media-upload-form grid items-stretch box-border min-w-0 gap-[0.6rem] mt-3 p-3 rounded-panel border border-border-subtle bg-snow-raised"
             >
               <input type="hidden" name="placeId" value={data.review.placeId} />
-              <h4>{data.copy['moderation.media.uploadEvidenceTitle']}</h4>
+              <h4 class="box-border min-w-0 m-0">
+                {data.copy['moderation.media.uploadEvidenceTitle']}
+              </h4>
               <Field label={data.copy['moderation.media.fileLabel']} class="mod-field">
                 <Input
                   type="file"
@@ -1316,42 +1472,61 @@
           </article>
 
           <article
-            class="media-column"
+            class="media-column box-border min-w-0 p-[0.85rem] rounded-panel border border-border-subtle bg-snow-raised shadow-none"
             aria-labelledby="photo-media-title"
             data-media-column="photo"
           >
-            <h3 id="photo-media-title">{data.copy['moderation.media.photosTitle']}</h3>
+            <h3 id="photo-media-title" class="box-border min-w-0 mt-0">
+              {data.copy['moderation.media.photosTitle']}
+            </h3>
             {#if photoItems.length === 0}
-              <p>{data.copy['moderation.media.photosEmpty']}</p>
+              <p class="box-border min-w-0">{data.copy['moderation.media.photosEmpty']}</p>
             {:else}
-              <ul class="media-list">
+              <ul
+                class="media-list grid box-border min-w-0 gap-[0.75rem] mx-0 mt-0 mb-5 p-0 list-none"
+              >
                 {#each photoItems as item (item.mediaId)}
                   <li
-                    class="media-item"
+                    class="media-item grid grid-cols-[160px_1fr] box-border min-w-0 gap-[0.65rem] p-[0.6rem] rounded-control border border-border-subtle bg-snow data-[retired=true]:bg-snow data-[retired=true]:opacity-75 max-[48rem]:grid-cols-[1fr]"
                     class:retired={Boolean(item.retiredAt)}
+                    data-retired={Boolean(item.retiredAt)}
                     data-media-item={item.mediaId}
                     data-storage-object-path={item.storageObjectPath}
                   >
                     {#if item.signedUrl}
-                      <img src={item.signedUrl} alt="" width="160" height="120" loading="lazy" />
+                      <img
+                        src={item.signedUrl}
+                        alt=""
+                        width="160"
+                        height="120"
+                        loading="lazy"
+                        class="box-border min-w-0 w-[160px] h-[120px] rounded-control object-cover"
+                      />
                     {/if}
-                    <div class="media-item-body">
-                      <span class="badge"
+                    <div class="media-item-body grid content-start box-border min-w-0 gap-[0.4rem]">
+                      <span
+                        class="badge inline-block box-border min-w-0 w-fit px-[0.6rem] py-[0.2rem] rounded-control border border-fjord bg-fjord-soft text-[0.85rem] font-extrabold text-basalt"
                         >{data.copy[
                           `moderation.media.state.${item.approvalState}` as MessageKey
                         ]}</span
                       >
                       {#if item.isPrimary}
-                        <span class="badge">{data.copy['moderation.media.primary']}</span>
+                        <span
+                          class="badge inline-block box-border min-w-0 w-fit px-[0.6rem] py-[0.2rem] rounded-control border border-fjord bg-fjord-soft text-[0.85rem] font-extrabold text-basalt"
+                          >{data.copy['moderation.media.primary']}</span
+                        >
                       {/if}
                       {#if item.retiredAt}
-                        <span class="badge">{data.copy['moderation.media.retired']}</span>
+                        <span
+                          class="badge inline-block box-border min-w-0 w-fit px-[0.6rem] py-[0.2rem] rounded-control border border-fjord bg-fjord-soft text-[0.85rem] font-extrabold text-basalt"
+                          >{data.copy['moderation.media.retired']}</span
+                        >
                       {:else if item.approvalState === 'pending'}
                         <form
                           method="POST"
                           action="?/approveMedia"
                           use:enhance={enhanceMedia}
-                          class="approve-form"
+                          class="approve-form grid items-end box-border min-w-0 gap-[0.5rem] m-0 p-[0.5rem] rounded-panel border border-border-subtle bg-snow-raised"
                         >
                           <input type="hidden" name="placeId" value={data.review.placeId} />
                           <input type="hidden" name="mediaId" value={item.mediaId} />
@@ -1367,7 +1542,12 @@
                             >{data.copy['moderation.media.publishPhotoAction']}</Button
                           >
                         </form>
-                        <form method="POST" action="?/rejectMedia" use:enhance={enhanceMedia}>
+                        <form
+                          method="POST"
+                          action="?/rejectMedia"
+                          use:enhance={enhanceMedia}
+                          class="flex flex-wrap items-end box-border min-w-0 gap-[0.7rem] m-0 p-[0.5rem] rounded-panel border border-border-subtle bg-snow-raised"
+                        >
                           <input type="hidden" name="placeId" value={data.review.placeId} />
                           <input type="hidden" name="mediaId" value={item.mediaId} />
                           <Button intent="neutral" type="submit"
@@ -1375,7 +1555,12 @@
                           >
                         </form>
                       {:else}
-                        <form method="POST" action="?/retireMedia" use:enhance={enhanceMedia}>
+                        <form
+                          method="POST"
+                          action="?/retireMedia"
+                          use:enhance={enhanceMedia}
+                          class="flex flex-wrap items-end box-border min-w-0 gap-[0.7rem] m-0 p-[0.5rem] rounded-panel border border-border-subtle bg-snow-raised"
+                        >
                           <input type="hidden" name="placeId" value={data.review.placeId} />
                           <input type="hidden" name="mediaId" value={item.mediaId} />
                           <Button intent="neutral" type="submit"
@@ -1394,10 +1579,12 @@
               action="?/uploadPhoto"
               enctype="multipart/form-data"
               use:enhance={enhanceMedia}
-              class="media-upload-form"
+              class="media-upload-form grid items-stretch box-border min-w-0 gap-[0.6rem] mt-3 p-3 rounded-panel border border-border-subtle bg-snow-raised"
             >
               <input type="hidden" name="placeId" value={data.review.placeId} />
-              <h4>{data.copy['moderation.media.uploadPhotoTitle']}</h4>
+              <h4 class="box-border min-w-0 m-0">
+                {data.copy['moderation.media.uploadPhotoTitle']}
+              </h4>
               <Field label={data.copy['moderation.media.fileLabel']} class="mod-field">
                 <Input
                   type="file"
@@ -1485,6 +1672,8 @@
 </div>
 
 <style>
+  /* The one surface-wide reset that cannot be an element utility: it dresses the document body,
+     which no markup in this component owns. */
   :global(body) {
     margin: 0;
     background: var(--hv-color-snow);
@@ -1492,68 +1681,11 @@
     font-family: var(--hv-font-ui);
   }
 
-  .review-shell {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .review-shell * {
-    min-width: 0;
-    box-sizing: border-box;
-  }
-
-  .review-shell.standalone {
-    width: min(100% - 2rem, 72rem);
-    margin: 0 auto;
-    padding: 3rem 0 5rem;
-  }
-
-  header {
-    max-width: 48rem;
-    margin-bottom: 1rem;
-  }
-
-  .eyebrow {
-    color: var(--hv-color-fjord);
-    font-weight: 850;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  h1 {
-    margin: 0.25rem 0;
-    font-family: var(--hv-font-display);
-    font-size: clamp(2rem, 6vw, 3.5rem);
-    line-height: 1;
-    letter-spacing: -0.02em;
-  }
-
-  .readiness-title {
-    margin: 0 0 0.45rem;
-    font-family: var(--hv-font-display);
-    font-size: 1rem;
-  }
-
-  .candidate-actions {
-    margin-top: 0.75rem;
-  }
-
   /* Notice now owns the border/background/padding/radius for this tone; only the spacing this
      file's layout depends on is re-anchored here, ancestor-scoped through the literal
      .candidate-actions div rather than a bare :global(.decision-error). */
   .candidate-actions :global(.decision-error) {
     margin: 0 0 0.55rem;
-  }
-
-  .review-sections {
-    display: grid;
-    gap: 0.65rem;
-    margin-top: 0.75rem;
-  }
-
-  .section-view {
-    display: grid;
-    gap: 0.7rem;
   }
 
   /* Button owns min-height/background now (the bespoke 2.4rem control-height and snow-raised
@@ -1564,263 +1696,29 @@
     justify-self: end;
   }
 
-  .section-form {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.65rem;
-    align-items: end;
-    margin-top: 0;
-  }
-
-  .section-form-stack,
-  .section-form-wide {
-    grid-template-columns: 1fr;
-  }
-
-  .section-form :global(.wide),
-  .section-form-actions {
+  /* Field renders the wide translation descriptions, so the full-bleed placement has to reach a
+     foreign element; the local .wide divs in these forms ride the same hook. */
+  .section-form :global(.wide) {
     grid-column: 1 / -1;
-  }
-
-  .section-form-actions {
-    display: flex;
-    gap: 0.55rem;
-    justify-content: flex-end;
   }
 
   .section-form-actions :global(button) {
     min-width: 7rem;
   }
 
-  .editor-group,
-  .amenities-editor {
-    margin: 0;
-    padding: 0.7rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-  }
-
-  .editor-group h3,
-  .amenities-editor legend {
-    margin: 0 0 0.5rem;
-    font-size: 0.9rem;
-    font-weight: 850;
-  }
-
-  .amenities-editor {
-    display: grid;
-    gap: 0.55rem;
-  }
-
-  .amenities-editor legend {
-    padding-inline: 0.35rem;
-  }
-
-  .repeated-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.55rem;
-    align-items: end;
-  }
-
   .amenities-editor :global(.add-row) {
     width: fit-content;
   }
 
-  .detail-facts dl {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
-    margin: 0;
-  }
-
-  .detail-facts dl div {
-    display: grid;
-    gap: 0.2rem;
-    padding: 0.55rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-  }
-
-  .detail-facts dt {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.75rem;
-    font-weight: 800;
-  }
-
-  .detail-facts dd {
-    margin: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .location-correction {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.65rem;
-    align-items: end;
-    margin-top: 0.75rem;
-    padding: 0.75rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-  }
-
-  .location-correction .wide {
-    grid-column: 1 / -1;
-  }
-
-  .place-card,
-  form {
-    border: 1px solid var(--hv-border-subtle);
-    background: var(--hv-color-snow-raised);
-  }
-
-  .evidence-record {
-    display: grid;
-    gap: 0.2rem;
-  }
-
-  .reference {
-    overflow-wrap: anywhere;
-    color: var(--hv-color-basalt-muted);
-  }
-
-  .place-card {
-    padding: 0.85rem;
-    border-radius: var(--hv-radius-panel);
-    box-shadow: none;
-  }
-
-  .state {
-    display: inline-block;
-    padding: 0.2rem 0.45rem;
-    border: 1px solid var(--hv-color-fjord);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-fjord-soft);
-    color: var(--hv-color-basalt);
-    font-weight: 850;
-    font-size: 0.75rem;
-  }
-
-  .place-card h2 {
-    margin-top: 0.65rem;
-  }
-
-  ul {
-    display: grid;
-    gap: 0.45rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  li {
-    display: grid;
-    grid-template-columns: 1.65rem 1fr;
-    gap: 0.5rem;
-    padding: 0.55rem;
-    border: 1px solid var(--hv-color-success);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-success-soft);
-  }
-
-  li > span {
-    display: grid;
-    width: 1.55rem;
-    height: 1.55rem;
-    place-items: center;
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-success);
-    color: var(--hv-color-snow-raised);
-    font-weight: 900;
-  }
-
-  li div {
-    display: grid;
-    gap: 0.2rem;
-  }
-
-  .translation-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.65rem;
-  }
-
-  .translation-grid article {
-    padding: 0.75rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-  }
-
-  .translation-grid h3 {
-    margin: 0 0 0.45rem;
-    font-size: 0.95rem;
-  }
-
-  .location-detail {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(22rem, 0.85fr);
-    gap: 0.8rem 1rem;
-  }
-
-  .location-detail > p {
-    grid-column: 1 / -1;
-    margin-block: 0;
-  }
-
+  /* MapSurface renders .map-surface, so its column placement stays a cross-component hook. The
+     two narrower duplicates below restate the same column-1 placement the base rule already
+     gives; they are kept as written rather than pruned. */
   .location-detail :global(.map-surface) {
     grid-column: 1;
   }
 
-  .location-detail .location-correction {
-    grid-column: 2;
-    margin-top: 0;
-  }
-
-  .review-shell:not(.standalone) .location-detail {
-    grid-template-columns: 1fr;
-  }
-
-  .review-shell:not(.standalone) .location-detail :global(.map-surface),
-  .review-shell:not(.standalone) .location-detail .location-correction {
+  .review-shell:not(.standalone) .location-detail :global(.map-surface) {
     grid-column: 1;
-  }
-
-  .review-records {
-    display: grid;
-    gap: 0.55rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .review-records > li {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.2rem;
-    padding: 0.5rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow);
-  }
-
-  .review-records > li > span {
-    display: block;
-    width: auto;
-    height: auto;
-    border-radius: 0;
-    background: transparent;
-    color: inherit;
-    font-weight: inherit;
-  }
-
-  form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.7rem;
-    align-items: end;
-    margin-top: 0.75rem;
-    padding: 0.75rem;
-    border-radius: var(--hv-radius-panel);
   }
 
   /* Field's own label carries no weight/size utility (baseline-first); this file's labels were
@@ -1844,112 +1742,11 @@
     opacity: 0.55;
   }
 
-  a {
-    color: var(--hv-color-fjord);
-    font-weight: 800;
-  }
-
   /* Notice owns tone/border/background/padding/radius now; only the spacing this file's layout
      depends on survives, re-anchored through the .message hook every Notice call site here still
      carries as a layout-glue class. */
   .review-shell :global(.message) {
     margin-bottom: 0.75rem;
-  }
-
-  .media-section {
-    margin-top: 1rem;
-  }
-
-  .media-columns {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-    margin-top: 0.75rem;
-  }
-
-  .review-shell.standalone .media-columns {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .media-column {
-    padding: 0.85rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow-raised);
-    box-shadow: none;
-  }
-
-  .media-column h3 {
-    margin-top: 0;
-  }
-
-  .media-list {
-    display: grid;
-    gap: 0.75rem;
-    margin: 0 0 1.25rem;
-    padding: 0;
-    list-style: none;
-  }
-
-  .media-item {
-    display: grid;
-    grid-template-columns: 160px 1fr;
-    gap: 0.65rem;
-    padding: 0.6rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow);
-  }
-
-  .media-item.retired {
-    background: var(--hv-color-snow);
-    opacity: 0.75;
-  }
-
-  .media-item img {
-    width: 160px;
-    height: 120px;
-    border-radius: var(--hv-radius-control);
-    object-fit: cover;
-  }
-
-  .media-item-body {
-    display: grid;
-    gap: 0.4rem;
-    align-content: start;
-  }
-
-  .badge {
-    display: inline-block;
-    width: fit-content;
-    padding: 0.2rem 0.6rem;
-    border: 1px solid var(--hv-color-fjord);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-fjord-soft);
-    color: var(--hv-color-basalt);
-    font-weight: 800;
-    font-size: 0.85rem;
-  }
-
-  .media-item form {
-    margin: 0;
-    padding: 0.5rem;
-    border: 1px solid var(--hv-border-subtle);
-  }
-
-  .approve-form {
-    display: grid;
-    gap: 0.5rem;
-  }
-
-  .media-upload-form {
-    display: grid;
-    gap: 0.6rem;
-    align-items: stretch;
-  }
-
-  .media-upload-form h4 {
-    margin: 0;
   }
 
   /* Notice's own tone box replaces this paragraph's border/background; only the tight margin
@@ -1960,41 +1757,12 @@
   }
 
   @media (max-width: 48rem) {
-    .translation-grid,
-    .media-columns {
-      grid-template-columns: 1fr;
-    }
-
-    .media-item {
-      grid-template-columns: 1fr;
-    }
-
-    .location-detail {
-      grid-template-columns: 1fr;
-    }
-
-    .location-detail :global(.map-surface),
-    .location-detail .location-correction {
+    .location-detail :global(.map-surface) {
       grid-column: 1;
     }
 
-    .location-correction {
-      grid-template-columns: 1fr;
-    }
-
-    .section-form,
-    .detail-facts dl,
-    .repeated-row {
-      grid-template-columns: 1fr;
-    }
-
-    .section-form :global(.wide),
-    .section-form-actions {
+    .section-form :global(.wide) {
       grid-column: auto;
-    }
-
-    .section-form-actions {
-      display: grid;
     }
 
     .review-sections :global(.edit-section),
