@@ -72,8 +72,8 @@
   </form>
 </header>
 
-<!-- Lives on Notice's rendered root now, outside this file's scope hash. Bare :global with a
-     layout-unique name, per the rootless-hook precedent (.saved-card and friends). -->
+<!-- Notice forwards these layout utilities and the semantic workspace-save-warning hook to its
+     rendered root, so the route owns the spacing and width without an unlayered global rule. -->
 {#if saveCoordinator.problemCount > 0}
   <Notice
     as="p"

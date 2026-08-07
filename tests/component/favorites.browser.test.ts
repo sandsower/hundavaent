@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import '../../src/app.css';
 import { catalogues } from '$i18n';
 import FavoritesPage from '../../src/routes/[lang=lang]/favorites/+page.svelte';
 
@@ -164,7 +165,11 @@ describe('Favorites page', () => {
       await waitFor(() =>
         expect(document.activeElement).toBe(screen.getByRole('button', { name: focusLabel }))
       );
-      expect(screen.getByRole('status').textContent).toContain('was removed from your favorites');
+      const liveStatus = screen.getByRole('status');
+      expect(liveStatus.textContent).toContain('was removed from your favorites');
+      expect(getComputedStyle(liveStatus).position).toBe('absolute');
+      expect(getComputedStyle(liveStatus).width).toBe('1px');
+      expect(getComputedStyle(liveStatus).height).toBe('1px');
     }
   );
 

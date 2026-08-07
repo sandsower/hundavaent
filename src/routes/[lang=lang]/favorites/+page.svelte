@@ -224,7 +224,9 @@
   {/if}
 </PageShell>
 
-<p class="visually-hidden" role="status" aria-live="polite">{announcement}</p>
+<p class="visually-hidden sr-only [clip:rect(0_0_0_0)]" role="status" aria-live="polite">
+  {announcement}
+</p>
 
 <style>
   :global(.saved-card) {

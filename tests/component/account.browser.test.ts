@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
+import '../../src/app.css';
 import { catalogues } from '$i18n';
 import AccountPage from '../../src/routes/[lang=lang]/account/+page.svelte';
 

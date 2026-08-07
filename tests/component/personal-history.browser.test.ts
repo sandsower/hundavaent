@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
+import '../../src/app.css';
 import { catalogues } from '$i18n';
 import HistoryPage from '../../src/routes/[lang=lang]/history/+page.svelte';
 

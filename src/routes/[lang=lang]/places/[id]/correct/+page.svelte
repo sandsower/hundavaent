@@ -175,8 +175,11 @@
             {:else if targetField === 'phone'}
               <p>{data.place.phone ?? data.copy['common.notAvailable']}</p>
             {:else if targetField === 'opening_hours'}
-              <pre
-                class="max-w-full wrap-anywhere whitespace-pre-wrap">{JSON.stringify(data.place.openingHours, null, 2)}</pre>
+              <pre class="max-w-full wrap-anywhere whitespace-pre-wrap">{JSON.stringify(
+                  data.place.openingHours,
+                  null,
+                  2
+                )}</pre>
             {:else if targetField === 'dog_amenities'}
               <p>{data.place.dogAmenities.join(', ') || data.copy['common.notAvailable']}</p>
             {/if}

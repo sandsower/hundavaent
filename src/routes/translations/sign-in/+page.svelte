@@ -50,8 +50,8 @@
     >
       H
     </div>
-    <!-- Same re-anchor reasoning as .sign-in-card above: Eyebrow's own base classes carry m-0, and
-         this override (unlayered scoped CSS) still wins over that layered utility. -->
+    <!-- Eyebrow's own base classes carry m-0; the route's later mt utility restores the intended
+         separation from the identity mark while retaining the semantic tight-eyebrow hook. -->
     <Eyebrow class="tight-eyebrow mt-[1.2rem]">Private workspace</Eyebrow>
     <h1
       class="mt-[0.3rem] mx-0 mb-0 font-display text-[clamp(2.4rem,10vw,3.6rem)] font-[650] leading-none tracking-[-0.035em]"

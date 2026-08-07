@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
+import '../../src/app.css';
 import { catalogues, type Locale } from '$i18n';
 import WeeklyRoundupPage from '../../src/routes/[lang=lang]/account/roundup/+page.svelte';
 
