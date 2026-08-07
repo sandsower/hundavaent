@@ -11,24 +11,16 @@
 </svelte:head>
 
 <PageShell width="narrow" class="legal-page">
-  <Panel as="article" class="terms-article grid gap-context">
+  <!-- The surface is now Panel (as="article"), so the bare tag selector went dead; the article's
+       measure, centring and inset ride Panel's own class prop instead of a bare :global(article)
+       that would reach every article on the page while this stylesheet is loaded. The hook class
+       stays as the call site's name for this surface. -->
+  <Panel
+    as="article"
+    class="terms-article grid gap-context max-w-[44rem] mx-auto p-[clamp(1.25rem,4vw,2.5rem)]"
+  >
     <PageTitle>{data.copy['legal.termsTitle']}</PageTitle>
-    <p>{data.copy['legal.termsIntro']}</p>
-    <p>{data.copy['legal.termsBody']}</p>
+    <p class="leading-[1.65]">{data.copy['legal.termsIntro']}</p>
+    <p class="leading-[1.65]">{data.copy['legal.termsBody']}</p>
   </Panel>
 </PageShell>
-
-<style>
-  /* The surface is now Panel (as="article"), so the bare tag selector went dead; a hook class
-     on the class prop re-anchors it instead of a bare :global(article) that would reach every
-     article on the page while this stylesheet is loaded. */
-  :global(.terms-article) {
-    max-width: 44rem;
-    margin-inline: auto;
-    padding: clamp(1.25rem, 4vw, 2.5rem);
-  }
-
-  p {
-    line-height: 1.65;
-  }
-</style>

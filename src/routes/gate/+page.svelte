@@ -33,19 +33,40 @@
   <meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
-<main class="gate-shell" data-ui-mode="place">
-  <section class="gate-card" aria-labelledby="gate-title">
-    <div class="identity-mark" aria-hidden="true">H</div>
-    <h1 id="gate-title">Hundavænt</h1>
-    <p class="intro">Í smíðum</p>
+<main
+  class="gate-shell grid place-items-center min-h-screen py-8 px-4 bg-snow"
+  data-ui-mode="place"
+>
+  <section
+    class="gate-card w-[min(100%,26rem)] p-[clamp(1.5rem,5vw,3rem)] border border-border-subtle rounded-panel bg-snow-raised shadow-raised"
+    aria-labelledby="gate-title"
+  >
+    <div
+      class="identity-mark grid place-items-center size-13 rounded-control bg-basalt font-display text-[1.45rem] font-[650] text-snow-raised"
+      aria-hidden="true"
+    >
+      H
+    </div>
+    <h1
+      id="gate-title"
+      class="mt-5 mx-0 mb-0 font-display text-[clamp(2rem,8vw,3rem)] font-[650] leading-[0.98] tracking-[-0.035em] text-basalt"
+    >
+      Hundavænt
+    </h1>
+    <p class="intro mt-2 mx-0 mb-6 font-bold text-basalt-muted">Í smíðum</p>
 
     {#if form?.incorrect}
-      <p class="message error" role="alert" tabindex="-1" bind:this={errorElement}>
+      <p
+        class="message error py-[0.8rem] px-4 border border-danger rounded-control bg-danger-soft font-bold text-danger focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+        role="alert"
+        tabindex="-1"
+        bind:this={errorElement}
+      >
         Rangt lykilorð
       </p>
     {/if}
 
-    <form method="POST" use:enhance={enhanceGate} aria-busy={submitting}>
+    <form class="grid gap-[0.65rem]" method="POST" use:enhance={enhanceGate} aria-busy={submitting}>
       <Field label="Lykilorð">
         <Input name="password" type="password" autocomplete="current-password" required />
       </Field>
@@ -56,79 +77,10 @@
 </main>
 
 <style>
-  .gate-shell {
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
-    padding: 2rem 1rem;
-    background: var(--hv-color-snow);
-  }
-
-  .gate-card {
-    width: min(100%, 26rem);
-    padding: clamp(1.5rem, 5vw, 3rem);
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-raised);
-  }
-
-  .identity-mark {
-    width: 3.25rem;
-    height: 3.25rem;
-    display: grid;
-    place-items: center;
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-basalt);
-    color: var(--hv-color-snow-raised);
-    font-family: var(--hv-font-display);
-    font-size: 1.45rem;
-    font-weight: 650;
-  }
-
-  h1 {
-    margin: 1.25rem 0 0;
-    color: var(--hv-color-basalt);
-    font-family: var(--hv-font-display);
-    font-size: clamp(2rem, 8vw, 3rem);
-    font-weight: 650;
-    line-height: 0.98;
-    letter-spacing: -0.035em;
-  }
-
-  .intro {
-    margin: 0.5rem 0 1.5rem;
-    color: var(--hv-color-basalt-muted);
-    font-weight: 700;
-  }
-
-  form {
-    display: grid;
-    gap: 0.65rem;
-  }
-
   /* Field renders its own <label>, crossing this component's scoping boundary; :global() reaches
      it purely on the literal element. Weight 800 is the one thing not approved to change in this
      migration. */
   form :global(label) {
     font-weight: 800;
-  }
-
-  .message:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
-  .message {
-    padding: 0.8rem 1rem;
-    border-radius: var(--hv-radius-control);
-    font-weight: 700;
-  }
-
-  .error {
-    border: 1px solid var(--hv-color-danger);
-    background: var(--hv-color-danger-soft);
-    color: var(--hv-color-danger);
   }
 </style>

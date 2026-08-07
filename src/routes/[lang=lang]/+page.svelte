@@ -29,7 +29,8 @@
   <title>{data.copy['directory.title']}</title>
 </svelte:head>
 
-<main class="directory-shell" data-ui-mode="place">
+<!-- The map owns the full viewport; the app header floats above it. -->
+<main class="directory-shell w-full h-dvh overflow-hidden" data-ui-mode="place">
   <MapListShell
     places={data.places}
     lang={data.lang}
@@ -50,13 +51,6 @@
     background: var(--hv-color-snow);
     color: var(--hv-color-basalt);
     font-family: var(--font-sans);
-  }
-
-  /* The map owns the full viewport; the app header floats above it. */
-  .directory-shell {
-    width: 100%;
-    height: 100dvh;
-    overflow: hidden;
   }
 
   /* Without JavaScript the header returns to flow and the server-rendered

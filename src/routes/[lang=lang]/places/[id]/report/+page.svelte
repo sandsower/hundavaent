@@ -125,7 +125,10 @@
 
     <form class="grid gap-context" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
       <input type="hidden" name="commandId" value={data.commandId} />
-      <fieldset class="availability-boundary grid gap-context" disabled={submissionUnavailable}>
+      <fieldset
+        class="availability-boundary grid gap-context min-w-0 m-0 [border:0] p-0"
+        disabled={submissionUnavailable}
+      >
         <FormSection legend={data.copy['correction.targetKind']}>
           <Field label={data.copy['correction.targetKind']}>
             <Select name="targetKind" bind:value={targetKind}>
@@ -199,12 +202,3 @@
     </form>
   {/if}
 </PageShell>
-
-<style>
-  .availability-boundary {
-    min-width: 0;
-    margin: 0;
-    border: 0;
-    padding: 0;
-  }
-</style>
