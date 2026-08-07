@@ -55,27 +55,42 @@
 </script>
 
 {#snippet badgeFace()}
-  <span class="icon" aria-hidden="true">
-    <svg viewBox="0 0 24 24">
+  <span
+    class="icon relative grid size-[1.45rem] flex-none place-items-center rounded-[50%] bg-snow-raised"
+    aria-hidden="true"
+  >
+    <svg class="size-[1.02rem] fill-current" viewBox="0 0 24 24">
       <circle cx="12" cy="4.5" r="2.1" />
       <path d="M10 7h3.2l.8 5H18v2h-5.7l-.6-3.4a5 5 0 1 0 4.9 5.9l2 .4A7 7 0 1 1 10 8Z" />
     </svg>
     {#if accessibility === 'not_accessible'}
-      <span class="prohibition" data-wheelchair-modifier="not_accessible"></span>
+      <span
+        class="prohibition absolute w-[1.15rem] h-[0.13rem] rounded-[999px] bg-danger transform-[rotate(-42deg)]"
+        data-wheelchair-modifier="not_accessible"
+      ></span>
     {:else if accessibility === 'partially_accessible'}
-      <span class="modifier" data-wheelchair-modifier="partially_accessible">½</span>
+      <span
+        class="modifier absolute right-[-0.16rem] bottom-[-0.18rem] grid size-[0.72rem] place-items-center border border-basalt rounded-[50%] bg-snow-raised text-[0.55rem] leading-none [font-weight:950] text-basalt"
+        data-wheelchair-modifier="partially_accessible">½</span
+      >
     {:else if accessibility === 'unknown'}
-      <span class="modifier" data-wheelchair-modifier="unknown">?</span>
+      <span
+        class="modifier absolute right-[-0.16rem] bottom-[-0.18rem] grid size-[0.72rem] place-items-center border border-basalt rounded-[50%] bg-snow-raised text-[0.55rem] leading-none [font-weight:950] text-basalt"
+        data-wheelchair-modifier="unknown">?</span
+      >
     {/if}
   </span>
   <span>{label}</span>
 {/snippet}
 
 {#if expandable}
-  <div class="disclosure">
+  <div class="disclosure grid justify-items-start gap-[0.55rem]">
+    <!-- The same face, standing as a button. It follows the access chips' manner: a lift on hover
+         and while open, so the badge reads as the same family of expandable fact. -->
+    <!-- .badge's line-height: 1.05 was overridden by .chip's later font: inherit. -->
     <button
       type="button"
-      class="badge chip {accessibility}"
+      class="badge chip {accessibility} inline-flex w-fit min-h-8 cursor-pointer items-center gap-[0.42rem] py-[0.24rem] pr-[0.55rem] pl-[0.3rem] border border-basalt rounded-[999px] bg-access-unknown [font-family:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] text-[0.72rem] font-extrabold text-basalt [transition:border-color_var(--hv-fade-quick)_var(--hv-ease-settle),transform_var(--hv-motion-quick)_var(--hv-ease-settle),box-shadow_var(--hv-fade-quick)_var(--hv-ease-settle)] [&.accessible]:bg-moss-soft [&.partially_accessible]:bg-access-special [&.not_accessible]:bg-danger-soft hover:border-fjord hover:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] hover:transform-[translateY(-2px)] focus-visible:border-fjord focus-visible:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] focus-visible:transform-[translateY(-2px)] focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] aria-[expanded=true]:border-fjord aria-[expanded=true]:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] aria-[expanded=true]:transform-[translateY(-2px)]"
       data-wheelchair-accessibility={accessibility}
       aria-expanded={open}
       aria-controls={open ? detailId : undefined}
@@ -84,163 +99,41 @@
       {@render badgeFace()}
     </button>
     {#if open}
-      <div id={detailId} class="persistent-detail" data-wheelchair-detail>
-        <p>
-          <strong>{label}</strong>
+      <div
+        id={detailId}
+        class="persistent-detail m-0 py-[0.6rem] px-[0.7rem] border-s-[0.3rem] border-s-access-detail-accent rounded-[0.4rem] bg-snow-raised text-[0.78rem] leading-[1.4]"
+        data-wheelchair-detail
+      >
+        <p class="m-0">
+          <strong class="block">{label}</strong>
           {detail}
         </p>
         {@render editor?.({ announce })}
       </div>
     {/if}
   </div>
-  <p class="visually-hidden" role="status" aria-live="polite" data-wheelchair-announcement>
+  <p
+    class="visually-hidden absolute size-px -m-px overflow-hidden p-0 border-0 [clip-path:inset(50%)] whitespace-nowrap"
+    role="status"
+    aria-live="polite"
+    data-wheelchair-announcement
+  >
     {announcement}
   </p>
 {:else}
-  <span class="badge {accessibility}" data-wheelchair-accessibility={accessibility}>
+  <span
+    class="badge {accessibility} inline-flex w-fit min-h-8 items-center gap-[0.42rem] py-[0.24rem] pr-[0.55rem] pl-[0.3rem] border border-basalt rounded-[999px] bg-access-unknown text-[0.72rem] leading-[1.05] font-extrabold text-basalt [&.accessible]:bg-moss-soft [&.partially_accessible]:bg-access-special [&.not_accessible]:bg-danger-soft"
+    data-wheelchair-accessibility={accessibility}
+  >
     {@render badgeFace()}
   </span>
 {/if}
 
 <style>
-  .badge {
-    display: inline-flex;
-    width: fit-content;
-    min-height: 2rem;
-    gap: 0.42rem;
-    align-items: center;
-    padding: 0.24rem 0.55rem 0.24rem 0.3rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: 999px;
-    background: var(--hv-access-unknown);
-    color: var(--hv-color-basalt);
-    font-size: 0.72rem;
-    font-weight: 800;
-    line-height: 1.05;
-  }
-
-  .badge.accessible {
-    background: var(--hv-color-moss-soft);
-  }
-
-  .badge.partially_accessible {
-    background: var(--hv-access-special);
-  }
-
-  .badge.not_accessible {
-    background: var(--hv-color-danger-soft);
-  }
-
-  .badge.unknown {
-    color: var(--hv-color-basalt);
-  }
-
-  /* The same face, standing as a button. It follows the access chips' manner: a lift on hover
-     and while open, so the badge reads as the same family of expandable fact. */
-  .chip {
-    font: inherit;
-    font-size: 0.72rem;
-    font-weight: 800;
-    cursor: pointer;
-    transition:
-      border-color var(--hv-fade-quick) var(--hv-ease-settle),
-      transform var(--hv-motion-quick) var(--hv-ease-settle),
-      box-shadow var(--hv-fade-quick) var(--hv-ease-settle);
-  }
-
-  .chip:hover,
-  .chip:focus-visible,
-  .chip[aria-expanded='true'] {
-    border-color: var(--hv-color-fjord);
-    box-shadow: 0 0.35rem 0.9rem rgb(20 41 39 / 14%);
-    transform: translateY(-2px);
-  }
-
-  .chip:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-  }
-
-  .disclosure {
-    display: grid;
-    gap: 0.55rem;
-    justify-items: start;
-  }
-
   .persistent-detail {
-    margin: 0;
-    padding: 0.6rem 0.7rem;
-    border-inline-start: 0.3rem solid var(--hv-access-detail-accent);
-    border-radius: 0.4rem;
-    background: var(--hv-color-snow-raised);
-    font-size: 0.78rem;
-    line-height: 1.4;
     /* The detail carries text, so the reveal is transform-only: words arrive at full contrast
        and move into place (see the fade-family limit in tokens.css). */
     animation: reveal var(--hv-motion-quick) var(--hv-ease-settle) both;
-  }
-
-  .persistent-detail p {
-    margin: 0;
-  }
-
-  .persistent-detail strong {
-    display: block;
-  }
-
-  .icon {
-    position: relative;
-    display: grid;
-    width: 1.45rem;
-    height: 1.45rem;
-    flex: 0 0 auto;
-    border-radius: 50%;
-    background: var(--hv-color-snow-raised);
-    place-items: center;
-  }
-
-  svg {
-    width: 1.02rem;
-    height: 1.02rem;
-    fill: currentColor;
-  }
-
-  .modifier {
-    position: absolute;
-    right: -0.16rem;
-    bottom: -0.18rem;
-    display: grid;
-    width: 0.72rem;
-    height: 0.72rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: 50%;
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-    font-size: 0.55rem;
-    font-weight: 950;
-    line-height: 1;
-    place-items: center;
-  }
-
-  .prohibition {
-    position: absolute;
-    width: 1.15rem;
-    height: 0.13rem;
-    border-radius: 999px;
-    background: var(--hv-color-danger);
-    transform: rotate(-42deg);
-  }
-
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    border: 0;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 
   @keyframes reveal {
