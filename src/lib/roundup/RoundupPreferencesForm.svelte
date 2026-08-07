@@ -37,12 +37,27 @@
   }
 </script>
 
-<section class="preferences grid gap-context" aria-labelledby="roundup-preferences-heading">
-  <header class="preferences-header">
-    <span class="preferences-icon"><RoundupTrailIcon kind="private" size="small" /></span>
+<!-- Not <Panel>: this surface needs a bespoke fjord-tinted border, which Panel's contract cannot
+     carry (its border/radius/shadow/background ship as one matched set that callers must not
+     override - see Panel.svelte's class-prop doc comment). The panel recipe is reproduced here as
+     scoped token CSS instead, on the caller's own element - the same call as its sibling
+     RoundupRecommendationCard and WeeklyRhythmTrail. -->
+<section
+  class="preferences grid gap-context p-[clamp(1rem,4vw,1.5rem)] border border-[color-mix(in_srgb,var(--hv-color-fjord)_25%,var(--hv-border-subtle))] rounded-panel bg-snow-raised shadow-raised"
+  aria-labelledby="roundup-preferences-heading"
+>
+  <header class="preferences-header grid grid-cols-[auto_minmax(0,1fr)] items-start gap-[0.8rem]">
+    <span
+      class="preferences-icon grid place-items-center size-10 rounded-[0.85rem] bg-[color-mix(in_srgb,var(--hv-color-fjord)_10%,white)] text-fjord"
+      ><RoundupTrailIcon kind="private" size="small" /></span
+    >
     <div>
-      <h2 id="roundup-preferences-heading">{copy['roundup.preferencesTitle']}</h2>
-      <p>{copy['roundup.preferencesIntro']}</p>
+      <h2 id="roundup-preferences-heading" class="m-0 font-display text-[1.35rem]">
+        {copy['roundup.preferencesTitle']}
+      </h2>
+      <p class="[margin-block:0.35rem_0] [margin-inline:0] leading-[1.5] text-basalt-muted">
+        {copy['roundup.preferencesIntro']}
+      </p>
     </div>
   </header>
 
@@ -52,11 +67,23 @@
     </Notice>
   {/if}
 
-  <form method="POST" action="?/savePreferences" use:enhance={enhanceAction}>
-    <fieldset>
-      <legend>{copy['roundup.municipalitiesLegend']}</legend>
-      <p class="group-hint" id="municipality-help">{copy['roundup.municipalitiesHelp']}</p>
-      <div class="choice-grid municipalities">
+  <form class="grid gap-5" method="POST" action="?/savePreferences" use:enhance={enhanceAction}>
+    <!-- Baseline-first: these fieldsets render flat today (no border/padding/shadow), unlike the
+         app's hv-form-section.hv-panel fieldsets elsewhere, so they stay native <fieldset>/<legend>
+         rather than adopting FormSection - only the choice rows inside migrate to Choice. -->
+    <fieldset class="min-w-0 m-0 p-0 [border:0]">
+      <legend class="[margin-block-end:0.3rem] font-black">
+        {copy['roundup.municipalitiesLegend']}
+      </legend>
+      <p
+        class="group-hint [margin-block:0_0.65rem] [margin-inline:0] text-[0.9rem] leading-[1.5] text-basalt-muted"
+        id="municipality-help"
+      >
+        {copy['roundup.municipalitiesHelp']}
+      </p>
+      <div
+        class="choice-grid municipalities grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2 max-[34rem]:grid-cols-1"
+      >
         {#each roundupMunicipalities as municipality (municipality)}
           <Choice
             type="checkbox"
@@ -72,10 +99,19 @@
       </div>
     </fieldset>
 
-    <fieldset>
-      <legend>{copy['roundup.categoriesLegend']}</legend>
-      <p class="group-hint" id="category-help">{copy['roundup.categoriesHelp']}</p>
-      <div class="choice-grid categories">
+    <fieldset class="min-w-0 m-0 p-0 [border:0]">
+      <legend class="[margin-block-end:0.3rem] font-black">
+        {copy['roundup.categoriesLegend']}
+      </legend>
+      <p
+        class="group-hint [margin-block:0_0.65rem] [margin-inline:0] text-[0.9rem] leading-[1.5] text-basalt-muted"
+        id="category-help"
+      >
+        {copy['roundup.categoriesHelp']}
+      </p>
+      <div
+        class="choice-grid categories grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2 max-[34rem]:grid-cols-1"
+      >
         {#each roundupCategories as category (category)}
           <Choice
             type="checkbox"
@@ -91,9 +127,11 @@
       </div>
     </fieldset>
 
-    <fieldset>
-      <legend>{copy['roundup.languageLegend']}</legend>
-      <div class="language-options">
+    <fieldset class="min-w-0 m-0 p-0 [border:0]">
+      <legend class="[margin-block-end:0.3rem] font-black">
+        {copy['roundup.languageLegend']}
+      </legend>
+      <div class="language-options flex flex-wrap gap-2">
         <Choice
           type="radio"
           class="chip"
@@ -115,7 +153,9 @@
       </div>
     </fieldset>
 
-    <div class="email-interest">
+    <div
+      class="email-interest p-[0.9rem] rounded-[0.85rem] bg-[color-mix(in_srgb,var(--hv-color-moss)_8%,white)]"
+    >
       <Choice
         type="checkbox"
         class="email-choice"
@@ -125,7 +165,11 @@
       >
         {copy['roundup.emailLabel']}
       </Choice>
-      <p>{copy['roundup.emailHelp']}</p>
+      <p
+        class="[margin-block:0.45rem_0] [margin-inline:0] [padding-inline-start:1.6rem] text-[0.88rem] leading-[1.5] text-basalt-muted"
+      >
+        {copy['roundup.emailHelp']}
+      </p>
     </div>
 
     <Button intent="primary" type="submit" disabled={submitting} class="submit-button">
@@ -135,96 +179,6 @@
 </section>
 
 <style>
-  /* Not <Panel>: this surface needs a bespoke fjord-tinted border, which Panel's contract cannot
-     carry (its border/radius/shadow/background ship as one matched set that callers must not
-     override - see Panel.svelte's class-prop doc comment). The panel recipe is reproduced here as
-     scoped token CSS instead, on the caller's own element - the same call as its sibling
-     RoundupRecommendationCard and WeeklyRhythmTrail. */
-  .preferences {
-    padding: clamp(1rem, 4vw, 1.5rem);
-    border: 1px solid color-mix(in srgb, var(--hv-color-fjord) 25%, var(--hv-border-subtle));
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-raised);
-  }
-
-  .preferences-header {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-    gap: 0.8rem;
-  }
-
-  .preferences-icon {
-    display: grid;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 0.85rem;
-    background: color-mix(in srgb, var(--hv-color-fjord) 10%, white);
-    color: var(--hv-color-fjord);
-    place-items: center;
-  }
-
-  h2,
-  .preferences-header p,
-  .group-hint,
-  .email-interest p {
-    margin: 0;
-  }
-
-  h2 {
-    font-family: var(--hv-font-display);
-    font-size: 1.35rem;
-  }
-
-  .preferences-header p,
-  .group-hint,
-  .email-interest p {
-    color: var(--hv-color-basalt-muted);
-    line-height: 1.5;
-  }
-
-  .preferences-header p {
-    margin-block-start: 0.35rem;
-  }
-
-  form {
-    display: grid;
-    gap: 1.25rem;
-  }
-
-  /* Baseline-first: these fieldsets render flat today (no border/padding/shadow), unlike the
-     app's hv-form-section.hv-panel fieldsets elsewhere, so they stay native <fieldset>/<legend>
-     rather than adopting FormSection - only the choice rows inside migrate to Choice. */
-  fieldset {
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
-
-  legend {
-    margin-block-end: 0.3rem;
-    font-weight: 900;
-  }
-
-  .group-hint {
-    margin-block-end: 0.65rem;
-    font-size: 0.9rem;
-  }
-
-  .choice-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
-  }
-
-  .language-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
   /* Choice renders its own <label> row in a separate component. The chip look (gap, padding,
      border, radius, background, and the checked-state highlight) is this component's own
      flourish on top of Choice's row - Choice itself supplies only the grid mechanics, sizing
@@ -268,12 +222,6 @@
     min-width: 8.5rem;
   }
 
-  .email-interest {
-    padding: 0.9rem;
-    border-radius: 0.85rem;
-    background: color-mix(in srgb, var(--hv-color-moss) 8%, white);
-  }
-
   /* The email-interest checkbox keeps its own weight/line-height/top-alignment - deliberately
      different from the chip rows above (no border/background here, just the row typography) -
      re-anchored the same way as the chip look. */
@@ -288,22 +236,10 @@
     margin-block-start: 0.15rem;
   }
 
-  .email-interest p {
-    margin-block-start: 0.45rem;
-    padding-inline-start: 1.6rem;
-    font-size: 0.88rem;
-  }
-
   /* Button renders its own <button> in a separate component; `justify-self` only has meaning as a
      grid-item property on the form's own grid, so it is a call-site layout concern re-anchored
      via :global() rather than something Button could ever own. */
   form :global(.submit-button) {
     justify-self: start;
-  }
-
-  @media (max-width: 34rem) {
-    .choice-grid {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

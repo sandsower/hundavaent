@@ -251,24 +251,33 @@
 </script>
 
 <Panel as="article" class="translation-card" aria-labelledby={`translation-${entry.key}`}>
-  <header>
+  <header class="flex items-start justify-between gap-3">
     <div>
-      <span class="namespace">{entry.namespace}</span>
-      <h2 id={`translation-${entry.key}`}>{entry.key}</h2>
+      <span class="namespace text-[0.72rem] font-[850] tracking-[0.08em] uppercase text-fjord"
+        >{entry.namespace}</span
+      >
+      <h2
+        class="[margin:0.15rem_0_0] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace] text-[0.95rem] leading-[1.35] [overflow-wrap:anywhere]"
+        id={`translation-${entry.key}`}
+      >
+        {entry.key}
+      </h2>
     </div>
     {#if changed.is || changed.en}
       <Status tone="attention">Unpublished</Status>
     {/if}
   </header>
 
-  <div class="language-grid">
+  <div class="language-grid grid grid-cols-2 gap-[0.85rem] max-narrow:grid-cols-1">
     {#each localeOrder as locale (locale)}
-      <div class="language-field">
-        <div class="field-heading">
-          <label for={`${entry.key}-${locale}`}>
+      <div class="language-field min-w-0">
+        <div class="field-heading flex items-start justify-between gap-3">
+          <label class="font-[850]" for={`${entry.key}-${locale}`}>
             {locale === 'is' ? 'Icelandic' : 'English'}
           </label>
-          <span class="save-state" aria-live="polite">{statusLabel(locale)}</span>
+          <span class="save-state text-[0.78rem] font-[750] text-basalt-muted" aria-live="polite"
+            >{statusLabel(locale)}</span
+          >
         </div>
         <Textarea
           class="translation-field"
@@ -282,35 +291,50 @@
           spellcheck="true"
         />
         {#if saveStates[locale] === 'conflict'}
-          <div class="save-problem" role="alert">
-            <p>This translation changed elsewhere. Choose which value to keep.</p>
-            <dl>
+          <div
+            class="save-problem flex items-center justify-between gap-2 [margin:0.4rem_0_0] text-[0.85rem] font-bold text-danger"
+            role="alert"
+          >
+            <p class="mt-0">This translation changed elsewhere. Choose which value to keep.</p>
+            <dl class="grid gap-[0.4rem] my-2 mx-0">
               <div>
-                <dt>Latest saved value</dt>
-                <dd>{conflicts[locale]?.remote}</dd>
+                <dt class="text-[0.72rem] font-[850] uppercase">Latest saved value</dt>
+                <dd class="m-0 whitespace-pre-wrap text-basalt">{conflicts[locale]?.remote}</dd>
               </div>
               <div>
-                <dt>Your value</dt>
-                <dd>{conflicts[locale]?.local}</dd>
+                <dt class="text-[0.72rem] font-[850] uppercase">Your value</dt>
+                <dd class="m-0 whitespace-pre-wrap text-basalt">{conflicts[locale]?.local}</dd>
               </div>
             </dl>
-            <div class="conflict-actions">
-              <button type="button" onclick={() => useLatest(locale)}>Use latest</button>
+            <div class="conflict-actions flex flex-wrap gap-[0.4rem]">
+              <button
+                class="min-h-9 border border-current rounded-control bg-transparent [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit]"
+                type="button"
+                onclick={() => useLatest(locale)}>Use latest</button
+              >
               {#if conflicts[locale]?.confirmingOverwrite}
-                <button type="button" onclick={() => void confirmOverwrite(locale)}
-                  >Confirm overwrite with mine</button
+                <button
+                  class="min-h-9 border border-current rounded-control bg-transparent [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit]"
+                  type="button"
+                  onclick={() => void confirmOverwrite(locale)}>Confirm overwrite with mine</button
                 >
               {:else}
-                <button type="button" onclick={() => requestOverwrite(locale)}
-                  >Overwrite with mine</button
+                <button
+                  class="min-h-9 border border-current rounded-control bg-transparent [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit]"
+                  type="button"
+                  onclick={() => requestOverwrite(locale)}>Overwrite with mine</button
                 >
               {/if}
             </div>
           </div>
         {:else if saveStates[locale] === 'error'}
-          <div class="save-problem" role="alert">
+          <div
+            class="save-problem flex items-center justify-between gap-2 [margin:0.4rem_0_0] text-[0.85rem] font-bold text-danger"
+            role="alert"
+          >
             The draft could not be saved.
             <button
+              class="min-h-9 border border-current rounded-control bg-transparent [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit]"
               type="button"
               onclick={() => void save(locale)}
               aria-label={`Retry saving ${locale === 'is' ? 'Icelandic' : 'English'} for ${entry.key}`}
@@ -323,7 +347,10 @@
   </div>
 
   {#if issues.length > 0}
-    <ul class="validation" role="alert">
+    <ul
+      class="validation m-0 [padding:0.65rem_0.8rem_0.65rem_1.8rem] border border-danger rounded-control bg-danger-soft text-[0.85rem] font-bold text-danger"
+      role="alert"
+    >
       {#each issues as issue (issue)}
         <li>{issueText(issue)}</li>
       {/each}
@@ -340,50 +367,6 @@
     padding: 1rem;
   }
 
-  header,
-  .field-heading {
-    display: flex;
-    gap: 0.75rem;
-    align-items: flex-start;
-    justify-content: space-between;
-  }
-
-  h2 {
-    margin: 0.15rem 0 0;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 0.95rem;
-    line-height: 1.35;
-    overflow-wrap: anywhere;
-  }
-
-  .namespace {
-    color: var(--hv-color-fjord);
-    font-size: 0.72rem;
-    font-weight: 850;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .language-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.85rem;
-  }
-
-  .language-field {
-    min-width: 0;
-  }
-
-  label {
-    font-weight: 850;
-  }
-
-  .save-state {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.78rem;
-    font-weight: 750;
-  }
-
   /* The textarea now lives on Textarea's own rendered element, outside this file's scope hash,
      and is no longer a literal <textarea> tag anywhere in this file's template (Svelte's
      unused-selector check needs one to keep a bare-tag :global() selector, which this file no
@@ -396,72 +379,7 @@
     resize: vertical;
   }
 
-  .validation,
-  .save-problem {
-    margin: 0;
-    color: var(--hv-color-danger);
-    font-size: 0.85rem;
-    font-weight: 700;
-  }
-
-  .save-problem p {
-    margin-top: 0;
-  }
-
-  .save-problem dl {
-    display: grid;
-    margin: 0.5rem 0;
-    gap: 0.4rem;
-  }
-
-  .save-problem dt {
-    font-size: 0.72rem;
-    font-weight: 850;
-    text-transform: uppercase;
-  }
-
-  .save-problem dd {
-    margin: 0;
-    color: var(--hv-color-basalt);
-    white-space: pre-wrap;
-  }
-
-  .conflict-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-
-  .validation {
-    padding: 0.65rem 0.8rem 0.65rem 1.8rem;
-    border: 1px solid var(--hv-color-danger);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-danger-soft);
-  }
-
-  .save-problem {
-    display: flex;
-    margin-top: 0.4rem;
-    gap: 0.5rem;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .save-problem button {
-    min-height: 2.25rem;
-    border: 1px solid currentColor;
-    border-radius: var(--hv-radius-control);
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-weight: 850;
-  }
-
   @media (max-width: 42rem) {
-    .language-grid {
-      grid-template-columns: 1fr;
-    }
-
     :global(.translation-field) {
       min-height: 7.5rem;
     }

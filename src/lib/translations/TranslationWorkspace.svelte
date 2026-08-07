@@ -105,11 +105,18 @@
 </script>
 
 <PageShell as="section" mode="operations" class="workspace" aria-labelledby="translations-title">
-  <header class="workspace-header">
+  <header class="workspace-header flex items-start justify-between gap-4 max-narrow:block">
     <div>
       <Eyebrow class="my-[1em]">Hundavænt workspace</Eyebrow>
-      <h1 id="translations-title">Translations</h1>
-      <p>Update Icelandic and English as equal languages. Drafts stay private until publishing.</p>
+      <h1
+        class="[margin:0.2rem_0_0] font-display text-[clamp(2.3rem,6vw,4rem)] font-[650] leading-none tracking-[-0.035em]"
+        id="translations-title"
+      >
+        Translations
+      </h1>
+      <p class="max-w-[62ch] [margin:0.65rem_0_0] text-basalt-muted">
+        Update Icelandic and English as equal languages. Drafts stay private until publishing.
+      </p>
     </div>
     <Button
       class="review-link"
@@ -123,7 +130,7 @@
   </header>
 
   <Panel class="toolbar" aria-label="Translation filters">
-    <label class="search-field">
+    <label class="search-field grid min-w-0 gap-1 text-[0.8rem] font-[850]">
       <span>Search</span>
       <Input
         type="search"
@@ -134,7 +141,7 @@
         placeholder="Key or translated text"
       />
     </label>
-    <label>
+    <label class="grid min-w-0 gap-1 text-[0.8rem] font-[850]">
       <span>Namespace</span>
       <Select
         name="namespace"
@@ -148,23 +155,31 @@
         {/each}
       </Select>
     </label>
-    <div class="filter-buttons" aria-label="Translation status filters">
-      <button type="button" aria-pressed={filter === 'all'} onclick={() => selectFilter('all')}
-        >All</button
+    <div
+      class="filter-buttons flex gap-1 max-narrow:grid max-narrow:grid-cols-3"
+      aria-label="Translation status filters"
+    >
+      <button
+        class="min-h-control px-[0.7rem] py-2 border border-border-strong rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit] aria-pressed:bg-signal"
+        type="button"
+        aria-pressed={filter === 'all'}
+        onclick={() => selectFilter('all')}>All</button
       >
       <button
+        class="min-h-control px-[0.7rem] py-2 border border-border-strong rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit] aria-pressed:bg-signal"
         type="button"
         aria-pressed={filter === 'missing'}
         onclick={() => selectFilter('missing')}>Missing</button
       >
       <button
+        class="min-h-control px-[0.7rem] py-2 border border-border-strong rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit] aria-pressed:bg-signal"
         type="button"
         aria-pressed={filter === 'changed'}
         onclick={() => selectFilter('changed')}>Changed</button
       >
     </div>
     <button
-      class="language-order"
+      class="language-order min-h-control px-[0.7rem] py-2 border border-border-strong rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit]"
       type="button"
       onclick={() => (firstLocale = firstLocale === 'is' ? 'en' : 'is')}
       aria-label={firstLocale === 'is' ? 'Show English first' : 'Show Icelandic first'}
@@ -173,12 +188,12 @@
     </button>
   </Panel>
 
-  <p class="result-summary" aria-live="polite">
+  <p class="result-summary m-0 text-[0.85rem] font-[750] text-basalt-muted" aria-live="polite">
     Showing {Math.min(visibleEntries.length, filteredEntries.length)} of {filteredEntries.length}
     matching keys
   </p>
 
-  <div class="translation-list">
+  <div class="translation-list grid gap-3">
     {#each visibleEntries as entry (entry.key)}
       <TranslationRow
         {entry}
@@ -201,7 +216,9 @@
     >
   {/if}
 
-  <div class="mobile-review-bar">
+  <div
+    class="mobile-review-bar hidden max-narrow:fixed max-narrow:z-20 max-narrow:right-0 max-narrow:bottom-0 max-narrow:left-0 max-narrow:flex max-narrow:min-h-[4.5rem] max-narrow:[padding:0.75rem_1rem_max(0.75rem,env(safe-area-inset-bottom))] max-narrow:border-t max-narrow:border-border-strong max-narrow:items-center max-narrow:justify-between max-narrow:gap-3 max-narrow:bg-snow-raised max-narrow:font-[850] max-narrow:[box-shadow:0_-0.7rem_1.8rem_rgb(30_45_49_/_12%)]"
+  >
     <span>{pendingCount} unpublished</span>
     <Button
       intent="committed"
@@ -226,28 +243,6 @@
     gap: 1rem;
   }
 
-  .workspace-header {
-    display: flex;
-    gap: 1rem;
-    align-items: flex-start;
-    justify-content: space-between;
-  }
-
-  h1 {
-    margin: 0.2rem 0 0;
-    font-family: var(--hv-font-display);
-    font-size: clamp(2.3rem, 6vw, 4rem);
-    font-weight: 650;
-    line-height: 1;
-    letter-spacing: -0.035em;
-  }
-
-  .workspace-header p:last-child {
-    max-width: 62ch;
-    margin: 0.65rem 0 0;
-    color: var(--hv-color-basalt-muted);
-  }
-
   /* .toolbar now lives on Panel's root <div>, outside this file's scope hash. Bare class is
      unique repo-wide (grep-verified). */
   :global(.toolbar) {
@@ -261,55 +256,10 @@
     align-items: end;
   }
 
-  :global(.toolbar) label {
-    display: grid;
-    min-width: 0;
-    gap: 0.25rem;
-    font-size: 0.8rem;
-    font-weight: 850;
-  }
-
-  .filter-buttons {
-    display: flex;
-    gap: 0.25rem;
-  }
-
-  .filter-buttons button,
-  .language-order {
-    min-height: var(--hv-control-height);
-    padding: 0.5rem 0.7rem;
-    border: 1px solid var(--hv-border-strong);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    color: inherit;
-    font: inherit;
-    font-weight: 850;
-  }
-
-  .filter-buttons button[aria-pressed='true'] {
-    background: var(--hv-color-signal);
-  }
-
-  .result-summary {
-    margin: 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.85rem;
-    font-weight: 750;
-  }
-
-  .translation-list {
-    display: grid;
-    gap: 0.75rem;
-  }
-
   /* .show-more now lives on Button's own rendered element, outside this file's scope hash. Bare
      class is unique repo-wide (grep-verified). */
   :global(.show-more) {
     justify-self: center;
-  }
-
-  .mobile-review-bar {
-    display: none;
   }
 
   @media (max-width: 58rem) {
@@ -323,10 +273,6 @@
       padding-bottom: 5.5rem;
     }
 
-    .workspace-header {
-      display: block;
-    }
-
     /* .review-link now lives on Button's own rendered <a>, outside this file's scope hash, but
        Button renders it as a direct child of .workspace-header in this file's own template, so
        the child combinator still holds - only the class needs :global() to re-anchor onto it. */
@@ -337,29 +283,6 @@
     :global(.toolbar) {
       position: static;
       grid-template-columns: 1fr;
-    }
-
-    .filter-buttons {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-    }
-
-    .mobile-review-bar {
-      position: fixed;
-      z-index: 20;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      display: flex;
-      min-height: 4.5rem;
-      padding: 0.75rem 1rem max(0.75rem, env(safe-area-inset-bottom));
-      border-top: 1px solid var(--hv-border-strong);
-      gap: 0.75rem;
-      align-items: center;
-      justify-content: space-between;
-      background: var(--hv-color-snow-raised);
-      box-shadow: 0 -0.7rem 1.8rem rgb(30 45 49 / 12%);
-      font-weight: 850;
     }
   }
 </style>

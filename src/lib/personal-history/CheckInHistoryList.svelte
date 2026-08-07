@@ -70,7 +70,7 @@
   </Panel>
 {:else}
   <ol
-    class="grid gap-context m-0 p-0 list-none check-in-list"
+    class="grid gap-context m-0 p-0 list-none check-in-list [margin-block:calc(var(--hv-space-context)*1.5)]!"
     aria-label={copy['history.tabCheckIns']}
   >
     {#each checkIns as checkIn (checkIn.checkInId)}
@@ -81,7 +81,7 @@
         data-check-in-row
       >
         <div class="grid gap-context">
-          <h2>{checkIn.name}</h2>
+          <h2 class="m-0">{checkIn.name}</h2>
           <Meta>
             {copy['history.checkedInAt'].replace('{date}', formatDateTime(checkIn.checkedInAt))}
           </Meta>
@@ -92,12 +92,14 @@
             {availabilityLabel(checkIn)}
           </Status>
           {#if checkIn.availability === 'inactive' && checkIn.successorPlaceId && checkIn.successorName}
-            <p class="successor">
+            <p class="successor font-bold">
               {copy['history.successorNote'].replace('{name}', checkIn.successorName)}
             </p>
           {/if}
         </div>
-        <div class="check-in-actions flex flex-wrap items-center gap-actions">
+        <div
+          class="check-in-actions flex flex-wrap items-center gap-actions content-start justify-end max-[35rem]:justify-stretch"
+        >
           {#if checkIn.availability === 'available'}
             <Button href={discoveryPlaceHref(checkIn.placeId)}>
               {copy['directory.openPlace']}
@@ -123,10 +125,6 @@
 {/if}
 
 <style>
-  .check-in-list {
-    margin-block: calc(var(--hv-space-context) * 1.5);
-  }
-
   /* Panel renders its own element inside a child component, so this component's scoped CSS
      cannot reach it directly - the actual target selectors are wrapped in :global() and anchored
      through .check-in-list, the ancestor idiom FavouriteControl.svelte uses for its own
@@ -142,18 +140,8 @@
     background: var(--hv-color-snow);
   }
 
-  h2,
   .check-in-list :global(.check-in-card p) {
     margin: 0;
-  }
-
-  .check-in-list :global(.check-in-card .successor) {
-    font-weight: 700;
-  }
-
-  .check-in-actions {
-    align-content: start;
-    justify-content: end;
   }
 
   /* Panel's history-empty-state root is rendered by a child component too, and these two empty states
@@ -182,10 +170,6 @@
   @media (max-width: 35rem) {
     .check-in-list :global(.check-in-card) {
       grid-template-columns: 1fr;
-    }
-
-    .check-in-actions {
-      justify-content: stretch;
     }
   }
 </style>

@@ -32,6 +32,16 @@ const places = [
 const camera: MapCamera = { latitude: 64.1466, longitude: -21.9426, zoom: 11 };
 const fallbackCamera: MapCamera = { latitude: 64.1466, longitude: -21.9426, zoom: 15 };
 
+async function waitForMapPaintReady(): Promise<void> {
+  await waitFor(
+    () =>
+      expect(screen.getByRole('region', { name: 'Map' }).getAttribute('data-paint-ready')).toBe(
+        'true'
+      ),
+    { timeout: 5_000 }
+  );
+}
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe('shared Map interface', () => {
@@ -71,11 +81,7 @@ describe('shared Map interface', () => {
     });
 
     await screen.findByRole('button', { name: 'Published Place' });
-    await waitFor(() =>
-      expect(screen.getByRole('region', { name: 'Map' }).getAttribute('data-paint-ready')).toBe(
-        'true'
-      )
-    );
+    await waitForMapPaintReady();
     const nextCamera = { latitude: 64.13, longitude: -21.9, zoom: 13 };
     adapter.simulateCameraChange(nextCamera);
     expect(onCameraChange).toHaveBeenCalledWith(nextCamera);
@@ -137,11 +143,7 @@ describe('shared Map interface', () => {
     });
 
     await screen.findByRole('button', { name: 'Published Place' });
-    await waitFor(() =>
-      expect(screen.getByRole('region', { name: 'Map' }).getAttribute('data-paint-ready')).toBe(
-        'true'
-      )
-    );
+    await waitForMapPaintReady();
     const dot = container.querySelector<HTMLElement>('[data-viewer-location]');
     expect(dot?.dataset.latitude).toBe('64.152311');
     expect(dot?.dataset.longitude).toBe('-21.934822');
@@ -233,11 +235,7 @@ describe('shared Map interface', () => {
     const latitude = screen.getByLabelText('Latitude') as HTMLInputElement;
     const longitude = screen.getByLabelText('Longitude') as HTMLInputElement;
     await screen.findByRole('button', { name: 'Suggested place' });
-    await waitFor(() =>
-      expect(screen.getByRole('region', { name: 'Map' }).getAttribute('data-paint-ready')).toBe(
-        'true'
-      )
-    );
+    await waitForMapPaintReady();
     expect(latitude.value).toBe('64.1423');
     expect(longitude.value).toBe('-21.9555');
 

@@ -37,8 +37,20 @@
   }
 </script>
 
-<article class:lead class="recommendation" data-rank={recommendation.rank}>
-  <div class="icon-wrap" aria-hidden="true">
+<!-- Not <Panel>: this card needs a bespoke fjord-tinted border (stronger still on .lead), which
+     Panel's contract cannot carry (its border/radius/shadow/background ship as one matched set
+     that callers must not override - see Panel.svelte's class-prop doc comment). The panel
+     recipe is reproduced here as scoped token CSS instead, on the caller's own element (the
+     SelectedPlaceCard/WeeklyRhythmTrail precedent: carry only the tokens that render). -->
+<article
+  class:lead
+  class="recommendation group/recommendation grid grid-cols-[auto_minmax(0,1fr)] min-h-full gap-[0.85rem] p-4 border border-[color-mix(in_srgb,var(--hv-color-fjord)_18%,var(--hv-border-subtle))] rounded-panel bg-snow-raised shadow-raised max-[32rem]:grid-cols-1 [&.lead]:p-[clamp(1.15rem,3vw,1.6rem)] [&.lead]:border-[color-mix(in_srgb,var(--hv-color-fjord)_38%,var(--hv-border-subtle))] [&.lead]:bg-[color-mix(in_srgb,var(--hv-color-fjord)_6%,var(--hv-color-snow-raised))]"
+  data-rank={recommendation.rank}
+>
+  <div
+    class="icon-wrap grid place-items-center size-[2.8rem] rounded-[1rem] bg-[color-mix(in_srgb,var(--hv-color-moss)_12%,white)] text-moss group-[.lead]/recommendation:size-14 group-[.lead]/recommendation:bg-[color-mix(in_srgb,var(--hv-color-fjord)_11%,white)] group-[.lead]/recommendation:text-fjord"
+    aria-hidden="true"
+  >
     <RoundupTrailIcon
       kind={recommendation.reason === 'newly_published' ? 'new' : 'updated'}
       size={lead ? 'regular' : 'small'}
@@ -46,8 +58,15 @@
   </div>
   <div class="content">
     <Eyebrow>{reason}</Eyebrow>
-    <h3>{recommendation.name}</h3>
-    <p class="facts">
+    <!-- .reason no longer needs a margin reset here: Eyebrow's own base already carries m-0. -->
+    <h3
+      class="[margin-block:0.25rem_0] [margin-inline:0] font-display text-[1.25rem] leading-[1.15] group-[.lead]/recommendation:text-[clamp(1.45rem,4vw,2rem)]"
+    >
+      {recommendation.name}
+    </h3>
+    <p
+      class="facts flex flex-wrap [margin-block:0.45rem_0.85rem] [margin-inline:0] gap-[0.35rem] text-[0.9rem] font-bold text-basalt-muted"
+    >
       <span>{copy[categoryKey(recommendation.category)]}</span>
       <span aria-hidden="true">·</span>
       <span>{copy[municipalityKey(recommendation.municipality)]}</span>
@@ -64,83 +83,9 @@
 </article>
 
 <style>
-  /* Not <Panel>: this card needs a bespoke fjord-tinted border (stronger still on .lead), which
-     Panel's contract cannot carry (its border/radius/shadow/background ship as one matched set
-     that callers must not override - see Panel.svelte's class-prop doc comment). The panel
-     recipe is reproduced here as scoped token CSS instead, on the caller's own element (the
-     SelectedPlaceCard/WeeklyRhythmTrail precedent: carry only the tokens that render). */
-  .recommendation {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    min-height: 100%;
-    padding: 1rem;
-    gap: 0.85rem;
-    border: 1px solid color-mix(in srgb, var(--hv-color-fjord) 18%, var(--hv-border-subtle));
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-raised);
-  }
-
-  .recommendation.lead {
-    padding: clamp(1.15rem, 3vw, 1.6rem);
-    background: color-mix(in srgb, var(--hv-color-fjord) 6%, var(--hv-color-snow-raised));
-    border-color: color-mix(in srgb, var(--hv-color-fjord) 38%, var(--hv-border-subtle));
-  }
-
-  .icon-wrap {
-    display: grid;
-    width: 2.8rem;
-    height: 2.8rem;
-    border-radius: 1rem;
-    background: color-mix(in srgb, var(--hv-color-moss) 12%, white);
-    color: var(--hv-color-moss);
-    place-items: center;
-  }
-
-  .lead .icon-wrap {
-    width: 3.5rem;
-    height: 3.5rem;
-    background: color-mix(in srgb, var(--hv-color-fjord) 11%, white);
-    color: var(--hv-color-fjord);
-  }
-
-  /* .reason no longer needs a margin reset here: Eyebrow's own base already carries m-0. */
-  h3,
-  .facts {
-    margin: 0;
-  }
-
-  h3 {
-    margin-block-start: 0.25rem;
-    font-family: var(--hv-font-display);
-    font-size: 1.25rem;
-    line-height: 1.15;
-  }
-
-  .lead h3 {
-    font-size: clamp(1.45rem, 4vw, 2rem);
-  }
-
-  .facts {
-    display: flex;
-    flex-wrap: wrap;
-    margin-block: 0.45rem 0.85rem;
-    gap: 0.35rem;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.9rem;
-    font-weight: 700;
-  }
-
   /* Button renders its own <a> in a separate component; the hook is ancestor-scoped under
      .content (this file's own hashed scope), never a bare :global(). */
   .content :global(.open-place) {
     width: fit-content;
-  }
-
-  @media (max-width: 32rem) {
-    .recommendation,
-    .recommendation.lead {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

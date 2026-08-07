@@ -150,50 +150,38 @@
   });
 </script>
 
+<!-- Fill the viewport below the header and page padding instead of leaving a dead band. -->
+<!-- The stacked mobile header is taller, so more of the viewport is spoken for. -->
 <section
-  class="map-surface"
+  class="map-surface group/map-surface relative min-h-[max(32rem,calc(100dvh_-_7.5rem))] overflow-hidden border border-basalt rounded-shell bg-[#dce5df] [&.compact]:min-h-[clamp(18rem,42dvh,26rem)] max-[48rem]:min-h-[max(26rem,calc(100dvh_-_10.5rem))] max-[48rem]:[&.compact]:min-h-80"
   class:compact
   aria-label={copy['directory.mapLabel']}
   data-paint-ready={paintReady}
 >
   {#if failed}
-    <div class="map-failure">
-      <div class="failure-message" role="status">
-        <h2>{copy['directory.mapUnavailableTitle']}</h2>
+    <div
+      class="map-failure grid min-h-[max(32rem,calc(100dvh_-_7.5rem))] content-start gap-4 overflow-auto box-border p-8 group-[.compact]/map-surface:min-h-[clamp(18rem,42dvh,26rem)] max-[48rem]:min-h-[max(26rem,calc(100dvh_-_10.5rem))] max-[48rem]:group-[.compact]/map-surface:min-h-80"
+    >
+      <div class="failure-message text-center" role="status">
+        <h2 class="mt-0">{copy['directory.mapUnavailableTitle']}</h2>
         <p>{copy['directory.mapUnavailableBody']}</p>
       </div>
-      <button type="button" onclick={retry}>{copy['directory.retryMap']}</button>
+      <button
+        type="button"
+        class="justify-self-center px-4 py-[0.65rem] border border-basalt rounded-control bg-signal [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] text-inherit focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px]"
+        onclick={retry}>{copy['directory.retryMap']}</button
+      >
       {@render failureContent?.()}
     </div>
   {/if}
-  <div class:hidden={failed} class="map-container" bind:this={container}></div>
+  <div
+    class:hidden={failed}
+    class="map-container min-h-[max(32rem,calc(100dvh_-_7.5rem))] p-4 group-[.compact]/map-surface:min-h-[clamp(18rem,42dvh,26rem)] max-[48rem]:min-h-[max(26rem,calc(100dvh_-_10.5rem))] max-[48rem]:group-[.compact]/map-surface:min-h-80"
+    bind:this={container}
+  ></div>
 </section>
 
 <style>
-  .map-surface,
-  .map-container {
-    /* Fill the viewport below the header and page padding instead of leaving a dead band. */
-    min-height: max(32rem, calc(100dvh - 7.5rem));
-  }
-
-  .map-surface {
-    position: relative;
-    overflow: hidden;
-    border: 1px solid var(--hv-color-basalt, #1e2d31);
-    border-radius: var(--hv-radius-shell, 0.75rem);
-    background: #dce5df;
-  }
-
-  .map-surface.compact,
-  .map-surface.compact .map-container,
-  .map-surface.compact .map-failure {
-    min-height: clamp(18rem, 42dvh, 26rem);
-  }
-
-  .map-container {
-    padding: 1rem;
-  }
-
   :global(.maplibregl-canvas) {
     background: #dce5df;
   }
@@ -201,58 +189,5 @@
   /* Keep the attribution clear of the surface's rounded corner. */
   .map-surface :global(.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib) {
     margin-right: 1.1rem;
-  }
-
-  .hidden {
-    display: none;
-  }
-
-  .map-failure {
-    display: grid;
-    min-height: max(32rem, calc(100dvh - 7.5rem));
-    box-sizing: border-box;
-    gap: 1rem;
-    align-content: start;
-    overflow: auto;
-    padding: 2rem;
-  }
-
-  .failure-message {
-    text-align: center;
-  }
-
-  .failure-message h2 {
-    margin-top: 0;
-  }
-
-  button {
-    justify-self: center;
-    padding: 0.65rem 1rem;
-    border: 1px solid var(--hv-color-basalt, #1e2d31);
-    border-radius: var(--hv-radius-control, 0.35rem);
-    background: var(--hv-color-signal, #f2c94c);
-    color: inherit;
-    font: inherit;
-    font-weight: 850;
-  }
-
-  button:focus-visible {
-    outline: 3px solid var(--hv-focus-ring, #2f6f86);
-    outline-offset: 3px;
-  }
-
-  @media (max-width: 48rem) {
-    .map-surface,
-    .map-container,
-    .map-failure {
-      /* The stacked mobile header is taller, so more of the viewport is spoken for. */
-      min-height: max(26rem, calc(100dvh - 10.5rem));
-    }
-
-    .map-surface.compact,
-    .map-surface.compact .map-container,
-    .map-surface.compact .map-failure {
-      min-height: 20rem;
-    }
   }
 </style>

@@ -145,7 +145,11 @@ describe('AuthDialog', () => {
       placeId: 'place-1',
       overallRating: '2'
     });
-    expect(await screen.findByRole('button', { name: 'Send again in 60s' })).toBeDisabled();
+    const differentEmail = screen.getByRole('button', { name: 'Use a different email' });
+    const sendAgain = await screen.findByRole('button', { name: 'Send again in 60s' });
+    expect(sendAgain).toBeDisabled();
+    expect(getComputedStyle(differentEmail).fontWeight).toBe('850');
+    expect(getComputedStyle(sendAgain).fontWeight).toBe('850');
   });
 
   // Pins the bind:this focus path (AuthDialog.svelte's emailInput binding) that replaced the old
