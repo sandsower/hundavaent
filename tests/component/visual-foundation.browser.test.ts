@@ -39,12 +39,12 @@ test('the visual foundation is deterministic across browser hosts', async () => 
 test('Tailwind preflight and the semantic baseline own browser normalization', async () => {
   const fixture = document.createElement('section');
   fixture.innerHTML =
-    '<h1>Heading</h1><p>Paragraph</p><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><input type="checkbox"><input type="radio"><input type="text" placeholder="Placeholder"><input type="search"><input type="date"><select><option>Option</option></select><img alt="" width="10" height="5"><svg></svg>';
+    '<h1>Heading</h1><p>Paragraph</p><small>Small</small><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><input type="checkbox"><input type="radio"><input type="text" placeholder="Placeholder"><input type="search"><input type="date"><select><option>Option</option></select><img alt="" width="10" height="5"><svg></svg>';
   document.body.append(fixture);
 
   const browserDefaults = document.createElement('iframe');
   browserDefaults.srcdoc =
-    '<h1>Heading</h1><p>Paragraph</p><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><input type="checkbox"><input type="radio"><input type="text" placeholder="Placeholder"><input type="search"><input type="date"><select><option>Option</option></select><img alt="" width="10" height="5"><svg></svg>';
+    '<h1>Heading</h1><p>Paragraph</p><small>Small</small><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><input type="checkbox"><input type="radio"><input type="text" placeholder="Placeholder"><input type="search"><input type="date"><select><option>Option</option></select><img alt="" width="10" height="5"><svg></svg>';
   await new Promise<void>((resolve) => {
     browserDefaults.addEventListener('load', () => resolve(), { once: true });
     document.body.append(browserDefaults);
@@ -52,6 +52,7 @@ test('Tailwind preflight and the semantic baseline own browser normalization', a
 
   const heading = fixture.querySelector('h1')!;
   const paragraph = fixture.querySelector('p')!;
+  const small = fixture.querySelector('small')!;
   const list = fixture.querySelector('ul')!;
   const fieldset = fixture.querySelector('fieldset')!;
   const legend = fixture.querySelector('legend')!;
@@ -73,6 +74,9 @@ test('Tailwind preflight and the semantic baseline own browser normalization', a
   );
   const defaultParagraphStyles = browserDefaults.contentWindow!.getComputedStyle(
     browserDefaults.contentDocument!.querySelector('p')!
+  );
+  const defaultSmallStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('small')!
   );
   const defaultListStyles = browserDefaults.contentWindow!.getComputedStyle(
     browserDefaults.contentDocument!.querySelector('ul')!
@@ -149,6 +153,7 @@ test('Tailwind preflight and the semantic baseline own browser normalization', a
   expect(getComputedStyle(paragraph).marginBlockStart).toBe(
     defaultParagraphStyles.marginBlockStart
   );
+  expect(getComputedStyle(small).fontSize).toBe(defaultSmallStyles.fontSize);
   expect(getComputedStyle(list).listStyleType).toBe(defaultListStyles.listStyleType);
   expect(getComputedStyle(list).paddingInlineStart).toBe(defaultListStyles.paddingInlineStart);
   expect(getComputedStyle(fieldset).marginInline).toBe(defaultFieldsetStyles.marginInline);

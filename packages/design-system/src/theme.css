@@ -46,6 +46,10 @@
     margin: revert;
   }
 
+  small {
+    font-size: revert;
+  }
+
   dd {
     margin: revert;
   }
