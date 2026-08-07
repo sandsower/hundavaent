@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
+import '../../src/app.css';
 import CorrectionReviewPanel from '$lib/moderation/CorrectionReviewPanel.svelte';
 import { catalogues } from '$i18n';
 import type { ModerationPlaceFlag } from '$server/place-flags/place-flags';

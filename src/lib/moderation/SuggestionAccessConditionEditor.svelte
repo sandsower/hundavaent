@@ -57,7 +57,7 @@
   });
 </script>
 
-<div class="field-grid">
+<div class="field-grid grid grid-cols-2 gap-[0.55rem] max-[40rem]:grid-cols-[1fr]">
   <Field label={copy['suggestion.accessArea']} class="compact-field">
     <Select name="accessArea" required bind:value={accessArea}>
       <option value="indoors">{copy['access.indoor']}</option>
@@ -121,11 +121,6 @@
 </div>
 
 <style>
-  .field-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
-  }
   /* Field renders its own label/control stack inside a child component, so scoped CSS cannot
      reach the label directly - the whole remaining chain after .compact-field is wrapped in one
      :global() (the SelectedPlaceCard ".card-body :global(.details-status p)" precedent), rather
@@ -137,10 +132,5 @@
     color: var(--hv-color-basalt-muted);
     font-size: 0.78rem;
     font-weight: 800;
-  }
-  @media (max-width: 40rem) {
-    .field-grid {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

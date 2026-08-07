@@ -131,10 +131,10 @@
   }
 </script>
 
-<div class="location-editor">
-  <div class="address-search" role="search">
+<div class="location-editor grid gap-[0.85rem] min-w-0">
+  <div class="address-search grid gap-[0.35rem]" role="search">
     <Field label={copy['moderation.location.searchLabel']} class="mod-field">
-      <span class="search-row">
+      <span class="search-row grid grid-cols-[minmax(0,1fr)_auto] gap-2 max-narrow:grid-cols-[1fr]">
         <Input
           bind:value={query}
           minlength={3}
@@ -160,19 +160,30 @@
   </div>
 
   {#if results.length > 0}
-    <section class="search-results" aria-label={copy['moderation.location.resultsLabel']}>
+    <section
+      class="search-results grid overflow-hidden border border-[color-mix(in_srgb,var(--hv-color-basalt)_25%,transparent)] rounded-[0.65rem] bg-snow-raised"
+      aria-label={copy['moderation.location.resultsLabel']}
+    >
       {#each results as result (result.id)}
-        <button type="button" onclick={() => chooseResult(result)}>{result.label}</button>
+        <button
+          type="button"
+          class="p-3 border-0 border-b border-b-[color-mix(in_srgb,var(--hv-color-basalt)_15%,transparent)] rounded-none bg-transparent text-left text-basalt shadow-none last:border-b-0 hover:bg-fjord-soft focus-visible:bg-fjord-soft"
+          onclick={() => chooseResult(result)}>{result.label}</button
+        >
       {/each}
     </section>
   {:else if searchState === 'empty'}
-    <p class="search-note" role="status">{copy['moderation.location.searchEmpty']}</p>
+    <p class="search-note m-0 text-basalt-muted" role="status">
+      {copy['moderation.location.searchEmpty']}
+    </p>
   {:else if searchState === 'unavailable'}
-    <p class="search-note" role="status">{copy['moderation.location.searchUnavailable']}</p>
+    <p class="search-note m-0 text-basalt-muted" role="status">
+      {copy['moderation.location.searchUnavailable']}
+    </p>
   {/if}
 
-  <div class="map-heading">
-    <p>{copy['moderation.location.mapHelp']}</p>
+  <div class="map-heading flex flex-wrap items-center justify-between gap-y-2 gap-x-4">
+    <p class="m-0 text-basalt-muted">{copy['moderation.location.mapHelp']}</p>
     <Button intent="neutral" onclick={useMapCenter}>
       {copy['moderation.location.useMapCenter']}
     </Button>
@@ -190,9 +201,13 @@
     compact
   />
 
-  <details class="manual-details">
-    <summary>{copy['moderation.location.editDetails']}</summary>
-    <div class="field-grid">
+  <details
+    class="manual-details pt-3 border-t border-t-[color-mix(in_srgb,var(--hv-color-basalt)_18%,transparent)]"
+  >
+    <summary class="cursor-pointer text-fjord font-extrabold">
+      {copy['moderation.location.editDetails']}
+    </summary>
+    <div class="field-grid grid grid-cols-2 gap-3 mt-3 max-narrow:grid-cols-[1fr]">
       <Field label={copy['moderation.addressLabel']} class="mod-field wide">
         <Input
           required
@@ -294,106 +309,21 @@
   <input type="hidden" name="longitude" value={value.longitude} />
   <input type="hidden" name="geometryPrecision" value={value.geometryPrecision} />
   <input type="hidden" name="geometrySource" value={value.geometrySource} />
-  <p class="visually-hidden" role="status" aria-live="polite">{announcement}</p>
+  <p
+    class="visually-hidden absolute w-px h-px overflow-hidden [clip:rect(0,0,0,0)] whitespace-nowrap"
+    role="status"
+    aria-live="polite"
+  >
+    {announcement}
+  </p>
 </div>
 
 <style>
-  .location-editor {
-    display: grid;
-    gap: 0.85rem;
-    min-width: 0;
-  }
-
-  .address-search {
-    display: grid;
-    gap: 0.35rem;
-  }
-
-  .search-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.5rem;
-  }
-
-  .search-results {
-    display: grid;
-    overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--hv-color-basalt) 25%, transparent);
-    border-radius: 0.65rem;
-    background: var(--hv-color-snow-raised);
-  }
-
-  .search-results button {
-    border: 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--hv-color-basalt) 15%, transparent);
-    border-radius: 0;
-    background: transparent;
-    padding: 0.75rem;
-    color: var(--hv-color-basalt);
-    text-align: left;
-    box-shadow: none;
-  }
-
-  .search-results button:last-child {
-    border-bottom: 0;
-  }
-
-  .search-results button:hover,
-  .search-results button:focus-visible {
-    background: var(--hv-color-fjord-soft);
-  }
-
-  .search-note,
-  .map-heading p {
-    margin: 0;
-    color: var(--hv-color-basalt-muted);
-  }
-
-  .map-heading {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .manual-details {
-    border-top: 1px solid color-mix(in srgb, var(--hv-color-basalt) 18%, transparent);
-    padding-top: 0.75rem;
-  }
-
-  .manual-details summary {
-    cursor: pointer;
-    color: var(--hv-color-fjord);
-    font-weight: 800;
-  }
-
-  .field-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.75rem;
-    margin-top: 0.75rem;
-  }
-
   .field-grid :global(.wide) {
     grid-column: 1 / -1;
   }
 
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-  }
-
   @media (max-width: 42rem) {
-    .search-row,
-    .field-grid {
-      grid-template-columns: 1fr;
-    }
-
     .field-grid :global(.wide) {
       grid-column: auto;
     }

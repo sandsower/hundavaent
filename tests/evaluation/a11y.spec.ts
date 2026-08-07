@@ -468,7 +468,9 @@ test('the compact moderation workspace reflows, preserves keyboard context, and 
     ]);
     await expect(page).toHaveURL((url) => url.searchParams.get('queue') === 'candidate-places');
     await expect(page.getByRole('heading', { name: localized.candidateChecklist })).toBeVisible();
-    await expect(page.locator('#candidate-publication')).toBeVisible();
+    const candidatePublicationForm = page.locator('#candidate-publication');
+    await expect(candidatePublicationForm).toBeAttached();
+    await expect(candidatePublicationForm).toBeHidden();
     await expectNoHorizontalPageScroll(page);
     await expectNoSeriousAxeViolations(page, evidence);
 

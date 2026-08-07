@@ -31,7 +31,11 @@
   }: Props = $props();
 </script>
 
-<div class="decision-options" role="group" aria-label={copy['flag.resolve']}>
+<div
+  class="decision-options grid grid-cols-5 gap-[0.45rem] max-[44rem]:grid-cols-2"
+  role="group"
+  aria-label={copy['flag.resolve']}
+>
   <Button
     class="decision-action"
     intent="committed"
@@ -77,11 +81,6 @@
 </div>
 
 <style>
-  .decision-options {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.45rem;
-  }
   /* Button renders its own <button> in a separate component, so Svelte's scoped CSS cannot reach
      it directly - the same ancestor-scoped :global() pattern AuthDialog's .facebook rule and
      ModerationReasonDialog's label rule use. The reduced font-size and min-width:0 truncation
@@ -93,10 +92,5 @@
     min-width: 0;
     font-size: 0.74rem;
     line-height: 1.15;
-  }
-  @media (max-width: 44rem) {
-    .decision-options {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
   }
 </style>

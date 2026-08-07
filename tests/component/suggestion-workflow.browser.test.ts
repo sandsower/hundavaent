@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
+import '../../src/app.css';
 import { catalogues } from '$i18n';
 import SuggestionReviewPanel from '$lib/moderation/SuggestionReviewPanel.svelte';
 import type {

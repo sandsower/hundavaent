@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import '../../src/app.css';
 import { catalogues } from '$i18n';
 import { createDomTestMapAdapter } from '$lib/map/dom-test-adapter';
 import ModerationLocationEditor from '$lib/moderation/ModerationLocationEditor.svelte';
