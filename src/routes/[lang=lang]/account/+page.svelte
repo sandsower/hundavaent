@@ -173,15 +173,32 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<PageShell width="narrow" class="account-shell">
+<PageShell
+  width="narrow"
+  class="account-shell grid min-h-[calc(100dvh_-_5.5rem)] [place-items:start_center]"
+>
   {#if data.member}
-    <Panel as="section" class="account-card grid gap-context" aria-labelledby="account-title">
+    <Panel
+      as="section"
+      class="account-card grid w-[min(100%,42rem)] gap-context p-[clamp(var(--hv-space-context),5vw,2.5rem)] max-[32rem]:p-context"
+      aria-labelledby="account-title"
+    >
       <PageHeader>
         <PageTitle id="account-title">{data.copy['account.signedInTitle']}</PageTitle>
       </PageHeader>
 
+      <!-- Renders through Notice (a child component), so the typography rides Notice's own class
+           prop - it touches nothing Notice's base/tone sets, so there is no same-property race.
+           The page-unique `account-message` name stays: a bare `.message` hook leaked this
+           typography into the moderation review panels' message Notices whenever this route's CSS
+           was loaded first. -->
       {#if errorCode}
-        <Notice tone="error" as="p" class="account-message" role="alert">
+        <Notice
+          tone="error"
+          as="p"
+          class="account-message m-0 font-bold leading-[1.45]"
+          role="alert"
+        >
           {errorCode === 'authentication_required'
             ? data.copy['account.authenticationRequired']
             : data.copy['account.authUnavailable']}
@@ -195,41 +212,71 @@
         <Panel
           as="section"
           padded
-          class="account-destination impact"
+          class="account-destination impact relative flex flex-col items-stretch transition-[border-color,background-color] duration-[var(--hv-fade-quick)] ease-[ease]"
           aria-labelledby="impact-heading"
         >
-          <div class="impact-topline">
-            <span class="impact-icon" aria-hidden="true">
+          <!-- Read top to bottom: the subject, the count, the evidence, the way in. The figure
+               and the proof strip keep their own top margins, which is why neither carries the
+               shared 0.4rem paragraph margin below. -->
+          <div class="impact-topline flex items-center gap-[0.7rem]">
+            <span
+              class="impact-icon grid w-[2.8rem] h-[2.8rem] place-items-center"
+              aria-hidden="true"
+            >
               <ImpactPillarIcon kind="recognition" size="small" />
             </span>
-            <h2 id="impact-heading">{data.copy['account.impactHeading']}</h2>
+            <h2 id="impact-heading" class="m-0 text-[1.2rem]">
+              {data.copy['account.impactHeading']}
+            </h2>
             {#if trustedVerificationFeedback.status === 'available' && trustedVerificationFeedback.value.hasUnread}
               <Status>{data.copy['account.newBadge']}</Status>
             {/if}
           </div>
 
           {#if impactSnapshot.status === 'available' && confirmedLabel}
-            <p class="impact-headline">
-              <strong>{number(impactSnapshot.value.confirmedContributions)}</strong>
-              <span>{confirmedLabel}</span>
+            <!-- The figure reads as one line of text rather than a display numeral: at 3rem+ it
+                 fought the title, which is indented behind its icon. Sized closer to the label,
+                 the row scans as one statement on the same left edge as the proof strip and the
+                 actions below. -->
+            <p
+              class="impact-headline flex flex-wrap items-baseline gap-x-2 gap-y-0 m-0 mt-[0.75rem] leading-[1.45] text-moss-ink last-of-type:mb-panel"
+            >
+              <strong
+                class="ml-[-0.03em] font-display text-[2.15rem] font-[950] leading-none tracking-[-0.02em]"
+                >{number(impactSnapshot.value.confirmedContributions)}</strong
+              >
+              <span class="text-[1rem] font-[850] leading-[1.3]">{confirmedLabel}</span>
             </p>
           {:else}
-            <p>{data.copy['account.impactIntro']}</p>
+            <p class="m-0 mt-[0.4rem] leading-[1.45] text-basalt-muted last-of-type:mb-panel">
+              {data.copy['account.impactIntro']}
+            </p>
           {/if}
 
           {#if proofLine && proofOutcome}
-            <p class="impact-proof">
-              <span class="proof-mark" aria-hidden="true">✓</span>
+            <!-- The proof sits in its own tinted strip, so one real outcome reads as evidence
+                 rather than as a third paragraph of card copy. Its own `margin-bottom: 0` was
+                 always dead - the strip is the card's last paragraph, so the shared
+                 `p:last-of-type` bottom margin out-ranked it - and stays dead here. -->
+            <p
+              class="impact-proof flex items-start gap-[0.6rem] m-0 mt-[0.95rem] px-[0.8rem] py-[0.65rem] rounded-control bg-[color-mix(in_srgb,var(--hv-color-moss)_9%,white)] text-[0.9rem] font-bold leading-[1.35] text-basalt last-of-type:mb-panel"
+            >
+              <span
+                class="proof-mark grid w-[1.35rem] h-[1.35rem] flex-none place-items-center rounded-[999px] bg-[color-mix(in_srgb,var(--hv-color-moss)_22%,white)] text-[0.72rem] font-[950] text-moss-ink"
+                aria-hidden="true">✓</span
+              >
               <span>
                 {proofLine}
-                <span class="proof-date">
+                <span class="proof-date block mt-[0.1rem] font-[750] text-basalt-muted">
                   {formatLocalizedDate(proofOutcome.confirmedAt, data.lang)}
                 </span>
               </span>
             </p>
           {/if}
 
-          <div class="impact-actions">
+          <div
+            class="impact-actions flex flex-wrap items-center gap-x-[1.1rem] gap-y-[0.7rem] mt-panel"
+          >
             <Button
               intent="primary"
               href={resolve('/[lang=lang]/account/impact', { lang: data.lang })}
@@ -237,8 +284,11 @@
               {data.copy['account.impactLink']}
             </Button>
             {#if achievementsNudge}
+              <!-- The secondary door to recognition. A quiet text link, not a second button: the
+                   card leads with one primary destination, and this line is forward-looking on
+                   purpose - a goal, never a streak. -->
               <a
-                class="achievements-nudge"
+                class="achievements-nudge text-[0.88rem] font-[850] leading-[1.35] text-moss-ink no-underline text-pretty hover:underline hover:underline-offset-[0.2em] focus-visible:rounded-control focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px]"
                 href={resolve('/[lang=lang]/account/achievements', { lang: data.lang })}
               >
                 {achievementsNudge}&nbsp;<span aria-hidden="true">→</span>
@@ -251,21 +301,36 @@
           <Panel
             as="section"
             padded
-            class="account-destination trusted-verification"
+            class="account-destination trusted-verification relative grid grid-cols-[auto_minmax(0,1fr)] flex-col items-stretch transition-[border-color,background-color] duration-[var(--hv-fade-quick)] ease-[ease] [--impact-tone:var(--hv-color-fjord)]"
             data-linked
             aria-labelledby="trusted-verification-heading"
           >
-            <span class="trusted-verification-icon" aria-hidden="true">
+            <span
+              class="trusted-verification-icon grid w-[2.8rem] h-[2.8rem] place-items-center"
+              aria-hidden="true"
+            >
               <ImpactPillarIcon kind="knowledge" size="small" />
             </span>
             <div>
-              <h2 id="trusted-verification-heading">
+              <h2 id="trusted-verification-heading" class="m-0 text-[1.2rem]">
                 {data.copy['account.trustedVerificationHeading']}
               </h2>
-              <p>{data.copy['account.trustedVerificationIntro']}</p>
+              <p class="m-0 mt-[0.4rem] leading-[1.45] text-basalt-muted last-of-type:mb-panel">
+                {data.copy['account.trustedVerificationIntro']}
+              </p>
+              <!-- Paired cards stretch to the row's tallest sibling; the auto margin pins each
+                   card's control to the bottom edge so the pair reads aligned. The preceding
+                   paragraph owns the minimum gap, because an auto margin collapses to zero in a
+                   content-sized card. .card-link renders through Button (a child component), so
+                   the glue rides Button's own class prop rather than a :global() hook. -->
+              <!-- The whole card is one link target: the card's single control stretches an
+                   invisible hit area across the panel. Cards with several destinations (impact,
+                   contributions) stay button-only, so a card never looks tappable while routing
+                   only part of its surface. Every .card-link sits in a data-linked card, so the
+                   hit area needs no ancestor condition of its own. -->
               <Button
                 href={resolve('/[lang=lang]/account/keep-current', { lang: data.lang })}
-                class="card-link"
+                class="card-link mt-auto after:absolute after:inset-0 after:rounded-panel after:content-['']"
               >
                 {data.copy['account.trustedVerificationLink']}
               </Button>
@@ -276,16 +341,27 @@
         <Panel
           as="section"
           padded
-          class="account-destination places"
+          class="account-destination places relative flex flex-col items-stretch transition-[border-color,background-color] duration-[var(--hv-fade-quick)] ease-[ease]"
           data-linked
           aria-labelledby="places-heading"
         >
-          <h2 id="places-heading">{data.copy['account.placesHeading']}</h2>
+          <h2 id="places-heading" class="m-0 text-[1.2rem]">
+            {data.copy['account.placesHeading']}
+          </h2>
           {#if placesFact}
-            <p class="destination-fact">{placesFact}</p>
+            <p
+              class="destination-fact m-0 mt-[0.4rem] text-[0.92rem] font-extrabold leading-[1.45] text-basalt last-of-type:mb-panel"
+            >
+              {placesFact}
+            </p>
           {/if}
-          <p>{data.copy['account.placesIntro']}</p>
-          <Button href={resolve('/[lang=lang]/history', { lang: data.lang })} class="card-link">
+          <p class="m-0 mt-[0.4rem] leading-[1.45] text-basalt-muted last-of-type:mb-panel">
+            {data.copy['account.placesIntro']}
+          </p>
+          <Button
+            href={resolve('/[lang=lang]/history', { lang: data.lang })}
+            class="card-link mt-auto after:absolute after:inset-0 after:rounded-panel after:content-['']"
+          >
             {data.copy['account.placesLink']}
           </Button>
         </Panel>
@@ -293,15 +369,23 @@
         <Panel
           as="section"
           padded
-          class="account-destination contributions"
+          class="account-destination contributions relative flex flex-col items-stretch transition-[border-color,background-color] duration-[var(--hv-fade-quick)] ease-[ease]"
           aria-labelledby="contributions-heading"
         >
-          <h2 id="contributions-heading">{data.copy['account.contributionsHeading']}</h2>
+          <h2 id="contributions-heading" class="m-0 text-[1.2rem]">
+            {data.copy['account.contributionsHeading']}
+          </h2>
           {#each suggestionFacts as factLine (factLine)}
-            <p class="destination-fact">{factLine}</p>
+            <p
+              class="destination-fact m-0 mt-[0.4rem] text-[0.92rem] font-extrabold leading-[1.45] text-basalt last-of-type:mb-panel"
+            >
+              {factLine}
+            </p>
           {/each}
-          <p>{data.copy['account.contributionsIntro']}</p>
-          <div class="destination-links flex flex-wrap items-center gap-actions">
+          <p class="m-0 mt-[0.4rem] leading-[1.45] text-basalt-muted last-of-type:mb-panel">
+            {data.copy['account.contributionsIntro']}
+          </p>
+          <div class="destination-links flex flex-wrap items-center gap-actions mt-auto">
             <Button intent="primary" href={resolve('/[lang=lang]/suggest', { lang: data.lang })}>
               {data.copy['suggestion.nav']}
             </Button>
@@ -315,15 +399,19 @@
           <Panel
             as="section"
             padded
-            class="account-destination moderation"
+            class="account-destination moderation relative flex flex-col items-stretch transition-[border-color,background-color] duration-[var(--hv-fade-quick)] ease-[ease]"
             data-linked
             aria-labelledby="moderation-heading"
           >
-            <h2 id="moderation-heading">{data.copy['account.moderationHeading']}</h2>
-            <p>{data.copy['account.moderationIntro']}</p>
+            <h2 id="moderation-heading" class="m-0 text-[1.2rem]">
+              {data.copy['account.moderationHeading']}
+            </h2>
+            <p class="m-0 mt-[0.4rem] leading-[1.45] text-basalt-muted last-of-type:mb-panel">
+              {data.copy['account.moderationIntro']}
+            </p>
             <Button
               href={resolve('/[lang=lang]/moderation', { lang: data.lang })}
-              class="card-link"
+              class="card-link mt-auto after:absolute after:inset-0 after:rounded-panel after:content-['']"
             >
               {data.copy['account.moderationLink']}
             </Button>
@@ -331,46 +419,83 @@
         {/if}
       </div>
 
+      <!-- Renders through Button (a child component), so the layout hook rides Button's own class
+           prop; inline-flex restates what Button's base already sets, so the pair never races. -->
       <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-      <Button href={data.returnTo} intent="quiet" class="discovery-link"
+      <Button
+        href={data.returnTo}
+        intent="quiet"
+        class="discovery-link inline-flex justify-self-start"
         >{data.copy['account.backToPlace']}</Button
       >
 
-      <div class="settings">
+      <div class="settings pt-panel border-t border-border-subtle">
         <button
           type="button"
-          class="settings-toggle"
+          class="settings-toggle w-fit min-h-0 p-0 border-0 bg-transparent font-black text-fjord underline cursor-pointer focus-visible:rounded-control focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px]"
           aria-expanded={settingsOpen}
           onclick={() => (settingsToggled = !settingsOpen)}
         >
           {data.copy['account.settingsHeading']}
         </button>
         {#if settingsOpen}
-          <div class="settings-body grid gap-context">
+          <div class="settings-body grid gap-context mt-panel">
             <Panel
               as="section"
               padded
               class="identity grid gap-panel min-w-0"
               aria-labelledby="identity-heading"
             >
-              <h2 id="identity-heading">{data.copy['account.identityHeading']}</h2>
-              <dl>
-                <div>
-                  <dt>{data.copy['account.emailIdentity']}</dt>
-                  <dd>{data.member.email || data.copy['account.emailUnavailable']}</dd>
+              <h2 id="identity-heading" class="m-0 text-[1.2rem]">
+                {data.copy['account.identityHeading']}
+              </h2>
+              <!-- Identity ledger: label left, value right, hairline between - the same shape the
+                   impact record uses for its own label/value lists. The two-column grid it
+                   replaced put a long email on its own wrapped line while short values floated
+                   mid-panel. -->
+              <!-- Both end rows keep their padding, so the list sits evenly inside the panel
+                   instead of hugging the bottom edge while the top has the heading's breathing
+                   room. -->
+              <dl class="grid m-0 gap-0">
+                <div
+                  class="flex flex-wrap items-baseline justify-between gap-x-[1.25rem] gap-y-[0.2rem] py-3 border-b border-border-subtle first-of-type:pt-[0.35rem] last-of-type:pb-[0.35rem] last-of-type:border-b-0"
+                >
+                  <dt class="text-[0.88rem] font-[750] text-basalt-muted">
+                    {data.copy['account.emailIdentity']}
+                  </dt>
+                  <dd class="m-0 font-[850] wrap-anywhere text-end">
+                    {data.member.email || data.copy['account.emailUnavailable']}
+                  </dd>
                 </div>
-                <div>
-                  <dt>{data.copy['account.providerIdentity']}</dt>
-                  <dd>{providerLabel(data.member.provider)}</dd>
+                <div
+                  class="flex flex-wrap items-baseline justify-between gap-x-[1.25rem] gap-y-[0.2rem] py-3 border-b border-border-subtle first-of-type:pt-[0.35rem] last-of-type:pb-[0.35rem] last-of-type:border-b-0"
+                >
+                  <dt class="text-[0.88rem] font-[750] text-basalt-muted">
+                    {data.copy['account.providerIdentity']}
+                  </dt>
+                  <dd class="m-0 font-[850] wrap-anywhere text-end">
+                    {providerLabel(data.member.provider)}
+                  </dd>
                 </div>
-                <div>
-                  <dt>{data.copy['account.memberSince']}</dt>
-                  <dd>{formatLocalizedDate(data.member.createdAt, data.lang)}</dd>
+                <div
+                  class="flex flex-wrap items-baseline justify-between gap-x-[1.25rem] gap-y-[0.2rem] py-3 border-b border-border-subtle first-of-type:pt-[0.35rem] last-of-type:pb-[0.35rem] last-of-type:border-b-0"
+                >
+                  <dt class="text-[0.88rem] font-[750] text-basalt-muted">
+                    {data.copy['account.memberSince']}
+                  </dt>
+                  <dd class="m-0 font-[850] wrap-anywhere text-end">
+                    {formatLocalizedDate(data.member.createdAt, data.lang)}
+                  </dd>
                 </div>
               </dl>
             </Panel>
 
-            <form method="POST" action="?/signOut" use:enhance={enhanceAction}>
+            <form
+              class="grid gap-[0.65rem]"
+              method="POST"
+              action="?/signOut"
+              use:enhance={enhanceAction}
+            >
               <input type="hidden" name="returnTo" value={data.returnTo} />
               <Button type="submit" intent="quiet" disabled={submitting} class="disabled-fade">
                 {data.copy['account.signOut']}
@@ -383,10 +508,19 @@
               class="deletion grid gap-panel min-w-0"
               aria-labelledby="deletion-heading"
             >
-              <h2 id="deletion-heading">{data.copy['account.deletionHeading']}</h2>
-              <p>{data.copy['account.deletionExplanation']}</p>
+              <h2 id="deletion-heading" class="m-0 text-[1.2rem]">
+                {data.copy['account.deletionHeading']}
+              </h2>
+              <p class="leading-[1.5] text-basalt-muted">
+                {data.copy['account.deletionExplanation']}
+              </p>
               {#if deletionRequested}
-                <Notice tone="success" as="p" class="account-message" role="status">
+                <Notice
+                  tone="success"
+                  as="p"
+                  class="account-message m-0 font-bold leading-[1.45]"
+                  role="status"
+                >
                   {data.copy['account.deletionRequested']}
                 </Notice>
               {:else if !deletionArmed}
@@ -394,7 +528,12 @@
                   {data.copy['account.requestDeletion']}
                 </Button>
               {:else}
-                <form method="POST" action="?/requestDeletion" use:enhance={enhanceAction}>
+                <form
+                  class="grid gap-[0.65rem]"
+                  method="POST"
+                  action="?/requestDeletion"
+                  use:enhance={enhanceAction}
+                >
                   <div class="deletion-actions flex flex-wrap items-center gap-actions">
                     <Button
                       type="submit"
@@ -419,27 +558,6 @@
 </PageShell>
 
 <style>
-  :global(.account-shell) {
-    display: grid;
-    min-height: calc(100dvh - 5.5rem);
-    place-items: start center;
-  }
-
-  :global(.account-card) {
-    width: min(100%, 42rem);
-    padding: clamp(var(--hv-space-context), 5vw, 2.5rem);
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 1.2rem;
-  }
-
-  form {
-    display: grid;
-    gap: 0.65rem;
-  }
-
   /* Button owns its own disabled treatment, which differs from this page's dimmed-fade look;
      the hook keeps the fade for the two migrated Buttons (sign out, confirm deletion) that had
      it before. Both render through Button (a child component), so the hook class needs
@@ -449,113 +567,17 @@
     opacity: 0.55;
   }
 
-  /* Renders through Notice (a child component), so the hook class needs :global(). Page-unique
-     name: bare :global(.message) leaked this typography into the moderation review panels'
-     message Notices whenever this route's CSS was loaded first. */
-  :global(.account-message) {
-    margin: 0;
-    font-weight: 700;
-    line-height: 1.45;
-  }
-
-  /* Identity ledger: label left, value right, hairline between - the same shape the impact
-     record uses for its own label/value lists. The two-column grid it replaced put a long
-     email on its own wrapped line while short values floated mid-panel. */
-  dl {
-    display: grid;
-    margin: 0;
-    gap: 0;
-  }
-
-  dl div {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.2rem 1.25rem;
-    justify-content: space-between;
-    align-items: baseline;
-    padding-block: 0.75rem;
-    border-bottom: 1px solid var(--hv-border-subtle);
-  }
-
-  /* Both end rows keep their padding, so the list sits evenly inside the panel instead of
-     hugging the bottom edge while the top has the heading's breathing room. */
-  dl div:first-of-type {
-    padding-top: 0.35rem;
-  }
-
-  dl div:last-of-type {
-    padding-bottom: 0.35rem;
-    border-bottom: 0;
-  }
-
-  dt {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.88rem;
-    font-weight: 750;
-  }
-
-  dd {
-    margin: 0;
-    font-weight: 850;
-    overflow-wrap: anywhere;
-    text-align: end;
-  }
-
+  /* Panel owns padding through its own `padded` utility, and two same-specificity padding
+     utilities on one element resolve by stylesheet order rather than class order - so this
+     override stays an unlayered scoped rule, which out-ranks the utilities layer outright. */
   :global(.identity) {
     padding: clamp(1.35rem, 3.2vw, 1.9rem);
   }
 
-  :global(.account-destination) {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    transition:
-      border-color var(--hv-fade-quick) ease,
-      background-color var(--hv-fade-quick) ease;
-  }
-
-  :global(.account-destination) h2,
-  :global(.account-destination) p {
-    margin: 0;
-  }
-
-  :global(.account-destination) p {
-    margin-top: 0.4rem;
-    color: var(--hv-color-basalt-muted);
-    line-height: 1.45;
-  }
-
-  :global(.account-destination) .destination-fact {
-    color: var(--hv-color-basalt);
-    font-size: 0.92rem;
-    font-weight: 800;
-  }
-
-  /* Paired cards stretch to the row's tallest sibling; the auto margin pins each card's
-     control to the bottom edge so the pair reads aligned. The preceding paragraph owns the
-     minimum gap, because an auto margin collapses to zero in a content-sized card. .card-link
-     now renders through Button (a child component), so it needs its own :global() alongside
-     the already-global .account-destination ancestor. */
-  :global(.account-destination) :global(.card-link),
-  .destination-links {
-    margin-top: auto;
-  }
-
-  :global(.account-destination) p:last-of-type {
-    margin-bottom: var(--hv-space-panel);
-  }
-
-  /* The whole card is one link target: the card's single control stretches an invisible hit
-     area across the panel. Cards with several destinations (impact, contributions) stay
-     button-only, so a card never looks tappable while routing only part of its surface. */
-  :global(.account-destination[data-linked]) :global(.card-link)::after {
-    position: absolute;
-    inset: 0;
-    border-radius: var(--hv-radius-panel);
-    content: '';
-  }
-
+  /* The linked-card affordance out-ranks Panel's own border/background utilities the same way,
+     and it must keep out-ranking the tinted moderation card below - so the whole
+     border-colour/background family for these cards stays unlayered together rather than
+     splitting across two cascade systems. */
   :global(.account-destination[data-linked]):focus-within {
     border-color: color-mix(in srgb, var(--hv-color-fjord) 55%, var(--hv-border-subtle));
   }
@@ -578,170 +600,7 @@
     background: linear-gradient(105deg, rgb(79 143 104 / 12%) 0%, var(--hv-color-snow-raised) 38%);
   }
 
-  :global(.account-destination.trusted-verification) {
-    --impact-tone: var(--hv-color-fjord);
-
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .impact-icon,
-  .trusted-verification-icon {
-    display: grid;
-    width: 2.8rem;
-    height: 2.8rem;
-    place-items: center;
-  }
-
-  /* Read top to bottom: the subject, the count, the evidence, the way in. These rules sit
-     after the shared .account-destination p rules on purpose - equal specificity, later
-     source order, so the figure and the proof strip keep their own margins. */
-  .impact-topline {
-    display: flex;
-    gap: 0.7rem;
-    align-items: center;
-  }
-
-  /* The figure reads as one line of text rather than a display numeral: at 3rem+ it fought
-     the title, which is indented behind its icon. Sized closer to the label, the row scans as
-     one statement on the same left edge as the proof strip and the actions below. */
-  p.impact-headline {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 0.5rem;
-    align-items: baseline;
-    margin-top: 0.75rem;
-    color: var(--hv-color-moss-ink);
-  }
-
-  p.impact-headline strong {
-    margin-left: -0.03em;
-    font-family: var(--hv-font-display);
-    font-size: 2.15rem;
-    font-weight: 950;
-    line-height: 1;
-    letter-spacing: -0.02em;
-  }
-
-  p.impact-headline span {
-    font-size: 1rem;
-    font-weight: 850;
-    line-height: 1.3;
-  }
-
-  /* The proof sits in its own tinted strip, so one real outcome reads as evidence rather than
-     as a third paragraph of card copy. */
-  p.impact-proof {
-    display: flex;
-    gap: 0.6rem;
-    align-items: flex-start;
-    margin-top: 0.95rem;
-    margin-bottom: 0;
-    padding: 0.65rem 0.8rem;
-    border-radius: var(--hv-radius-control);
-    background: color-mix(in srgb, var(--hv-color-moss) 9%, white);
-    color: var(--hv-color-basalt);
-    font-size: 0.9rem;
-    font-weight: 700;
-    line-height: 1.35;
-  }
-
-  .proof-mark {
-    display: grid;
-    width: 1.35rem;
-    height: 1.35rem;
-    flex: 0 0 auto;
-    place-items: center;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--hv-color-moss) 22%, white);
-    color: var(--hv-color-moss-ink);
-    font-size: 0.72rem;
-    font-weight: 950;
-  }
-
-  .proof-date {
-    display: block;
-    margin-top: 0.1rem;
-    color: var(--hv-color-basalt-muted);
-    font-weight: 750;
-  }
-
-  .impact-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.7rem 1.1rem;
-    align-items: center;
-    margin-top: var(--hv-space-panel);
-  }
-
-  /* The secondary door to recognition. A quiet text link, not a second button: the card leads
-     with one primary destination, and this line is forward-looking on purpose - a goal, never
-     a streak. */
-  .achievements-nudge {
-    color: var(--hv-color-moss-ink);
-    font-size: 0.88rem;
-    font-weight: 850;
-    line-height: 1.35;
-    text-decoration: none;
-    text-wrap: pretty;
-  }
-
-  .achievements-nudge:hover {
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
-  }
-
-  .achievements-nudge:focus-visible {
-    border-radius: var(--hv-radius-control);
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-  }
-
   :global(.account-destination.moderation) {
     background: var(--hv-color-fjord-soft);
-  }
-
-  /* Renders through Button (a child component), so the layout hook needs :global(). */
-  :global(.discovery-link) {
-    display: inline-flex;
-    justify-self: start;
-  }
-
-  .settings {
-    border-top: 1px solid var(--hv-border-subtle);
-    padding-top: var(--hv-space-panel);
-  }
-
-  .settings-toggle {
-    width: fit-content;
-    min-height: 0;
-    border: 0;
-    background: transparent;
-    padding: 0;
-    color: var(--hv-color-fjord);
-    font-weight: 900;
-    cursor: pointer;
-    text-decoration: underline;
-  }
-
-  .settings-toggle:focus-visible {
-    border-radius: var(--hv-radius-control);
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-  }
-
-  .settings-body {
-    margin-top: var(--hv-space-panel);
-  }
-
-  :global(.deletion) p {
-    color: var(--hv-color-basalt-muted);
-    line-height: 1.5;
-  }
-
-  @media (max-width: 32rem) {
-    :global(.account-card) {
-      padding: var(--hv-space-context);
-    }
   }
 </style>
