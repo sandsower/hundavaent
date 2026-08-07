@@ -49,9 +49,18 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="moderation-shell" data-ui-mode="operations">
-  <p class="eyebrow">{data.placeName ?? data.placeId}</p>
-  <h1>{data.copy['moderation.dogFriendliness.title']}</h1>
+<main
+  class="moderation-shell w-[min(100%_-_2rem,var(--hv-content-wide))] m-[var(--hv-space-section)_auto_5rem]"
+  data-ui-mode="operations"
+>
+  <p class="eyebrow font-[950] tracking-[0.08em] uppercase text-fjord">
+    {data.placeName ?? data.placeId}
+  </p>
+  <h1
+    class="my-1 mx-0 font-display text-[clamp(1.8rem,5vw,3rem)] font-[650] leading-none tracking-[-0.03em] text-basalt"
+  >
+    {data.copy['moderation.dogFriendliness.title']}
+  </h1>
   <p class="intro">{data.copy['moderation.dogFriendliness.intro']}</p>
 
   {#if errorMessage}
@@ -68,36 +77,51 @@
       >{data.copy['moderation.dogFriendliness.empty']}</Notice
     >
   {:else}
-    <ul class="ratings">
+    <ul class="ratings grid gap-4 mx-0 mt-6 mb-0 p-0 list-none">
       {#each data.ratings as rating (rating.id)}
         {@const noteDetail = data.noteDetails?.[rating.memberId]}
-        <li class="rating-row" data-rating-id={rating.id}>
-          <div class="rating-header">
+        <li
+          class="rating-row grid gap-3 p-4 border border-border-subtle rounded-panel bg-snow-raised shadow-raised"
+          data-rating-id={rating.id}
+        >
+          <div class="rating-header flex justify-between font-extrabold">
             <span class="member"
               >{data.copy['moderation.dogFriendliness.memberColumn']}: {rating.memberId}</span
             >
-            <span class="status" class:excluded={rating.excludedAt !== null}>
+            <!-- data-excluded mirrors the class:excluded flag so the excluded tone, which used to
+                 live in `.status.excluded`, can be a data variant; the class itself stays. -->
+            <span
+              class="status py-[0.15rem] px-[0.6rem] border border-success rounded-control bg-success-soft text-[0.75rem] font-black uppercase text-success data-[excluded=true]:border-danger data-[excluded=true]:bg-danger-soft data-[excluded=true]:text-danger"
+              class:excluded={rating.excludedAt !== null}
+              data-excluded={rating.excludedAt !== null}
+            >
               {rating.excludedAt !== null
                 ? data.copy['moderation.dogFriendliness.excluded']
                 : data.copy['moderation.dogFriendliness.eligible']}
             </span>
           </div>
 
-          <dl class="scores">
+          <dl
+            class="scores grid grid-cols-[repeat(4,minmax(0,1fr))] gap-2 m-0 max-[40rem]:grid-cols-[repeat(2,minmax(0,1fr))]"
+          >
             <div>
-              <dt>{data.copy['rating.inline.overall']}</dt>
-              <dd>{scoreLabel(rating.overallScore ?? null)}</dd>
+              <dt class="text-[0.72rem] font-[750] text-basalt-muted">
+                {data.copy['rating.inline.overall']}
+              </dt>
+              <dd class="m-0 font-black">{scoreLabel(rating.overallScore ?? null)}</dd>
             </div>
             {#each dimensions as dimension (dimension)}
               <div>
-                <dt>{data.copy[`rating.dimension.${dimension}.label` as MessageKey]}</dt>
-                <dd>{scoreLabel(rating.scores[dimension])}</dd>
+                <dt class="text-[0.72rem] font-[750] text-basalt-muted">
+                  {data.copy[`rating.dimension.${dimension}.label` as MessageKey]}
+                </dt>
+                <dd class="m-0 font-black">{scoreLabel(rating.scores[dimension])}</dd>
               </div>
             {/each}
           </dl>
 
           {#if rating.excludedAt !== null}
-            <p class="exclusion-detail">
+            <p class="exclusion-detail m-0 text-[0.85rem] text-basalt-muted">
               {data.copy['moderation.dogFriendliness.exclusionKind']}:
               {rating.excludedKind
                 ? data.copy[
@@ -107,6 +131,7 @@
               - {rating.excludedReason}
             </p>
             <form
+              class="grid grid-cols-[1fr_2fr_auto] items-end gap-2 max-[40rem]:grid-cols-[1fr]"
               method="POST"
               action="?/reinstate"
               use:enhance={enhanceForm}
@@ -121,7 +146,13 @@
               </Button>
             </form>
           {:else}
-            <form method="POST" action="?/exclude" use:enhance={enhanceForm} aria-busy={submitting}>
+            <form
+              class="grid grid-cols-[1fr_2fr_auto] items-end gap-2 max-[40rem]:grid-cols-[1fr]"
+              method="POST"
+              action="?/exclude"
+              use:enhance={enhanceForm}
+              aria-busy={submitting}
+            >
               <input type="hidden" name="memberId" value={rating.memberId} />
               <Field label={data.copy['moderation.dogFriendliness.exclusionKind']}>
                 <Select name="exclusionKind">
@@ -145,14 +176,18 @@
 
           {#if rating.privateNote}
             <section
-              class="private-note"
+              class="private-note grid gap-[0.6rem] p-[0.9rem] border border-fjord rounded-panel bg-fjord-soft"
               aria-label={data.copy['moderation.dogFriendliness.noteHeading']}
             >
-              <h2>{data.copy['moderation.dogFriendliness.noteHeading']}</h2>
-              <dl class="note-meta">
+              <h2 class="m-0 text-[1rem]">
+                {data.copy['moderation.dogFriendliness.noteHeading']}
+              </h2>
+              <dl class="note-meta grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2 m-0">
                 <div>
-                  <dt>{data.copy['moderation.dogFriendliness.noteClassificationLabel']}</dt>
-                  <dd>
+                  <dt class="text-[0.72rem] font-[750] text-basalt">
+                    {data.copy['moderation.dogFriendliness.noteClassificationLabel']}
+                  </dt>
+                  <dd class="m-0 font-extrabold">
                     {rating.privateNoteClassification
                       ? data.copy[
                           `ratingNote.classification.${rating.privateNoteClassification}` as MessageKey
@@ -161,16 +196,22 @@
                   </dd>
                 </div>
                 <div>
-                  <dt>{data.copy['moderation.dogFriendliness.noteUpdatedAt']}</dt>
-                  <dd>{rating.privateNoteUpdatedAt ?? ''}</dd>
+                  <dt class="text-[0.72rem] font-[750] text-basalt">
+                    {data.copy['moderation.dogFriendliness.noteUpdatedAt']}
+                  </dt>
+                  <dd class="m-0 font-extrabold">{rating.privateNoteUpdatedAt ?? ''}</dd>
                 </div>
               </dl>
-              <p class="note-text">{rating.privateNote}</p>
+              <p class="note-text m-0 whitespace-pre-wrap">{rating.privateNote}</p>
 
               {#if rating.linkedReportId}
-                <p class="linked-report">
+                <p class="linked-report m-0 font-extrabold">
                   {data.copy['moderation.dogFriendliness.linkedReportLabel']}:
+                  <!-- text-basalt, not text-fjord: this anchor only ever renders inside
+                       .private-note, whose `.private-note a` rule outranked the bare `a` rule in
+                       the original, so the fjord colour never reached it. -->
                   <a
+                    class="text-basalt focus-visible:rounded-control focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
                     href={resolve('/[lang=lang]/moderation/corrections-and-reports/[id]', {
                       lang: data.lang,
                       id: rating.linkedReportId
@@ -182,22 +223,32 @@
               {/if}
 
               <details class="note-history">
-                <summary>{data.copy['moderation.dogFriendliness.noteHistoryHeading']}</summary>
+                <!-- Same story as the linked-report anchor: the only summary on this page sits
+                     inside .private-note, so `.private-note summary` won and the bare
+                     `summary { color: fjord }` declaration was dead. -->
+                <summary
+                  class="text-basalt focus-visible:rounded-control focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+                  >{data.copy['moderation.dogFriendliness.noteHistoryHeading']}</summary
+                >
                 {#if !noteDetail || noteDetail.history.length === 0}
                   <Notice tone="info" role="status" class="font-extrabold">
                     {data.copy['moderation.dogFriendliness.noteHistoryEmpty']}
                   </Notice>
                 {:else}
-                  <ol class="note-history-list">
+                  <ol class="note-history-list grid gap-2 mx-0 mt-2 mb-0 pl-[1.2rem]">
                     {#each noteDetail.history as entry, index (index)}
                       <li>
-                        <span class="event-kind"
+                        <span class="event-kind font-extrabold"
                           >{data.copy[
                             `moderation.dogFriendliness.noteHistoryEventKind.${entry.eventKind}` as MessageKey
                           ]}</span
                         >
-                        <span class="event-time">{entry.occurredAt}</span>
-                        {#if entry.privateNote}<p>{entry.privateNote}</p>{/if}
+                        <span class="event-time text-[0.8rem] text-basalt-muted"
+                          >{entry.occurredAt}</span
+                        >
+                        {#if entry.privateNote}<p class="mx-0 mt-1 mb-0 text-basalt-muted">
+                            {entry.privateNote}
+                          </p>{/if}
                       </li>
                     {/each}
                   </ol>
@@ -209,7 +260,7 @@
                 action="?/recordDisposition"
                 use:enhance={enhanceForm}
                 aria-busy={submitting}
-                class="disposition-form"
+                class="disposition-form grid grid-cols-[1fr_2fr_auto] items-end gap-2 max-[40rem]:grid-cols-[1fr]"
               >
                 <input type="hidden" name="memberId" value={rating.memberId} />
                 <Field label={data.copy['moderation.dogFriendliness.dispositionKindLabel']}>
@@ -233,8 +284,10 @@
 
               {#if noteDetail && noteDetail.dispositions.length > 0}
                 <div class="disposition-list">
-                  <h3>{data.copy['moderation.dogFriendliness.dispositionListHeading']}</h3>
-                  <ul>
+                  <h3 class="m-0 text-[0.9rem]">
+                    {data.copy['moderation.dogFriendliness.dispositionListHeading']}
+                  </h3>
+                  <ul class="mx-0 mt-[0.4rem] mb-0 pl-[1.2rem]">
                     {#each noteDetail.dispositions as disposition (disposition.id)}
                       <li>
                         <strong
@@ -257,87 +310,6 @@
 </main>
 
 <style>
-  .moderation-shell {
-    width: min(100% - 2rem, var(--hv-content-wide));
-    margin: var(--hv-space-section) auto 5rem;
-  }
-  .eyebrow {
-    color: var(--hv-color-fjord);
-    font-weight: 950;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  h1 {
-    margin: 0.25rem 0;
-    color: var(--hv-color-basalt);
-    font-family: var(--hv-font-display);
-    font-size: clamp(1.8rem, 5vw, 3rem);
-    font-weight: 650;
-    line-height: 1;
-    letter-spacing: -0.03em;
-  }
-  .ratings {
-    display: grid;
-    gap: 1rem;
-    margin: 1.5rem 0 0;
-    padding: 0;
-    list-style: none;
-  }
-  .rating-row {
-    display: grid;
-    gap: 0.75rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow-raised);
-    padding: 1rem;
-    box-shadow: var(--hv-shadow-raised);
-  }
-  .rating-header {
-    display: flex;
-    justify-content: space-between;
-    font-weight: 800;
-  }
-  .status {
-    border: 1px solid var(--hv-color-success);
-    border-radius: var(--hv-radius-control);
-    padding: 0.15rem 0.6rem;
-    background: var(--hv-color-success-soft);
-    color: var(--hv-color-success);
-    font-size: 0.75rem;
-    font-weight: 900;
-    text-transform: uppercase;
-  }
-  .status.excluded {
-    border-color: var(--hv-color-danger);
-    background: var(--hv-color-danger-soft);
-    color: var(--hv-color-danger);
-  }
-  .scores {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.5rem;
-    margin: 0;
-  }
-  .scores dt {
-    font-size: 0.72rem;
-    color: var(--hv-color-basalt-muted);
-    font-weight: 750;
-  }
-  .scores dd {
-    margin: 0;
-    font-weight: 900;
-  }
-  .exclusion-detail {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--hv-color-basalt-muted);
-  }
-  form {
-    display: grid;
-    grid-template-columns: 1fr 2fr auto;
-    gap: 0.5rem;
-    align-items: end;
-  }
   /* Field renders its own <label>, crossing this component's scoping boundary; :global() reaches
      it purely on the literal element, ancestor-scoped to form the same way
      moderation/sign-in/+page.svelte's `form :global(label)` reaches Field's label - safe here
@@ -347,94 +319,5 @@
   form :global(label) {
     font-size: 0.8rem;
     font-weight: 800;
-  }
-  a:focus-visible,
-  summary:focus-visible {
-    border-radius: var(--hv-radius-control);
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-  .private-note {
-    display: grid;
-    gap: 0.6rem;
-    border: 1px solid var(--hv-color-fjord);
-    border-radius: var(--hv-radius-panel);
-    padding: 0.9rem;
-    background: var(--hv-color-fjord-soft);
-  }
-  .private-note h2 {
-    margin: 0;
-    font-size: 1rem;
-  }
-  .note-meta {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
-    margin: 0;
-  }
-  .note-meta dt {
-    font-size: 0.72rem;
-    color: var(--hv-color-basalt);
-    font-weight: 750;
-  }
-  .note-meta dd {
-    margin: 0;
-    font-weight: 800;
-  }
-  .note-text {
-    margin: 0;
-    white-space: pre-wrap;
-  }
-  .linked-report {
-    margin: 0;
-    font-weight: 800;
-  }
-  .note-history-list {
-    display: grid;
-    gap: 0.5rem;
-    margin: 0.5rem 0 0;
-    padding-left: 1.2rem;
-  }
-  .note-history-list p {
-    margin: 0.25rem 0 0;
-    color: var(--hv-color-basalt-muted);
-  }
-  .event-kind {
-    font-weight: 800;
-  }
-  .event-time {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.8rem;
-  }
-  a,
-  summary {
-    color: var(--hv-color-fjord);
-  }
-  .private-note a,
-  .private-note summary {
-    color: var(--hv-color-basalt);
-  }
-  .disposition-form {
-    grid-template-columns: 1fr 2fr auto;
-  }
-  .disposition-list ul {
-    margin: 0.4rem 0 0;
-    padding-left: 1.2rem;
-  }
-  .disposition-list h3 {
-    margin: 0;
-    font-size: 0.9rem;
-  }
-  @media (max-width: 40rem) {
-    .scores {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    form {
-      grid-template-columns: 1fr;
-    }
-    .disposition-form {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

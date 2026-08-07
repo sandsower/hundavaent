@@ -27,16 +27,11 @@
       >{data.copy['moderation.workbench.draftSaved']}</Notice
     >
   {/if}
-  <fieldset data-route-review disabled={Boolean(conflictAction?.conflictRefreshFailed)}>
+  <fieldset
+    class="min-w-0 m-0 p-0 border-0"
+    data-route-review
+    disabled={Boolean(conflictAction?.conflictRefreshFailed)}
+  >
     <CorrectionReviewPanel data={reviewData} {form} standalone />
   </fieldset>
 </main>
-
-<style>
-  fieldset {
-    min-width: 0;
-    margin: 0;
-    border: 0;
-    padding: 0;
-  }
-</style>

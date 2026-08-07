@@ -135,10 +135,19 @@
   <title>{data.copy['moderation.candidateTitle']} | {data.copy['site.name']}</title>
 </svelte:head>
 
-<main class="candidate-shell" data-ui-mode="operations">
-  <header>
-    <p class="eyebrow">{data.copy['nav.moderation']}</p>
-    <h1>{data.copy['moderation.candidateTitle']}</h1>
+<main
+  class="candidate-shell w-[min(100%_-_2rem,var(--hv-content-wide))] mx-auto my-0 p-[var(--hv-space-section)_0_5rem] max-narrow:pt-8"
+  data-ui-mode="operations"
+>
+  <header class="max-w-192 mb-8">
+    <p class="eyebrow font-[850] tracking-[0.12em] uppercase text-fjord">
+      {data.copy['nav.moderation']}
+    </p>
+    <h1
+      class="my-1 mx-0 font-display text-[clamp(2.2rem,6vw,3.8rem)] font-[650] leading-none tracking-[-0.035em] text-basalt"
+    >
+      {data.copy['moderation.candidateTitle']}
+    </h1>
     <p>{data.copy['moderation.candidateIntro']}</p>
   </header>
 
@@ -177,9 +186,11 @@
     </Notice>
   {/if}
 
-  <form method="POST" use:enhance={enhanceCandidate} aria-busy={submitting}>
+  <form class="grid gap-5" method="POST" use:enhance={enhanceCandidate} aria-busy={submitting}>
     <FormSection legend={data.copy['moderation.identityHeading']}>
-      <div class="field-grid">
+      <div
+        class="field-grid grid grid-cols-[repeat(2,minmax(0,1fr))] gap-4 max-narrow:grid-cols-[1fr]"
+      >
         <Field label={data.copy['moderation.operatorLabel']}>
           <Input name="operatorName" required bind:value={values.operatorName} />
         </Field>
@@ -260,11 +271,14 @@
     </FormSection>
 
     <FormSection legend={data.copy['moderation.evidenceHeading']}>
-      <div class="evidence-list">
+      <div class="evidence-list grid gap-4">
         {#each evidenceRecords as evidence, index (index)}
-          <section class="condition-card" aria-labelledby={`evidence-${index}`}>
-            <div class="condition-heading">
-              <h2 id={`evidence-${index}`}>
+          <section
+            class="condition-card p-4 border border-border-subtle rounded-panel bg-snow"
+            aria-labelledby={`evidence-${index}`}
+          >
+            <div class="condition-heading flex items-center justify-between gap-4 mb-3">
+              <h2 id={`evidence-${index}`} class="m-0 text-[1rem]">
                 {data.copy['moderation.evidenceHeading']}
                 {index + 1}
               </h2>
@@ -274,7 +288,9 @@
                 </Button>
               {/if}
             </div>
-            <div class="field-grid">
+            <div
+              class="field-grid grid grid-cols-[repeat(2,minmax(0,1fr))] gap-4 max-narrow:grid-cols-[1fr]"
+            >
               <Field label={data.copy['moderation.evidenceKindLabel']}>
                 <Select name="evidenceKind" required bind:value={evidence.kind}>
                   <option value="official_website">{data.copy['evidence.officialWebsite']}</option>
@@ -316,11 +332,14 @@
     </FormSection>
 
     <FormSection legend={data.copy['moderation.accessHeading']}>
-      <div class="condition-list">
+      <div class="condition-list grid gap-4">
         {#each conditions as condition, index (index)}
-          <section class="condition-card" aria-labelledby={`condition-${index}`}>
-            <div class="condition-heading">
-              <h2 id={`condition-${index}`}>
+          <section
+            class="condition-card p-4 border border-border-subtle rounded-panel bg-snow"
+            aria-labelledby={`condition-${index}`}
+          >
+            <div class="condition-heading flex items-center justify-between gap-4 mb-3">
+              <h2 id={`condition-${index}`} class="m-0 text-[1rem]">
                 {data.copy['place.conditionLabel'].replace('{number}', String(index + 1))}
               </h2>
               {#if conditions.length > 1}
@@ -329,7 +348,9 @@
                 </Button>
               {/if}
             </div>
-            <div class="field-grid">
+            <div
+              class="field-grid grid grid-cols-[repeat(2,minmax(0,1fr))] gap-4 max-narrow:grid-cols-[1fr]"
+            >
               <Field label={data.copy['place.accessArea']}>
                 <Select name="accessArea" required bind:value={condition.accessArea}>
                   <option value="indoors">{data.copy['access.indoor']}</option>
@@ -449,39 +470,6 @@
 </main>
 
 <style>
-  .candidate-shell {
-    width: min(100% - 2rem, var(--hv-content-wide));
-    margin: 0 auto;
-    padding: var(--hv-space-section) 0 5rem;
-  }
-
-  header {
-    max-width: 48rem;
-    margin-bottom: 2rem;
-  }
-
-  .eyebrow {
-    color: var(--hv-color-fjord);
-    font-weight: 850;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  h1 {
-    margin: 0.25rem 0;
-    color: var(--hv-color-basalt);
-    font-family: var(--hv-font-display);
-    font-size: clamp(2.2rem, 6vw, 3.8rem);
-    font-weight: 650;
-    line-height: 1;
-    letter-spacing: -0.035em;
-  }
-
-  form {
-    display: grid;
-    gap: 1.25rem;
-  }
-
   /* Field renders its own <label>, crossing this component's scoping boundary; :global() reaches
      it purely on the literal element, ancestor-scoped to .field-grid (not the whole form) so this
      never leaks into ModerationLocationEditor's own unrelated <label> elements, which sit inside
@@ -499,38 +487,6 @@
     font-weight: 800;
   }
 
-  .field-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-  }
-
-  .condition-list,
-  .evidence-list {
-    display: grid;
-    gap: 1rem;
-  }
-
-  .condition-card {
-    padding: 1rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow);
-  }
-
-  .condition-heading {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.75rem;
-  }
-
-  .condition-heading h2 {
-    margin: 0;
-    font-size: 1rem;
-  }
-
   /* Field forwards this class onto the div it renders itself, so the literal string "wide" never
      appears on an element written directly in this template - Svelte's scoped-CSS analysis can't
      see that connection and would otherwise prune `.wide` as unused. Ancestor-scoped to
@@ -542,14 +498,6 @@
   }
 
   @media (max-width: 42rem) {
-    .candidate-shell {
-      padding-top: 2rem;
-    }
-
-    .field-grid {
-      grid-template-columns: 1fr;
-    }
-
     .field-grid :global(.wide) {
       grid-column: auto;
     }
