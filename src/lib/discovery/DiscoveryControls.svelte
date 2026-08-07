@@ -140,8 +140,9 @@
        against the required 4.5:1. An inverted pair has no safe path between its ends, so the
        toggle lands in one frame and only the transform is allowed to take time. -->
   <div
-    class="shortcut-row flex flex-wrap min-w-0 gap-[0.3rem] pointer-events-none [&[hidden]]:hidden"
+    class="shortcut-row flex flex-wrap min-w-0 gap-[0.3rem] pointer-events-none data-[selection-active=true]:hidden"
     hidden={selectionActive}
+    data-selection-active={selectionActive}
   >
     <div
       class="category-shortcuts contents"
@@ -152,7 +153,7 @@
         <button
           type="button"
           data-chip={chip}
-          class="min-h-[2.1rem] py-[0.3rem] px-[0.85rem] border border-border-subtle rounded-[999px] bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] text-[0.8rem] font-[850] tracking-[-0.015em] text-basalt whitespace-nowrap shadow-raised cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle [&.active]:border-fjord [&.active]:bg-fjord [&.active]:text-snow-raised enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
+          class="min-h-[2.1rem] py-[0.3rem] px-[0.85rem] border border-border-subtle rounded-[999px] bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] text-[0.8rem] font-[850] tracking-[-0.015em] text-basalt whitespace-nowrap shadow-raised cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle aria-pressed:border-fjord aria-pressed:bg-fjord aria-pressed:text-snow-raised enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
           class:active
           aria-pressed={active}
           aria-label={label}
@@ -168,8 +169,9 @@
     </div>
     <button
       type="button"
-      class="filters-button min-h-[2.1rem] py-[0.3rem] px-[0.85rem] border border-border-subtle rounded-[999px] bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] text-[0.8rem] font-[850] tracking-[-0.015em] text-basalt whitespace-nowrap shadow-raised cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle [&.active]:border-fjord [&.active]:bg-fjord [&.active]:text-snow-raised hover:transform-[translateY(-1px)] active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+      class="filters-button min-h-[2.1rem] py-[0.3rem] px-[0.85rem] border border-border-subtle rounded-[999px] bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] text-[0.8rem] font-[850] tracking-[-0.015em] text-basalt whitespace-nowrap shadow-raised cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle data-[active=true]:border-fjord data-[active=true]:bg-fjord data-[active=true]:text-snow-raised hover:transform-[translateY(-1px)] active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
       class:active={count > 0}
+      data-active={count > 0}
       aria-expanded={filtersOpen}
       aria-controls="discovery-filter-sheet"
       onclick={onToggleFilters}

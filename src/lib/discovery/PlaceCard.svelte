@@ -120,14 +120,15 @@
 <article
   data-place-card
   data-interactive={interactive}
-  class="relative overflow-hidden border border-border-subtle rounded-panel bg-snow-raised shadow-none transition-transform duration-[var(--hv-motion-quick)] ease-settle before:absolute before:z-2 before:inset-y-0 before:left-0 before:w-[0.3rem] before:bg-signal before:content-[''] before:pointer-events-none before:origin-top before:transform-[scaleY(0)] before:transition-transform before:duration-[var(--hv-motion-considered)] before:ease-settle [&.selected]:border-basalt [&.selected]:before:transform-[scaleY(1)] data-[interactive=true]:hover:transform-[translateY(-2px)] data-[interactive=true]:has-[.place-target:active]:transform-[translateY(0)_scale(0.99)]"
+  data-selected={selected}
+  class="relative overflow-hidden border border-border-subtle rounded-panel bg-snow-raised [box-shadow:none] transition-transform duration-[var(--hv-motion-quick)] ease-settle before:absolute before:z-2 before:inset-y-0 before:left-0 before:w-[0.3rem] before:bg-signal before:content-[''] before:pointer-events-none before:origin-top before:transform-[scaleY(0)] before:transition-transform before:duration-[var(--hv-motion-considered)] before:ease-settle data-[selected=true]:border-basalt data-[selected=true]:before:transform-[scaleY(1)] data-[interactive=true]:hover:transform-[translateY(-2px)] data-[interactive=true]:has-[.place-target:active]:transform-[translateY(0)_scale(0.99)]"
   class:selected
   aria-label={place.name}
 >
   <div
     class:photo={displayPhoto !== null}
     class:category-band={displayPhoto === null}
-    class="card-media relative w-full min-h-[5.2rem] [&.category-band]:bg-[linear-gradient(145deg,var(--hv-color-moss-soft)_0_40%,var(--hv-color-fjord-soft)_100%)]"
+    class="card-media relative w-full min-h-[5.2rem] data-[place-card-media=category-band]:bg-[linear-gradient(145deg,var(--hv-color-moss-soft)_0_40%,var(--hv-color-fjord-soft)_100%)]"
     data-place-card-media={displayPhoto ? 'photo' : 'category-band'}
   >
     {#if displayPhoto}

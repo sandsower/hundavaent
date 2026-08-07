@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import '../../src/app.css';
 import { catalogues } from '$i18n';
 import AccessConditionCorrection from '$lib/discovery/AccessConditionCorrection.svelte';
 import type { PublishedAccessFacts } from '$server/discovery/public-places';

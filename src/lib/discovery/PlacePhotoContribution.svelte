@@ -139,7 +139,7 @@
   <!-- A photo is an additive gift, not a defect report, so its trigger is a real button in the
        card's pill family rather than the corrections' quiet underlined link. -->
   <button
-    class="start inline-flex min-h-[2.1rem] items-center gap-[0.4rem] py-[0.3rem] px-[0.85rem] border border-fjord rounded-[999px] bg-transparent [font-family:inherit] [font-style:inherit] [font-variant:inherit] [font-stretch:inherit] [line-height:inherit] text-[0.8rem] font-extrabold text-fjord cursor-pointer transition-transform duration-[var(--hv-motion-instant)] ease-settle [&:hover:not(:disabled):not(:active)]:transform-[translateY(-1px)] [&:active:not(:disabled)]:transform-[scale(0.96)] disabled:border-border-subtle disabled:text-basalt-muted disabled:cursor-progress focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:[outline-offset:2px]"
+    class="start inline-flex min-h-[2.1rem] items-center gap-[0.4rem] py-[0.3rem] px-[0.85rem] border border-fjord rounded-[999px] bg-transparent [font-family:inherit] [font-style:inherit] [font-variant:inherit] [font-stretch:inherit] [line-height:inherit] text-[0.8rem] font-extrabold text-fjord cursor-pointer transition-transform duration-[var(--hv-motion-instant)] ease-settle enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.96)] disabled:border-border-subtle disabled:text-basalt-muted disabled:cursor-progress focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:[outline-offset:2px]"
     type="button"
     disabled={sending}
     aria-label={copy['place.photos.addLabel'].replace('{name}', placeName)}

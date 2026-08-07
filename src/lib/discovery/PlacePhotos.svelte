@@ -90,20 +90,22 @@
   <!-- The empty state carries no image, so the featured treatment's edge-to-edge padding would
        leave the invite touching the frame the card draws around this surface. -->
   <section
-    class="place-photos group/photos m-[0.85rem_0_0] p-panel border border-border-subtle rounded-panel bg-snow-raised shadow-raised [&.featured]:m-0 [&.featured]:p-0 [&.featured]:overflow-hidden [&.featured]:border-0 [&.featured]:rounded-none [&.featured]:shadow-none [&.featured.tileless]:p-[0.65rem]"
+    class="place-photos group/photos m-[0.85rem_0_0] p-panel border border-border-subtle rounded-panel bg-snow-raised shadow-raised data-[surface=featured-media]:m-0 data-[surface=featured-media]:p-0 data-[surface=featured-media]:overflow-hidden data-[surface=featured-media]:border-0 data-[surface=featured-media]:rounded-none data-[surface=featured-media]:shadow-none data-[surface=featured-media]:data-[tileless=true]:p-[0.65rem]"
     class:featured
     class:strip
     class:tileless={tileCount === 0}
     aria-labelledby="place-photos-heading"
     data-photos-section
     data-surface={featured ? 'featured-media' : 'media-gallery'}
+    data-tileless={tileCount === 0}
   >
     <!-- The visually-hidden rule's margin: -1px was dead on this h3: the original
          .place-photos h3 selector had higher specificity and kept its own margin. -->
     <h3
       id="place-photos-heading"
-      class="m-[0_0_0.65rem] font-display text-[1.05rem] leading-[1.15] text-basalt [&.visually-hidden]:absolute [&.visually-hidden]:size-px [&.visually-hidden]:overflow-hidden [&.visually-hidden]:p-0 [&.visually-hidden]:[clip:rect(0,0,0,0)] [&.visually-hidden]:whitespace-nowrap [&.visually-hidden]:border-0"
+      class="m-[0_0_0.65rem] font-display text-[1.05rem] leading-[1.15] text-basalt data-[visually-hidden=true]:absolute data-[visually-hidden=true]:size-px data-[visually-hidden=true]:overflow-hidden data-[visually-hidden=true]:p-0 data-[visually-hidden=true]:[clip:rect(0,0,0,0)] data-[visually-hidden=true]:whitespace-nowrap data-[visually-hidden=true]:border-0"
       class:visually-hidden={featured}
+      data-visually-hidden={featured}
     >
       {copy['place.photos.title']}
     </h3>

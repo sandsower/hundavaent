@@ -54,7 +54,8 @@
        limit in tokens.css). -->
   <span
     class:visible={status !== 'idle'}
-    class="share-status absolute z-[3] top-[calc(100%_+_0.35rem)] right-0 w-max max-w-48 py-[0.35rem] px-[0.55rem] rounded-control bg-basalt text-[0.76rem] [font-weight:760] text-snow-raised opacity-0 pointer-events-none transform-[translateY(-0.2rem)] transition-[transform] duration-[var(--hv-motion-quick)] ease-settle [&.visible]:opacity-100 [&.visible]:transform-[translateY(0)]"
+    data-visible={status !== 'idle'}
+    class="share-status absolute z-[3] top-[calc(100%_+_0.35rem)] right-0 w-max max-w-48 py-[0.35rem] px-[0.55rem] rounded-control bg-basalt text-[0.76rem] [font-weight:760] text-snow-raised opacity-0 pointer-events-none transform-[translateY(-0.2rem)] transition-[transform] duration-[var(--hv-motion-quick)] ease-settle data-[visible=true]:opacity-100 data-[visible=true]:transform-[translateY(0)]"
     role="status"
     aria-live="polite"
   >
