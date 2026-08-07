@@ -364,7 +364,7 @@
 </script>
 
 <div
-  class="access-presentation"
+  class="access-presentation grid gap-[0.55rem]"
   role="group"
   aria-label={copy['accessSymbols.label'].replace('{name}', placeName)}
 >
@@ -374,9 +374,11 @@
       '{count}',
       String(presentation.conditionCount)
     )}
+    <!-- The lift is motion, so it collapses under reduced motion; the border and shadow are
+         appearance changes that stay put, so they ride the fade family at full duration. -->
     <button
       type="button"
-      class="symbol complex special"
+      class="symbol complex special relative inline-flex w-full h-auto min-h-11 items-center justify-start gap-[0.55rem] px-[0.8rem] py-[0.65rem] border border-access-symbol-border rounded-control bg-access-special [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-extrabold text-basalt [transition:border-color_var(--hv-fade-quick)_var(--hv-ease-settle),transform_var(--hv-motion-quick)_var(--hv-ease-settle),box-shadow_var(--hv-fade-quick)_var(--hv-ease-settle)] hover:z-[4] hover:border-fjord hover:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] hover:transform-[translateY(-2px)] focus-visible:z-[4] focus-visible:border-fjord focus-visible:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] focus-visible:transform-[translateY(-2px)] focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] aria-[expanded=true]:z-[4] aria-[expanded=true]:border-fjord aria-[expanded=true]:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] aria-[expanded=true]:transform-[translateY(-2px)]"
       data-access-icon="question"
       aria-label={copy['accessSymbols.differentConditions']}
       aria-expanded={activeDimension === 'complex'}
@@ -394,8 +396,10 @@
         onOpenDetails();
       }}
     >
-      <span class="icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"
+      <span class="icon block size-[1.3rem] flex-none place-items-center" aria-hidden="true">
+        <svg
+          class="block size-[1.3rem] flex-none place-items-center overflow-visible fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]"
+          viewBox="0 0 24 24"
           ><circle cx="12" cy="12" r="9" /><path
             d="M9.8 9a2.4 2.4 0 1 1 3.7 2c-1 .7-1.5 1.1-1.5 2.2"
           /><path d="M12 16.5h.01" /></svg
@@ -404,17 +408,23 @@
       <span>{copy['accessSymbols.differentConditions']}</span>
     </button>
     {#if activeDimension === 'complex'}
-      <p id={detailId} class="persistent-detail" data-access-detail>
+      <p
+        id={detailId}
+        class="persistent-detail m-0 py-[0.6rem] px-[0.7rem] border-s-[0.3rem] border-s-access-detail-accent rounded-[0.4rem] bg-snow-raised text-[0.78rem] leading-[1.4]"
+        data-access-detail
+      >
         {explanation}
       </p>
     {/if}
   {:else}
-    <div class="symbols">
+    <div class="symbols flex flex-wrap justify-start gap-[0.35rem]">
       {#each presentation.symbols as symbol (symbol.dimension)}
         {@const detailId = `${componentId}-${symbol.dimension}-detail`}
+        <!-- The lift is motion, so it collapses under reduced motion; the border and shadow are
+             appearance changes that stay put, so they ride the fade family at full duration. -->
         <button
           type="button"
-          class="symbol"
+          class="symbol relative inline-flex min-h-8 items-center gap-[0.4rem] py-[0.28rem] pr-[0.65rem] pl-[0.4rem] border border-access-symbol-border rounded-[999px] bg-access-area [font:inherit] text-basalt [transition:border-color_var(--hv-fade-quick)_var(--hv-ease-settle),transform_var(--hv-motion-quick)_var(--hv-ease-settle),box-shadow_var(--hv-fade-quick)_var(--hv-ease-settle)] [&.restraint]:bg-access-restraint [&.permission]:bg-access-permission [&.dogs]:bg-access-eligibility [&.timing]:bg-access-timing [&.special]:bg-access-special [&.not-stated]:bg-access-unknown [&.not-stated]:text-access-unknown-foreground hover:z-[4] hover:border-fjord hover:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] hover:transform-[translateY(-2px)] focus-visible:z-[4] focus-visible:border-fjord focus-visible:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] focus-visible:transform-[translateY(-2px)] focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] aria-[expanded=true]:z-[4] aria-[expanded=true]:border-fjord aria-[expanded=true]:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] aria-[expanded=true]:transform-[translateY(-2px)]"
           data-access-icon={iconName(symbol)}
           class:area={symbol.dimension === 'area'}
           class:restraint={symbol.dimension === 'restraint'}
@@ -441,46 +451,63 @@
             activate(symbol);
           }}
         >
-          <span class="icon" aria-hidden="true">
+          <span class="icon block size-[1.3rem] flex-none place-items-center" aria-hidden="true">
             {#if symbol.state === 'unrestricted'}
-              <svg viewBox="0 0 24 24"
+              <svg
+                class="block size-[1.3rem] flex-none place-items-center overflow-visible fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]"
+                viewBox="0 0 24 24"
                 ><circle cx="12" cy="12" r="9" /><path d="m8 12 2.6 2.6L16.5 9" /></svg
               >
             {:else if symbol.state === 'special'}
-              <svg viewBox="0 0 24 24"
+              <svg
+                class="block size-[1.3rem] flex-none place-items-center overflow-visible fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]"
+                viewBox="0 0 24 24"
                 ><circle cx="12" cy="12" r="9" /><path
                   d="M9.8 9a2.4 2.4 0 1 1 3.7 2c-1 .7-1.5 1.1-1.5 2.2"
                 /><path d="M12 16.5h.01" /></svg
               >
             {:else if symbol.state === 'not_stated'}
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M8 12h8" /></svg>
+              <svg
+                class="block size-[1.3rem] flex-none place-items-center overflow-visible fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]"
+                viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M8 12h8" /></svg
+              >
             {:else if symbol.state === 'indoors'}
-              <svg class="symbol-fill" viewBox="0 0 15 15"
+              <svg
+                class="symbol-fill block size-[1.3rem] flex-none place-items-center overflow-visible fill-current stroke-none"
+                viewBox="0 0 15 15"
                 ><path
                   d="M3 7v8H1V7.78l-1 .38V6l15-5v2.14zm2.5-.14v1.27c0 .47.26.89.67 1.1.44-.22.92-.34 1.41-.34h1.55l2.7 2.76v1.85c0 .09.04.18.1.24l.47.48c.06.07.1.15.1.24v.2c0 .19-.15.34-.33.34h-.87c-.08 0-.17-.04-.23-.1l-.47-.48a.35.35 0 0 1-.1-.24v-1.55c0-.19-.15-.34-.33-.34H8.04c-.13 0-.24.07-.3.18l-.47.95c-.06.13-.03.29.07.4l.4.4q.09.105.09.24v.2c0 .19-.15.34-.33.34h-.86a.35.35 0 0 1-.24-.1l-.47-.48a.35.35 0 0 1-.1-.24v-3.11a.34.34 0 0 0-.09-.24l-.65-.66c-.38-.38-.59-.9-.59-1.44v-.18c0-.63.31-1.23.83-1.58zm6-1.36c.18 0 .33.15.33.34v.81c0 .13.07.24.19.3l2.18 1.11c.18.1.3.29.3.49v.06c0 .18-.07.35-.2.48l-.47.48H12.5l-.43.88-2.22-2.26 1.22-2.5a.34.34 0 0 1 .3-.19z"
                 /></svg
               >
             {:else if symbol.state === 'leash_required'}
-              <svg class="symbol-fill" viewBox="0 0 15 15"
+              <svg
+                class="symbol-fill block size-[1.3rem] flex-none place-items-center overflow-visible fill-current stroke-none"
+                viewBox="0 0 15 15"
                 ><path
                   d="M1.5 3v1.88c0 .69.39 1.31 1 1.62.66-.33 1.38-.5 2.12-.5h2.32L11 10.06v2.73q0 .21.15.36l.7.7q.15.15.15.36v.29c0 .28-.22.5-.5.5h-1.29q-.21 0-.36-.15l-.7-.7Q9 14 9 13.79V11.5c0-.28-.22-.5-.5-.5H5.31c-.19 0-.36.11-.45.28l-.7 1.4c-.1.19-.06.42.09.57l.6.6q.15.15.15.36v.29c0 .28-.22.5-.5.5H3.21q-.21 0-.36-.15l-.7-.7Q2 14 2 13.79V9.21q0-.21-.15-.36l-.97-.97C.32 7.32 0 6.55 0 5.76V5.5c0-.94.47-1.81 1.25-2.33zm9-2c.28 0 .5.22.5.5v1.19c0 .19.11.36.28.45l3.27 1.64c.28.13.45.41.45.72v.09c0 .26-.11.52-.29.7L14 7h-2l-.65 1.29-3.33-3.33 1.84-3.68c.09-.17.26-.28.45-.28zM3.06 0l4.97 4.97-1.06 1.06L.94 0z"
                 /></svg
               >
             {:else if symbol.state === 'off_leash_permitted'}
-              <svg class="symbol-fill" viewBox="0 0 15 15"
+              <svg
+                class="symbol-fill block size-[1.3rem] flex-none place-items-center overflow-visible fill-current stroke-none"
+                viewBox="0 0 15 15"
                 ><path
                   d="M1.5 3v1.88c0 .69.39 1.31 1 1.62.66-.33 1.38-.5 2.12-.5h2.32L11 10.06v2.73q0 .21.15.36l.7.7q.15.15.15.36v.29c0 .28-.22.5-.5.5h-1.29q-.21 0-.36-.15l-.7-.7Q9 14 9 13.79V11.5c0-.28-.22-.5-.5-.5H5.31c-.19 0-.36.11-.45.28l-.7 1.4c-.1.19-.06.42.09.57l.6.6q.15.15.15.36v.29c0 .28-.22.5-.5.5H3.21q-.21 0-.36-.15l-.7-.7Q2 14 2 13.79V9.21q0-.21-.15-.36l-.97-.97C.32 7.32 0 6.55 0 5.76V5.5c0-.94.47-1.81 1.25-2.33zm9-2c.28 0 .5.22.5.5v1.19c0 .19.11.36.28.45l3.27 1.64c.28.13.45.41.45.72v.09c0 .26-.11.52-.29.7L14 7h-2l-.65 1.29-3.33-3.33 1.84-3.68c.09-.17.26-.28.45-.28z"
                 /></svg
               >
             {:else if symbol.state === 'carrier_required'}
               <!-- Pet-carrier silhouette adapted from SVG Repo 395169, CC0. -->
-              <svg class="symbol-fill" viewBox="0 -0.5 17 17"
+              <svg
+                class="symbol-fill block size-[1.3rem] flex-none place-items-center overflow-visible fill-current stroke-none"
+                viewBox="0 -0.5 17 17"
                 ><path
                   d="M12.504 3.037h-.535V2.022C11.969 1.458 11.523 1 10.974 1H7.032c-.549 0-.994.458-.994 1.022v1.015h-.543C1.813 3.037 1.001 14.826 1.001 14.826c0 .58.514 1.054 1.147 1.054h13.704c.634 0 1.148-.474 1.148-1.054 0 0-.883-11.789-4.496-11.789ZM6.958 11.017V8.934H11v2.083Zm4.082.983v2H6.988v-2Zm-.009-6.083v2.104H6.958V5.917Zm3.661 2.104h-2.755V5.917h2.125c.251.639.459 1.366.63 2.104Zm-8.661 0H3.285c.165-.729.367-1.473.615-2.104h2.131Zm-.01.913v2.083H2.75c.086-.616.196-1.36.346-2.083Zm5.958-.031H14.9c.153.731.271 1.489.359 2.113h-3.28ZM6.977 2.185c0-.17.148-.309.33-.309H10.7c.182 0 .33.139.33.309v.853H6.977ZM2.517 13.226S2.553 12.776 2.65 12h3.371v2H3.365c-.469 0-.848-.349-.848-.774ZM14.629 14H11.98v-2h3.362c.1.768.141 1.233.141 1.233-.001.422-.385.767-.854.767Z"
                 /></svg
               >
             {:else if symbol.state === 'small_dogs_only'}
-              <svg viewBox="0 0 18 18"
+              <svg
+                class="block size-[1.3rem] flex-none place-items-center overflow-visible fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]"
+                viewBox="0 0 18 18"
                 ><g fill="currentColor" stroke="none" transform="translate(1.2 5.2) scale(.58)"
                   ><path
                     d="M1.5 3v1.88c0 .69.39 1.31 1 1.62.66-.33 1.38-.5 2.12-.5h2.32L11 10.06v2.73q0 .21.15.36l.7.7q.15.15.15.36v.29c0 .28-.22.5-.5.5h-1.29q-.21 0-.36-.15l-.7-.7Q9 14 9 13.79V11.5c0-.28-.22-.5-.5-.5H5.31c-.19 0-.36.11-.45.28l-.7 1.4c-.1.19-.06.42.09.57l.6.6q.15.15.15.36v.29c0 .28-.22.5-.5.5H3.21q-.21 0-.36-.15l-.7-.7Q2 14 2 13.79V9.21q0-.21-.15-.36l-.97-.97C.32 7.32 0 6.55 0 5.76V5.5c0-.94.47-1.81 1.25-2.33zm9-2c.28 0 .5.22.5.5v1.19c0 .19.11.36.28.45l3.27 1.64c.28.13.45.41.45.72v.09c0 .26-.11.52-.29.7L14 7h-2l-.65 1.29-3.33-3.33 1.84-3.68c.09-.17.26-.28.45-.28z"
@@ -488,17 +515,24 @@
                 ><path d="M15 4v10M13.5 5.5 15 4l1.5 1.5M13.5 12.5 15 14l1.5-1.5" /></svg
               >
             {:else if symbol.state === 'ask_on_arrival'}
-              <svg viewBox="0 0 24 24"
+              <svg
+                class="block size-[1.3rem] flex-none place-items-center overflow-visible fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]"
+                viewBox="0 0 24 24"
                 ><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path
                   d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .7-1.5 1.1-1.5 2"
                 /><path d="M12 16h.01" /></svg
               >
             {:else if symbol.state === 'limited'}
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg
+              <svg
+                class="block size-[1.3rem] flex-none place-items-center overflow-visible fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]"
+                viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg
               >
             {/if}
           </span>
-          <span class="chip-label" aria-hidden="true">{label(symbol)}</span>
+          <span
+            class="chip-label text-[0.72rem] leading-[1.05] font-extrabold whitespace-nowrap"
+            aria-hidden="true">{label(symbol)}</span
+          >
         </button>
       {/each}
     </div>
@@ -509,11 +543,11 @@
       {#if activeSymbol}
         <div
           id={`${componentId}-${activeSymbol.dimension}-detail`}
-          class="persistent-detail"
+          class="persistent-detail m-0 py-[0.6rem] px-[0.7rem] border-s-[0.3rem] border-s-access-detail-accent rounded-[0.4rem] bg-snow-raised text-[0.78rem] leading-[1.4]"
           data-access-detail
         >
-          <p>
-            <strong>{label(activeSymbol)}</strong>
+          <p class="m-0">
+            <strong class="block">{label(activeSymbol)}</strong>
             {fullExplanation(activeSymbol)}
           </p>
           {@render editor?.({ dimension: activeSymbol.dimension, announce })}
@@ -523,17 +557,19 @@
   {/if}
 </div>
 
-<p class="visually-hidden" role="status" aria-live="polite" data-access-announcement>
+<p class="visually-hidden sr-only" role="status" aria-live="polite" data-access-announcement>
   {announcement}
 </p>
 
+<!-- Visibility flips instantly so an accessibility scan never samples a
+     half-faded tooltip; only the slide is animated. -->
 <span
   use:portal
   bind:this={tooltipElement}
   id={tooltipId}
   data-access-tooltip
   data-open={tooltipOpen}
-  class="tooltip"
+  class="tooltip fixed z-[100] [inset:unset] box-border w-max max-w-[min(18rem,calc(100vw_-_1rem))] max-h-[calc(100dvh_-_1rem)] m-0 overflow-auto py-2 px-[0.65rem] border-0 rounded-control bg-basalt text-left font-ui text-[0.75rem] leading-[1.35] font-bold text-snow-raised shadow-[0_0.55rem_1.5rem_rgb(30_45_49_/_22%)] opacity-0 pointer-events-auto transform-[translateY(var(--tooltip-reveal-y,0.25rem))] transition-[transform] duration-[var(--hv-motion-quick)] ease-settle data-[open=true]:opacity-100 data-[open=true]:transform-[translateY(0)]"
   role="tooltip"
   aria-hidden="true"
   popover="manual"
@@ -547,178 +583,10 @@
 </span>
 
 <style>
-  .access-presentation {
-    display: grid;
-    gap: 0.55rem;
-  }
-
-  .symbols {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    justify-content: start;
-  }
-
-  .symbol {
-    position: relative;
-    display: inline-flex;
-    gap: 0.4rem;
-    min-height: 2rem;
-    align-items: center;
-    padding: 0.28rem 0.65rem 0.28rem 0.4rem;
-    border: 1px solid var(--hv-access-symbol-border);
-    border-radius: 999px;
-    background: var(--hv-access-area);
-    color: var(--hv-color-basalt);
-    font: inherit;
-    /* The lift is motion, so it collapses under reduced motion; the border and shadow are
-       appearance changes that stay put, so they ride the fade family at full duration. */
-    transition:
-      border-color var(--hv-fade-quick) var(--hv-ease-settle),
-      transform var(--hv-motion-quick) var(--hv-ease-settle),
-      box-shadow var(--hv-fade-quick) var(--hv-ease-settle);
-  }
-
-  .chip-label {
-    font-size: 0.72rem;
-    font-weight: 800;
-    line-height: 1.05;
-    white-space: nowrap;
-  }
-
-  .symbol.restraint {
-    background: var(--hv-access-restraint);
-  }
-  .symbol.permission {
-    background: var(--hv-access-permission);
-  }
-  .symbol.dogs {
-    background: var(--hv-access-eligibility);
-  }
-  .symbol.timing {
-    background: var(--hv-access-timing);
-  }
-  .symbol.special {
-    background: var(--hv-access-special);
-  }
-  .symbol.not-stated {
-    background: var(--hv-access-unknown);
-    color: var(--hv-access-unknown-foreground);
-  }
-
-  .symbol:hover,
-  .symbol:focus-visible,
-  .symbol[aria-expanded='true'] {
-    z-index: 4;
-    border-color: var(--hv-color-fjord);
-    box-shadow: 0 0.35rem 0.9rem rgb(20 41 39 / 14%);
-    transform: translateY(-2px);
-  }
-
-  .symbol:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-  }
-
-  .icon,
-  .icon svg {
-    display: block;
-    width: 1.3rem;
-    height: 1.3rem;
-    flex: 0 0 auto;
-    place-items: center;
-  }
-
-  .icon svg {
-    overflow: visible;
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 1.8;
-  }
-
-  .icon svg.symbol-fill {
-    fill: currentColor;
-    stroke: none;
-  }
-
-  .tooltip {
-    position: fixed;
-    z-index: 100;
-    inset: unset;
-    box-sizing: border-box;
-    width: max-content;
-    max-width: min(18rem, calc(100vw - 1rem));
-    max-height: calc(100dvh - 1rem);
-    margin: 0;
-    overflow: auto;
-    padding: 0.5rem 0.65rem;
-    border: 0;
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-basalt);
-    box-shadow: 0 0.55rem 1.5rem rgb(30 45 49 / 22%);
-    color: var(--hv-color-snow-raised);
-    font-family: var(--hv-font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.35;
-    /* Visibility flips instantly so an accessibility scan never samples a
-       half-faded tooltip; only the slide is animated. */
-    opacity: 0;
-    pointer-events: auto;
-    text-align: left;
-    transform: translateY(var(--tooltip-reveal-y, 0.25rem));
-    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
-  }
-
-  .tooltip[data-open='true'] {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  .complex {
-    width: 100%;
-    height: auto;
-    min-height: 2.75rem;
-    border-radius: var(--hv-radius-control);
-    gap: 0.55rem;
-    justify-content: start;
-    padding: 0.65rem 0.8rem;
-    font-weight: 800;
-  }
-
   .persistent-detail {
-    margin: 0;
-    padding: 0.6rem 0.7rem;
-    border-inline-start: 0.3rem solid var(--hv-access-detail-accent);
-    border-radius: 0.4rem;
-    background: var(--hv-color-snow-raised);
-    font-size: 0.78rem;
-    line-height: 1.4;
     /* The detail carries text, so the reveal is transform-only: words arrive at full contrast
        and move into place (see the fade-family limit in tokens.css). */
     animation: reveal var(--hv-motion-quick) var(--hv-ease-settle) both;
-  }
-
-  .persistent-detail p {
-    margin: 0;
-  }
-
-  .persistent-detail strong {
-    display: block;
-  }
-
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
   }
 
   @keyframes reveal {
