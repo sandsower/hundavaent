@@ -60,17 +60,28 @@
   } as const;
 </script>
 
-<section class="work-list" aria-label={copy['moderation.workspace.selectedQueueLabel']}>
+<section
+  class="work-list grid min-w-0 min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden border-r border-r-border-subtle bg-snow-raised max-[60rem]:border-r-0 max-[44rem]:border-b max-[44rem]:border-b-border-subtle"
+  aria-label={copy['moderation.workspace.selectedQueueLabel']}
+>
   <!-- Workspace URLs are canonicalized from a resolved localized base route and query state. -->
   <!-- eslint-disable svelte/no-navigation-without-resolve -->
-  <header>
-    <div class="heading-row">
-      <h2>{activeQueueLabel}</h2>
-      <span>{copy['moderation.workspace.openCount'].replace('{count}', String(activeCount))}</span>
+  <header class="z-2 p-4 border-b border-b-border-subtle bg-snow-raised">
+    <div class="heading-row flex gap-[0.7rem] items-baseline justify-between">
+      <h2 class="m-0 font-display text-[1.25rem] font-[650]">{activeQueueLabel}</h2>
+      <span class="flex-none text-[0.78rem] text-basalt-muted"
+        >{copy['moderation.workspace.openCount'].replace('{count}', String(activeCount))}</span
+      >
     </div>
-    <nav class="filters" aria-label={copy['moderation.workspace.filter.label']}>
+    <nav
+      class="filters grid grid-cols-3 gap-[0.35rem] mt-3"
+      aria-label={copy['moderation.workspace.filter.label']}
+    >
       {#each moderationFilterIds as filter (filter)}
+        <!-- .active and aria-current="page" are driven by the same expression, so the selected
+             look rides the ARIA state rather than a class-only variant. -->
         <a
+          class="px-[0.3rem] py-[0.42rem] border border-border-subtle rounded-control text-[0.72rem] font-extrabold text-center text-basalt no-underline aria-[current=page]:border-basalt aria-[current=page]:bg-signal"
           class:active={filters.includes(filter)}
           aria-current={filters.includes(filter) ? 'page' : undefined}
           href={buildModerationWorkspaceHref(baseHref, {
@@ -82,12 +93,16 @@
     </nav>
   </header>
 
-  <div class="items" data-work-list-scroll>
+  <div
+    class="items min-h-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"
+    data-work-list-scroll
+  >
     {#if errorMessage}
       <Notice tone="error" class="error" role="alert">
         <strong>{copy['moderation.workspace.errorTitle']}</strong>
-        <p>{errorMessage}</p>
+        <p class="m-0 mt-[0.3rem] leading-[1.4] text-basalt-muted">{errorMessage}</p>
         <a
+          class="inline-block mt-[0.7rem] font-extrabold text-fjord"
           href={buildModerationWorkspaceHref(baseHref, {
             queue: activeQueueId,
             filters,
@@ -97,15 +112,20 @@
         >
       </Notice>
     {:else if items.length === 0}
-      <div class="empty">
-        <h3>{copy['moderation.workspace.emptyTitle']}</h3>
-        <p>{copy['moderation.workspace.emptyBody']}</p>
+      <div class="empty m-4 p-4 border border-basalt rounded-panel bg-success-soft">
+        <h3 class="m-0">{copy['moderation.workspace.emptyTitle']}</h3>
+        <p class="m-0 mt-[0.3rem] leading-[1.4] text-basalt-muted">
+          {copy['moderation.workspace.emptyBody']}
+        </p>
       </div>
     {:else}
-      <ul>
+      <ul class="m-0 p-0 list-none">
         {#each items as item (item.id)}
-          <li>
+          <li class="not-first:border-t not-first:border-t-border-subtle">
+            <!-- .selected and aria-current="true" are driven by the same expression, so the
+                 selected look rides the ARIA state rather than a class-only variant. -->
             <a
+              class="grid gap-[0.28rem] pt-[0.85rem] pr-4 pb-[0.85rem] pl-[0.65rem] border-l-[0.4rem] border-l-transparent bg-snow-raised text-basalt no-underline hover:bg-signal-soft aria-[current=true]:border-l-signal aria-[current=true]:bg-signal-soft"
               class:selected={item.id === selectedItemId}
               aria-current={item.id === selectedItemId ? 'true' : undefined}
               href={buildModerationWorkspaceHref(baseHref, {
@@ -117,15 +137,20 @@
               })}
               data-work-item-id={item.id}
             >
-              <span class="item-top">
-                <strong>{item.title}</strong>
+              <span class="item-top flex min-w-0 gap-2 items-center justify-between">
+                <strong class="min-w-0 wrap-anywhere">{item.title}</strong>
                 <Status tone={item.priority ? 'error' : undefined} class="badge"
                   >{item.statusLabel}</Status
                 >
               </span>
               {#if item.priorityLabel}
                 <Status tone="success" class="priority-signal">
-                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <svg
+                    class="w-[0.9rem] h-[0.9rem] stroke-current [stroke-width:1.9] [stroke-linecap:round] [stroke-linejoin:round]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
                     <path
                       d="M12 3c2.5 2 5 2.5 7.5 3v5c0 5-3.1 8.2-7.5 10-4.4-1.8-7.5-5-7.5-10V6C7 5.5 9.5 5 12 3Z"
                     />
@@ -134,8 +159,10 @@
                   {item.priorityLabel}
                 </Status>
               {/if}
-              <span class="summary">{item.summary}</span>
-              <span class="meta">{item.meta}</span>
+              <span class="summary text-[0.76rem] leading-[1.35] text-basalt-muted"
+                >{item.summary}</span
+              >
+              <span class="meta text-[0.76rem] leading-[1.35] text-basalt-muted">{item.meta}</span>
             </a>
           </li>
         {/each}
@@ -143,17 +170,30 @@
     {/if}
 
     {#if pendingPhotoPlaces.length > 0}
-      <section class="pending-photos" data-pending-photos>
-        <h3>{copy['moderation.workspace.pendingPhotos.title']}</h3>
-        <p>{copy['moderation.workspace.pendingPhotos.help']}</p>
-        <ul>
+      <section
+        class="pending-photos m-4 p-[0.8rem] border border-border-subtle rounded-panel bg-snow"
+        data-pending-photos
+      >
+        <h3 class="m-0 text-[0.78rem] font-extrabold tracking-[0.06em] uppercase">
+          {copy['moderation.workspace.pendingPhotos.title']}
+        </h3>
+        <p class="m-0 mt-[0.3rem] text-[0.72rem] leading-[1.4] text-basalt-muted">
+          {copy['moderation.workspace.pendingPhotos.help']}
+        </p>
+        <ul class="grid gap-[0.3rem] m-0 mt-[0.6rem] p-0 list-none">
           {#each pendingPhotoPlaces as place (place.placeId)}
-            <li>
+            <li class="not-first:pt-[0.3rem] not-first:border-t not-first:border-t-border-subtle">
               <!-- The link's whole text is its accessible name, so the count a Moderator reads is
                    the count a speech-input user says (WCAG 2.5.3). -->
-              <a href={place.href} data-pending-photo-place={place.placeId}>
-                <strong>{place.title}</strong>
-                <span>{place.meta}</span>
+              <!-- The transparent 0.4rem left border and the raised background are inherited from
+                   the `li > a` rule the work items also matched, so they are pinned here too. -->
+              <a
+                class="grid gap-[0.15rem] px-[0.35rem] py-[0.3rem] border-l-[0.4rem] border-l-transparent rounded-control bg-snow-raised text-[0.76rem] text-basalt no-underline hover:bg-signal-soft"
+                href={place.href}
+                data-pending-photo-place={place.placeId}
+              >
+                <strong class="wrap-anywhere underline">{place.title}</strong>
+                <span class="text-[0.72rem] text-basalt-muted">{place.meta}</span>
               </a>
             </li>
           {/each}
@@ -162,9 +202,13 @@
     {/if}
   </div>
   {#if !errorMessage && (hasPrevious || nextCursor)}
-    <nav class="pagination" aria-label={copy['moderation.workspace.paginationLabel']}>
+    <nav
+      class="pagination flex gap-[0.6rem] justify-between px-4 py-3 border-t border-t-border-subtle"
+      aria-label={copy['moderation.workspace.paginationLabel']}
+    >
       {#if hasPrevious}
         <a
+          class="text-[0.78rem] font-extrabold text-fjord last:ml-auto"
           data-work-previous-page
           href={buildModerationWorkspaceHref(baseHref, {
             queue: activeQueueId,
@@ -177,6 +221,7 @@
       {/if}
       {#if nextCursor}
         <a
+          class="text-[0.78rem] font-extrabold text-fjord last:ml-auto"
           data-work-next-page
           href={buildModerationWorkspaceHref(baseHref, {
             queue: activeQueueId,
@@ -192,112 +237,6 @@
 </section>
 
 <style>
-  .work-list {
-    display: grid;
-    min-width: 0;
-    min-height: 0;
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    overflow: hidden;
-    border-right: 1px solid var(--hv-border-subtle);
-    background: var(--hv-color-snow-raised);
-  }
-  header {
-    z-index: 2;
-    border-bottom: 1px solid var(--hv-border-subtle);
-    background: var(--hv-color-snow-raised);
-    padding: 1rem;
-  }
-  .heading-row {
-    display: flex;
-    gap: 0.7rem;
-    align-items: baseline;
-    justify-content: space-between;
-  }
-  .filters {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.35rem;
-    margin-top: 0.75rem;
-  }
-  .filters a {
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    padding: 0.42rem 0.3rem;
-    color: var(--hv-color-basalt);
-    font-size: 0.72rem;
-    font-weight: 800;
-    text-align: center;
-    text-decoration: none;
-  }
-  .filters a.active {
-    border-color: var(--hv-color-basalt);
-    background: var(--hv-color-signal);
-  }
-  h2,
-  h3,
-  p {
-    margin: 0;
-  }
-  h2 {
-    font-family: var(--hv-font-display);
-    font-size: 1.25rem;
-    font-weight: 650;
-  }
-  .heading-row span,
-  .meta,
-  .summary {
-    color: var(--hv-color-basalt-muted);
-  }
-  .heading-row span {
-    flex: none;
-    font-size: 0.78rem;
-  }
-  a:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-  ul {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .items {
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
-  }
-  li + li {
-    border-top: 1px solid var(--hv-border-subtle);
-  }
-  li > a {
-    display: grid;
-    gap: 0.28rem;
-    border-left: 0.4rem solid transparent;
-    background: var(--hv-color-snow-raised);
-    padding: 0.85rem 1rem 0.85rem 0.65rem;
-    color: var(--hv-color-basalt);
-    text-decoration: none;
-  }
-  li > a:hover {
-    background: var(--hv-color-signal-soft);
-  }
-  li > a.selected {
-    border-left-color: var(--hv-color-signal);
-    background: var(--hv-color-signal-soft);
-  }
-  .item-top {
-    display: flex;
-    min-width: 0;
-    gap: 0.5rem;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .item-top strong {
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
   /* Status renders its span inside a child component, so Svelte's scoped CSS cannot reach it
      directly - .badge/.priority-signal are guaranteed to land on the rendered span because we
      pass them through Status's class prop ourselves (the FavouriteControl precedent). Status's
@@ -317,116 +256,11 @@
     padding: 0.2rem 0.45rem;
     font-size: 0.68rem;
   }
-  .work-list :global(.priority-signal svg) {
-    width: 0.9rem;
-    height: 0.9rem;
-    stroke: currentColor;
-    stroke-width: 1.9;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  .summary,
-  .meta {
-    font-size: 0.76rem;
-    line-height: 1.35;
-  }
-  .empty {
-    margin: 1rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-success-soft);
-    padding: 1rem;
-  }
   /* Notice renders its element in a child component, so scoped CSS cannot reach it directly -
      anchored through .work-list (locally authored) with :global() on the Notice-rendered class,
      per the ancestor-scoped-:global pattern (FavouriteControl.svelte). Notice's error tone now
      owns the border/background colour; only the leftover margin survives here. */
   .work-list :global(.error) {
     margin: 1rem;
-  }
-  .empty p,
-  .work-list :global(.error p) {
-    margin-top: 0.3rem;
-    color: var(--hv-color-basalt-muted);
-    line-height: 1.4;
-  }
-  .work-list :global(.error a) {
-    display: inline-block;
-    margin-top: 0.7rem;
-    color: var(--hv-color-fjord);
-    font-weight: 800;
-  }
-  .pending-photos {
-    margin: 1rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow);
-    padding: 0.8rem;
-  }
-  .pending-photos h3 {
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  .pending-photos p {
-    margin-top: 0.3rem;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.72rem;
-    line-height: 1.4;
-  }
-  .pending-photos ul {
-    display: grid;
-    gap: 0.3rem;
-    margin-top: 0.6rem;
-  }
-  .pending-photos li + li {
-    border-top: 1px solid var(--hv-border-subtle);
-    padding-top: 0.3rem;
-  }
-  .pending-photos a {
-    display: grid;
-    gap: 0.15rem;
-    border-radius: var(--hv-radius-control);
-    padding: 0.3rem 0.35rem;
-    color: var(--hv-color-basalt);
-    font-size: 0.76rem;
-    text-decoration: none;
-  }
-  .pending-photos a:hover {
-    background: var(--hv-color-signal-soft);
-  }
-  .pending-photos a strong {
-    overflow-wrap: anywhere;
-    text-decoration: underline;
-  }
-  .pending-photos a span {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.72rem;
-  }
-  .pagination {
-    display: flex;
-    gap: 0.6rem;
-    justify-content: space-between;
-    border-top: 1px solid var(--hv-border-subtle);
-    padding: 0.75rem 1rem;
-  }
-  .pagination a {
-    color: var(--hv-color-fjord);
-    font-size: 0.78rem;
-    font-weight: 800;
-  }
-  .pagination a:last-child {
-    margin-left: auto;
-  }
-  @media (max-width: 60rem) {
-    .work-list {
-      border-right: 0;
-    }
-  }
-  @media (max-width: 44rem) {
-    .work-list {
-      border-bottom: 1px solid var(--hv-border-subtle);
-    }
   }
 </style>

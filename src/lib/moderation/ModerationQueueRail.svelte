@@ -26,11 +26,20 @@
   };
 </script>
 
-<nav class="queue-rail" aria-label={copy['moderation.workspace.queueNavLabel']}>
-  <h2>{copy['moderation.workspace.queuesHeading']}</h2>
+<nav
+  class="queue-rail min-w-0 min-h-0 overflow-y-auto overscroll-contain p-[0.9rem] border-r border-r-border-subtle bg-snow max-[60rem]:overflow-x-auto max-[60rem]:overflow-y-hidden max-[60rem]:p-[0.65rem] max-[60rem]:border-r-0 max-[60rem]:border-b max-[60rem]:border-b-border-subtle max-[44rem]:overflow-x-hidden max-[44rem]:p-[0.55rem]"
+  aria-label={copy['moderation.workspace.queueNavLabel']}
+>
+  <h2
+    class="mx-[0.55rem] mt-[0.25rem] mb-[0.7rem] text-[0.78rem] font-extrabold tracking-[0.09em] uppercase max-[60rem]:absolute max-[60rem]:w-px max-[60rem]:h-px max-[60rem]:overflow-hidden max-[60rem]:whitespace-nowrap max-[60rem]:[clip:rect(0_0_0_0)] max-[60rem]:[clip-path:inset(50%)]"
+  >
+    {copy['moderation.workspace.queuesHeading']}
+  </h2>
   <!-- Workspace URLs are canonicalized from a resolved localized base route and query state. -->
   <!-- eslint-disable svelte/no-navigation-without-resolve -->
-  <div class="queue-links">
+  <div
+    class="queue-links grid gap-[0.4rem] max-[60rem]:flex max-[60rem]:w-max max-[60rem]:gap-[0.45rem] max-[44rem]:grid max-[44rem]:w-full max-[44rem]:grid-cols-3 max-[44rem]:gap-[0.35rem]"
+  >
     {#each queues as queue (queue.id)}
       <Button
         class="queue-link"
@@ -42,7 +51,10 @@
         })}
       >
         <span>{copy[queueKeys[queue.id]]}</span>
-        <span class="count">{queue.count}</span>
+        <span
+          class="count min-w-7 px-[0.42rem] py-[0.18rem] rounded-control bg-basalt text-[0.72rem] font-extrabold text-center text-snow-raised max-[44rem]:min-w-6 max-[44rem]:px-[0.35rem] max-[44rem]:py-[0.12rem] max-[44rem]:text-[0.66rem]"
+          >{queue.count}</span
+        >
       </Button>
     {/each}
   </div>
@@ -50,26 +62,6 @@
 </nav>
 
 <style>
-  .queue-rail {
-    min-width: 0;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    border-right: 1px solid var(--hv-border-subtle);
-    background: var(--hv-color-snow);
-    padding: 0.9rem;
-  }
-  h2 {
-    margin: 0.25rem 0.55rem 0.7rem;
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-  }
-  .queue-links {
-    display: grid;
-    gap: 0.4rem;
-  }
   /* Button renders its own <a> inside a child component, so Svelte's scoped CSS cannot reach it
      directly - the .queue-link class is guaranteed to land on that rendered element because we
      pass it through Button's class prop ourselves (the FavouriteControl precedent). Border
@@ -84,38 +76,7 @@
     padding: 0.65rem;
     text-decoration: none;
   }
-  .count {
-    min-width: 1.75rem;
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-basalt);
-    padding: 0.18rem 0.42rem;
-    color: var(--hv-color-snow-raised);
-    font-size: 0.72rem;
-    font-weight: 800;
-    text-align: center;
-  }
   @media (max-width: 60rem) {
-    .queue-rail {
-      overflow-x: auto;
-      overflow-y: hidden;
-      border-right: 0;
-      border-bottom: 1px solid var(--hv-border-subtle);
-      padding: 0.65rem;
-    }
-    h2 {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip: rect(0 0 0 0);
-      clip-path: inset(50%);
-      white-space: nowrap;
-    }
-    .queue-links {
-      display: flex;
-      width: max-content;
-      gap: 0.45rem;
-    }
     .queue-rail :global(.queue-link) {
       width: auto;
       flex: none;
@@ -123,16 +84,6 @@
     }
   }
   @media (max-width: 44rem) {
-    .queue-rail {
-      overflow-x: hidden;
-      padding: 0.55rem;
-    }
-    .queue-links {
-      display: grid;
-      width: 100%;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0.35rem;
-    }
     .queue-rail :global(.queue-link) {
       width: 100%;
       min-height: 4.25rem;
@@ -145,11 +96,6 @@
       line-height: 1.15;
       text-align: center;
       white-space: normal;
-    }
-    .count {
-      min-width: 1.5rem;
-      padding: 0.12rem 0.35rem;
-      font-size: 0.66rem;
     }
   }
 </style>
