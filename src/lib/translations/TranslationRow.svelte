@@ -308,19 +308,19 @@
             </dl>
             <div class="conflict-actions flex flex-wrap gap-[0.4rem]">
               <button
-                class="min-h-9 border border-current rounded-control bg-transparent [font-family:inherit] [font-size:inherit] [line-height:inherit] font-[850] [color:inherit]"
+                class="min-h-9 border border-current rounded-control bg-transparent [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit]"
                 type="button"
                 onclick={() => useLatest(locale)}>Use latest</button
               >
               {#if conflicts[locale]?.confirmingOverwrite}
                 <button
-                  class="min-h-9 border border-current rounded-control bg-transparent [font-family:inherit] [font-size:inherit] [line-height:inherit] font-[850] [color:inherit]"
+                  class="min-h-9 border border-current rounded-control bg-transparent [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit]"
                   type="button"
                   onclick={() => void confirmOverwrite(locale)}>Confirm overwrite with mine</button
                 >
               {:else}
                 <button
-                  class="min-h-9 border border-current rounded-control bg-transparent [font-family:inherit] [font-size:inherit] [line-height:inherit] font-[850] [color:inherit]"
+                  class="min-h-9 border border-current rounded-control bg-transparent [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit]"
                   type="button"
                   onclick={() => requestOverwrite(locale)}>Overwrite with mine</button
                 >
@@ -334,7 +334,7 @@
           >
             The draft could not be saved.
             <button
-              class="min-h-9 border border-current rounded-control bg-transparent [font-family:inherit] [font-size:inherit] [line-height:inherit] font-[850] [color:inherit]"
+              class="min-h-9 border border-current rounded-control bg-transparent [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit]"
               type="button"
               onclick={() => void save(locale)}
               aria-label={`Retry saving ${locale === 'is' ? 'Icelandic' : 'English'} for ${entry.key}`}

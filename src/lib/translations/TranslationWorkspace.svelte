@@ -160,26 +160,26 @@
       aria-label="Translation status filters"
     >
       <button
-        class="min-h-control px-[0.7rem] py-2 border border-border-strong rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [line-height:inherit] font-[850] [color:inherit] aria-pressed:bg-signal"
+        class="min-h-control px-[0.7rem] py-2 border border-border-strong rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit] aria-pressed:bg-signal"
         type="button"
         aria-pressed={filter === 'all'}
         onclick={() => selectFilter('all')}>All</button
       >
       <button
-        class="min-h-control px-[0.7rem] py-2 border border-border-strong rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [line-height:inherit] font-[850] [color:inherit] aria-pressed:bg-signal"
+        class="min-h-control px-[0.7rem] py-2 border border-border-strong rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit] aria-pressed:bg-signal"
         type="button"
         aria-pressed={filter === 'missing'}
         onclick={() => selectFilter('missing')}>Missing</button
       >
       <button
-        class="min-h-control px-[0.7rem] py-2 border border-border-strong rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [line-height:inherit] font-[850] [color:inherit] aria-pressed:bg-signal"
+        class="min-h-control px-[0.7rem] py-2 border border-border-strong rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit] aria-pressed:bg-signal"
         type="button"
         aria-pressed={filter === 'changed'}
         onclick={() => selectFilter('changed')}>Changed</button
       >
     </div>
     <button
-      class="language-order min-h-control px-[0.7rem] py-2 border border-border-strong rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [line-height:inherit] font-[850] [color:inherit]"
+      class="language-order min-h-control px-[0.7rem] py-2 border border-border-strong rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] [color:inherit]"
       type="button"
       onclick={() => (firstLocale = firstLocale === 'is' ? 'en' : 'is')}
       aria-label={firstLocale === 'is' ? 'Show English first' : 'Show Icelandic first'}

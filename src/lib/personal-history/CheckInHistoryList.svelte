@@ -81,7 +81,7 @@
         data-check-in-row
       >
         <div class="grid gap-context">
-          <h2>{checkIn.name}</h2>
+          <h2 class="m-0">{checkIn.name}</h2>
           <Meta>
             {copy['history.checkedInAt'].replace('{date}', formatDateTime(checkIn.checkedInAt))}
           </Meta>
@@ -140,7 +140,6 @@
     background: var(--hv-color-snow);
   }
 
-  h2,
   .check-in-list :global(.check-in-card p) {
     margin: 0;
   }
