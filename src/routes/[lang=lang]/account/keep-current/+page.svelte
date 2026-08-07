@@ -57,9 +57,17 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<PageShell class="trusted-shell">
-  <PageHeader class="trusted-header mb-section">
-    <div class="header-icon" aria-hidden="true">
+<!-- trusted-shell and trusted-header now sit on PageShell/PageHeader's own rendered elements,
+     outside this file's scope hash - re-anchored :global() (both classes are unique to this
+     page, verified by repo grep). -->
+<PageShell class="trusted-shell gap-[clamp(2rem,5vw,4rem)] [--trusted-tone:var(--hv-color-moss)]">
+  <PageHeader
+    class="trusted-header grid-cols-[auto_minmax(0,1fr)_auto] items-center mb-section max-[760px]:grid-cols-[1fr]"
+  >
+    <div
+      class="header-icon [--impact-tone:var(--trusted-tone)] max-[760px]:hidden"
+      aria-hidden="true"
+    >
       <ImpactPillarIcon kind="recognition" size="large" />
     </div>
     <!-- The one header that keeps a heading-group wrapper: .trusted-header lays its three bands
@@ -92,7 +100,9 @@
         <h2>{data.copy['trustedVerification.submittedTitle']}</h2>
         <p>{data.copy['trustedVerification.submittedBody']}</p>
         {#if formState.weeklyActivated}
-          <p class="weekly-note">{data.copy['trustedVerification.weeklyActivated']}</p>
+          <p class="weekly-note font-bold text-moss">
+            {data.copy['trustedVerification.weeklyActivated']}
+          </p>
         {/if}
       </div>
     </Panel>
@@ -125,61 +135,80 @@
       </div>
 
       {#if data.tasks.length === 0}
-        <Panel as="section" class="empty-state grid gap-context">
-          <span aria-hidden="true">✓</span>
+        <!-- empty-state now sits on Panel's rendered <section>, but "empty-state" is NOT unique to
+             this page (also used by MapListShell, CheckInHistoryList, PersonalMapView, favorites) - a
+             bare :global(.empty-state) would leak this page's styling onto those. Anchored on the
+             locally-scoped .task-section ancestor (still a plain native element, unmoved) instead, so
+             the compound selector can only match inside this page. -->
+        <Panel as="section" class="empty-state grid place-items-center gap-context text-center">
+          <span
+            aria-hidden="true"
+            class="grid place-items-center w-12 h-12 rounded-full bg-[color-mix(in_srgb,var(--hv-color-moss)_14%,white)] text-[1.5rem] font-black text-moss"
+            >✓</span
+          >
           <h3>{data.copy['trustedVerification.emptyTitle']}</h3>
           <p>{data.copy['trustedVerification.emptyBody']}</p>
         </Panel>
       {:else}
-        <div class="task-grid">
+        <div class="task-grid grid grid-cols-2 gap-4 max-[760px]:grid-cols-[1fr]">
           {#each data.tasks as task (task.taskId)}
-            <Panel as="article" class="task-card grid gap-context" data-task-kind={task.taskKind}>
-              <header>
-                <div class="task-icon" aria-hidden="true">
+            <!-- task-card and history-item now sit on Panel's rendered <article>/<li> - re-anchored
+                 :global() (both unique to this page, verified by repo grep). header, h3 stay locally
+                 authored children passed into Panel, so they keep their normal scope hash for descendant
+                 selectors; the child combinator below is wrapped whole because Svelte's unused-selector
+                 checker cannot prove a `>` relationship across the Panel component boundary (it treats the
+                 rendered host element as opaque), even though the real DOM child relationship holds. -->
+            <Panel
+              as="article"
+              class="task-card grid content-start gap-context"
+              data-task-kind={task.taskKind}
+            >
+              <header class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-[0.8rem]">
+                <div class="task-icon [--impact-tone:var(--trusted-tone)]" aria-hidden="true">
                   <ImpactPillarIcon
                     kind={task.taskKind === 'access_freshness' ? 'knowledge' : 'contribution'}
                     size="small"
                   />
                 </div>
                 <div>
-                  <p class="task-kind">
+                  <p class="task-kind m-0 text-[0.9rem] font-bold text-basalt-muted">
                     {task.taskKind === 'access_freshness'
                       ? data.copy['trustedVerification.kind.accessFreshness']
                       : data.copy['trustedVerification.kind.dogAmenities']}
                   </p>
-                  <h3>{task.placeName}</h3>
+                  <h3 class="m-0">{task.placeName}</h3>
                 </div>
               </header>
 
-              <p class="task-context">
+              <p class="task-context m-0 text-[0.9rem] font-bold text-basalt-muted">
                 {localizePlaceCategory(task.category as PlaceCategory, data.copy)}
                 <span aria-hidden="true">·</span>
                 {task.municipality}
               </p>
 
               {#if task.taskKind === 'access_freshness'}
-                <dl class="fact-list">
-                  <div>
-                    <dt>{data.copy['trustedVerification.accessArea']}</dt>
-                    <dd>
+                <dl class="fact-list grid gap-[0.55rem] m-0">
+                  <div class="grid grid-cols-[minmax(7rem,0.42fr)_minmax(0,1fr)] gap-3">
+                    <dt class="text-basalt-muted">{data.copy['trustedVerification.accessArea']}</dt>
+                    <dd class="m-0 font-[650]">
                       {localizeAccessArea(
                         stringValue(task.currentValue.access_area) as AccessArea,
                         data.copy
                       )}
                     </dd>
                   </div>
-                  <div>
-                    <dt>{data.copy['trustedVerification.restraint']}</dt>
-                    <dd>
+                  <div class="grid grid-cols-[minmax(7rem,0.42fr)_minmax(0,1fr)] gap-3">
+                    <dt class="text-basalt-muted">{data.copy['trustedVerification.restraint']}</dt>
+                    <dd class="m-0 font-[650]">
                       {localizeRestraint(
                         stringValue(task.currentValue.restraint_condition) as RestraintCondition,
                         data.copy
                       )}
                     </dd>
                   </div>
-                  <div>
-                    <dt>{data.copy['trustedVerification.permission']}</dt>
-                    <dd>
+                  <div class="grid grid-cols-[minmax(7rem,0.42fr)_minmax(0,1fr)] gap-3">
+                    <dt class="text-basalt-muted">{data.copy['trustedVerification.permission']}</dt>
+                    <dd class="m-0 font-[650]">
                       {localizePermission(
                         stringValue(
                           task.currentValue.permission_requirement
@@ -189,9 +218,13 @@
                     </dd>
                   </div>
                   {#if task.freshnessUntil}
-                    <div>
-                      <dt>{data.copy['trustedVerification.freshnessUntil']}</dt>
-                      <dd>{formatLocalizedDate(task.freshnessUntil, data.lang)}</dd>
+                    <div class="grid grid-cols-[minmax(7rem,0.42fr)_minmax(0,1fr)] gap-3">
+                      <dt class="text-basalt-muted">
+                        {data.copy['trustedVerification.freshnessUntil']}
+                      </dt>
+                      <dd class="m-0 font-[650]">
+                        {formatLocalizedDate(task.freshnessUntil, data.lang)}
+                      </dd>
                     </div>
                   {/if}
                 </dl>
@@ -200,16 +233,23 @@
                 <p>{data.copy['trustedVerification.amenitiesHint']}</p>
               {/if}
 
-              <details>
+              <details class="mt-auto">
                 <!-- Button cannot render a <summary> - details needs a real summary child to stay
                      accessible/native-toggleable, so this is the one control-look surface left as
                      a hand-styled non-Button element; the recipe below mirrors Button's primary
                      intent exactly (see the summary rule in <style>). -->
-                <summary class="task-open-control">
+                <!-- details needs a real summary child, so this is the one control-look surface left
+                     hand-styled rather than moved onto Button - the recipe below is an exact mirror of
+                     Button's primary intent (border-strong border, basalt fill, snow-raised text, the
+                     control height/radius/padding/weight, and the focus-visible ring + offset shadow)
+                     applied directly to a native element instead. -->
+                <summary
+                  class="task-open-control inline-flex items-center justify-center w-fit min-h-control py-[0.55rem] px-[0.8rem] border border-border-strong rounded-control bg-basalt font-extrabold text-snow-raised list-none cursor-pointer focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+                >
                   {data.copy['trustedVerification.openTask']}
                 </summary>
                 <form
-                  class="verification-form grid gap-context"
+                  class="verification-form grid gap-context mt-4 pt-4 border-t border-t-border-subtle"
                   method="POST"
                   use:enhance={() => enhanceTask(task.taskId)}
                   aria-busy={submittingTaskId === task.taskId}
@@ -229,8 +269,10 @@
                       />
                     </Field>
                   {:else}
-                    <p class="confirmation">
-                      <span aria-hidden="true">✓</span>
+                    <p
+                      class="confirmation flex items-center gap-[0.55rem] p-[0.8rem] rounded-[0.8rem] bg-[color-mix(in_srgb,var(--hv-color-moss)_9%,white)]"
+                    >
+                      <span aria-hidden="true" class="font-black text-moss">✓</span>
                       {data.copy['trustedVerification.confirmAccess']}
                     </p>
                   {/if}
@@ -308,12 +350,25 @@
     </div>
 
     {#if data.history.length === 0}
-      <Panel as="p" class="empty-history">{data.copy['trustedVerification.historyEmpty']}</Panel>
+      <!-- empty-history now sits on Panel's rendered <p> - re-anchored :global() (unique to this
+           page, verified by repo grep). -->
+      <Panel as="p" class="empty-history text-basalt-muted"
+        >{data.copy['trustedVerification.historyEmpty']}</Panel
+      >
     {:else}
-      <ul class="history-list">
+      <ul class="history-list grid gap-3 m-0 p-0 list-none">
         {#each data.history as item (item.submissionId)}
-          <Panel as="li" class="history-item" data-outcome={item.outcome}>
-            <span class="outcome-icon" aria-hidden="true">
+          <!-- history-item now sits on Panel's rendered <li> - re-anchored :global() (unique to this
+               page, verified by repo grep). -->
+          <Panel
+            as="li"
+            class="history-item group/history grid grid-cols-[auto_minmax(0,1fr)] items-start gap-[0.85rem]"
+            data-outcome={item.outcome}
+          >
+            <span
+              class="outcome-icon grid place-items-center w-[2.2rem] h-[2.2rem] rounded-full bg-[color-mix(in_srgb,var(--hv-color-moss)_12%,white)] font-black text-moss group-data-[outcome=rejected]/history:bg-[color-mix(in_srgb,var(--hv-color-basalt-muted)_12%,white)] group-data-[outcome=rejected]/history:text-basalt-muted group-data-[outcome=revoked]/history:bg-[color-mix(in_srgb,var(--hv-color-basalt-muted)_12%,white)] group-data-[outcome=revoked]/history:text-basalt-muted group-data-[outcome=unavailable]/history:bg-[color-mix(in_srgb,var(--hv-color-basalt-muted)_12%,white)] group-data-[outcome=unavailable]/history:text-basalt-muted"
+              aria-hidden="true"
+            >
               {item.outcome === 'accepted'
                 ? '✓'
                 : item.outcome === 'rejected' || item.outcome === 'revoked'
@@ -323,9 +378,12 @@
                     : '•'}
             </span>
             <div>
-              <div class="history-title">
-                <h3>{item.placeName}</h3>
-                <span class="outcome-label">{outcomeLabel(item.outcome)}</span>
+              <div class="history-title flex flex-wrap items-baseline justify-between gap-[0.6rem]">
+                <h3 class="m-0">{item.placeName}</h3>
+                <span
+                  class="outcome-label py-1 px-[0.55rem] rounded-[999px] bg-[color-mix(in_srgb,var(--hv-color-moss)_10%,white)] text-[0.82rem] font-[750] text-moss"
+                  >{outcomeLabel(item.outcome)}</span
+                >
               </div>
               <Meta>
                 {item.taskKind === 'access_freshness'
@@ -337,7 +395,7 @@
               {#if item.memberReason}<p>{item.memberReason}</p>{/if}
               {#if item.outcome === 'accepted'}
                 <a
-                  class="history-link"
+                  class="history-link font-bold text-moss"
                   href={resolve('/[lang=lang]/places/[id]', {
                     lang: data.lang,
                     id: item.placeId
@@ -355,24 +413,6 @@
 </PageShell>
 
 <style>
-  /* trusted-shell and trusted-header now sit on PageShell/PageHeader's own rendered elements,
-     outside this file's scope hash - re-anchored :global() (both classes are unique to this
-     page, verified by repo grep). */
-  :global(.trusted-shell) {
-    --trusted-tone: var(--hv-color-moss);
-    gap: clamp(2rem, 5vw, 4rem);
-  }
-
-  :global(.trusted-header) {
-    align-items: center;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
-
-  .header-icon,
-  .task-icon {
-    --impact-tone: var(--trusted-tone);
-  }
-
   /* submission-celebration now sits on Panel's rendered <section> - re-anchored :global()
      (unique to this page, verified by repo grep). */
   :global(.submission-celebration) {
@@ -396,206 +436,10 @@
       trusted-appears var(--hv-fade-considered) var(--hv-ease-settle) both;
   }
 
-  .weekly-note {
-    color: var(--hv-color-moss);
-    font-weight: 700;
-  }
-
-  .task-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-  }
-
-  /* task-card and history-item now sit on Panel's rendered <article>/<li> - re-anchored
-     :global() (both unique to this page, verified by repo grep). header, h3 stay locally
-     authored children passed into Panel, so they keep their normal scope hash for descendant
-     selectors; the child combinator below is wrapped whole because Svelte's unused-selector
-     checker cannot prove a `>` relationship across the Panel component boundary (it treats the
-     rendered host element as opaque), even though the real DOM child relationship holds. */
-  :global(.task-card) {
-    align-content: start;
-  }
-
-  :global(.task-card > header) {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.8rem;
-    align-items: center;
-  }
-
-  :global(.task-card) h3,
-  :global(.history-item) h3 {
-    margin: 0;
-  }
-
-  .task-kind,
-  .task-context {
-    margin: 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.9rem;
-    font-weight: 700;
-  }
-
-  .fact-list {
-    display: grid;
-    gap: 0.55rem;
-    margin: 0;
-  }
-
-  .fact-list div {
-    display: grid;
-    grid-template-columns: minmax(7rem, 0.42fr) minmax(0, 1fr);
-    gap: 0.75rem;
-  }
-
-  .fact-list dt {
-    color: var(--hv-color-basalt-muted);
-  }
-
-  .fact-list dd {
-    margin: 0;
-    font-weight: 650;
-  }
-
-  details {
-    margin-top: auto;
-  }
-
-  /* details needs a real summary child, so this is the one control-look surface left hand-styled
-     rather than moved onto Button - the recipe below is an exact mirror of Button's primary
-     intent (border-strong border, basalt fill, snow-raised text, the control height/radius/
-     padding/weight, and the focus-visible ring + offset shadow) applied directly to a native
-     element instead. */
-  summary.task-open-control {
-    display: inline-flex;
-    width: fit-content;
-    min-height: var(--hv-control-height);
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--hv-border-strong);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-basalt);
-    padding: 0.55rem 0.8rem;
-    color: var(--hv-color-snow-raised);
-    font-weight: 800;
-    cursor: pointer;
-    list-style: none;
-  }
-
+  /* stays: a vendor pseudo-element Tailwind has no variant for. `list-none` on the summary above
+     covers the standard ::marker; this is the Safari/WebKit half of the same suppression. */
   summary.task-open-control::-webkit-details-marker {
     display: none;
-  }
-
-  summary.task-open-control:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
-  .verification-form {
-    margin-top: 1rem;
-    border-top: 1px solid var(--hv-border-subtle);
-    padding-top: 1rem;
-  }
-
-  .confirmation {
-    display: flex;
-    gap: 0.55rem;
-    align-items: center;
-    border-radius: 0.8rem;
-    background: color-mix(in srgb, var(--hv-color-moss) 9%, white);
-    padding: 0.8rem;
-  }
-
-  .confirmation span {
-    color: var(--hv-color-moss);
-    font-weight: 900;
-  }
-
-  /* empty-state now sits on Panel's rendered <section>, but "empty-state" is NOT unique to
-     this page (also used by MapListShell, CheckInHistoryList, PersonalMapView, favorites) - a
-     bare :global(.empty-state) would leak this page's styling onto those. Anchored on the
-     locally-scoped .task-section ancestor (still a plain native element, unmoved) instead, so
-     the compound selector can only match inside this page. */
-  .task-section :global(.empty-state) {
-    place-items: center;
-    text-align: center;
-  }
-
-  .task-section :global(.empty-state > span) {
-    display: grid;
-    width: 3rem;
-    height: 3rem;
-    place-items: center;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--hv-color-moss) 14%, white);
-    color: var(--hv-color-moss);
-    font-size: 1.5rem;
-    font-weight: 900;
-  }
-
-  .history-list {
-    display: grid;
-    gap: 0.75rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  /* history-item now sits on Panel's rendered <li> - re-anchored :global() (unique to this
-     page, verified by repo grep). */
-  :global(.history-item) {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.85rem;
-    align-items: start;
-  }
-
-  .outcome-icon {
-    display: grid;
-    width: 2.2rem;
-    height: 2.2rem;
-    place-items: center;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--hv-color-moss) 12%, white);
-    color: var(--hv-color-moss);
-    font-weight: 900;
-  }
-
-  :global(.history-item[data-outcome='rejected']) .outcome-icon,
-  :global(.history-item[data-outcome='revoked']) .outcome-icon,
-  :global(.history-item[data-outcome='unavailable']) .outcome-icon {
-    background: color-mix(in srgb, var(--hv-color-basalt-muted) 12%, white);
-    color: var(--hv-color-basalt-muted);
-  }
-
-  .history-title {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    align-items: baseline;
-    justify-content: space-between;
-  }
-
-  .outcome-label {
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--hv-color-moss) 10%, white);
-    padding: 0.25rem 0.55rem;
-    color: var(--hv-color-moss);
-    font-size: 0.82rem;
-    font-weight: 750;
-  }
-
-  .history-link {
-    color: var(--hv-color-moss);
-    font-weight: 700;
-  }
-
-  /* empty-history now sits on Panel's rendered <p> - re-anchored :global() (unique to this
-     page, verified by repo grep). */
-  :global(.empty-history) {
-    color: var(--hv-color-basalt-muted);
   }
 
   @keyframes trusted-arrival {
@@ -613,17 +457,6 @@
     }
     to {
       opacity: 1;
-    }
-  }
-
-  @media (max-width: 760px) {
-    :global(.trusted-header),
-    .task-grid {
-      grid-template-columns: 1fr;
-    }
-
-    :global(.trusted-header) .header-icon {
-      display: none;
     }
   }
 </style>

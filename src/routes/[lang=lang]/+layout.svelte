@@ -278,8 +278,12 @@
 </svelte:head>
 
 {#snippet languageNav()}
-  <nav class="language-switcher" aria-label={data.copy['nav.language']}>
+  <nav
+    class="language-switcher flex gap-[0.15rem] p-[0.15rem] border border-border-subtle rounded-control bg-snow-raised group-data-[floating-chrome=true]/header:p-0 group-data-[floating-chrome=true]/header:border-0 group-data-[floating-chrome=true]/header:bg-transparent max-narrow:hidden"
+    aria-label={data.copy['nav.language']}
+  >
     <a
+      class="px-[0.6rem] py-[0.25rem] border border-transparent rounded-control font-extrabold text-basalt aria-[current=page]:border-fjord aria-[current=page]:bg-fjord-soft aria-[current=page]:no-underline aria-[current=page]:shadow-[inset_0_-2px_0_var(--hv-color-fjord)] aria-[current=page]:focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] group-data-[floating-chrome=true]/header:px-[0.45rem] group-data-[floating-chrome=true]/header:py-[0.2rem] group-data-[floating-chrome=true]/header:rounded-none group-data-[floating-chrome=true]/header:text-[0.82rem] group-data-[floating-chrome=true]/header:font-[750] group-data-[floating-chrome=true]/header:text-basalt-muted group-data-[floating-chrome=true]/header:no-underline group-data-[floating-chrome=true]/header:aria-[current=page]:border-transparent group-data-[floating-chrome=true]/header:aria-[current=page]:bg-transparent group-data-[floating-chrome=true]/header:aria-[current=page]:text-basalt group-data-[floating-chrome=true]/header:aria-[current=page]:focus-visible:shadow-[inset_0_-2px_0_var(--hv-color-fjord)]"
       href={resolve(replaceLocaleInUrl(currentBrowserUrl, 'is'))}
       onclick={(event) => refreshLanguageHref(event, 'is')}
       lang="is"
@@ -288,6 +292,7 @@
       {data.copy['language.is']}
     </a>
     <a
+      class="px-[0.6rem] py-[0.25rem] border border-transparent rounded-control font-extrabold text-basalt aria-[current=page]:border-fjord aria-[current=page]:bg-fjord-soft aria-[current=page]:no-underline aria-[current=page]:shadow-[inset_0_-2px_0_var(--hv-color-fjord)] aria-[current=page]:focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] group-data-[floating-chrome=true]/header:px-[0.45rem] group-data-[floating-chrome=true]/header:py-[0.2rem] group-data-[floating-chrome=true]/header:rounded-none group-data-[floating-chrome=true]/header:text-[0.82rem] group-data-[floating-chrome=true]/header:font-[750] group-data-[floating-chrome=true]/header:text-basalt-muted group-data-[floating-chrome=true]/header:no-underline group-data-[floating-chrome=true]/header:aria-[current=page]:border-transparent group-data-[floating-chrome=true]/header:aria-[current=page]:bg-transparent group-data-[floating-chrome=true]/header:aria-[current=page]:text-basalt group-data-[floating-chrome=true]/header:aria-[current=page]:focus-visible:shadow-[inset_0_-2px_0_var(--hv-color-fjord)]"
       href={resolve(replaceLocaleInUrl(currentBrowserUrl, 'en'))}
       onclick={(event) => refreshLanguageHref(event, 'en')}
       lang="en"
@@ -298,25 +303,38 @@
   </nav>
 {/snippet}
 
+<!-- On discovery the header dissolves into floating pills over the map. -->
+<!-- The narrow media query restated the header's own height/min-height verbatim, so only the
+     gap actually changes below 42rem. -->
 <header
-  class="site-header"
+  class="site-header group/header relative z-10 flex w-full h-[var(--hv-app-header-height)] min-h-[var(--hv-app-header-height)] items-center justify-between gap-4 px-edge py-0 border-b border-border-subtle bg-snow-raised data-[floating-chrome=true]:absolute data-[floating-chrome=true]:z-30 data-[floating-chrome=true]:top-0 data-[floating-chrome=true]:right-0 data-[floating-chrome=true]:left-0 data-[floating-chrome=true]:border-b-0 data-[floating-chrome=true]:bg-transparent data-[floating-chrome=true]:pointer-events-none max-narrow:gap-[clamp(0.35rem,2vw,0.6rem)]"
   data-ui-mode={northStarMode}
   data-app-hydrated={hydrated}
   data-floating-chrome={isDiscovery}
 >
-  <div class="brand-cluster">
+  <div
+    class="brand-cluster contents group-data-[floating-chrome=true]/header:inline-flex group-data-[floating-chrome=true]/header:min-w-0 group-data-[floating-chrome=true]/header:items-center group-data-[floating-chrome=true]/header:gap-[0.4rem] group-data-[floating-chrome=true]/header:pt-[0.3rem] group-data-[floating-chrome=true]/header:pr-[0.6rem] group-data-[floating-chrome=true]/header:pb-[0.3rem] group-data-[floating-chrome=true]/header:pl-[0.9rem] group-data-[floating-chrome=true]/header:border group-data-[floating-chrome=true]/header:border-border-subtle group-data-[floating-chrome=true]/header:rounded-[999px] group-data-[floating-chrome=true]/header:bg-snow-raised group-data-[floating-chrome=true]/header:shadow-raised group-data-[floating-chrome=true]/header:pointer-events-auto max-narrow:group-data-[floating-chrome=true]/header:pt-[0.25rem] max-narrow:group-data-[floating-chrome=true]/header:pr-[0.55rem] max-narrow:group-data-[floating-chrome=true]/header:pb-[0.25rem] max-narrow:group-data-[floating-chrome=true]/header:pl-[0.55rem]"
+  >
     <a
-      class="brand"
+      class="brand inline-flex items-center gap-[0.55rem] px-[0.7rem] py-[0.4rem] border border-transparent rounded-control font-display text-[1.4rem] font-[650] tracking-[-0.02em] text-basalt no-underline group-data-[floating-chrome=true]/header:px-0 group-data-[floating-chrome=true]/header:py-[0.2rem] max-narrow:min-w-0 max-narrow:gap-[clamp(0.3rem,1.5vw,0.5rem)] max-narrow:text-[clamp(1rem,5vw,1.25rem)] max-narrow:whitespace-nowrap"
       href={resolve('/[lang=lang]', { lang: data.lang })}
       aria-label={data.copy['site.name']}
     >
-      <svg class="brand-mark" viewBox="0 0 256 256" aria-hidden="true">
+      <svg
+        class="brand-mark w-[1.45rem] h-[1.45rem] flex-none fill-brand-paw max-narrow:w-[clamp(1.15rem,5vw,1.35rem)] max-narrow:h-[clamp(1.15rem,5vw,1.35rem)]"
+        viewBox="0 0 256 256"
+        aria-hidden="true"
+      >
         <path
           d="M240,108a28,28,0,1,1-28-28A28,28,0,0,1,240,108ZM72,108a28,28,0,1,0-28,28A28,28,0,0,0,72,108ZM92,88A28,28,0,1,0,64,60,28,28,0,0,0,92,88Zm72,0a28,28,0,1,0-28-28A28,28,0,0,0,164,88Zm23.12,60.86a35.3,35.3,0,0,1-16.87-21.14,44,44,0,0,0-84.5,0A35.25,35.25,0,0,1,69,148.82,40,40,0,0,0,88,224a39.48,39.48,0,0,0,15.52-3.13,64.09,64.09,0,0,1,48.87,0,40,40,0,0,0,34.73-72Z"
         />
       </svg>
       {#if isDiscovery}
-        <h1>{data.copy['site.name']}</h1>
+        <h1
+          class="m-0 [font-family:inherit] [font-style:inherit] [font-stretch:inherit] [font-variant:inherit] [line-height:inherit] text-[1.4rem] font-[650] max-narrow:text-[clamp(1rem,5vw,1.25rem)]"
+        >
+          {data.copy['site.name']}
+        </h1>
       {:else}
         <span>{data.copy['site.name']}</span>
       {/if}
@@ -325,19 +343,38 @@
       {@render languageNav()}
     {/if}
   </div>
-  <div class="header-actions">
-    <a class="about-link" href={resolve('/[lang=lang]/about', { lang: data.lang })}>
+  <div
+    class="header-actions flex items-center justify-end gap-[0.4rem] max-narrow:flex-none max-narrow:gap-[clamp(0.2rem,1.5vw,0.4rem)]"
+  >
+    <a
+      class="about-link px-[0.7rem] py-[0.4rem] border border-transparent rounded-control font-extrabold text-basalt group-data-[floating-chrome=true]/header:border-border-subtle group-data-[floating-chrome=true]/header:bg-snow-raised group-data-[floating-chrome=true]/header:no-underline group-data-[floating-chrome=true]/header:shadow-raised group-data-[floating-chrome=true]/header:pointer-events-auto max-narrow:hidden"
+      href={resolve('/[lang=lang]/about', { lang: data.lang })}
+    >
       {data.copy['nav.about']}
     </a>
     {#if !isDiscovery}
       {@render languageNav()}
     {/if}
-    <details class="mobile-menu">
-      <summary>{data.copy['nav.menu']}</summary>
-      <div class="mobile-menu-panel">
-        <a href={resolve('/[lang=lang]/about', { lang: data.lang })}>{data.copy['nav.about']}</a>
-        <nav aria-label={data.copy['nav.language']}>
+    <details
+      class="mobile-menu hidden group-data-[floating-chrome=true]/header:pointer-events-auto max-narrow:relative max-narrow:block"
+    >
+      <summary
+        class="group-data-[floating-chrome=true]/header:shadow-raised max-narrow:px-[clamp(0.45rem,2vw,0.7rem)] max-narrow:py-[0.35rem] max-narrow:border max-narrow:border-basalt max-narrow:rounded-control max-narrow:bg-snow-raised max-narrow:text-[clamp(0.8rem,4vw,0.95rem)] max-narrow:font-[850] max-narrow:leading-[1.05] max-narrow:whitespace-nowrap max-narrow:list-none max-narrow:cursor-pointer"
+        >{data.copy['nav.menu']}</summary
+      >
+      <div
+        class="mobile-menu-panel max-narrow:absolute max-narrow:z-20 max-narrow:top-[calc(100%_+_0.4rem)] max-narrow:right-0 max-narrow:grid max-narrow:min-w-[13rem] max-narrow:gap-[0.55rem] max-narrow:p-3 max-narrow:border max-narrow:border-basalt max-narrow:rounded-control max-narrow:bg-snow-raised max-narrow:shadow-raised"
+      >
+        <a
+          class="px-[0.7rem] py-[0.4rem] border border-transparent rounded-control font-extrabold text-basalt"
+          href={resolve('/[lang=lang]/about', { lang: data.lang })}>{data.copy['nav.about']}</a
+        >
+        <nav
+          class="flex gap-[0.15rem] p-[0.15rem] border border-border-subtle rounded-control bg-snow-raised"
+          aria-label={data.copy['nav.language']}
+        >
           <a
+            class="px-[0.6rem] py-[0.25rem] border border-transparent rounded-control font-extrabold text-basalt aria-[current=page]:border-fjord aria-[current=page]:bg-fjord-soft aria-[current=page]:no-underline aria-[current=page]:shadow-[inset_0_-2px_0_var(--hv-color-fjord)] aria-[current=page]:focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
             href={resolve(replaceLocaleInUrl(currentBrowserUrl, 'is'))}
             onclick={(event) => refreshLanguageHref(event, 'is')}
             lang="is"
@@ -346,6 +383,7 @@
             {data.copy['language.is']}
           </a>
           <a
+            class="px-[0.6rem] py-[0.25rem] border border-transparent rounded-control font-extrabold text-basalt aria-[current=page]:border-fjord aria-[current=page]:bg-fjord-soft aria-[current=page]:no-underline aria-[current=page]:shadow-[inset_0_-2px_0_var(--hv-color-fjord)] aria-[current=page]:focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
             href={resolve(replaceLocaleInUrl(currentBrowserUrl, 'en'))}
             onclick={(event) => refreshLanguageHref(event, 'en')}
             lang="en"
@@ -359,7 +397,7 @@
     <!-- The dynamic query preserves a server-validated local return path. -->
     <!-- eslint-disable svelte/no-navigation-without-resolve -->
     <a
-      class="account-link"
+      class="account-link group/account relative inline-flex items-center gap-[0.35rem] px-[0.7rem] py-[0.4rem] border border-basalt rounded-control bg-basalt font-extrabold text-snow-raised no-underline group-data-[floating-chrome=true]/header:shadow-raised group-data-[floating-chrome=true]/header:pointer-events-auto max-narrow:max-w-[9.5rem] max-narrow:px-[clamp(0.45rem,2vw,0.7rem)] max-narrow:py-[0.35rem] max-narrow:text-[clamp(0.8rem,4vw,0.95rem)] max-narrow:leading-[1.05] max-narrow:text-center max-narrow:whitespace-nowrap"
       data-signed-in={data.signedIn}
       aria-label={accountAccessibleLabel}
       onclick={openSignIn}
@@ -367,11 +405,14 @@
         ? resolve('/[lang=lang]/account', { lang: data.lang })
         : `${resolve('/[lang=lang]/account', { lang: data.lang })}?returnTo=${encodeURIComponent(accountReturnTo)}`}
     >
-      <span class="account-label-default">
+      <span class="account-label-default max-narrow:group-data-[signed-in=true]/account:hidden">
         {data.signedIn ? data.copy['account.navSignedIn'] : data.copy['nav.account']}
       </span>
       {#if data.signedIn}
-        <span class="account-label-compact" aria-hidden="true">
+        <span
+          class="account-label-compact hidden max-narrow:group-data-[signed-in=true]/account:inline"
+          aria-hidden="true"
+        >
           {data.copy['account.navSignedInCompact']}
         </span>
         <AchievementUnreadIndicator
@@ -381,7 +422,7 @@
       {/if}
       {#if data.signedIn && weeklyRhythm.status === 'available'}
         <WeeklyRhythmIndicator active={weeklyRhythm.currentWeek.active} />
-        <span class="visually-hidden">
+        <span class="visually-hidden sr-only [clip:rect(0_0_0_0)]">
           {weeklyRhythm.currentWeek.active
             ? data.copy['weeklyRhythm.accountActive']
             : data.copy['weeklyRhythm.accountOpen']}
@@ -404,101 +445,12 @@
 {/if}
 
 <style>
-  .site-header {
-    position: relative;
-    z-index: 10;
-    display: flex;
-    width: 100%;
-    height: var(--hv-app-header-height);
-    min-height: var(--hv-app-header-height);
-    padding: 0 var(--hv-space-edge);
-    border-bottom: 1px solid var(--hv-border-subtle);
-    gap: 1rem;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--hv-color-snow-raised);
-  }
-
-  .brand-cluster {
-    display: contents;
-  }
-
-  /* On discovery the header dissolves into floating pills over the map. */
-  .site-header[data-floating-chrome='true'] {
-    position: absolute;
-    z-index: 30;
-    top: 0;
-    right: 0;
-    left: 0;
-    border-bottom: 0;
-    background: transparent;
-    pointer-events: none;
-  }
-
-  .site-header[data-floating-chrome='true'] .brand-cluster {
-    display: inline-flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.6rem 0.3rem 0.9rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: 999px;
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-raised);
-    pointer-events: auto;
-  }
-
-  .site-header[data-floating-chrome='true'] .brand-cluster .brand {
-    padding: 0.2rem 0;
-  }
-
-  .site-header[data-floating-chrome='true'] .brand-cluster nav {
-    padding: 0;
-    border: 0;
-    background: transparent;
-  }
-
-  .site-header[data-floating-chrome='true'] .brand-cluster nav a {
-    padding: 0.2rem 0.45rem;
-    border-radius: 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.82rem;
-    font-weight: 750;
-    text-decoration: none;
-  }
-
-  .site-header[data-floating-chrome='true'] .brand-cluster nav a[aria-current='page'] {
-    border-color: transparent;
-    background: transparent;
-    box-shadow: inset 0 -2px 0 var(--hv-color-fjord);
-    color: var(--hv-color-basalt);
-  }
-
   /* The folded Focus state compresses the brand pill to its wordmark. */
   :global(body:has(.map-list-shell[data-focus-fold='true']))
     .site-header[data-floating-chrome='true']
     .brand-cluster
     nav {
     display: none;
-  }
-
-  .site-header[data-floating-chrome='true'] .header-actions > * {
-    pointer-events: auto;
-  }
-
-  .site-header[data-floating-chrome='true'] .about-link {
-    border-color: var(--hv-border-subtle);
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-raised);
-    text-decoration: none;
-  }
-
-  .site-header[data-floating-chrome='true'] .account-link {
-    box-shadow: var(--hv-shadow-raised);
-  }
-
-  .site-header[data-floating-chrome='true'] .mobile-menu summary {
-    box-shadow: var(--hv-shadow-raised);
   }
 
   /* Without JavaScript the header returns to a solid in-flow bar. */
@@ -522,201 +474,16 @@
     background: var(--hv-color-snow-raised);
   }
 
-  .brand {
-    display: inline-flex;
-    gap: 0.55rem;
-    align-items: center;
-    color: var(--hv-color-basalt);
-    font-family: var(--hv-font-display);
-    font-size: 1.4rem;
-    font-weight: 650;
-    letter-spacing: -0.02em;
-    text-decoration: none;
-  }
-
-  .brand h1 {
-    margin: 0;
-    font: inherit;
-  }
-
-  .brand-mark {
-    width: 1.45rem;
-    height: 1.45rem;
-    flex: 0 0 auto;
-    fill: var(--hv-color-brand-paw);
-  }
-
-  nav {
-    display: flex;
-    gap: 0.15rem;
-    padding: 0.15rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-  }
-
-  nav a {
-    padding: 0.25rem 0.6rem;
-    border: 1px solid transparent;
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 0.4rem;
-    align-items: center;
-    justify-content: flex-end;
-  }
-
-  .mobile-menu {
-    display: none;
-  }
-
-  a {
-    padding: 0.4rem 0.7rem;
-    border: 1px solid transparent;
-    border-radius: var(--hv-radius-control);
-    color: var(--hv-color-basalt);
-    font-weight: 800;
-  }
-
-  a[aria-current='page'] {
-    border-color: var(--hv-color-fjord);
-    background: var(--hv-color-fjord-soft);
-    box-shadow: inset 0 -2px 0 var(--hv-color-fjord);
-    text-decoration: none;
-  }
-
-  .account-link {
-    position: relative;
-    display: inline-flex;
-    gap: 0.35rem;
-    align-items: center;
-    border-color: var(--hv-color-basalt);
-    background: var(--hv-color-basalt);
-    color: var(--hv-color-snow-raised);
-    text-decoration: none;
-  }
-
-  .account-label-compact {
-    display: none;
-  }
-
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    padding: 0;
-    border: 0;
-    margin: -1px;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  a:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
   @media (max-width: 42rem) {
-    .site-header {
-      height: var(--hv-app-header-height);
-      min-height: var(--hv-app-header-height);
-      gap: clamp(0.35rem, 2vw, 0.6rem);
-    }
-
-    .header-actions {
-      flex: 0 0 auto;
-      gap: clamp(0.2rem, 1.5vw, 0.4rem);
-    }
-
-    .brand {
-      min-width: 0;
-      gap: clamp(0.3rem, 1.5vw, 0.5rem);
-      font-size: clamp(1rem, 5vw, 1.25rem);
-      white-space: nowrap;
-    }
-
-    .brand-mark {
-      width: clamp(1.15rem, 5vw, 1.35rem);
-      height: clamp(1.15rem, 5vw, 1.35rem);
-    }
-
-    .site-header[data-floating-chrome='true'] .brand-cluster {
-      padding: 0.25rem 0.55rem;
-    }
-
-    .about-link {
-      display: none;
-    }
-
-    .language-switcher {
-      display: none;
-    }
-
-    .mobile-menu {
-      position: relative;
-      display: block;
-    }
-
-    .mobile-menu summary {
-      border: 1px solid var(--hv-color-basalt);
-      border-radius: var(--hv-radius-control);
-      background: var(--hv-color-snow-raised);
-      padding: 0.35rem clamp(0.45rem, 2vw, 0.7rem);
-      font-size: clamp(0.8rem, 4vw, 0.95rem);
-      font-weight: 850;
-      line-height: 1.05;
-      white-space: nowrap;
-      cursor: pointer;
-      list-style: none;
-    }
-
+    /* stays: ::-webkit-details-marker has no Tailwind variant, and an arbitrary `&` variant
+       cannot be written in a static Svelte class attribute. */
     .mobile-menu summary::-webkit-details-marker {
       display: none;
-    }
-
-    .mobile-menu-panel {
-      position: absolute;
-      z-index: 20;
-      top: calc(100% + 0.4rem);
-      right: 0;
-      display: grid;
-      min-width: 13rem;
-      gap: 0.55rem;
-      border: 1px solid var(--hv-color-basalt);
-      border-radius: var(--hv-radius-control);
-      background: var(--hv-color-snow-raised);
-      padding: 0.75rem;
-      box-shadow: var(--hv-shadow-raised);
-    }
-
-    .mobile-menu-panel nav {
-      display: flex;
-    }
-
-    .account-link {
-      max-width: 9.5rem;
-      padding: 0.35rem clamp(0.45rem, 2vw, 0.7rem);
-      font-size: clamp(0.8rem, 4vw, 0.95rem);
-      line-height: 1.05;
-      text-align: center;
-      white-space: nowrap;
     }
 
     .account-link :global([data-weekly-rhythm-indicator]) {
       top: -0.42rem;
       right: -0.42rem;
-    }
-
-    .account-link[data-signed-in='true'] .account-label-default {
-      display: none;
-    }
-
-    .account-link[data-signed-in='true'] .account-label-compact {
-      display: inline;
     }
   }
 </style>

@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
+import '../../src/app.css';
 import { catalogues } from '$i18n';
 import type { ModerationRating } from '$server/dog-friendliness/dog-friendliness';
 

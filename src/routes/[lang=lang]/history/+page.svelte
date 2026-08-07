@@ -51,7 +51,7 @@
   </PageHeader>
 
   <nav
-    class="history-tabs flex flex-wrap items-center gap-actions"
+    class="history-tabs flex flex-wrap items-center justify-start gap-actions mt-context"
     aria-label={data.copy['history.title']}
   >
     <Button
@@ -89,10 +89,3 @@
     />
   {/if}
 </PageShell>
-
-<style>
-  .history-tabs {
-    justify-content: start;
-    margin-top: var(--hv-space-context);
-  }
-</style>

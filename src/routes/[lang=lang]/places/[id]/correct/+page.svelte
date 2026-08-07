@@ -128,7 +128,10 @@
 
     <form class="grid gap-context" method="POST" use:enhance={enhanceForm} aria-busy={submitting}>
       <input type="hidden" name="commandId" value={data.commandId} />
-      <fieldset class="availability-boundary grid gap-context" disabled={submissionUnavailable}>
+      <fieldset
+        class="availability-boundary grid gap-context min-w-0 m-0 [border:0] p-0"
+        disabled={submissionUnavailable}
+      >
         <FormSection legend={data.copy['correction.targetKind']}>
           <Field label={data.copy['correction.targetKind']}>
             <Select name="targetKind" bind:value={targetKind}>
@@ -172,7 +175,11 @@
             {:else if targetField === 'phone'}
               <p>{data.place.phone ?? data.copy['common.notAvailable']}</p>
             {:else if targetField === 'opening_hours'}
-              <pre>{JSON.stringify(data.place.openingHours, null, 2)}</pre>
+              <pre class="max-w-full wrap-anywhere whitespace-pre-wrap">{JSON.stringify(
+                  data.place.openingHours,
+                  null,
+                  2
+                )}</pre>
             {:else if targetField === 'dog_amenities'}
               <p>{data.place.dogAmenities.join(', ') || data.copy['common.notAvailable']}</p>
             {/if}
@@ -210,16 +217,16 @@
           </FormSection>
         {:else if selectedCondition}
           <FormSection legend={data.copy['correction.currentValue']}>
-            <dl>
-              <div>
+            <dl class="grid gap-[0.6rem]">
+              <div class="grid grid-cols-[minmax(8rem,0.35fr)_1fr] gap-4">
                 <dt>{data.copy['correction.accessArea']}</dt>
                 <dd>{localizeAccessArea(selectedCondition.accessArea, data.copy)}</dd>
               </div>
-              <div>
+              <div class="grid grid-cols-[minmax(8rem,0.35fr)_1fr] gap-4">
                 <dt>{data.copy['correction.restraint']}</dt>
                 <dd>{localizeRestraint(selectedCondition.restraintCondition, data.copy)}</dd>
               </div>
-              <div>
+              <div class="grid grid-cols-[minmax(8rem,0.35fr)_1fr] gap-4">
                 <dt>{data.copy['correction.permission']}</dt>
                 <dd>{localizePermission(selectedCondition.permissionRequirement, data.copy)}</dd>
               </div>
@@ -321,26 +328,3 @@
     </form>
   {/if}
 </PageShell>
-
-<style>
-  .availability-boundary {
-    min-width: 0;
-    margin: 0;
-    border: 0;
-    padding: 0;
-  }
-  dl {
-    display: grid;
-    gap: 0.6rem;
-  }
-  dl div {
-    display: grid;
-    grid-template-columns: minmax(8rem, 0.35fr) 1fr;
-    gap: 1rem;
-  }
-  pre {
-    max-width: 100%;
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
-  }
-</style>

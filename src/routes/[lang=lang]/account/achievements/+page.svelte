@@ -138,7 +138,7 @@
 
   {#if data.achievements.enabled}
     <form
-      class="claim-form"
+      class="claim-form hidden"
       method="POST"
       action="?/claimAchievements"
       use:enhance={enhanceClaim}
@@ -147,7 +147,7 @@
     ></form>
 
     {#if claimed.length > 0 || continuations.length > 0}
-      <section class="celebrations grid gap-context" aria-live="polite">
+      <section class="celebrations grid gap-context [--hv-space-context:1rem]" aria-live="polite">
         {#each claimed as achievement (achievement.key)}
           <AchievementCelebration {achievement} lang={data.lang} copy={data.copy} />
         {/each}
@@ -165,17 +165,32 @@
     />
 
     {#if groups.length > 0}
-      <section class="archive grid gap-context" aria-labelledby="achievement-archive-heading">
-        <h2 id="achievement-archive-heading">{data.copy['achievements.archiveTitle']}</h2>
+      <section
+        class="archive grid gap-context [--hv-space-context:1rem]"
+        aria-labelledby="achievement-archive-heading"
+      >
+        <h2
+          id="achievement-archive-heading"
+          class="m-0 font-display text-[clamp(1.35rem,_4vw,_1.8rem)]"
+        >
+          {data.copy['achievements.archiveTitle']}
+        </h2>
         {#each groups as { group, items } (group)}
-          <section class="group grid gap-context" aria-labelledby={`group-${group}`}>
+          <section
+            class="group grid gap-context [--hv-space-context:0.75rem]"
+            aria-labelledby={`group-${group}`}
+          >
             <Eyebrow as="h3" class="group-heading" id={`group-${group}`}>
               {data.copy[groupKey(group)]}
             </Eyebrow>
             <ul class="catalogue grid gap-context m-0 p-0 list-none">
               {#each items as achievement (achievement.key)}
-                <Panel as="li" padded class="achievement">
-                  <span class="earned-badge">
+                <Panel as="li" padded class="achievement group/achievement">
+                  <!-- A small lift when the tile is revisited: the badge perks up without the
+                       words moving. -->
+                  <span
+                    class="earned-badge block w-[3.4rem] transition-transform duration-[var(--hv-motion-quick)] ease-settle group-hover/achievement:transform-[translateY(-0.2rem)_rotate(-4deg)]"
+                  >
                     <AchievementBadge
                       achievementKey={achievement.key}
                       group={achievement.group}
@@ -183,14 +198,18 @@
                     />
                   </span>
                   <div>
-                    <p class="name-line">
-                      <strong class="name">{name(achievement)}</strong>
+                    <p class="name-line flex items-center m-0 gap-[0.6rem]">
+                      <strong class="name font-black">{name(achievement)}</strong>
                       {#if claimedKeys.has(achievement.key)}
                         <Status class="new-badge">{data.copy['achievements.new']}</Status>
                       {/if}
                     </p>
-                    <p class="description">{description(achievement)}</p>
-                    <p class="earned">{earnedLine(achievement.earnedAt)}</p>
+                    <p class="description mx-0 mt-[0.4rem] mb-0 leading-normal">
+                      {description(achievement)}
+                    </p>
+                    <p class="earned mx-0 mt-2 mb-0 text-[0.9rem] font-bold text-basalt-muted">
+                      {earnedLine(achievement.earnedAt)}
+                    </p>
                     <AchievementShare
                       card={{
                         achievementKey: achievement.key,
@@ -214,7 +233,10 @@
     {/if}
   {:else}
     <Notice as="section" tone="info" class="disabled-card">
-      <p>{data.copy['achievements.disabled']}</p>
+      <!-- .disabled-card renders through Notice (a child component), which is why an ancestor hook
+           on it would need :global(); this <p> is still authored literally in this file, so it
+           keeps its normal scope hash and its own reset lands as utilities on the element. -->
+      <p class="m-0 leading-[1.55]">{data.copy['achievements.disabled']}</p>
     </Notice>
   {/if}
 
@@ -232,52 +254,12 @@
     max-width: 46ch;
   }
 
-  .claim-form {
-    display: none;
-  }
-
-  .celebrations,
-  .archive {
-    --hv-space-context: 1rem;
-  }
-
-  .archive > h2 {
-    margin: 0;
-    font-family: var(--hv-font-display);
-    font-size: clamp(1.35rem, 4vw, 1.8rem);
-  }
-
-  .group {
-    --hv-space-context: 0.75rem;
-  }
-
   :global(.achievement) {
     display: grid;
     grid-template-columns: 3.4rem minmax(0, 1fr);
     gap: 0.85rem;
     align-items: start;
     border-inline-start: 0.3rem solid var(--hv-color-moss);
-  }
-
-  .earned-badge {
-    display: block;
-    width: 3.4rem;
-    /* A small lift when the tile is revisited: the badge perks up without the words moving. */
-    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
-  }
-
-  :global(.achievement):hover .earned-badge {
-    transform: translateY(-0.2rem) rotate(-4deg);
-  }
-
-  .name-line {
-    display: flex;
-    align-items: center;
-    margin: 0;
-    gap: 0.6rem;
-  }
-  .name {
-    font-weight: 900;
   }
 
   /* Renders through Status (a child component), so the hook class needs :global(). */
@@ -296,26 +278,6 @@
     to {
       transform: scale(1);
     }
-  }
-
-  .description {
-    margin: 0.4rem 0 0;
-    line-height: 1.5;
-  }
-
-  .earned {
-    margin: 0.5rem 0 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.9rem;
-    font-weight: 700;
-  }
-
-  /* .disabled-card now renders through Notice (a child component), so the ancestor needs
-     :global(); the child <p> is still authored literally in this file, so it keeps its normal
-     scope hash and needs no :global() of its own. */
-  :global(.disabled-card) p {
-    margin: 0;
-    line-height: 1.55;
   }
 
   /* Renders through Button (a child component), so the layout hook needs :global(); the fjord

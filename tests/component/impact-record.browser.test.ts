@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import { page as browserPage } from 'vitest/browser';
 
+import '../../src/app.css';
 import { catalogues } from '$i18n';
 import type { ImpactRecord } from '$server/impact/impact-record';
 import ImpactPage from '../../src/routes/[lang=lang]/account/impact/+page.svelte';
@@ -119,6 +120,9 @@ describe('private impact record', () => {
     const revoked = document.querySelector('[data-outcome-state="revoked"]');
     expect(confirmed).toBeTruthy();
     expect(revoked).toBeTruthy();
+    expect(getComputedStyle(revoked!).backgroundColor).not.toBe(
+      getComputedStyle(confirmed!).backgroundColor
+    );
     expect(within(confirmed as HTMLElement).getByText('Kaffihúsið')).toBeTruthy();
     expect(within(revoked as HTMLElement).getByText('Gamla búðin')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Continue to Nýja búðin' }).getAttribute('href')).toBe(

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import '../../src/app.css';
 import TranslationWorkspace from '$lib/translations/TranslationWorkspace.svelte';
 import type { TranslationWorkspace as WorkspaceData } from '$server/translations/workspace';
 import TranslationHistoryPage from '../../src/routes/translations/(workspace)/history/+page.svelte';

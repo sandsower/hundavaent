@@ -81,7 +81,9 @@
   {#if data.suggestions.length === 0}
     <Notice tone="info" as="p" class="notice-tight">{data.copy['suggestion.empty']}</Notice>
   {:else}
-    <ul class="outcome-list grid gap-context m-0 p-0 list-none">
+    <ul
+      class="outcome-list grid gap-context m-0 p-0 list-none [margin-block:calc(var(--hv-space-context)*1.5)]!"
+    >
       {#each data.suggestions as item (item.suggestionId)}
         <Panel
           as="li"
@@ -89,7 +91,7 @@
           class={`outcome-card${data.submitted === item.suggestionId ? ' highlighted' : ''}`}
         >
           <div class="grid gap-context">
-            <h2>{name(item)}</h2>
+            <h2 class="m-0">{name(item)}</h2>
             <Meta>
               {localizePlaceCategory(item.category, data.copy)} · {item.locality}
             </Meta>
@@ -102,7 +104,9 @@
             {data.copy[statusKey(item.outcome)]}
           </Status>
           {#if data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}
-            <p class="reason">
+            <p
+              class="reason col-span-full m-0 pt-3 border-t border-t-border-subtle text-basalt-muted"
+            >
               {data.lang === 'is' ? item.memberReasonIs : item.memberReasonEn}
             </p>
           {/if}
@@ -130,10 +134,6 @@
 </PageShell>
 
 <style>
-  .outcome-list {
-    margin-block: calc(var(--hv-space-context) * 1.5);
-  }
-
   .outcome-list :global(.outcome-card) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -145,24 +145,12 @@
     box-shadow: 0 0 0 2px var(--hv-color-fjord-soft);
   }
 
-  h2,
-  p {
-    margin: 0;
-  }
-
   /* The acknowledged/empty notices render their <p> through Notice (a child component), so the
      bare `p { margin: 0 }` above cannot reach them - anchored through PageShell's own class hook
      (this route's own :global(), not a bare one) per the ancestor-scoped-:global pattern
      (moderation's .workspace-shell precedent). */
   :global(.suggestions-shell) :global(.notice-tight) {
     margin: 0;
-  }
-
-  .reason {
-    grid-column: 1 / -1;
-    border-top: 1px solid var(--hv-border-subtle);
-    padding-top: 0.75rem;
-    color: var(--hv-color-basalt-muted);
   }
 
   /* Status now renders the chip through a child component; the child combinator needs the

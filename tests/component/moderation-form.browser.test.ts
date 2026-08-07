@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
+import '../../src/app.css';
 import { catalogues } from '$i18n';
 import CandidatePlacePage from '../../src/routes/[lang=lang]/moderation/places/new/+page.svelte';
 import PublicationReviewPage from '../../src/routes/[lang=lang]/moderation/places/[id]/+page.svelte';

@@ -295,7 +295,10 @@
   <meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<main class="workspace-shell" data-ui-mode="operations">
+<main
+  class="workspace-shell w-[calc(100%_-_1rem)] m-[0.5rem_auto_2rem] max-[44rem]:w-[calc(100%_-_0.75rem)] max-[44rem]:mt-[0.4rem]"
+  data-ui-mode="operations"
+>
   <ModerationWorkspace
     copy={data.copy}
     baseHref={`/${data.lang}/moderation`}
@@ -382,7 +385,7 @@
 
         {#if candidateDecisionAvailable}
           <form
-            class="decision-form"
+            class="decision-form hidden"
             bind:this={candidateDecisionForm}
             method="POST"
             action="?/decideCandidate"
@@ -461,7 +464,10 @@
     {/snippet}
   </ModerationWorkspace>
 
-  <nav class="workspace-actions" aria-label={data.copy['moderation.hub.navLabel']}>
+  <nav
+    class="workspace-actions flex flex-wrap gap-[0.7rem] mt-[1.2rem]"
+    aria-label={data.copy['moderation.hub.navLabel']}
+  >
     <Button
       intent="neutral"
       href={resolve('/[lang=lang]/moderation/places/new', { lang: data.lang })}
@@ -472,19 +478,9 @@
 </main>
 
 <style>
-  .workspace-shell {
-    width: calc(100% - 1rem);
-    margin: 0.5rem auto 2rem;
-  }
   :global(body) {
     background: var(--hv-color-snow);
     color: var(--hv-color-basalt);
-  }
-  .workspace-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.7rem;
-    margin-top: 1.2rem;
   }
   /* Notice renders its own element in a separate component, so Svelte's scoped CSS cannot reach
      it via a plain locally-scoped selector. Ancestor-scoped under .workspace-shell (this route's
@@ -494,14 +490,5 @@
      for its error tone now; only the call-site spacing before the decision controls stays here. */
   .workspace-shell :global(.candidate-decision-error) {
     margin: 0 0 0.55rem;
-  }
-  .decision-form {
-    display: none;
-  }
-  @media (max-width: 44rem) {
-    .workspace-shell {
-      width: calc(100% - 0.75rem);
-      margin-top: 0.4rem;
-    }
   }
 </style>

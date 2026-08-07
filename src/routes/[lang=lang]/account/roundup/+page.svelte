@@ -106,41 +106,67 @@
 
 <PageShell class="roundup-shell grid gap-context">
   <Panel as="header" class="roundup-header">
-    <div class="hero-icon"><RoundupTrailIcon kind="trail" size="large" /></div>
+    <div
+      class="hero-icon grid place-items-center w-[5.5rem] h-[5.5rem] rounded-[1.8rem] bg-[color-mix(in_srgb,var(--hv-color-fjord)_11%,white)] text-fjord max-narrow:w-[4.5rem] max-narrow:h-[4.5rem]"
+    >
+      <RoundupTrailIcon kind="trail" size="large" />
+    </div>
+    <!-- The blanket `> *` margin-block reset this wrapper used to carry is gone: Eyebrow and
+         PageTitle already own their own zero, and the two local paragraphs below state their
+         own margin-block outright. Keeping it would have out-ranked those utilities, since
+         scoped CSS is unlayered. -->
     <div class="hero-copy">
       <Eyebrow>{data.copy['roundup.eyebrow']}</Eyebrow>
       <PageTitle>{data.copy['roundup.title']}</PageTitle>
-      <p class="intro">{data.copy['roundup.intro']}</p>
-      <p class="private-note">
+      <p
+        class="intro max-w-[48ch] [margin-block:0.5rem_0] text-[1.05rem] leading-[1.55] text-basalt-muted"
+      >
+        {data.copy['roundup.intro']}
+      </p>
+      <p
+        class="private-note flex items-center max-w-fit gap-[0.4rem] [margin-block:0.85rem_0] text-[0.88rem] font-extrabold text-fjord"
+      >
         <RoundupTrailIcon kind="private" size="small" />
         <span>{data.copy['roundup.privateNote']}</span>
       </p>
     </div>
   </Panel>
 
+  <!-- data-quiet-state mirrors the class:quiet-state flag so the quiet-state-only rule can be a
+       data variant; the class itself stays, since it is this surface's own semantic hook. -->
   <section
     class:quiet-state={data.roundup.status === 'empty' ||
       data.roundup.status === 'unconfigured' ||
       data.roundup.status === 'unavailable'}
-    class="roundup-state grid gap-context"
+    data-quiet-state={data.roundup.status === 'empty' ||
+      data.roundup.status === 'unconfigured' ||
+      data.roundup.status === 'unavailable'}
+    class="roundup-state grid gap-context [--hv-space-context:1rem] data-[quiet-state=true]:p-[clamp(1rem,_4vw,_1.5rem)] data-[quiet-state=true]:border data-[quiet-state=true]:border-border-subtle data-[quiet-state=true]:rounded-[1rem] data-[quiet-state=true]:bg-snow-raised"
     aria-labelledby="roundup-state-heading"
   >
     {#if actionSaved}
       <Notice tone="success" as="p" role="status">{data.copy['roundup.saved']}</Notice>
     {/if}
 
-    <header class="state-heading">
+    <header class="state-heading flex items-start justify-between gap-4">
       <div>
         {#if data.roundup.status !== 'unavailable'}
           <Eyebrow>
             {weekLabel(data.roundup.week.startsOn, data.roundup.week.endsOn)}
           </Eyebrow>
         {/if}
-        <h2 id="roundup-state-heading">{stateTitle()}</h2>
-        <p>{stateBody()}</p>
+        <h2
+          id="roundup-state-heading"
+          class="mx-0 mt-[0.2rem] mb-0 font-display text-[clamp(1.45rem,_4vw,_2rem)]"
+        >
+          {stateTitle()}
+        </h2>
+        <p class="max-w-[52ch] mx-0 mt-[0.45rem] mb-0 leading-[1.55] text-basalt-muted">
+          {stateBody()}
+        </p>
       </div>
       {#if data.roundup.status === 'empty' || data.roundup.status === 'unconfigured' || data.roundup.status === 'unavailable'}
-        <span class="state-icon">
+        <span class="state-icon text-moss">
           <RoundupTrailIcon
             kind={data.roundup.status === 'unavailable' ? 'private' : 'empty'}
             size="regular"
@@ -150,7 +176,7 @@
     </header>
 
     {#if data.roundup.status === 'populated' || data.roundup.status === 'sparse'}
-      <div class="recommendations">
+      <div class="recommendations grid grid-cols-2 gap-[0.85rem] max-narrow:grid-cols-[1fr]">
         {#each data.roundup.recommendations as recommendation, index (recommendation.placeId)}
           <RoundupRecommendationCard
             {recommendation}
@@ -168,7 +194,7 @@
     {/if}
 
     {#if data.roundup.status !== 'unavailable'}
-      <div class="roundup-actions">
+      <div class="roundup-actions flex flex-wrap gap-[0.65rem]">
         <Button intent="primary" href={resolve('/[lang=lang]', { lang: roundupLocale })}>
           {roundupCopy['roundup.browse']}
         </Button>
@@ -237,99 +263,14 @@
     );
   }
 
-  .hero-icon {
-    display: grid;
-    width: 5.5rem;
-    height: 5.5rem;
-    border-radius: 1.8rem;
-    background: color-mix(in srgb, var(--hv-color-fjord) 11%, white);
-    color: var(--hv-color-fjord);
-    place-items: center;
-  }
-
-  .hero-copy > :global(*) {
-    margin-block: 0;
-  }
-
   /* The title is now PageTitle - no literal h1 remains locally, so the descendant needs :global;
      the ancestor stays scoped since .hero-copy is still a plain local div. */
   .hero-copy > :global(h1) {
     margin-block-start: 0.2rem;
   }
 
-  .intro {
-    max-width: 48ch;
-    margin-block-start: 0.5rem;
-    color: var(--hv-color-basalt-muted);
-    font-size: 1.05rem;
-    line-height: 1.55;
-  }
-
-  .private-note {
-    display: flex;
-    max-width: fit-content;
-    margin-block-start: 0.85rem;
-    align-items: center;
-    gap: 0.4rem;
-    color: var(--hv-color-fjord);
-    font-size: 0.88rem;
-    font-weight: 800;
-  }
-
-  .roundup-state {
-    --hv-space-context: 1rem;
-  }
-
-  .roundup-state.quiet-state {
-    padding: clamp(1rem, 4vw, 1.5rem);
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: 1rem;
-    background: var(--hv-color-snow-raised);
-  }
-
-  .state-heading {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  .state-heading h2,
-  .state-heading p {
-    margin: 0;
-  }
-
-  .state-heading h2 {
-    margin-block-start: 0.2rem;
-    font-family: var(--hv-font-display);
-    font-size: clamp(1.45rem, 4vw, 2rem);
-  }
-
-  .state-heading h2 + p {
-    max-width: 52ch;
-    margin-block-start: 0.45rem;
-    color: var(--hv-color-basalt-muted);
-    line-height: 1.55;
-  }
-
-  .state-icon {
-    color: var(--hv-color-moss);
-  }
-
-  .recommendations {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.85rem;
-  }
-
   .recommendations > :global(:first-child) {
     grid-column: 1 / -1;
-  }
-
-  .roundup-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.65rem;
   }
 
   /* Renders through Button (a child component), so the layout hook needs :global(); the fjord
@@ -362,15 +303,6 @@
 
   @media (max-width: 42rem) {
     :global(.roundup-header) {
-      grid-template-columns: 1fr;
-    }
-
-    .hero-icon {
-      width: 4.5rem;
-      height: 4.5rem;
-    }
-
-    .recommendations {
       grid-template-columns: 1fr;
     }
 
