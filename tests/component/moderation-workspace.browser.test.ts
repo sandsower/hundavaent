@@ -3,6 +3,7 @@ import { createRawSnippet } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { page as browserPage } from 'vitest/browser';
 
+import '../../src/app.css';
 import { catalogues } from '$i18n';
 import CandidateDecisionControls from '$lib/moderation/CandidateDecisionControls.svelte';
 import ModerationActionBar from '$lib/moderation/ModerationActionBar.svelte';
@@ -92,6 +93,18 @@ describe('Compact moderation workspace', () => {
     const trustedItem = screen.getByRole('link', { name: /Sundhöll Hafnarfjarðar/ });
     expect(within(trustedItem).getByText('Trusted Contributor')).toBeTruthy();
     expect(trustedItem.querySelector('svg')).toBeTruthy();
+    expect(getComputedStyle(selectedItem).backgroundColor).not.toBe(
+      getComputedStyle(trustedItem).backgroundColor
+    );
+
+    const filterNavigation = screen.getByRole('navigation', { name: 'Queue status' });
+    expect(
+      getComputedStyle(within(filterNavigation).getByRole('link', { name: 'Actionable' }))
+        .backgroundColor
+    ).not.toBe(
+      getComputedStyle(within(filterNavigation).getByRole('link', { name: 'Deferred' }))
+        .backgroundColor
+    );
     expect(screen.getByText('J next / K previous')).toBeTruthy();
   });
 
@@ -503,6 +516,9 @@ describe('Low-friction review primitives', () => {
 
     const disclosure = screen.getByText('Place details').closest('details');
     expect(disclosure?.open).toBe(false);
+    const stateMarker = disclosure?.querySelector<HTMLElement>('.state-marker');
+    expect(stateMarker).toBeTruthy();
+    const completeMarkerColor = getComputedStyle(stateMarker!).backgroundColor;
 
     rerender({
       id: 'identity',
@@ -512,6 +528,7 @@ describe('Low-friction review primitives', () => {
       children: detail
     });
     expect(screen.getByText('Place details').closest('details')?.open).toBe(true);
+    expect(getComputedStyle(stateMarker!).backgroundColor).not.toBe(completeMarkerColor);
     expect(screen.getByText('Full supporting detail')).toBeTruthy();
   });
 

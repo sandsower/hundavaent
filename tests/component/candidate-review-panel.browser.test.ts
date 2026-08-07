@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/sve
 import { describe, expect, it } from 'vitest';
 import { page as browserPage } from 'vitest/browser';
 
+import '../../src/app.css';
 import { catalogues } from '$i18n';
 import CandidateReviewPanel from '$lib/moderation/CandidateReviewPanel.svelte';
 import CandidateReviewPage from '../../src/routes/[lang=lang]/moderation/places/[id]/+page.svelte';
@@ -262,6 +263,9 @@ describe('CandidateReviewPanel', () => {
     });
 
     await waitFor(() => expect(editStates.at(-1)).toBe(false));
+    const decisionForm = container.querySelector<HTMLElement>('.decision-form');
+    expect(decisionForm).toBeTruthy();
+    expect(getComputedStyle(decisionForm!).display).toBe('none');
     expect(screen.getByRole('button', { name: 'Verify and publish' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Needs information' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Reject' })).toBeEnabled();

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 
+import '../../src/app.css';
 import ModerationPublishDialog from '$lib/moderation/ModerationPublishDialog.svelte';
 import ModerationReasonDialog from '$lib/moderation/ModerationReasonDialog.svelte';
 

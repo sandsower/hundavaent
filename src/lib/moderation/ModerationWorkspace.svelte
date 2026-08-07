@@ -186,9 +186,9 @@
 <!-- Of Panel's surface set this shell keeps only the raised background: the border colour
      (basalt, not Panel's subtle default), radius (shell, not panel), and shadow are call-site
      overrides that Panel's own class-prop contract explicitly does not support ("overriding the
-     surface set through this is unsupported"). The one live utility rides directly on this
-     locally-authored element rather than a <Panel> wrapper so the scoped .workspace rule below
-     keeps matching without needing :global() (the SelectedPlaceCard precedent). -->
+     surface set through this is unsupported"). The complete surface and layout utility set
+     therefore rides directly on this locally-authored element rather than a <Panel> wrapper
+     (the SelectedPlaceCard precedent). -->
 <section
   class="workspace grid h-[calc(100dvh_-_var(--hv-app-header-height,_4.4rem)_-_1rem)] min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden border border-basalt rounded-shell bg-snow-raised shadow-raised max-[44rem]:h-[calc(100dvh_-_var(--hv-app-header-height,_4.4rem)_-_0.8rem)] max-[44rem]:min-h-0 max-[44rem]:rounded-shell max-[44rem]:shadow-raised"
   aria-labelledby="moderation-workspace-title"
