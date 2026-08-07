@@ -73,13 +73,21 @@
   }
 
   button,
-  input:where([type='button'], [type='reset'], [type='submit']),
+  input,
+  select,
+  textarea,
   ::file-selector-button {
     padding: revert;
     border: revert;
     border-radius: revert;
     background: revert;
     color: revert;
+    letter-spacing: revert;
+  }
+
+  ::placeholder {
+    color: revert;
+    opacity: revert;
   }
 
   img,

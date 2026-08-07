@@ -39,12 +39,12 @@ test('the visual foundation is deterministic across browser hosts', async () => 
 test('Tailwind preflight and the semantic baseline own browser normalization', async () => {
   const fixture = document.createElement('section');
   fixture.innerHTML =
-    '<h1>Heading</h1><p>Paragraph</p><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><img alt="" width="10" height="5"><svg></svg>';
+    '<h1>Heading</h1><p>Paragraph</p><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><input type="checkbox"><input type="radio"><input type="text" placeholder="Placeholder"><select><option>Option</option></select><img alt="" width="10" height="5"><svg></svg>';
   document.body.append(fixture);
 
   const browserDefaults = document.createElement('iframe');
   browserDefaults.srcdoc =
-    '<h1>Heading</h1><p>Paragraph</p><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><img alt="" width="10" height="5"><svg></svg>';
+    '<h1>Heading</h1><p>Paragraph</p><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><input type="checkbox"><input type="radio"><input type="text" placeholder="Placeholder"><select><option>Option</option></select><img alt="" width="10" height="5"><svg></svg>';
   await new Promise<void>((resolve) => {
     browserDefaults.addEventListener('load', () => resolve(), { once: true });
     document.body.append(browserDefaults);
@@ -58,6 +58,10 @@ test('Tailwind preflight and the semantic baseline own browser normalization', a
   const link = fixture.querySelector('a')!;
   const button = fixture.querySelector('button')!;
   const fileInput = fixture.querySelector('input[type="file"]')!;
+  const checkbox = fixture.querySelector('input[type="checkbox"]')!;
+  const radio = fixture.querySelector('input[type="radio"]')!;
+  const textInput = fixture.querySelector('input[type="text"]')!;
+  const select = fixture.querySelector('select')!;
   const image = fixture.querySelector('img')!;
   const svg = fixture.querySelector('svg')!;
   const fixtureStyles = getComputedStyle(fixture);
@@ -86,6 +90,21 @@ test('Tailwind preflight and the semantic baseline own browser normalization', a
   const defaultFileButtonStyles = browserDefaults.contentWindow!.getComputedStyle(
     browserDefaults.contentDocument!.querySelector('input[type="file"]')!,
     '::file-selector-button'
+  );
+  const defaultCheckboxStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('input[type="checkbox"]')!
+  );
+  const defaultRadioStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('input[type="radio"]')!
+  );
+  const defaultTextInput = browserDefaults.contentDocument!.querySelector('input[type="text"]')!;
+  const defaultTextInputStyles = browserDefaults.contentWindow!.getComputedStyle(defaultTextInput);
+  const defaultPlaceholderStyles = browserDefaults.contentWindow!.getComputedStyle(
+    defaultTextInput,
+    '::placeholder'
+  );
+  const defaultSelectStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('select')!
   );
   const defaultImageStyles = browserDefaults.contentWindow!.getComputedStyle(
     browserDefaults.contentDocument!.querySelector('img')!
@@ -126,6 +145,22 @@ test('Tailwind preflight and the semantic baseline own browser normalization', a
   expect(fileButtonStyles.padding).toBe(defaultFileButtonStyles.padding);
   expect(fileButtonStyles.border).toBe(defaultFileButtonStyles.border);
   expect(fileButtonStyles.backgroundColor).toBe(defaultFileButtonStyles.backgroundColor);
+  expect(getComputedStyle(checkbox).border).toBe(defaultCheckboxStyles.border);
+  expect(getComputedStyle(checkbox).backgroundColor).toBe(defaultCheckboxStyles.backgroundColor);
+  expect(getComputedStyle(checkbox).borderRadius).toBe(defaultCheckboxStyles.borderRadius);
+  expect(getComputedStyle(radio).border).toBe(defaultRadioStyles.border);
+  expect(getComputedStyle(radio).backgroundColor).toBe(defaultRadioStyles.backgroundColor);
+  expect(getComputedStyle(radio).borderRadius).toBe(defaultRadioStyles.borderRadius);
+  expect(getComputedStyle(textInput).border).toBe(defaultTextInputStyles.border);
+  expect(getComputedStyle(textInput).backgroundColor).toBe(defaultTextInputStyles.backgroundColor);
+  expect(getComputedStyle(textInput).borderRadius).toBe(defaultTextInputStyles.borderRadius);
+  expect(getComputedStyle(textInput, '::placeholder').color).toBe(defaultPlaceholderStyles.color);
+  expect(getComputedStyle(textInput, '::placeholder').opacity).toBe(
+    defaultPlaceholderStyles.opacity
+  );
+  expect(getComputedStyle(select).border).toBe(defaultSelectStyles.border);
+  expect(getComputedStyle(select).backgroundColor).toBe(defaultSelectStyles.backgroundColor);
+  expect(getComputedStyle(select).borderRadius).toBe(defaultSelectStyles.borderRadius);
   expect(getComputedStyle(image).display).toBe(defaultImageStyles.display);
   expect(getComputedStyle(image).verticalAlign).toBe(defaultImageStyles.verticalAlign);
   expect(getComputedStyle(image).maxWidth).toBe(defaultImageStyles.maxWidth);
