@@ -649,7 +649,7 @@
 
   <form
     id="candidate-publication"
-    class="flex flex-wrap items-end box-border min-w-0 gap-[0.7rem] mt-3 p-3 rounded-panel border border-border-subtle bg-snow-raised"
+    class="hidden"
     bind:this={publicationForm}
     method="POST"
     action="?/publish"

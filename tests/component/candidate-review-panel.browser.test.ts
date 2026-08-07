@@ -135,7 +135,9 @@ describe('CandidateReviewPanel', () => {
     expect(screen.getByRole('heading', { name: 'Candidate Place' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Publication checklist' })).toBeTruthy();
     expect(screen.getAllByText('Ready')).toHaveLength(1);
-    expect(document.querySelector('#candidate-publication')).toBeTruthy();
+    const publicationForm = document.querySelector<HTMLElement>('#candidate-publication');
+    expect(publicationForm).toBeTruthy();
+    expect(getComputedStyle(publicationForm!).display).toBe('none');
     expect(document.querySelector('[name^="conditionEvidence."]')).toBeNull();
     expect(screen.queryByText('Publication evidence')).toBeNull();
     expect(document.querySelector('#candidate-media')).toBeTruthy();

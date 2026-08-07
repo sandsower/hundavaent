@@ -131,6 +131,9 @@ describe('Compact moderation workspace', () => {
       }))
     });
 
+    const emptyStatus = screen.getByRole('status');
+    expect(emptyStatus.getBoundingClientRect().height).toBe(0);
+
     const dock = screen.getByRole('region', { name: 'Decision controls' });
     expect(
       within(dock).getByText('Save or cancel this section before choosing a decision.')
