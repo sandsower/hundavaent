@@ -425,17 +425,27 @@
   );
 </script>
 
-<div class="review-shell" class:standalone>
+<div
+  class="review-shell grid min-w-0 gap-[0.9rem] data-[standalone=true]:mx-auto data-[standalone=true]:my-8 data-[standalone=true]:w-[min(100%_-_2rem,64rem)] max-[44rem]:data-[standalone=true]:my-2 max-[44rem]:data-[standalone=true]:w-[min(100%_-_1rem,64rem)]"
+  class:standalone
+  data-standalone={standalone}
+>
   {#if standalone}
-    <header>
-      <p class="eyebrow">{data.copy[kindKey(data.flag.kind)]} · {target()}</p>
-      <h1>{data.lang === 'is' ? data.flag.placeNameIs : data.flag.placeNameEn}</h1>
+    <header class="grid gap-[0.55rem]">
+      <p class="eyebrow m-0 text-[0.72rem] font-extrabold tracking-[0.08em] uppercase text-fjord">
+        {data.copy[kindKey(data.flag.kind)]} · {target()}
+      </p>
+      <h1 class="m-0 font-display text-[clamp(2rem,6vw,4rem)] leading-none">
+        {data.lang === 'is' ? data.flag.placeNameIs : data.flag.placeNameEn}
+      </h1>
     </header>
   {/if}
 
-  <p class="summary">
+  <p class="summary flex flex-wrap items-center m-0 gap-[0.35rem] text-[0.82rem] text-basalt-muted">
     {data.copy[statusKey(data.flag.outcome)]}
-    {#if data.flag.isSafetyConcern}<span class="safety">{data.copy['flag.safetyConcernBadge']}</span
+    {#if data.flag.isSafetyConcern}<span
+        class="safety py-[0.2rem] px-[0.45rem] rounded-control bg-danger-soft font-extrabold text-danger"
+        >{data.copy['flag.safetyConcernBadge']}</span
       >{/if}
     {#if data.flag.reportReason}
       · {localizeReportReason(data.flag.reportReason, data.copy)}{/if}
@@ -446,7 +456,7 @@
     >{/if}
   {#if data.trustedVerification}
     <aside
-      class="trusted-context"
+      class="trusted-context flex flex-wrap items-baseline gap-x-[0.7rem] gap-y-[0.35rem] py-3 px-[0.85rem] border-l-[0.3rem] border-l-moss bg-[color-mix(in_srgb,var(--hv-color-moss)_9%,var(--hv-color-snow-raised))] data-[outcome=superseded]:border-l-basalt-muted"
       data-outcome={data.trustedVerification.outcome}
       role={trustedVerificationSuperseded ? 'status' : undefined}
     >
@@ -463,7 +473,7 @@
     </aside>
   {/if}
 
-  <h2 class="readiness-title">{data.copy['flag.reviewSummary']}</h2>
+  <h2 class="readiness-title m-0 text-[1rem]">{data.copy['flag.reviewSummary']}</h2>
   <ModerationReadinessSummary
     label={data.copy['flag.reviewSummary']}
     state={readinessState}
@@ -473,7 +483,7 @@
   />
 
   {#if standalone && showDecision}
-    <div class="standalone-actions">
+    <div class="standalone-actions sticky z-5 top-[var(--hv-app-header-height,0)]">
       <ModerationActionBar
         label={data.copy['flag.resolve']}
         disabled={editingSection !== null}
@@ -493,7 +503,7 @@
     </div>
   {/if}
 
-  <div class="review-sections">
+  <div class="review-sections grid gap-[0.65rem]">
     <!-- The section state is blocking only. Live drift stays a readiness warning that leaves this
          section collapsed, because drift is something to notice; a missing locale is something the
          Moderator has to type in here, so the section opens itself. -->
@@ -505,7 +515,7 @@
     >
       {#if editingSection === 'application'}
         <form
-          class="section-form"
+          class="section-form grid grid-cols-2 mt-[0.6rem] gap-[0.55rem] max-[44rem]:grid-cols-[1fr]"
           data-section-form="application"
           method="POST"
           action="?/saveCorrectionSection"
@@ -564,7 +574,9 @@
               value={data.flag.currentVerificationId ?? ''}
             />
             <SuggestionAccessConditionEditor copy={data.copy} bind:value={applicationCondition} />
-            <div class="date-grid">
+            <div
+              class="date-grid grid grid-cols-2 col-span-full gap-[0.55rem] max-[44rem]:grid-cols-[1fr] max-[44rem]:col-auto"
+            >
               <Field label={data.copy['flag.verifiedAt']} class="compact-field">
                 <Input name="verifiedAt" type="datetime-local" required bind:value={verifiedAt} />
               </Field>
@@ -577,8 +589,11 @@
                 />
               </Field>
             </div>
-            <fieldset class="wide">
-              <legend>{data.copy['evidenceField.section']}</legend><SuggestionEvidenceEditor
+            <fieldset
+              class="wide col-span-full min-w-0 m-0 p-[0.65rem] border border-border-subtle rounded-control max-[44rem]:col-auto"
+            >
+              <legend class="font-extrabold">{data.copy['evidenceField.section']}</legend
+              ><SuggestionEvidenceEditor
                 copy={data.copy}
                 bind:value={applicationEvidence}
                 showExplanation={false}
@@ -593,39 +608,59 @@
              the moment the claim was raised, in case it has been renamed or recategorized since. -->
         {@const snapshot = placeSnapshot(data.flag.currentValueSnapshot)}
         {#if snapshot}
-          <dl class="place-snapshot" data-place-snapshot>
-            <div>
-              <dt>{data.copy['flag.placeSnapshot']}</dt>
-              <dd>{snapshot.name.is} / {snapshot.name.en}</dd>
+          <dl class="place-snapshot grid m-0 gap-[0.55rem]" data-place-snapshot>
+            <div
+              class="grid grid-cols-[minmax(8rem,0.35fr)_1fr] min-w-0 gap-4 max-[44rem]:grid-cols-[1fr]"
+            >
+              <dt class="text-[0.72rem] font-extrabold text-basalt-muted">
+                {data.copy['flag.placeSnapshot']}
+              </dt>
+              <dd class="m-0 wrap-anywhere">{snapshot.name.is} / {snapshot.name.en}</dd>
             </div>
-            <div>
-              <dt>{data.copy['suggestion.category']}</dt>
-              <dd>{localizeStoredPlaceCategory(snapshot.category, data.copy)}</dd>
+            <div
+              class="grid grid-cols-[minmax(8rem,0.35fr)_1fr] min-w-0 gap-4 max-[44rem]:grid-cols-[1fr]"
+            >
+              <dt class="text-[0.72rem] font-extrabold text-basalt-muted">
+                {data.copy['suggestion.category']}
+              </dt>
+              <dd class="m-0 wrap-anywhere">
+                {localizeStoredPlaceCategory(snapshot.category, data.copy)}
+              </dd>
             </div>
-            <div>
-              <dt>{data.copy['moderation.localityLabel']}</dt>
-              <dd>{snapshot.locality}</dd>
+            <div
+              class="grid grid-cols-[minmax(8rem,0.35fr)_1fr] min-w-0 gap-4 max-[44rem]:grid-cols-[1fr]"
+            >
+              <dt class="text-[0.72rem] font-extrabold text-basalt-muted">
+                {data.copy['moderation.localityLabel']}
+              </dt>
+              <dd class="m-0 wrap-anywhere">{snapshot.locality}</dd>
             </div>
           </dl>
         {:else}
-          <p>{describeValue(data.flag.currentValueSnapshot)}</p>
+          <p class="m-0">{describeValue(data.flag.currentValueSnapshot)}</p>
         {/if}
       {:else}
-        <div class="diff-grid">
-          <article>
-            <span>{data.copy['flag.currentLiveValue']}</span><strong
-              >{describeValue(data.flag.currentLiveValue)}</strong
-            >
+        <div class="diff-grid grid grid-cols-3 gap-[0.55rem] max-[44rem]:grid-cols-[1fr]">
+          <article
+            class="grid gap-[0.4rem] p-[0.65rem] border border-border-subtle rounded-control"
+          >
+            <span class="text-[0.72rem] font-extrabold text-basalt-muted"
+              >{data.copy['flag.currentLiveValue']}</span
+            ><strong class="wrap-anywhere">{describeValue(data.flag.currentLiveValue)}</strong>
           </article>
-          <article>
-            <span>{data.copy['flag.currentValueSnapshot']}</span><strong
-              >{describeValue(data.flag.currentValueSnapshot)}</strong
-            >
+          <article
+            class="grid gap-[0.4rem] p-[0.65rem] border border-border-subtle rounded-control"
+          >
+            <span class="text-[0.72rem] font-extrabold text-basalt-muted"
+              >{data.copy['flag.currentValueSnapshot']}</span
+            ><strong class="wrap-anywhere">{describeValue(data.flag.currentValueSnapshot)}</strong>
           </article>
-          <article>
-            <span>{data.copy['flag.proposedValueLabel']}</span><strong
-              >{describeValue(effectiveProposedValue)}</strong
-            >
+          <article
+            class="grid gap-[0.4rem] p-[0.65rem] border border-border-subtle rounded-control"
+          >
+            <span class="text-[0.72rem] font-extrabold text-basalt-muted"
+              >{data.copy['flag.proposedValueLabel']}</span
+            ><strong class="wrap-anywhere">{describeValue(effectiveProposedValue)}</strong>
           </article>
         </div>
         {#if data.flag.kind === 'correction'}{@render editButton(
@@ -641,37 +676,46 @@
       summary={data.flag.evidence.source_label}
       state={data.flag.isSafetyConcern ? 'warning' : 'complete'}
     >
-      <div class="evidence-grid">
-        <article>
-          <h3>{data.copy['evidenceField.section']}</h3>
-          <p><strong>{data.flag.evidence.source_label}</strong></p>
-          <p>{data.flag.evidence.source_url ?? data.flag.evidence.source_citation}</p>
+      <div class="evidence-grid grid grid-cols-2 gap-[0.55rem] max-[44rem]:grid-cols-[1fr]">
+        <article class="grid gap-[0.4rem] p-[0.65rem] border border-border-subtle rounded-control">
+          <h3 class="m-0">{data.copy['evidenceField.section']}</h3>
+          <p class="m-0">
+            <strong class="wrap-anywhere">{data.flag.evidence.source_label}</strong>
+          </p>
+          <p class="m-0">{data.flag.evidence.source_url ?? data.flag.evidence.source_citation}</p>
           <time datetime={data.flag.evidence.observed_at}>{data.flag.evidence.observed_at}</time>
-          <p>{data.flag.explanation}</p>
-          {#if data.flag.privateNote}<p class="previous-note">
-              <strong>{data.copy['flag.previousPrivateNote']}</strong>
+          <p class="m-0">{data.flag.explanation}</p>
+          {#if data.flag.privateNote}<p
+              class="previous-note m-0 pl-[0.55rem] border-l-[0.25rem] border-l-signal"
+            >
+              <strong class="wrap-anywhere">{data.copy['flag.previousPrivateNote']}</strong>
               {data.flag.privateNote}
             </p>{/if}
         </article>
-        <article>
-          <h3>{data.copy['flag.currentVerification.section']}</h3>
-          {#if data.flag.currentVerificationId}<p>
+        <article class="grid gap-[0.4rem] p-[0.65rem] border border-border-subtle rounded-control">
+          <h3 class="m-0">{data.copy['flag.currentVerification.section']}</h3>
+          {#if data.flag.currentVerificationId}<p class="m-0">
               {data.copy['flag.currentVerification.status']}: {data.flag.currentVerificationStatus}
             </p>
-            <p>
+            <p class="m-0">
               {data.copy['flag.currentVerification.verifiedAt']}: {data.flag
                 .currentVerificationVerifiedAt}
             </p>
-            <p>
+            <p class="m-0">
               {data.copy['flag.currentVerification.freshnessUntil']}: {data.flag
                 .currentVerificationFreshnessUntil}
             </p>
-            {#if data.flag.currentVerificationEvidence}<ul>
+            {#if data.flag.currentVerificationEvidence}<ul
+                class="grid m-0 gap-[0.45rem] p-0 list-none"
+              >
                 {#each data.flag.currentVerificationEvidence as evidence (`${evidence.kind}-${evidence.sourceLabel}-${evidence.observedAt}`)}<li
+                    class="grid gap-[0.2rem]"
                   >
                     {evidence.kind} · {evidence.sourceLabel} · {evidence.observedAt}
                   </li>{/each}
-              </ul>{/if}{:else}<p>{data.copy['flag.currentVerification.none']}</p>{/if}
+              </ul>{/if}{:else}<p class="m-0">
+              {data.copy['flag.currentVerification.none']}
+            </p>{/if}
         </article>
       </div>
     </ModerationReviewSection>
@@ -684,13 +728,13 @@
         : data.copy['flag.noRelatedClaims']}
       state={data.related.length ? 'warning' : 'complete'}
     >
-      {#if data.related.length}<ul>
-          {#each data.related as related (related.flagId)}<li>
+      {#if data.related.length}<ul class="grid m-0 gap-[0.45rem] p-0 list-none">
+          {#each data.related as related (related.flagId)}<li class="grid gap-[0.2rem]">
               <strong>{data.copy[kindKey(related.kind)]}</strong><span
                 >{data.copy[statusKey(related.outcome)]} · {related.submittedAt}</span
               >
             </li>{/each}
-        </ul>{:else}<p>{data.copy['flag.noRelatedClaims']}</p>{/if}
+        </ul>{:else}<p class="m-0">{data.copy['flag.noRelatedClaims']}</p>{/if}
     </ModerationReviewSection>
 
     <ModerationReviewSection
@@ -701,10 +745,12 @@
         : data.copy['flag.section.inactivate']}
     >
       {#if data.flag.targetKind === 'access_condition'}
-        <section class="alternative">
-          <h3>{data.copy['flag.section.openDispute']}</h3>
+        <section
+          class="alternative grid gap-[0.4rem] p-[0.65rem] border border-border-subtle rounded-control"
+        >
+          <h3 class="m-0">{data.copy['flag.section.openDispute']}</h3>
           {#if editingSection === 'dispute'}<form
-              class="section-form"
+              class="section-form grid grid-cols-2 mt-[0.6rem] gap-[0.55rem] max-[44rem]:grid-cols-[1fr]"
               data-section-form="dispute"
               method="POST"
               action="?/saveCorrectionSection"
@@ -718,22 +764,27 @@
               <Field label={data.copy['flag.disputeReason']} class="compact-field wide">
                 <Textarea name="disputeReason" required rows={3} bind:value={disputeReason} />
               </Field>
-              <fieldset class="wide">
-                <legend>{data.copy['evidenceField.section']}</legend><SuggestionEvidenceEditor
+              <fieldset
+                class="wide col-span-full min-w-0 m-0 p-[0.65rem] border border-border-subtle rounded-control max-[44rem]:col-auto"
+              >
+                <legend class="font-extrabold">{data.copy['evidenceField.section']}</legend
+                ><SuggestionEvidenceEditor
                   copy={data.copy}
                   bind:value={disputeEvidence}
                   showExplanation={false}
                 />
               </fieldset>
               {@render sectionActions('dispute')}
-            </form>{:else}<p>{data.copy['flag.disputeBody']}</p>
+            </form>{:else}<p class="m-0">{data.copy['flag.disputeBody']}</p>
             {@render editButton('dispute', data.copy['flag.section.openDispute'])}{/if}
         </section>
       {/if}
-      <section class="alternative">
-        <h3>{data.copy['flag.section.inactivate']}</h3>
+      <section
+        class="alternative grid gap-[0.4rem] p-[0.65rem] border border-border-subtle rounded-control"
+      >
+        <h3 class="m-0">{data.copy['flag.section.inactivate']}</h3>
         {#if editingSection === 'transition'}<form
-            class="section-form"
+            class="section-form grid grid-cols-2 mt-[0.6rem] gap-[0.55rem] max-[44rem]:grid-cols-[1fr]"
             data-section-form="transition"
             method="POST"
             action="?/saveCorrectionSection"
@@ -748,7 +799,7 @@
               <Textarea name="decisionNotes" required rows={3} bind:value={decisionNotes} />
             </Field>
             {@render sectionActions('transition')}
-          </form>{:else}<p>{data.copy['flag.inactivateBody']}</p>
+          </form>{:else}<p class="m-0">{data.copy['flag.inactivateBody']}</p>
           {@render editButton('transition', data.copy['flag.section.inactivate'])}{/if}
       </section>
     </ModerationReviewSection>
@@ -757,7 +808,7 @@
   {#if showDecision}
     <form
       id="correction-decision"
-      class="decision-form"
+      class="decision-form hidden"
       method="POST"
       action="?/decideCorrection"
       use:enhance={enhanceForm}
@@ -852,7 +903,9 @@
 {/snippet}
 
 {#snippet sectionActions(sectionId: EditableSectionId)}
-  <div class="section-form-actions">
+  <div
+    class="section-form-actions flex justify-end col-span-full min-w-0 gap-2 max-[44rem]:col-auto"
+  >
     <Button type="button" intent="neutral" onclick={() => (editingSection = null)}
       >{data.copy['common.cancel']}</Button
     ><Button type="submit" intent="committed" disabled={savingSection === sectionId}
@@ -876,138 +929,12 @@
 {/snippet}
 
 <style>
-  .review-shell {
-    display: grid;
-    min-width: 0;
-    gap: 0.9rem;
-  }
-  .review-shell.standalone {
-    width: min(100% - 2rem, 64rem);
-    margin: 2rem auto;
-  }
-  .trusted-context {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem 0.7rem;
-    align-items: baseline;
-    border-left: 0.3rem solid var(--hv-color-moss);
-    background: color-mix(in srgb, var(--hv-color-moss) 9%, var(--hv-color-snow-raised));
-    padding: 0.75rem 0.85rem;
-  }
-  .trusted-context[data-outcome='superseded'] {
-    border-left-color: var(--hv-color-basalt-muted);
-  }
-  header,
-  .review-sections,
-  .section-form {
-    display: grid;
-    gap: 0.55rem;
-  }
-  h1,
-  h2,
-  h3,
-  p {
-    margin: 0;
-  }
-  h1 {
-    font-family: var(--hv-font-display);
-    font-size: clamp(2rem, 6vw, 4rem);
-    line-height: 1;
-  }
-  .eyebrow {
-    color: var(--hv-color-fjord);
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .summary {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    align-items: center;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.82rem;
-  }
-  .safety {
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-danger-soft);
-    padding: 0.2rem 0.45rem;
-    color: var(--hv-color-danger);
-    font-weight: 800;
-  }
-  .readiness-title {
-    font-size: 1rem;
-  }
-  .review-sections {
-    gap: 0.65rem;
-  }
-  .standalone-actions {
-    position: sticky;
-    z-index: 5;
-    top: var(--hv-app-header-height, 0);
-  }
-  .diff-grid,
-  .evidence-grid,
-  .date-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.55rem;
-  }
-  .place-snapshot {
-    display: grid;
-    gap: 0.55rem;
-    margin: 0;
-  }
-  .place-snapshot > div {
-    display: grid;
-    grid-template-columns: minmax(8rem, 0.35fr) 1fr;
-    gap: 1rem;
-    min-width: 0;
-  }
-  .place-snapshot dt {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.72rem;
-    font-weight: 800;
-  }
-  .place-snapshot dd {
-    margin: 0;
-    overflow-wrap: anywhere;
-  }
-  .evidence-grid,
-  .date-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  article,
-  .alternative {
-    display: grid;
-    gap: 0.4rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    padding: 0.65rem;
-  }
-  article span {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.72rem;
-    font-weight: 800;
-  }
-  article strong {
-    overflow-wrap: anywhere;
-  }
-  .section-form {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-top: 0.6rem;
-  }
   .section-form > :global(*),
-  .review-shell :global(.wide),
-  .section-form-actions {
+  .review-shell :global(.wide) {
     min-width: 0;
   }
   .section-form > :global(.field-grid),
-  .section-form > fieldset,
-  .review-shell :global(.wide),
-  .section-form-actions,
-  .date-grid {
+  .review-shell :global(.wide) {
     grid-column: 1 / -1;
   }
   /* Field renders its own label/control stack inside a child component, so scoped CSS cannot
@@ -1024,21 +951,6 @@
     font-size: 0.78rem;
     font-weight: 800;
   }
-  fieldset {
-    min-width: 0;
-    margin: 0;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    padding: 0.65rem;
-  }
-  legend {
-    font-weight: 800;
-  }
-  .section-form-actions {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
-  }
   /* Button renders its own <button> inside a child component, so scoped CSS cannot reach it
      directly - .edit-section is guaranteed to land on that rendered element because we pass it
      through Button's class prop ourselves (the FavouriteControl precedent). Button's neutral
@@ -1048,41 +960,9 @@
     margin-top: 0.55rem;
     margin-left: auto;
   }
-  ul {
-    display: grid;
-    gap: 0.45rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  li {
-    display: grid;
-    gap: 0.2rem;
-  }
-  .previous-note {
-    border-left: 0.25rem solid var(--hv-color-signal);
-    padding-left: 0.55rem;
-  }
-  .decision-form {
-    display: none;
-  }
   @media (max-width: 44rem) {
-    .review-shell.standalone {
-      width: min(100% - 1rem, 64rem);
-      margin: 0.5rem auto;
-    }
-    .diff-grid,
-    .evidence-grid,
-    .date-grid,
-    .section-form,
-    .place-snapshot > div {
-      grid-template-columns: 1fr;
-    }
     .section-form > :global(.field-grid),
-    .section-form > fieldset,
-    .review-shell :global(.wide),
-    .section-form-actions,
-    .date-grid {
+    .review-shell :global(.wide) {
       grid-column: auto;
     }
   }
