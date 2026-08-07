@@ -77,12 +77,25 @@
   select,
   textarea,
   ::file-selector-button {
+    margin: revert;
     padding: revert;
     border: revert;
     border-radius: revert;
     background: revert;
     color: revert;
     letter-spacing: revert;
+  }
+
+  button,
+  input:where([type='button'], [type='reset'], [type='submit']) {
+    appearance: revert;
+  }
+
+  ::file-selector-button {
+    appearance: revert;
+    font: revert;
+    font-feature-settings: revert;
+    font-variation-settings: revert;
   }
 
   ::placeholder {

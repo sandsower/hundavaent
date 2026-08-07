@@ -137,20 +137,30 @@ test('Tailwind preflight and the semantic baseline own browser normalization', a
   expect(getComputedStyle(link).textDecorationLine).toBe(defaultLinkStyles.textDecorationLine);
   expect(fixtureStyles.lineHeight).toBe('normal');
   expect(getComputedStyle(button).fontFamily).toBe(fixtureStyles.fontFamily);
+  expect(getComputedStyle(button).margin).toBe(defaultButtonStyles.margin);
   expect(getComputedStyle(button).padding).toBe(defaultButtonStyles.padding);
   expect(getComputedStyle(button).border).toBe(defaultButtonStyles.border);
   expect(getComputedStyle(button).backgroundColor).toBe(defaultButtonStyles.backgroundColor);
   expect(getComputedStyle(button).color).toBe(defaultButtonStyles.color);
+  expect(getComputedStyle(button).appearance).toBe(defaultButtonStyles.appearance);
   const fileButtonStyles = getComputedStyle(fileInput, '::file-selector-button');
   expect(fileButtonStyles.padding).toBe(defaultFileButtonStyles.padding);
   expect(fileButtonStyles.border).toBe(defaultFileButtonStyles.border);
   expect(fileButtonStyles.backgroundColor).toBe(defaultFileButtonStyles.backgroundColor);
+  expect(fileButtonStyles.appearance).toBe(defaultFileButtonStyles.appearance);
+  expect(fileButtonStyles.fontFamily).toBe(defaultFileButtonStyles.fontFamily);
+  expect(fileButtonStyles.fontSize).toBe(fixtureStyles.fontSize);
+  expect(fileButtonStyles.fontWeight).toBe(fixtureStyles.fontWeight);
+  expect(fileButtonStyles.lineHeight).toBe(defaultFileButtonStyles.lineHeight);
+  expect(getComputedStyle(checkbox).margin).toBe(defaultCheckboxStyles.margin);
   expect(getComputedStyle(checkbox).border).toBe(defaultCheckboxStyles.border);
   expect(getComputedStyle(checkbox).backgroundColor).toBe(defaultCheckboxStyles.backgroundColor);
   expect(getComputedStyle(checkbox).borderRadius).toBe(defaultCheckboxStyles.borderRadius);
+  expect(getComputedStyle(radio).margin).toBe(defaultRadioStyles.margin);
   expect(getComputedStyle(radio).border).toBe(defaultRadioStyles.border);
   expect(getComputedStyle(radio).backgroundColor).toBe(defaultRadioStyles.backgroundColor);
   expect(getComputedStyle(radio).borderRadius).toBe(defaultRadioStyles.borderRadius);
+  expect(getComputedStyle(textInput).margin).toBe(defaultTextInputStyles.margin);
   expect(getComputedStyle(textInput).border).toBe(defaultTextInputStyles.border);
   expect(getComputedStyle(textInput).backgroundColor).toBe(defaultTextInputStyles.backgroundColor);
   expect(getComputedStyle(textInput).borderRadius).toBe(defaultTextInputStyles.borderRadius);
@@ -158,6 +168,7 @@ test('Tailwind preflight and the semantic baseline own browser normalization', a
   expect(getComputedStyle(textInput, '::placeholder').opacity).toBe(
     defaultPlaceholderStyles.opacity
   );
+  expect(getComputedStyle(select).margin).toBe(defaultSelectStyles.margin);
   expect(getComputedStyle(select).border).toBe(defaultSelectStyles.border);
   expect(getComputedStyle(select).backgroundColor).toBe(defaultSelectStyles.backgroundColor);
   expect(getComputedStyle(select).borderRadius).toBe(defaultSelectStyles.borderRadius);
