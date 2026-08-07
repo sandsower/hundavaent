@@ -46,23 +46,16 @@
   class="preferences grid gap-context p-[clamp(1rem,4vw,1.5rem)] border border-[color-mix(in_srgb,var(--hv-color-fjord)_25%,var(--hv-border-subtle))] rounded-panel bg-snow-raised shadow-raised"
   aria-labelledby="roundup-preferences-heading"
 >
-  <header
-    class="preferences-header grid grid-cols-[auto_minmax(0,1fr)] items-start gap-[0.8rem]"
-  >
+  <header class="preferences-header grid grid-cols-[auto_minmax(0,1fr)] items-start gap-[0.8rem]">
     <span
       class="preferences-icon grid place-items-center size-10 rounded-[0.85rem] bg-[color-mix(in_srgb,var(--hv-color-fjord)_10%,white)] text-fjord"
       ><RoundupTrailIcon kind="private" size="small" /></span
     >
     <div>
-      <h2
-        id="roundup-preferences-heading"
-        class="m-0 font-display text-[1.35rem]"
-      >
+      <h2 id="roundup-preferences-heading" class="m-0 font-display text-[1.35rem]">
         {copy['roundup.preferencesTitle']}
       </h2>
-      <p
-        class="[margin-block:0.35rem_0] [margin-inline:0] leading-[1.5] text-basalt-muted"
-      >
+      <p class="[margin-block:0.35rem_0] [margin-inline:0] leading-[1.5] text-basalt-muted">
         {copy['roundup.preferencesIntro']}
       </p>
     </div>
@@ -74,12 +67,7 @@
     </Notice>
   {/if}
 
-  <form
-    class="grid gap-5"
-    method="POST"
-    action="?/savePreferences"
-    use:enhance={enhanceAction}
-  >
+  <form class="grid gap-5" method="POST" action="?/savePreferences" use:enhance={enhanceAction}>
     <!-- Baseline-first: these fieldsets render flat today (no border/padding/shadow), unlike the
          app's hv-form-section.hv-panel fieldsets elsewhere, so they stay native <fieldset>/<legend>
          rather than adopting FormSection - only the choice rows inside migrate to Choice. -->

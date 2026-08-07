@@ -110,8 +110,10 @@
       <Eyebrow class="my-[1em]">Hundavænt workspace</Eyebrow>
       <h1
         class="[margin:0.2rem_0_0] font-display text-[clamp(2.3rem,6vw,4rem)] font-[650] leading-none tracking-[-0.035em]"
-        id="translations-title">Translations</h1
+        id="translations-title"
       >
+        Translations
+      </h1>
       <p class="max-w-[62ch] [margin:0.65rem_0_0] text-basalt-muted">
         Update Icelandic and English as equal languages. Drafts stay private until publishing.
       </p>

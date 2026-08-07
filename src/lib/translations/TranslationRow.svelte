@@ -258,8 +258,10 @@
       >
       <h2
         class="[margin:0.15rem_0_0] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace] text-[0.95rem] leading-[1.35] [overflow-wrap:anywhere]"
-        id={`translation-${entry.key}`}>{entry.key}</h2
+        id={`translation-${entry.key}`}
       >
+        {entry.key}
+      </h2>
     </div>
     {#if changed.is || changed.en}
       <Status tone="attention">Unpublished</Status>

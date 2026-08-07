@@ -225,10 +225,7 @@
         : copy['checkIn.success'].replace('{name}', placeName)}
     </Status>
     {#if effectiveCheckedInAt}
-      <p
-        class="result-time m-0 text-[0.82rem] text-basalt-muted"
-        class:arrived={justCommitted}
-      >
+      <p class="result-time m-0 text-[0.82rem] text-basalt-muted" class:arrived={justCommitted}>
         {copy['checkIn.successAt'].replace('{time}', formatCheckInTime(effectiveCheckedInAt, lang))}
       </p>
     {/if}

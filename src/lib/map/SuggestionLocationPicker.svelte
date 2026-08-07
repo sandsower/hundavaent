@@ -122,9 +122,7 @@
 
   <div class="address-search grid gap-[0.35rem]" role="search">
     <Field label={copy['suggestion.locationSearchLabel']} class="field-label">
-      <span
-        class="search-row grid grid-cols-[minmax(0,1fr)_auto] gap-2 max-narrow:grid-cols-[1fr]"
-      >
+      <span class="search-row grid grid-cols-[minmax(0,1fr)_auto] gap-2 max-narrow:grid-cols-[1fr]">
         <Input
           type="search"
           bind:value={query}
@@ -231,8 +229,10 @@
   <p
     class="visually-hidden absolute h-px w-px m-[-1px] overflow-hidden p-0 border-0 whitespace-nowrap clip-[rect(0,0,0,0)]"
     role="status"
-    aria-live="polite">{announcement}</p
+    aria-live="polite"
   >
+    {announcement}
+  </p>
 </section>
 
 <style>
