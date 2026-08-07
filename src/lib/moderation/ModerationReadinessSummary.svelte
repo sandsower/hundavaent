@@ -36,16 +36,24 @@
   }
 </script>
 
-<section class="readiness" aria-label={label} data-readiness-state={state}>
-  <div class="readiness-head">
+<section
+  class="readiness grid gap-[0.65rem] py-[0.8rem] px-[0.9rem] border border-border-subtle border-l-[0.35rem] border-l-success rounded-panel bg-snow-raised data-[readiness-state=attention]:border-l-signal data-[readiness-state=blocked]:border-l-danger"
+  aria-label={label}
+  data-readiness-state={state}
+>
+  <div class="readiness-head grid gap-[0.2rem]">
     <Status tone={stateTones[state]} class="state">{stateLabel}</Status>
-    <p>{summary}</p>
+    <p class="m-0 text-[0.84rem] leading-[1.4] text-basalt-muted">{summary}</p>
   </div>
   {#if issues.length > 0}
-    <ul>
+    <ul class="grid gap-[0.4rem] m-0 p-0 list-none">
       {#each issues as issue (issue.sectionId + issue.label)}
-        <li data-severity={issue.severity}>
+        <li
+          class="py-[0.45rem] px-[0.55rem] rounded-control bg-signal-soft text-[0.8rem] font-extrabold data-[severity=blocking]:bg-danger-soft"
+          data-severity={issue.severity}
+        >
           <a
+            class="text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px]"
             href={`#${issue.sectionId}`}
             onclick={(event) => revealSection(event, issue.sectionId)}
           >
@@ -58,25 +66,6 @@
 </section>
 
 <style>
-  .readiness {
-    display: grid;
-    gap: 0.65rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-left: 0.35rem solid var(--hv-color-success);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow-raised);
-    padding: 0.8rem 0.9rem;
-  }
-  .readiness[data-readiness-state='attention'] {
-    border-left-color: var(--hv-color-signal);
-  }
-  .readiness[data-readiness-state='blocked'] {
-    border-left-color: var(--hv-color-danger);
-  }
-  .readiness-head {
-    display: grid;
-    gap: 0.2rem;
-  }
   /* Status renders its span inside a child component, so Svelte's scoped CSS cannot reach it
      directly - the .state class is guaranteed to land on that rendered element because we pass
      it through Status's class prop ourselves (the FavouriteControl precedent). Only the
@@ -86,37 +75,5 @@
     width: fit-content;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-  }
-  p,
-  ul {
-    margin: 0;
-  }
-  p {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.84rem;
-    line-height: 1.4;
-  }
-  ul {
-    display: grid;
-    gap: 0.4rem;
-    padding: 0;
-    list-style: none;
-  }
-  li {
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-signal-soft);
-    padding: 0.45rem 0.55rem;
-    font-size: 0.8rem;
-    font-weight: 800;
-  }
-  li[data-severity='blocking'] {
-    background: var(--hv-color-danger-soft);
-  }
-  a {
-    color: var(--hv-color-basalt);
-  }
-  a:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
   }
 </style>

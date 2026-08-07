@@ -26,33 +26,13 @@
 
 <Dialog {open} size="compact" class="grid gap-[0.75rem]" {oncancel}>
   {#snippet title()}
-    <h2>{titleText}</h2>
+    <h2 class="m-0 font-display text-[1.35rem]">{titleText}</h2>
   {/snippet}
-  <p>{description}</p>
-  <div class="actions">
+  <p class="m-0 leading-[1.45] text-basalt-muted">{description}</p>
+  <div class="actions flex justify-end gap-[0.6rem]">
     <Button intent="neutral" onclick={oncancel}>{cancelLabel}</Button>
     <Button intent={tone === 'danger' ? 'danger' : 'committed'} onclick={onconfirm}>
       {confirmLabel}
     </Button>
   </div>
 </Dialog>
-
-<style>
-  h2,
-  p {
-    margin: 0;
-  }
-  h2 {
-    font-family: var(--hv-font-display);
-    font-size: 1.35rem;
-  }
-  p {
-    color: var(--hv-color-basalt-muted);
-    line-height: 1.45;
-  }
-  .actions {
-    display: flex;
-    gap: 0.6rem;
-    justify-content: flex-end;
-  }
-</style>
