@@ -10,6 +10,15 @@ import WheelchairAccessibilityBadge from '$lib/discovery/WheelchairAccessibility
 // rendering the app ships instead of a shadow copy that could silently diverge from it.
 import '../../src/app.css';
 
+function resolvedBackground(customProperty: string): string {
+  const probe = document.createElement('div');
+  probe.style.backgroundColor = `var(${customProperty})`;
+  document.body.append(probe);
+  const background = getComputedStyle(probe).backgroundColor;
+  probe.remove();
+  return background;
+}
+
 function contrastRatio(foreground: string, background: string): number {
   const luminance = (color: string) => {
     const channels = color
@@ -37,7 +46,11 @@ describe('WheelchairAccessibilityBadge', () => {
 
     expect(screen.getByText('Accessibility unknown')).toBeTruthy();
     expect(screen.queryByRole('button')).toBeNull();
-    expect(container.querySelector('[data-wheelchair-accessibility="unknown"]')).toBeTruthy();
+    const badge = container.querySelector<HTMLElement>('[data-wheelchair-accessibility="unknown"]');
+    expect(badge).toBeTruthy();
+    expect(getComputedStyle(badge!).backgroundColor).toBe(
+      resolvedBackground('--hv-access-unknown')
+    );
     expect(container.querySelector('[data-wheelchair-modifier="unknown"]')?.textContent).toBe('?');
   });
 
@@ -47,7 +60,13 @@ describe('WheelchairAccessibilityBadge', () => {
       copy: catalogues.en
     });
 
+    const badge = container.querySelector<HTMLElement>(
+      '[data-wheelchair-accessibility="accessible"]'
+    );
     expect(screen.getByText('Wheelchair accessible')).toBeTruthy();
+    expect(getComputedStyle(badge!).backgroundColor).toBe(
+      resolvedBackground('--hv-color-moss-soft')
+    );
     expect(container.querySelector('[data-wheelchair-modifier]')).toBeNull();
   });
 
@@ -57,7 +76,13 @@ describe('WheelchairAccessibilityBadge', () => {
       copy: catalogues.en
     });
 
+    const badge = container.querySelector<HTMLElement>(
+      '[data-wheelchair-accessibility="not_accessible"]'
+    );
     expect(screen.getByText('Not wheelchair accessible')).toBeTruthy();
+    expect(getComputedStyle(badge!).backgroundColor).toBe(
+      resolvedBackground('--hv-color-danger-soft')
+    );
     expect(container.querySelector('[data-wheelchair-modifier="not_accessible"]')).toBeTruthy();
   });
 
@@ -67,7 +92,13 @@ describe('WheelchairAccessibilityBadge', () => {
       copy: catalogues.en
     });
 
+    const badge = container.querySelector<HTMLElement>(
+      '[data-wheelchair-accessibility="partially_accessible"]'
+    );
     expect(screen.getByText('Partially wheelchair accessible')).toBeTruthy();
+    expect(getComputedStyle(badge!).backgroundColor).toBe(
+      resolvedBackground('--hv-access-special')
+    );
     expect(
       container.querySelector('[data-wheelchair-modifier="partially_accessible"]')?.textContent
     ).toBe('½');

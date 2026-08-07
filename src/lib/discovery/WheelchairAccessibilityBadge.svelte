@@ -90,7 +90,7 @@
     <!-- .badge's line-height: 1.05 was overridden by .chip's later font: inherit. -->
     <button
       type="button"
-      class="badge chip {accessibility} inline-flex w-fit min-h-8 cursor-pointer items-center gap-[0.42rem] py-[0.24rem] pr-[0.55rem] pl-[0.3rem] border border-basalt rounded-[999px] bg-access-unknown [font-family:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] text-[0.72rem] font-extrabold text-basalt [transition:border-color_var(--hv-fade-quick)_var(--hv-ease-settle),transform_var(--hv-motion-quick)_var(--hv-ease-settle),box-shadow_var(--hv-fade-quick)_var(--hv-ease-settle)] [&.accessible]:bg-moss-soft [&.partially_accessible]:bg-access-special [&.not_accessible]:bg-danger-soft hover:border-fjord hover:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] hover:transform-[translateY(-2px)] focus-visible:border-fjord focus-visible:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] focus-visible:transform-[translateY(-2px)] focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] aria-[expanded=true]:border-fjord aria-[expanded=true]:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] aria-[expanded=true]:transform-[translateY(-2px)]"
+      class="badge chip {accessibility} inline-flex w-fit min-h-8 cursor-pointer items-center gap-[0.42rem] py-[0.24rem] pr-[0.55rem] pl-[0.3rem] border border-basalt rounded-[999px] bg-access-unknown [font-family:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] text-[0.72rem] font-extrabold text-basalt [transition:border-color_var(--hv-fade-quick)_var(--hv-ease-settle),transform_var(--hv-motion-quick)_var(--hv-ease-settle),box-shadow_var(--hv-fade-quick)_var(--hv-ease-settle)] [&.accessible]:bg-moss-soft [&.partially\_accessible]:bg-access-special [&.not\_accessible]:bg-danger-soft hover:border-fjord hover:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] hover:transform-[translateY(-2px)] focus-visible:border-fjord focus-visible:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] focus-visible:transform-[translateY(-2px)] focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] aria-[expanded=true]:border-fjord aria-[expanded=true]:shadow-[0_0.35rem_0.9rem_rgb(20_41_39_/_14%)] aria-[expanded=true]:transform-[translateY(-2px)]"
       data-wheelchair-accessibility={accessibility}
       aria-expanded={open}
       aria-controls={open ? detailId : undefined}
@@ -122,7 +122,7 @@
   </p>
 {:else}
   <span
-    class="badge {accessibility} inline-flex w-fit min-h-8 items-center gap-[0.42rem] py-[0.24rem] pr-[0.55rem] pl-[0.3rem] border border-basalt rounded-[999px] bg-access-unknown text-[0.72rem] leading-[1.05] font-extrabold text-basalt [&.accessible]:bg-moss-soft [&.partially_accessible]:bg-access-special [&.not_accessible]:bg-danger-soft"
+    class="badge {accessibility} inline-flex w-fit min-h-8 items-center gap-[0.42rem] py-[0.24rem] pr-[0.55rem] pl-[0.3rem] border border-basalt rounded-[999px] bg-access-unknown text-[0.72rem] leading-[1.05] font-extrabold text-basalt [&.accessible]:bg-moss-soft [&.partially\_accessible]:bg-access-special [&.not\_accessible]:bg-danger-soft"
     data-wheelchair-accessibility={accessibility}
   >
     {@render badgeFace()}
