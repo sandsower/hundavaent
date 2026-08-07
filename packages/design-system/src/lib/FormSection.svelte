@@ -3,8 +3,8 @@
   import type { HTMLFieldsetAttributes } from 'svelte/elements';
 
   interface FormSectionOwnProps {
-    /** Rendered as a plain <legend>, UA-styled, first inside the fieldset when given - baseline
-        parity with the shipped suggest/+page.svelte legends, no utilities layered onto it. */
+    /** Rendered as a plain <legend>, first inside the fieldset when given. The shared semantic
+        baseline preserves the native geometry explicitly, with no local utilities layered on. */
     legend?: string;
     /** Call-site hooks and non-conflicting layout utilities only - the same contract as every
         other primitive's class prop. */
@@ -33,9 +33,8 @@
   );
 </script>
 
-<!-- No margin reset on the fieldset itself: the shipped .hv-form-section fieldsets keep the UA's
-     small inline margins today, and this migration is pixel-parity-first - resetting it here
-     would be a net-new change disguised as a codification. -->
+<!-- No margin reset on the fieldset itself: the shared semantic baseline codifies the small
+     inline margins these sections rendered before preflight, preserving pixel parity. -->
 <fieldset class={classes} {...rest}>
   {#if legend}
     <legend>{legend}</legend>

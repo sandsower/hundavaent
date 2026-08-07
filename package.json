@@ -29,6 +29,7 @@
     "test:database": "supabase test db",
     "eval:release": "node --experimental-strip-types scripts/evaluate-release.ts",
     "open-source:check": "node --experimental-strip-types scripts/check-open-source-readiness.ts",
+    "tailwind:check": "node --experimental-strip-types scripts/check-tailwind-residual-styles.ts",
     "translations:sync-from-production": "node --experimental-strip-types scripts/sync-published-interface-translations.ts",
     "ingest:launch-leads": "node --experimental-strip-types scripts/ingest-launch-leads.ts",
     "audit:launch-geometry": "node --experimental-strip-types scripts/geocode-launch-leads.ts --audit",

@@ -1,7 +1,6 @@
-/* The Tailwind side of the design language. Theme, utilities, and a single base rule: preflight
-   is deliberately absent for the whole migration window, because its resets would reflow every
-   surface that still styles itself and the migration's proof is pixel parity. Revisit once
-   nothing else is left to reset.
+/* The Tailwind side of the design language. Theme, preflight, utilities, and the shared base
+   rules ship together now that every app surface declares its presentation explicitly. Preflight
+   owns browser normalization while component utilities preserve the migration's proven geometry.
 
    Every mapping references the live --hv-* custom property rather than restating its value, so
    there is exactly one source of truth and, just as load-bearing: [data-ui-mode='operations']
@@ -17,7 +16,150 @@
    boundaries exactly as the primitive classes do today. Inlining literal values here (as opposed
    to inlining the reference) would silently freeze every utility to Member mode. */
 @import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/preflight.css' layer(base);
 @import 'tailwindcss/utilities.css' layer(utilities);
+
+/* Preflight removes browser-dependent semantic-content presentation. Targeted `revert` values
+   hand only those legacy properties back to each browser's UA origin, preserving the geometry
+   each engine rendered before preflight without baking Chromium metrics into the design system.
+   Utilities live in a later layer and continue to override this compatibility baseline. New
+   surfaces should still use the design-system recipes rather than depending on these defaults. */
+@layer base {
+  html {
+    line-height: revert;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: revert;
+    font-size: revert;
+    font-weight: revert;
+  }
+
+  p,
+  dl,
+  pre {
+    margin: revert;
+  }
+
+  small {
+    font-size: revert;
+  }
+
+  dd {
+    margin: revert;
+  }
+
+  figure {
+    margin: revert;
+  }
+
+  ul,
+  ol,
+  menu {
+    margin: revert;
+    padding: revert;
+    list-style: revert;
+  }
+
+  fieldset {
+    margin: revert;
+    padding: revert;
+    border: revert;
+  }
+
+  legend {
+    padding: revert;
+  }
+
+  button,
+  input,
+  select,
+  textarea,
+  ::file-selector-button {
+    margin: revert;
+    padding: revert;
+    border: revert;
+    border-radius: revert;
+    background: revert;
+    color: revert;
+    letter-spacing: revert;
+  }
+
+  button,
+  input:where([type='button'], [type='reset'], [type='submit']) {
+    appearance: revert;
+  }
+
+  ::file-selector-button {
+    appearance: revert;
+    font: revert;
+    font-feature-settings: revert;
+    font-variation-settings: revert;
+  }
+
+  ::-webkit-search-decoration {
+    appearance: revert;
+  }
+
+  ::-webkit-date-and-time-value {
+    min-height: revert;
+    text-align: revert;
+  }
+
+  ::-webkit-datetime-edit {
+    display: revert;
+  }
+
+  ::-webkit-datetime-edit-fields-wrapper,
+  ::-webkit-datetime-edit,
+  ::-webkit-datetime-edit-year-field,
+  ::-webkit-datetime-edit-month-field,
+  ::-webkit-datetime-edit-day-field,
+  ::-webkit-datetime-edit-hour-field,
+  ::-webkit-datetime-edit-minute-field,
+  ::-webkit-datetime-edit-second-field,
+  ::-webkit-datetime-edit-millisecond-field,
+  ::-webkit-datetime-edit-meridiem-field {
+    padding-block: revert;
+  }
+
+  ::-webkit-calendar-picker-indicator {
+    line-height: revert;
+  }
+
+  ::placeholder {
+    color: revert;
+    opacity: revert;
+  }
+
+  img,
+  svg,
+  video,
+  canvas,
+  audio,
+  iframe,
+  embed,
+  object {
+    display: revert;
+    vertical-align: revert;
+  }
+
+  img,
+  video {
+    max-width: revert;
+    height: revert;
+  }
+
+  a:any-link {
+    color: revert;
+    text-decoration: revert;
+  }
+}
 
 /* Single focus-ring owner for every focusable element in any surface that imports this file - the
    app and Storybook both do, so this is the one place the ring is declared. It lives in

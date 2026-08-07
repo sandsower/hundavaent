@@ -24,9 +24,9 @@
   // wrapper element itself is no longer part of the contract: eyebrow, title, intro, and the
   // action band all sit directly in the header.
   //
-  // Children are expected to be the zero-margin primitives (Eyebrow, PageTitle, Meta) or
-  // wrapper divs; a bare <p> child would reintroduce user-agent margins on top of the gap,
-  // which is the caller's to avoid.
+  // Children are expected to be the design-system typography primitives (Eyebrow, PageTitle,
+  // Meta) or wrapper divs. Preflight removes user-agent margins from bare elements, but those
+  // elements still would not carry the package's intentional typography contract.
   const classes = $derived(['grid gap-panel', className].filter(Boolean).join(' '));
 </script>
 

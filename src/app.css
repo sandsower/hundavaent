@@ -1,6 +1,6 @@
 /* Declared before anything loads so the order is set by intent, not import accident: this list
    names every layer the app sequences. */
-@layer hundavaent.base, hundavaent.tokens, theme, base, components, utilities;
+@layer hundavaent.tokens, theme, base, components, utilities;
 
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/source-serif-4';
@@ -15,10 +15,6 @@
   font-synthesis: none;
 }
 
-* {
-  box-sizing: border-box;
-}
-
 html {
   min-width: 20rem;
   min-height: 100%;
@@ -27,7 +23,6 @@ html {
 
 body {
   min-height: 100vh;
-  margin: 0;
   background: var(--hv-color-snow, #f2f5f1);
   color: var(--hv-color-basalt, #1e2d31);
 }
@@ -36,19 +31,6 @@ body {
 body:has(header[data-ui-mode='place']) {
   background: var(--hv-color-snow, #f2f5f1);
   color: var(--hv-color-basalt, #1e2d31);
-}
-
-/* Layered, and first in the layer order, so it normalises form elements without outranking
-   anything that declares a font on purpose. Unlayered, this reset silently beat every layered
-   rule - .hv-control's font-weight: 800 never reached a single <button>, only anchors, and the
-   same control rendered two weights depending on its element. */
-@layer hundavaent.base {
-  button,
-  input,
-  select,
-  textarea {
-    font: inherit;
-  }
 }
 
 a {
