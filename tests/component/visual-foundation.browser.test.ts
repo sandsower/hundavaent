@@ -39,12 +39,12 @@ test('the visual foundation is deterministic across browser hosts', async () => 
 test('Tailwind preflight and the semantic baseline own browser normalization', async () => {
   const fixture = document.createElement('section');
   fixture.innerHTML =
-    '<h1>Heading</h1><p>Paragraph</p><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><input type="checkbox"><input type="radio"><input type="text" placeholder="Placeholder"><select><option>Option</option></select><img alt="" width="10" height="5"><svg></svg>';
+    '<h1>Heading</h1><p>Paragraph</p><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><input type="checkbox"><input type="radio"><input type="text" placeholder="Placeholder"><input type="search"><input type="date"><select><option>Option</option></select><img alt="" width="10" height="5"><svg></svg>';
   document.body.append(fixture);
 
   const browserDefaults = document.createElement('iframe');
   browserDefaults.srcdoc =
-    '<h1>Heading</h1><p>Paragraph</p><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><input type="checkbox"><input type="radio"><input type="text" placeholder="Placeholder"><select><option>Option</option></select><img alt="" width="10" height="5"><svg></svg>';
+    '<h1>Heading</h1><p>Paragraph</p><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><input type="checkbox"><input type="radio"><input type="text" placeholder="Placeholder"><input type="search"><input type="date"><select><option>Option</option></select><img alt="" width="10" height="5"><svg></svg>';
   await new Promise<void>((resolve) => {
     browserDefaults.addEventListener('load', () => resolve(), { once: true });
     document.body.append(browserDefaults);
@@ -61,6 +61,8 @@ test('Tailwind preflight and the semantic baseline own browser normalization', a
   const checkbox = fixture.querySelector('input[type="checkbox"]')!;
   const radio = fixture.querySelector('input[type="radio"]')!;
   const textInput = fixture.querySelector('input[type="text"]')!;
+  const searchInput = fixture.querySelector('input[type="search"]')!;
+  const dateInput = fixture.querySelector('input[type="date"]')!;
   const select = fixture.querySelector('select')!;
   const image = fixture.querySelector('img')!;
   const svg = fixture.querySelector('svg')!;
@@ -102,6 +104,26 @@ test('Tailwind preflight and the semantic baseline own browser normalization', a
   const defaultPlaceholderStyles = browserDefaults.contentWindow!.getComputedStyle(
     defaultTextInput,
     '::placeholder'
+  );
+  const defaultSearchDecorationStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('input[type="search"]')!,
+    '::-webkit-search-decoration'
+  );
+  const defaultDateValueStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('input[type="date"]')!,
+    '::-webkit-date-and-time-value'
+  );
+  const defaultDateEditStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('input[type="date"]')!,
+    '::-webkit-datetime-edit'
+  );
+  const defaultDateFieldsStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('input[type="date"]')!,
+    '::-webkit-datetime-edit-fields-wrapper'
+  );
+  const defaultCalendarIndicatorStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('input[type="date"]')!,
+    '::-webkit-calendar-picker-indicator'
   );
   const defaultSelectStyles = browserDefaults.contentWindow!.getComputedStyle(
     browserDefaults.contentDocument!.querySelector('select')!
@@ -167,6 +189,24 @@ test('Tailwind preflight and the semantic baseline own browser normalization', a
   expect(getComputedStyle(textInput, '::placeholder').color).toBe(defaultPlaceholderStyles.color);
   expect(getComputedStyle(textInput, '::placeholder').opacity).toBe(
     defaultPlaceholderStyles.opacity
+  );
+  expect(getComputedStyle(searchInput, '::-webkit-search-decoration').appearance).toBe(
+    defaultSearchDecorationStyles.appearance
+  );
+  expect(getComputedStyle(dateInput, '::-webkit-date-and-time-value').minHeight).toBe(
+    defaultDateValueStyles.minHeight
+  );
+  expect(getComputedStyle(dateInput, '::-webkit-date-and-time-value').textAlign).toBe(
+    defaultDateValueStyles.textAlign
+  );
+  expect(getComputedStyle(dateInput, '::-webkit-datetime-edit').display).toBe(
+    defaultDateEditStyles.display
+  );
+  expect(getComputedStyle(dateInput, '::-webkit-datetime-edit-fields-wrapper').paddingBlock).toBe(
+    defaultDateFieldsStyles.paddingBlock
+  );
+  expect(getComputedStyle(dateInput, '::-webkit-calendar-picker-indicator').lineHeight).toBe(
+    defaultCalendarIndicatorStyles.lineHeight
   );
   expect(getComputedStyle(select).margin).toBe(defaultSelectStyles.margin);
   expect(getComputedStyle(select).border).toBe(defaultSelectStyles.border);
