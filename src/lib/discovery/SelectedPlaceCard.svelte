@@ -286,14 +286,16 @@
       <!-- A flag on an Access Condition proposes the whole Condition object, so a second edit
            raised beside it would build from the stored value and propose reverting the first.
            Every affordance on that Condition says pending, not just the one already sent. -->
-      <p class="pending-correction" data-correction-pending tabindex="-1">
+      <!-- Focusable only so this card can land the Member on the line that replaced the editor they just
+           sent from; it is never in the tab order. -->
+      <p class="pending-correction m-[0.45rem_0_0] text-[0.75rem] font-[750] leading-[1.35] text-basalt-muted focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]" data-correction-pending tabindex="-1">
         {copy['inlineCorrection.pending']}
       </p>
     {:else if dimension === 'timing'}
       <!-- eslint-disable svelte/no-navigation-without-resolve -- correctConditionHref builds the path with $app/paths resolve() -->
       <a
         href={correctConditionHref(lang, place.placeId, correctableCondition.id)}
-        class="timing-link"
+        class="timing-link inline-flex min-h-6 items-center mt-[0.45rem] py-[0.15rem] px-[0.4rem] rounded-control text-[0.72rem] font-[800] text-fjord underline focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
         aria-label={copy['inlineCorrection.timingLinkLabel'].replace('{name}', place.name)}
       >
         {copy['inlineCorrection.timingLink']}
@@ -330,7 +332,7 @@
   {#if mobilityPending}
     <!-- A pending wheelchair Correction proposes the whole fact, so the one affordance the panel
          holds says pending rather than inviting a second claim beside the first. -->
-    <p class="pending-correction" data-correction-pending tabindex="-1">
+    <p class="pending-correction m-[0.45rem_0_0] text-[0.75rem] font-[750] leading-[1.35] text-basalt-muted focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]" data-correction-pending tabindex="-1">
       {copy['inlineCorrection.pending']}
     </p>
   {:else}
@@ -368,16 +370,16 @@
      renders). The one live utility rides directly on the locally-authored element rather than a
      <Panel> wrapper so the scoped root rules keep matching. -->
 <aside
-  class="selected-place bg-snow-raised"
+  class="selected-place flex h-full max-h-none flex-col overflow-hidden bg-snow-raised"
   aria-label={copy['directory.selectedPlace']}
   data-overlay="place"
 >
-  <div class="card-heading">
-    <div class="summary">
-      <h2>{place.name}</h2>
-      <span>{copy[categoryKeys[place.category]]} · {place.locality}</span>
+  <div class="card-heading sticky z-1 top-0 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 p-panel border-b border-border-subtle bg-snow-raised">
+    <div class="summary grid gap-[0.2rem]">
+      <h2 class="m-0 font-display text-[clamp(1.35rem,4vw,1.75rem)] font-[650] leading-[1.1]">{place.name}</h2>
+      <span class="text-[0.82rem] font-[700] text-basalt-muted">{copy[categoryKeys[place.category]]} · {place.locality}</span>
     </div>
-    <div class="heading-actions">
+    <div class="heading-actions flex items-start gap-[0.4rem]">
       <FavouriteControl
         placeId={place.placeId}
         placeName={place.name}
@@ -429,7 +431,7 @@
     <WeeklyRhythmAcknowledgement subjectName={place.name} {recognition} {copy} />
   {/if}
 
-  <div class="card-body" data-card-scroll-body>
+  <div class="card-body min-h-0 overflow-y-auto overscroll-contain pt-0 px-panel pb-panel" data-card-scroll-body>
     <!-- The published photos and the affordance are one surface, so the strip renders whenever the
          profile has photos. When it has none, the list's own summary photo still stands (it is
          what a reader saw a moment ago in the results) and the surface renders beside it holding
@@ -439,7 +441,7 @@
       {@render photoSurface(profile.photos)}
     {:else}
       {#if place.primaryPhoto}
-        <figure class="summary-photo" data-summary-photo>
+        <figure class="summary-photo overflow-hidden m-[0_0_0.8rem] border border-border-subtle rounded-panel bg-fjord-soft" data-summary-photo>
           <RefreshablePlaceImage
             placeId={place.placeId}
             mediaId={place.primaryPhoto.mediaId}
@@ -449,7 +451,7 @@
             width={place.primaryPhoto.widthPx}
             height={place.primaryPhoto.heightPx}
           />
-          <figcaption>
+          <figcaption class="py-[0.35rem] px-2">
             <PhotoCredit
               attributionText={place.primaryPhoto.attributionText}
               attributionUrl={place.primaryPhoto.attributionUrl}
@@ -467,10 +469,10 @@
 
     <section
       bind:this={welcomeAnswer}
-      class="welcome-answer"
+      class="welcome-answer grid gap-[0.55rem] py-[0.35rem]"
       aria-labelledby={`welcome-${place.placeId}`}
     >
-      <h3 id={`welcome-${place.placeId}`}>{copy['place.welcomeQuestion']}</h3>
+      <h3 class="text-[0.78rem] font-[850] tracking-[0.06em] uppercase text-basalt" id={`welcome-${place.placeId}`}>{copy['place.welcomeQuestion']}</h3>
       <AccessSymbols
         placeName={place.name}
         conditions={profile?.accessConditions ?? place.accessConditions}
@@ -482,10 +484,10 @@
 
     <section
       bind:this={mobilitySection}
-      class="mobility-access"
+      class="mobility-access grid justify-items-start gap-[0.45rem] my-[0.65rem]"
       aria-labelledby={`mobility-${place.placeId}`}
     >
-      <h3 id={`mobility-${place.placeId}`}>{copy['wheelchairAccessibility.heading']}</h3>
+      <h3 class="m-0 text-[0.78rem] tracking-[0.06em] uppercase" id={`mobility-${place.placeId}`}>{copy['wheelchairAccessibility.heading']}</h3>
       <WheelchairAccessibilityBadge
         state={profile?.wheelchairAccessibility ?? place.wheelchairAccessibility}
         {copy}
@@ -494,7 +496,7 @@
       />
     </section>
 
-    <div class="member-actions">
+    <div class="member-actions grid gap-[0.45rem] my-[0.65rem]">
       {#if signedIn}
         <CheckInControl
           placeId={place.placeId}
@@ -523,7 +525,10 @@
 
     {#if loading && !profile}
       <Notice as="p" tone="info" class="details-status loading-status" role="status">
-        <span class="paw-trail" data-paw-trail aria-hidden="true">
+        <!-- A trail of paw prints filling one after another while the details load. The fill rides the
+             fade family, so the trail keeps padding along for Members who prefer reduced motion: colour
+             changes in place, nothing travels. The tilts are static. -->
+        <span class="paw-trail inline-flex flex-none gap-1 text-brand-paw" data-paw-trail aria-hidden="true">
           <PawMark />
           <PawMark />
           <PawMark />
@@ -540,18 +545,21 @@
         {#snippet summary()}
           <span>{copy['place.showPracticalDetails']}</span>
         {/snippet}
-        <div class="complete-details">
+        <div class="complete-details grid gap-[0.8rem] py-[0.2rem] px-0">
           <section aria-labelledby={`access-${place.placeId}`}>
-            <h3 id={`access-${place.placeId}`}>{copy['place.accessHeading']}</h3>
-            <ol class:single={profile.accessConditions.length === 1} class="conditions">
+            <!-- The details sections carry the same quiet uppercase labels as the card's own sections
+                 (the welcome answer, the mobility badge), so the disclosure reads as more of the card
+                 rather than a different document. -->
+            <h3 class="m-0 text-[0.78rem] font-[850] tracking-[0.06em] uppercase text-basalt" id={`access-${place.placeId}`}>{copy['place.accessHeading']}</h3>
+            <ol class:single={profile.accessConditions.length === 1} class="conditions group/conditions grid list-none gap-[0.55rem] m-[0.45rem_0_0] p-0">
               {#each profile.accessConditions as condition, index (condition.id)}
-                <li class="condition-card">
+                <li class="condition-card p-[0.8rem] border border-border-subtle rounded-panel bg-snow-raised group-[.single]/conditions:p-0 group-[.single]/conditions:border-0 group-[.single]/conditions:bg-transparent">
                   {#if profile.accessConditions.length > 1}
                     <strong
                       >{copy['place.conditionLabel'].replace('{number}', String(index + 1))}</strong
                     >
                   {/if}
-                  <p>
+                  <p class="my-[0.3rem] leading-[1.4]">
                     {explainAccessCondition(
                       {
                         id: condition.id,
@@ -575,10 +583,10 @@
             </ol>
           </section>
 
-          <section>
-            <h3>{copy['place.openingHours']}</h3>
+          <section class="pt-[0.8rem] border-t border-border-subtle">
+            <h3 class="m-0 text-[0.78rem] font-[850] tracking-[0.06em] uppercase text-basalt">{copy['place.openingHours']}</h3>
             {#if Object.keys(profile.openingHours).length > 0}
-              <ul class="opening-hours">
+              <ul class="opening-hours grid list-none gap-[0.2rem] my-[0.3rem] p-0 leading-[1.4]">
                 {#each formatOpeningHoursRows(profile.openingHours, copy) as row (row.key)}
                   <li>{row.text}</li>
                 {/each}
@@ -587,28 +595,28 @@
               <p>{copy['common.notAvailable']}</p>
             {/if}
           </section>
-          <section>
-            <h3>{copy['place.amenities']}</h3>
+          <section class="pt-[0.8rem] border-t border-border-subtle">
+            <h3 class="m-0 text-[0.78rem] font-[850] tracking-[0.06em] uppercase text-basalt">{copy['place.amenities']}</h3>
             <p>
               {profile.dogAmenities.length > 0
                 ? formatDogAmenities(profile.dogAmenities, copy)
                 : copy['place.amenitiesUnknown']}
             </p>
           </section>
-          <div class="place-contact">
-            <p class="place-address">
+          <div class="place-contact grid gap-[0.45rem] pt-[0.8rem] border-t border-border-subtle">
+            <p class="place-address m-0 text-[0.85rem] font-[700] text-basalt">
               {profile.location.addressLine}, {profile.location.postalCode}
               {profile.location.locality}
             </p>
             {#if profile.websiteUrl || profile.phone}
-              <nav class="place-links" aria-label={copy['place.usefulLinks']}>
+              <nav class="place-links flex flex-wrap gap-3" aria-label={copy['place.usefulLinks']}>
                 {#if profile.websiteUrl}
                   <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external place URL -->
-                  <a href={profile.websiteUrl} rel="noreferrer">{copy['place.website']}</a>
+                  <a class="text-[0.82rem] font-[800] text-fjord focus-visible:rounded-control focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]" href={profile.websiteUrl} rel="noreferrer">{copy['place.website']}</a>
                 {/if}
                 {#if profile.phone}
                   <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external tel URL -->
-                  <a href={`tel:${profile.phone.replaceAll(' ', '')}`}>
+                  <a class="text-[0.82rem] font-[800] text-fjord focus-visible:rounded-control focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]" href={`tel:${profile.phone.replaceAll(' ', '')}`}>
                     {copy['place.phone']} · {profile.phone}
                   </a>
                 {/if}
@@ -635,21 +643,6 @@
 </aside>
 
 <style>
-  .selected-place {
-    display: flex;
-    height: 100%;
-    flex-direction: column;
-    max-height: none;
-    overflow: hidden;
-  }
-
-  .card-body {
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding: 0 var(--hv-space-panel) var(--hv-space-panel);
-  }
-
   .selected-place > :global([data-weekly-rhythm-acknowledgement]) {
     width: calc(100% - (2 * var(--hv-space-panel)));
     flex: 0 0 auto;
@@ -696,16 +689,6 @@
     align-items: center;
   }
 
-  /* A trail of paw prints filling one after another while the details load. The fill rides the
-     fade family, so the trail keeps padding along for Members who prefer reduced motion: colour
-     changes in place, nothing travels. The tilts are static. */
-  .paw-trail {
-    display: inline-flex;
-    flex: 0 0 auto;
-    gap: 0.25rem;
-    color: var(--hv-color-brand-paw);
-  }
-
   .paw-trail :global(.paw-mark) {
     width: 1.05rem;
     animation: paw-trail-fills calc(var(--hv-fade-considered) * 4) var(--hv-ease-settle) infinite
@@ -738,73 +721,10 @@
     }
   }
 
-  .pending-correction {
-    margin: 0.45rem 0 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.75rem;
-    font-weight: 750;
-    line-height: 1.35;
-  }
-
-  /* Focusable only so this card can land the Member on the line that replaced the editor they just
-     sent from; it is never in the tab order. */
-  .pending-correction:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
-  .timing-link {
-    display: inline-flex;
-    min-height: 1.5rem;
-    align-items: center;
-    margin-top: 0.45rem;
-    padding: 0.15rem 0.4rem;
-    border-radius: var(--hv-radius-control);
-    color: var(--hv-color-fjord);
-    font-size: 0.72rem;
-    font-weight: 800;
-    text-decoration: underline;
-  }
-
-  .timing-link:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
-  .member-actions {
-    display: grid;
-    gap: 0.45rem;
-    margin-block: 0.65rem;
-  }
-
-  .mobility-access {
-    display: grid;
-    gap: 0.45rem;
-    margin-block: 0.65rem;
-    justify-items: start;
-  }
-
-  .mobility-access h3 {
-    margin: 0;
-    font-size: 0.78rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
   .card-body > :global(.place-photos) {
     margin-block: 0 0.8rem;
     border: 1px solid var(--hv-border-subtle);
     border-radius: var(--hv-radius-panel);
-  }
-
-  .summary-photo {
-    margin: 0 0 0.8rem;
-    overflow: hidden;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-fjord-soft);
   }
 
   .summary-photo :global(img) {
@@ -812,10 +732,6 @@
     width: 100%;
     height: 5.2rem;
     object-fit: cover;
-  }
-
-  .summary-photo figcaption {
-    padding: 0.35rem 0.5rem;
   }
 
   /* basalt-muted is not a readable pair with fjord-soft: at this caption's 0.68rem the credit
@@ -865,21 +781,6 @@
     scale: 0.94;
   }
 
-  .welcome-answer {
-    display: grid;
-    gap: 0.55rem;
-    padding-block: 0.35rem;
-  }
-
-  .welcome-answer h3,
-  .welcome-answer h3 {
-    color: var(--hv-color-basalt);
-    font-size: 0.78rem;
-    font-weight: 850;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
   /* Card-local spacing above the disclosure, not something Disclosure.svelte owns - re-anchored
      through .card-body (locally authored) with :global() on the data-complete-details marker,
      since Disclosure now renders the <details> element itself. The summary/chevron rules that
@@ -888,134 +789,6 @@
      verbatim (see its own comments) and renders its own chevron. */
   .card-body :global([data-complete-details]) {
     margin-top: 0.75rem;
-  }
-
-  .complete-details {
-    display: grid;
-    gap: 0.8rem;
-    padding: 0.2rem 0 0.2rem;
-  }
-
-  /* The details sections carry the same quiet uppercase labels as the card's own sections
-     (the welcome answer, the mobility badge), so the disclosure reads as more of the card
-     rather than a different document. */
-  .complete-details h3 {
-    margin: 0;
-    color: var(--hv-color-basalt);
-    font-size: 0.78rem;
-    font-weight: 850;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  .complete-details > section + section,
-  .place-contact {
-    border-top: 1px solid var(--hv-border-subtle);
-    padding-top: 0.8rem;
-  }
-
-  .place-contact {
-    display: grid;
-    gap: 0.45rem;
-  }
-
-  .conditions {
-    display: grid;
-    gap: 0.55rem;
-    margin: 0.45rem 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .conditions > li {
-    padding: 0.8rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow-raised);
-  }
-
-  .conditions.single > li {
-    padding: 0;
-    border: 0;
-    background: transparent;
-  }
-
-  .conditions p {
-    margin: 0.3rem 0;
-    line-height: 1.4;
-  }
-
-  .opening-hours {
-    display: grid;
-    gap: 0.2rem;
-    margin: 0.3rem 0;
-    padding: 0;
-    list-style: none;
-    line-height: 1.4;
-  }
-
-  .place-address {
-    margin: 0;
-    color: var(--hv-color-basalt);
-    font-size: 0.85rem;
-    font-weight: 700;
-  }
-
-  .place-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-
-  .place-links a {
-    color: var(--hv-color-fjord);
-    font-size: 0.82rem;
-    font-weight: 800;
-  }
-
-  .place-links a:focus-visible {
-    border-radius: var(--hv-radius-control);
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
-  .card-heading {
-    position: sticky;
-    z-index: 1;
-    top: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.75rem;
-    align-items: start;
-    padding: var(--hv-space-panel);
-    border-bottom: 1px solid var(--hv-border-subtle);
-    background: var(--hv-color-snow-raised);
-  }
-
-  .heading-actions {
-    display: flex;
-    gap: 0.4rem;
-    align-items: start;
-  }
-
-  .summary {
-    display: grid;
-    gap: 0.2rem;
-  }
-
-  .summary h2 {
-    margin: 0;
-    font-family: var(--hv-font-display);
-    font-size: clamp(1.35rem, 4vw, 1.75rem);
-    font-weight: 650;
-    line-height: 1.1;
-  }
-
-  .summary span {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.82rem;
-    font-weight: 700;
   }
 
   /* Button renders its own <button> element in a child component, so scoped CSS cannot reach it
