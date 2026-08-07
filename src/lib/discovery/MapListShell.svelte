@@ -995,9 +995,19 @@
   }
 </script>
 
-<div class="map-list-boundary" bind:this={responsiveBoundary}>
+<div
+  class="map-list-boundary w-full h-full min-h-0 isolate @container/directory-shell"
+  bind:this={responsiveBoundary}
+>
+  <!-- How far the suggest pill sits above the shell's own edge inset, so it clears the map
+       attribution strip. The pill reads it from here rather than carrying its own copy. -->
+  <!-- The band along the bottom edge the pill owns: its lift, its height, and the rail's own
+       gap. The floating panels subtract it on short viewports, where a height measured in dvh
+       would otherwise run a scrolling list under a pill that takes its own pointer events. -->
+  <!-- No reduced-motion overrides here: every duration above is a motion token, and the tokens
+       collapse to zero under reduce on their own. -->
   <div
-    class="map-list-shell"
+    class="map-list-shell group/shell relative w-full h-full min-h-0 overflow-hidden bg-snow [--directory-rail-width:clamp(20rem,29cqw,26rem)] [--floating-card-inset:var(--hv-space-edge,0.75rem)] [--chrome-top:calc(var(--hv-app-header-height,4.4rem)+0.35rem)] [--suggest-dock-lift:1.75rem] [--suggest-dock-reserve:calc(var(--floating-card-inset)+var(--suggest-dock-lift)+var(--hv-control-height,2.75rem)+0.6rem)]"
     data-responsive-shell
     data-map-failed={mapFailed}
     data-map-moving={mapMoving}
@@ -1011,21 +1021,33 @@
         : 'none'}
     style:--detail-safe-right={`${mapViewportPadding.right}px`}
   >
+    <!-- The map owns the viewport; every other surface floats above it. -->
+    <!-- Map gestures are quiet: while the user pans or zooms, the browse chrome
+         steps back and returns on its own when the gesture settles. Opacity only:
+         a transform would become the containing block for the fixed detail card. -->
+    <!-- Compact is the only layout that stacks the rail and the pill in one column, and the pill
+         is the only permanent way to add a missing Place: it keeps its band, and a panel that can
+         be scrolled gives ground. The rail gives back exactly the band and no more, so a taller
+         viewport loses nothing; the sheet cannot be shrunk by its container, so it is capped. -->
     <aside
-      class="directory-sidebar"
+      class="directory-sidebar absolute flex flex-col z-[2] top-[var(--chrome-top)] bottom-[var(--floating-card-inset)] left-[var(--floating-card-inset)] w-[var(--directory-rail-width)] min-w-0 min-h-0 gap-[0.6rem] pointer-events-none transition-opacity duration-[var(--hv-fade-quick)] ease-settle group-data-[map-moving=true]/shell:group-data-[detail-layout=none]/shell:opacity-[0.35] [@container_directory-shell_(max-width:57.999rem)]:right-[var(--floating-card-inset)] [@container_directory-shell_(max-width:57.999rem)]:w-auto [@container_directory-shell_(max-width:57.999rem)]:group-data-[detail-layout=rail]/shell:z-10 [@container_directory-shell_(max-width:57.999rem)]:group-data-[detail-layout=none]/shell:group-data-[focus-fold=false]/shell:bottom-[var(--suggest-dock-reserve)]"
       bind:this={directorySidebar}
       data-directory-sidebar
       aria-label={copy['directory.listLabel']}
     >
       {#if manualFold}
-        <div class="focus-cluster">
+        <div class="focus-cluster flex pointer-events-none">
           <button
             type="button"
-            class="focus-search"
+            class="focus-search grid place-items-center w-control h-control p-0 border border-border-subtle rounded-[999px] bg-snow-raised text-basalt-muted cursor-pointer pointer-events-auto shadow-raised focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
             aria-label={copy['directory.openSearch']}
             onclick={unfoldToSearch}
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
+            <svg
+              class="w-[1.2rem] h-[1.2rem] stroke-current"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               <circle cx="10.5" cy="10.5" r="6.75" fill="none" stroke-width="2.2" />
               <line x1="15.6" y1="15.6" x2="21" y2="21" stroke-width="2.2" stroke-linecap="round" />
             </svg>
@@ -1057,9 +1079,16 @@
       {/if}
 
       {#if !filtersOpen}
-        <div class="rail-stack">
+        <div class="rail-stack flex flex-col min-w-0 min-h-0 gap-[0.6rem] pointer-events-none">
           {#if selectedPlace}
-            <div class="selected-place-overlay rail-content" data-selected-place-overlay>
+            <!-- The compact answer card (state 4) sizes to its content; opening
+                 "Place details" grows the same card (state 5) - nothing else moves. -->
+            <!-- The boundary's size containment makes it the containing block for
+                 fixed descendants, so the card pins to the shell's top-right corner. -->
+            <div
+              class="selected-place-overlay rail-content flex z-[4] w-full min-w-0 min-h-0 flex-[0_1_auto] box-border overflow-hidden overscroll-contain border border-moss rounded-shell bg-snow-raised shadow-floating pointer-events-auto [@container_directory-shell_(min-width:76rem)]:fixed [@container_directory-shell_(min-width:76rem)]:top-[var(--chrome-top)] [@container_directory-shell_(min-width:76rem)]:right-[var(--floating-card-inset)] [@container_directory-shell_(min-width:76rem)]:bottom-auto [@container_directory-shell_(min-width:76rem)]:left-auto [@container_directory-shell_(min-width:76rem)]:w-[var(--directory-rail-width)] [@container_directory-shell_(min-width:76rem)]:flex-none [@container_directory-shell_(max-width:57.999rem)]:fixed [@container_directory-shell_(max-width:57.999rem)]:z-[9] [@container_directory-shell_(max-width:57.999rem)]:top-auto [@container_directory-shell_(max-width:57.999rem)]:right-[var(--floating-card-inset)] [@container_directory-shell_(max-width:57.999rem)]:bottom-[max(var(--floating-card-inset),env(safe-area-inset-bottom))] [@container_directory-shell_(max-width:57.999rem)]:left-[var(--floating-card-inset)] [@container_directory-shell_(max-width:57.999rem)]:w-auto [@container_directory-shell_(max-width:57.999rem)]:max-h-[min(34rem,calc(100dvh-6.5rem))] [@container_directory-shell_(max-width:57.999rem)]:flex-none [@media(max-height:42rem)]:group-data-[shell-layout=compact]/shell:top-[5.5rem] [@media(max-height:42rem)]:group-data-[shell-layout=compact]/shell:right-[var(--floating-card-inset)] [@media(max-height:42rem)]:group-data-[shell-layout=compact]/shell:bottom-[var(--floating-card-inset)] [@media(max-height:42rem)]:group-data-[shell-layout=compact]/shell:left-auto [@media(max-height:42rem)]:group-data-[shell-layout=compact]/shell:w-[min(24rem,48vw)]"
+              data-selected-place-overlay
+            >
               <!-- Keyed so selecting a different Place recreates the card: its internal
                interaction state (for example a completed Check-in) must never carry over. -->
               {#key `${lang}:${selectedPlace.placeId}`}
@@ -1091,8 +1120,11 @@
           {/if}
 
           {#if filteredPlaces.length > 0 && !manualFold}
+            <!-- Unfolding the tray is an arrival: display flipping from none restarts the animation,
+                 so every unfold replays the same slide (and the cascade inside it). Folding snaps -
+                 the departure pattern everywhere in this shell. -->
             <div
-              class="results-overlay rail-content"
+              class="results-overlay rail-content w-full min-w-0 min-h-0 flex-[0_1_auto] overflow-auto overscroll-contain border border-border-subtle rounded-shell bg-snow-raised shadow-floating pointer-events-auto data-[results-visible=false]:hidden [@container_directory-shell_(max-width:57.999rem)]:max-h-[min(34rem,46dvh)]"
               data-results-visible={(discoveryState.view === 'list' &&
                 (!selectedPlace || dualView)) ||
                 mapFailed}
@@ -1120,34 +1152,58 @@
               />
             </div>
           {:else if !manualFold}
-            <div class="empty-state rail-content" role="status">
-              <span class="empty-paw" aria-hidden="true"><PawMark /></span>
+            <div
+              class="empty-state rail-content grid content-start min-w-0 min-h-0 flex-[0_1_auto] gap-[0.4rem] p-4 overflow-auto overscroll-contain border border-border-subtle rounded-shell bg-snow-raised shadow-floating pointer-events-auto [@container_directory-shell_(max-width:57.999rem)]:max-h-[min(34rem,46dvh)]"
+              role="status"
+            >
+              <span class="empty-paw w-6 text-basalt-muted" aria-hidden="true"><PawMark /></span>
               <strong>{copy['directory.noResultsTitle']}</strong>
               <span>{copy['directory.noResultsBody']}</span>
-              <button type="button" onclick={clearFilters}>{copy['directory.clearFilters']}</button>
+              <button
+                type="button"
+                class="justify-self-start mt-[0.35rem] py-2 px-3 border border-basalt rounded-control bg-signal [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-extrabold text-basalt"
+                onclick={clearFilters}>{copy['directory.clearFilters']}</button
+              >
             </div>
           {/if}
         </div>
       {/if}
 
       {#if manualFold}
-        <button type="button" class="focus-places" onclick={unfoldFromPill}>
-          <span class="focus-count">{filteredPlaces.length}</span>
+        <button
+          type="button"
+          class="focus-places inline-flex items-center self-start mt-auto gap-[0.55rem] py-2 pr-4 pl-[0.55rem] border border-basalt rounded-[999px] bg-basalt [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[850] text-snow-raised shadow-floating cursor-pointer pointer-events-auto focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+          onclick={unfoldFromPill}
+        >
+          <span
+            class="focus-count inline-grid place-items-center min-w-6 py-[0.1rem] px-[0.45rem] rounded-[999px] bg-signal text-[0.8rem] font-black text-basalt"
+            >{filteredPlaces.length}</span
+          >
           {focusPillLabel}
         </button>
       {/if}
 
       {#if selectedPlace && discoveryState.view === 'list' && !mapFailed && !manualFold && !dualView}
+        <!-- A selection folds an open list to the left edge tab; the count badge
+             keeps the slice alive while the card owns the screen. The tab slides in
+             from the edge it lives on, mirroring the tray it stands in for. -->
+        <!-- The tab is the way back to the list while the card owns the screen:
+             it rises clear of the sheet's usual top edge, and stacks above the
+             sheet on short viewports instead of peeking out as a buried sliver. -->
         <button
           type="button"
-          class="list-edge-tab"
+          class="list-edge-tab absolute grid place-items-center top-[min(38dvh,24rem)] left-[calc(-1*var(--floating-card-inset))] gap-[0.2rem] pt-[0.55rem] pr-2 pb-2 pl-[0.6rem] border border-border-subtle border-l-0 rounded-[0_0.75rem_0.75rem_0] bg-snow-raised text-basalt-muted cursor-pointer pointer-events-auto shadow-raised focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] [@container_directory-shell_(max-width:57.999rem)]:group-data-[detail-layout=rail]/shell:z-10 [@container_directory-shell_(max-width:57.999rem)]:group-data-[detail-layout=rail]/shell:top-[min(26dvh,18rem)]"
           aria-label={resultPlaces.length === 1
             ? copy['directory.showResultOne']
             : copy['directory.showResults'].replace('{count}', String(resultPlaces.length))}
           onclick={expandListTab}
         >
-          <span class="tab-count">{resultPlaces.length}</span>
-          <span class="tab-chevron" aria-hidden="true">›</span>
+          <span
+            class="tab-count inline-grid place-items-center min-w-6 py-[0.1rem] px-[0.45rem] rounded-[999px] bg-signal text-[0.8rem] font-black text-basalt"
+            >{resultPlaces.length}</span
+          >
+          <span class="tab-chevron text-[1.1rem] font-black leading-none" aria-hidden="true">›</span
+          >
         </button>
       {/if}
     </aside>
@@ -1164,9 +1220,18 @@
       />
     {/if}
 
-    <section class="map-panel" data-active="true" aria-labelledby="map-heading">
-      <h2 id="map-heading" class="visually-hidden">{copy['directory.mapLabel']}</h2>
-      <div class="map-stage">
+    <section
+      class="map-panel absolute z-0 inset-0 min-w-0 min-h-0 isolate"
+      data-active="true"
+      aria-labelledby="map-heading"
+    >
+      <h2
+        id="map-heading"
+        class="visually-hidden absolute w-px h-px -m-px p-0 overflow-hidden border-0 whitespace-nowrap [clip:rect(0,0,0,0)]"
+      >
+        {copy['directory.mapLabel']}
+      </h2>
+      <div class="map-stage relative w-full h-full min-h-0">
         <MapSurface
           {adapter}
           places={mapPlaces}
@@ -1185,19 +1250,29 @@
           viewerLocation={viewerPoint}
         />
         {#if !mapFailed}
+          <!-- The locate control rides directly under the zoom cluster and mirrors its layout moves
+               below: it is shell chrome, not a MapLibre control, so each rule that repositions
+               .maplibregl-ctrl-top-right has a twin here. -->
+          <!-- The locate control carries no MapLibre margin, so it takes the safe offset whole. -->
+          <!-- The full-width cluster owns the top strip here, and the zoom controls have already
+               moved to the bottom corner: the locate control stacks directly above them. -->
           <!-- aria-disabled instead of disabled: a disabled element drops keyboard focus to the
                body mid-interaction, and the click guard below does the actual gating. -->
           <button
             type="button"
-            class="locate-control"
+            class="locate-control absolute grid place-items-center z-[2] top-[calc(var(--chrome-top)+5.1rem)] right-[var(--floating-card-inset)] w-10 h-10 min-h-10 p-0 border border-border-subtle rounded-[999px] bg-snow-raised text-basalt cursor-pointer shadow-raised transition-transform duration-[var(--hv-motion-instant)] ease-settle aria-disabled:cursor-not-allowed aria-disabled:opacity-[0.62] not-aria-disabled:hover:transform-[translateY(-1px)] not-aria-disabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] [@container_directory-shell_(min-width:76rem)]:group-data-[detail-layout=floating]/shell:right-[var(--detail-safe-right)] [@container_directory-shell_(min-width:76rem)]:group-data-[detail-layout=floating]/shell:[transition:right_var(--hv-motion-considered)_var(--hv-ease-settle),transform_var(--hv-motion-instant)_var(--hv-ease-settle)] [@container_directory-shell_(max-width:57.999rem)]:top-auto [@container_directory-shell_(max-width:57.999rem)]:bottom-[6.8rem] [@container_directory-shell_(max-width:57.999rem)]:group-data-[detail-layout=rail]/shell:invisible"
             data-locate-control
             aria-label={copy['directory.locateMe']}
             aria-disabled={locationState === 'locating'}
             onclick={locateFromControl}
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
+            <svg
+              class="w-5 h-5 fill-none stroke-current [stroke-linecap:round] [stroke-width:2]"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               <circle cx="12" cy="12" r="4.4" fill="none" />
-              <circle cx="12" cy="12" r="1.3" class="locate-dot" stroke="none" />
+              <circle cx="12" cy="12" r="1.3" class="locate-dot fill-current" stroke="none" />
               <line x1="12" y1="3" x2="12" y2="6.4" />
               <line x1="12" y1="17.6" x2="12" y2="21" />
               <line x1="3" y1="12" x2="6.4" y2="12" />
@@ -1211,7 +1286,7 @@
 </div>
 
 <noscript>
-  <section class="noscript-results" aria-labelledby="noscript-list-heading">
+  <section class="noscript-results mt-4" aria-labelledby="noscript-list-heading">
     <h2 id="noscript-list-heading">{copy['directory.listLabel']}</h2>
     <PlaceList
       places={filteredPlaces}
@@ -1223,177 +1298,17 @@
   </section>
 </noscript>
 
-<p class="visually-hidden" role="status" aria-live="polite">{announcement}</p>
+<p
+  class="visually-hidden absolute w-px h-px -m-px p-0 overflow-hidden border-0 whitespace-nowrap [clip:rect(0,0,0,0)]"
+  role="status"
+  aria-live="polite"
+>
+  {announcement}
+</p>
 
 <style>
-  .map-list-boundary {
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    isolation: isolate;
-    container: directory-shell / inline-size;
-  }
-
-  .map-list-shell {
-    --directory-rail-width: clamp(20rem, 29cqw, 26rem);
-    --floating-card-inset: var(--hv-space-edge, 0.75rem);
-    --chrome-top: calc(var(--hv-app-header-height, 4.4rem) + 0.35rem);
-    /* How far the suggest pill sits above the shell's own edge inset, so it clears the map
-       attribution strip. The pill reads it from here rather than carrying its own copy. */
-    --suggest-dock-lift: 1.75rem;
-    /* The band along the bottom edge the pill owns: its lift, its height, and the rail's own
-       gap. The floating panels subtract it on short viewports, where a height measured in dvh
-       would otherwise run a scrolling list under a pill that takes its own pointer events. */
-    --suggest-dock-reserve: calc(
-      var(--floating-card-inset) + var(--suggest-dock-lift) + var(--hv-control-height, 2.75rem) +
-        0.6rem
-    );
-    position: relative;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
-    background: var(--hv-color-snow);
-  }
-
-  /* The map owns the viewport; every other surface floats above it. */
-  .directory-sidebar {
-    position: absolute;
-    z-index: 2;
-    top: var(--chrome-top);
-    bottom: var(--floating-card-inset);
-    left: var(--floating-card-inset);
-    display: flex;
-    width: var(--directory-rail-width);
-    min-width: 0;
-    min-height: 0;
-    flex-direction: column;
-    gap: 0.6rem;
-    pointer-events: none;
-  }
-
-  .rail-stack {
-    display: flex;
-    min-width: 0;
-    min-height: 0;
-    flex-direction: column;
-    gap: 0.6rem;
-    pointer-events: none;
-  }
-
-  .rail-content {
-    min-width: 0;
-    min-height: 0;
-    flex: 0 1 auto;
-    overflow: auto;
-    overscroll-behavior: contain;
-    pointer-events: auto;
-  }
-
-  .map-panel {
-    position: absolute;
-    z-index: 0;
-    inset: 0;
-    min-width: 0;
-    min-height: 0;
-    isolation: isolate;
-  }
-
-  /* Map gestures are quiet: while the user pans or zooms, the browse chrome
-     steps back and returns on its own when the gesture settles. Opacity only:
-     a transform would become the containing block for the fixed detail card. */
-  .directory-sidebar {
-    transition: opacity var(--hv-fade-quick) var(--hv-ease-settle);
-  }
-
-  .map-list-shell[data-map-moving='true'][data-detail-layout='none'] .directory-sidebar {
-    opacity: 0.35;
-  }
-
-  .focus-cluster {
-    display: flex;
-    pointer-events: none;
-  }
-
-  .focus-search {
-    display: grid;
-    width: var(--hv-control-height);
-    height: var(--hv-control-height);
-    padding: 0;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: 999px;
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-raised);
-    color: var(--hv-color-basalt-muted);
-    cursor: pointer;
-    place-items: center;
-    pointer-events: auto;
-  }
-
-  .focus-search svg {
-    width: 1.2rem;
-    height: 1.2rem;
-    stroke: currentColor;
-  }
-
-  .focus-places {
-    display: inline-flex;
-    margin-top: auto;
-    padding: 0.5rem 1rem 0.5rem 0.55rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: 999px;
-    background: var(--hv-color-basalt);
-    box-shadow: var(--hv-shadow-floating);
-    color: var(--hv-color-snow-raised);
-    cursor: pointer;
-    font: inherit;
-    font-weight: 850;
-    gap: 0.55rem;
-    align-items: center;
-    align-self: start;
-    pointer-events: auto;
-  }
-
-  .focus-count {
-    display: inline-grid;
-    min-width: 1.5rem;
-    padding: 0.1rem 0.45rem;
-    border-radius: 999px;
-    background: var(--hv-color-signal);
-    color: var(--hv-color-basalt);
-    font-size: 0.8rem;
-    font-weight: 900;
-    place-items: center;
-  }
-
-  .focus-search:focus-visible,
-  .focus-places:focus-visible,
-  .list-edge-tab:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
-  /* A selection folds an open list to the left edge tab; the count badge
-     keeps the slice alive while the card owns the screen. The tab slides in
-     from the edge it lives on, mirroring the tray it stands in for. */
   .list-edge-tab {
-    position: absolute;
-    top: min(38dvh, 24rem);
-    left: calc(-1 * var(--floating-card-inset));
     animation: edge-tab-enter var(--hv-motion-considered) var(--hv-ease-settle) both;
-    display: grid;
-    gap: 0.2rem;
-    padding: 0.55rem 0.5rem 0.5rem 0.6rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-left: 0;
-    border-radius: 0 0.75rem 0.75rem 0;
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-raised);
-    color: var(--hv-color-basalt-muted);
-    cursor: pointer;
-    place-items: center;
-    pointer-events: auto;
   }
 
   @keyframes edge-tab-enter {
@@ -1406,44 +1321,7 @@
     }
   }
 
-  .tab-count {
-    display: inline-grid;
-    min-width: 1.5rem;
-    padding: 0.1rem 0.45rem;
-    border-radius: 999px;
-    background: var(--hv-color-signal);
-    color: var(--hv-color-basalt);
-    font-size: 0.8rem;
-    font-weight: 900;
-    place-items: center;
-  }
-
-  .tab-chevron {
-    font-size: 1.1rem;
-    font-weight: 900;
-    line-height: 1;
-  }
-
-  .map-stage {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-  }
-
-  /* The compact answer card (state 4) sizes to its content; opening
-     "Place details" grows the same card (state 5) - nothing else moves. */
   .selected-place-overlay {
-    z-index: 4;
-    display: flex;
-    width: 100%;
-    flex: 0 1 auto;
-    overflow: hidden;
-    box-sizing: border-box;
-    border: 1px solid var(--hv-color-moss);
-    border-radius: var(--hv-radius-shell);
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-floating);
     animation: detail-card-enter var(--hv-motion-considered) var(--hv-ease-settle) both;
   }
 
@@ -1463,20 +1341,8 @@
     height: 100%;
   }
 
-  /* Unfolding the tray is an arrival: display flipping from none restarts the animation, so
-     every unfold replays the same slide (and the cascade inside it). Folding snaps - the
-     departure pattern everywhere in this shell. */
   .results-overlay {
-    width: 100%;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-shell);
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-floating);
     animation: tray-enter var(--hv-motion-considered) var(--hv-ease-settle) both;
-  }
-
-  .results-overlay[data-results-visible='false'] {
-    display: none;
   }
 
   @keyframes tray-enter {
@@ -1499,22 +1365,9 @@
     }
   }
 
-  .empty-state {
-    display: grid;
-    align-content: start;
-    gap: 0.4rem;
-    padding: 1rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-shell);
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-floating);
-  }
-
   /* An unfilled paw settling in: no place matched, but the trail is still open. The words
      stay still; only the decoration arrives. */
   .empty-state .empty-paw {
-    width: 1.5rem;
-    color: var(--hv-color-basalt-muted);
     animation: empty-paw-settles var(--hv-motion-considered) var(--hv-ease-settle) both;
   }
 
@@ -1526,34 +1379,6 @@
     to {
       transform: scale(1) rotate(0);
     }
-  }
-
-  .empty-state button {
-    justify-self: start;
-    margin-top: 0.35rem;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-signal);
-    color: var(--hv-color-basalt);
-    font: inherit;
-    font-weight: 800;
-  }
-
-  .noscript-results {
-    margin-top: 1rem;
-  }
-
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
   }
 
   .map-list-shell[data-map-failed='true'] :global(.map-failure) {
@@ -1586,61 +1411,6 @@
     margin-right: var(--floating-card-inset);
   }
 
-  /* The locate control rides directly under the zoom cluster and mirrors its layout moves
-     below: it is shell chrome, not a MapLibre control, so each rule that repositions
-     .maplibregl-ctrl-top-right has a twin here. */
-  .locate-control {
-    position: absolute;
-    z-index: 2;
-    top: calc(var(--chrome-top) + 5.1rem);
-    right: var(--floating-card-inset);
-    display: grid;
-    width: 2.5rem;
-    height: 2.5rem;
-    min-height: 2.5rem;
-    padding: 0;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: 999px;
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-raised);
-    color: var(--hv-color-basalt);
-    cursor: pointer;
-    place-items: center;
-    transition: transform var(--hv-motion-instant) var(--hv-ease-settle);
-  }
-
-  .locate-control:not([aria-disabled='true']):hover {
-    transform: translateY(-1px);
-  }
-
-  .locate-control:not([aria-disabled='true']):active {
-    transform: scale(0.94);
-  }
-
-  .locate-control[aria-disabled='true'] {
-    cursor: not-allowed;
-    opacity: 0.62;
-  }
-
-  .locate-control:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
-  .locate-control svg {
-    width: 1.25rem;
-    height: 1.25rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-width: 2;
-  }
-
-  .locate-control .locate-dot {
-    fill: currentColor;
-  }
-
   /* Without JavaScript the map never mounts: the chrome returns to static
      flow so the server-rendered directory below stays fully readable. */
   :global(body:has(.noscript-results)) .map-list-boundary,
@@ -1667,18 +1437,6 @@
   }
 
   @container directory-shell (min-width: 76rem) {
-    /* The boundary's size containment makes it the containing block for
-       fixed descendants, so the card pins to the shell's top-right corner. */
-    .selected-place-overlay {
-      position: fixed;
-      top: var(--chrome-top);
-      right: var(--floating-card-inset);
-      bottom: auto;
-      left: auto;
-      width: var(--directory-rail-width);
-      flex: none;
-    }
-
     .selected-place-overlay :global(aside) {
       max-height: calc(100dvh - var(--chrome-top) - var(--floating-card-inset));
     }
@@ -1701,38 +1459,9 @@
       right: calc(var(--detail-safe-right) - var(--floating-card-inset));
       transition: right var(--hv-motion-considered) var(--hv-ease-settle);
     }
-
-    /* The locate control carries no MapLibre margin, so it takes the safe offset whole. */
-    .map-list-shell[data-detail-layout='floating'] .locate-control {
-      right: var(--detail-safe-right);
-      transition:
-        right var(--hv-motion-considered) var(--hv-ease-settle),
-        transform var(--hv-motion-instant) var(--hv-ease-settle);
-    }
   }
 
   @container directory-shell (max-width: 57.999rem) {
-    .directory-sidebar {
-      right: var(--floating-card-inset);
-      width: auto;
-    }
-
-    .map-list-shell[data-detail-layout='rail'] .directory-sidebar {
-      z-index: 10;
-    }
-
-    .rail-content {
-      max-height: min(34rem, 46dvh);
-    }
-
-    /* Compact is the only layout that stacks the rail and the pill in one column, and the pill
-       is the only permanent way to add a missing Place: it keeps its band, and a panel that can
-       be scrolled gives ground. The rail gives back exactly the band and no more, so a taller
-       viewport loses nothing; the sheet cannot be shrunk by its container, so it is capped. */
-    .map-list-shell[data-detail-layout='none'][data-focus-fold='false'] .directory-sidebar {
-      bottom: var(--suggest-dock-reserve);
-    }
-
     /* Reached from here rather than from DiscoveryControls so the reservation is stated once,
        beside the variable that measures it. */
     .map-list-shell[data-detail-layout='none'][data-focus-fold='false']
@@ -1744,25 +1473,6 @@
       visibility: hidden;
     }
 
-    .map-list-shell[data-detail-layout='rail'] .locate-control {
-      visibility: hidden;
-    }
-
-    /* The full-width cluster owns the top strip here, and the zoom controls have already moved
-       to the bottom corner: the locate control stacks directly above them. */
-    .locate-control {
-      top: auto;
-      bottom: 6.8rem;
-    }
-
-    /* The tab is the way back to the list while the card owns the screen:
-       it rises clear of the sheet's usual top edge, and stacks above the
-       sheet on short viewports instead of peeking out as a buried sliver. */
-    .map-list-shell[data-detail-layout='rail'] .list-edge-tab {
-      z-index: 10;
-      top: min(26dvh, 18rem);
-    }
-
     /* The cluster spans the full width here, so the map controls move to the
        bottom corner instead of hiding behind it. */
     .map-stage :global(.maplibregl-ctrl-top-right) {
@@ -1770,35 +1480,10 @@
       bottom: 2.4rem;
     }
 
-    .selected-place-overlay {
-      position: fixed;
-      z-index: 9;
-      top: auto;
-      right: var(--floating-card-inset);
-      bottom: max(var(--floating-card-inset), env(safe-area-inset-bottom));
-      left: var(--floating-card-inset);
-      width: auto;
-      max-height: min(34rem, calc(100dvh - 6.5rem));
-      flex: none;
-    }
-
     .selected-place-overlay :global(aside) {
       height: auto;
       min-height: 0;
       max-height: min(34rem, calc(100dvh - 6.5rem));
-    }
-  }
-
-  /* No reduced-motion overrides here: every duration above is a motion token, and the tokens
-     collapse to zero under reduce on their own. */
-
-  @media (max-height: 42rem) {
-    .map-list-shell[data-shell-layout='compact'] .selected-place-overlay {
-      top: 5.5rem;
-      right: var(--floating-card-inset);
-      bottom: var(--floating-card-inset);
-      left: auto;
-      width: min(24rem, 48vw);
     }
   }
 </style>

@@ -180,19 +180,28 @@
   });
 </script>
 
-<div class="inline-correction">
+<div class="inline-correction grid justify-items-start mt-[0.45rem]">
   {#if open}
-    <fieldset bind:this={editor} class="editor" aria-labelledby={`${componentId}-legend`}>
-      <legend id={`${componentId}-legend`}>{legend ?? copy['inlineCorrection.legend']}</legend>
+    <fieldset
+      bind:this={editor}
+      class="editor grid w-full min-w-0 gap-2 m-0 py-[0.6rem] px-[0.7rem] border border-border-subtle rounded-[0.4rem] bg-snow-raised"
+      aria-labelledby={`${componentId}-legend`}
+    >
+      <legend
+        id={`${componentId}-legend`}
+        class="p-0 text-[0.72rem] font-[850] tracking-[0.05em] uppercase text-basalt"
+      >
+        {legend ?? copy['inlineCorrection.legend']}
+      </legend>
       <!-- The value the Member came to change always precedes the note, in DOM order and in the
            tab order, because the note is the optional afterthought and the value is the point. -->
       {#if controls}
-        <div bind:this={valueControls} class="value-controls">
+        <div bind:this={valueControls} class="value-controls grid min-w-0 gap-[0.4rem]">
           {@render controls({ dismiss, groupName: `${componentId}-choice` })}
         </div>
       {/if}
 
-      <label class="note">
+      <label class="note grid gap-1 text-[0.75rem] font-[750]">
         <span>{copy['inlineCorrection.note']}</span>
         <input
           bind:this={noteInput}
@@ -201,16 +210,22 @@
           bind:value={note}
           autocomplete="off"
           onkeydown={dismiss}
+          class="w-full py-[0.4rem] px-2 border border-border-subtle rounded-control [font-family:inherit] [font-style:inherit] [font-variant:inherit] [font-weight:inherit] [font-stretch:inherit] [line-height:inherit] text-[0.8rem]"
         />
       </label>
 
       {#if outcomeMessage}
-        <p class="outcome" data-correction-outcome>{outcomeMessage}</p>
+        <p
+          class="outcome m-0 text-[0.75rem] leading-[1.35] text-basalt-muted"
+          data-correction-outcome
+        >
+          {outcomeMessage}
+        </p>
       {/if}
 
-      <div class="actions">
+      <div class="actions flex items-center gap-2">
         <button
-          class="confirm"
+          class="confirm min-h-8 py-[0.3rem] px-[0.85rem] border border-fjord rounded-[999px] bg-fjord [font-family:inherit] [font-style:inherit] [font-variant:inherit] [font-stretch:inherit] [line-height:inherit] text-[0.78rem] font-[850] text-snow-raised cursor-pointer focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:[outline-offset:2px] disabled:cursor-not-allowed disabled:opacity-[0.55]"
           type="button"
           disabled={!canSend || sending}
           onclick={() => void confirm()}
@@ -218,15 +233,22 @@
         >
           {sending ? copy['inlineCorrection.sending'] : copy['inlineCorrection.confirm']}
         </button>
-        <button class="cancel" type="button" onclick={collapse} onkeydown={dismiss}>
+        <button
+          class="cancel inline-flex min-h-6 items-center py-[0.15rem] px-[0.4rem] border-0 bg-transparent [font-family:inherit] [font-style:inherit] [font-variant:inherit] [font-stretch:inherit] [line-height:inherit] text-[0.75rem] font-extrabold text-fjord underline cursor-pointer focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:[outline-offset:2px]"
+          type="button"
+          onclick={collapse}
+          onkeydown={dismiss}
+        >
           {copy['inlineCorrection.cancel']}
         </button>
       </div>
     </fieldset>
   {:else}
+    <!-- The entry point into the whole feature sits directly under the access chips, so it needs a
+         target a thumb can hit without toggling a chip. 1.5rem clears the WCAG 2.5.8 24px minimum. -->
     <button
       bind:this={trigger}
-      class="start"
+      class="start inline-flex min-h-6 items-center py-[0.15rem] px-[0.4rem] border-0 rounded-control bg-transparent [font-family:inherit] [font-style:inherit] [font-variant:inherit] [font-stretch:inherit] [line-height:inherit] text-[0.72rem] font-extrabold text-fjord underline cursor-pointer focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:[outline-offset:2px]"
       type="button"
       aria-label={startLabel}
       onclick={expand}
@@ -237,131 +259,14 @@
 </div>
 
 <style>
-  .inline-correction {
-    display: grid;
-    justify-items: start;
-    margin-top: 0.45rem;
-  }
-
-  /* The entry point into the whole feature sits directly under the access chips, so it needs a
-     target a thumb can hit without toggling a chip. 1.5rem clears the WCAG 2.5.8 24px minimum. */
-  .start {
-    display: inline-flex;
-    min-height: 1.5rem;
-    align-items: center;
-    padding: 0.15rem 0.4rem;
-    border: 0;
-    border-radius: var(--hv-radius-control);
-    background: transparent;
-    color: var(--hv-color-fjord);
-    font: inherit;
-    font-size: 0.72rem;
-    font-weight: 800;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  .start:focus-visible,
-  .confirm:focus-visible,
-  .cancel:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 2px;
-  }
-
-  .editor {
-    display: grid;
-    width: 100%;
-    gap: 0.5rem;
-    min-width: 0;
-    margin: 0;
-    padding: 0.6rem 0.7rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: 0.4rem;
-    background: var(--hv-color-snow-raised);
-    animation: correction-reveal var(--hv-motion-quick) var(--hv-ease-settle) both;
-  }
-
-  legend {
-    padding: 0;
-    color: var(--hv-color-basalt);
-    font-size: 0.72rem;
-    font-weight: 850;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
-  .value-controls {
-    display: grid;
-    min-width: 0;
-    gap: 0.4rem;
-  }
-
-  .note {
-    display: grid;
-    gap: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 750;
-  }
-
-  .note input {
-    width: 100%;
-    padding: 0.4rem 0.5rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    font: inherit;
-    font-size: 0.8rem;
-  }
-
-  .outcome {
-    margin: 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.75rem;
-    line-height: 1.35;
-  }
-
-  .actions {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-  }
-
-  .confirm {
-    min-height: 2rem;
-    padding: 0.3rem 0.85rem;
-    border: 1px solid var(--hv-color-fjord);
-    border-radius: 999px;
-    background: var(--hv-color-fjord);
-    color: var(--hv-color-snow-raised);
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 850;
-    cursor: pointer;
-  }
-
-  .confirm:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-  }
-
-  .cancel {
-    display: inline-flex;
-    min-height: 1.5rem;
-    align-items: center;
-    padding: 0.15rem 0.4rem;
-    border: 0;
-    background: transparent;
-    color: var(--hv-color-fjord);
-    font: inherit;
-    font-size: 0.75rem;
-    font-weight: 800;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
   /* Transform only, and deliberately no opacity: the editor is text-bearing, so fading it in
      would start its legend and choices at a 1:1 contrast ratio and climb through the whole
      duration. Words arrive at full contrast and move into place. Reduced motion is handled by
      --hv-motion-quick collapsing to zero rather than by an override here. */
+  .editor {
+    animation: correction-reveal var(--hv-motion-quick) var(--hv-ease-settle) both;
+  }
+
   @keyframes correction-reveal {
     from {
       transform: translateY(-0.15rem);

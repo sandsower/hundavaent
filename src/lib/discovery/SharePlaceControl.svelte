@@ -34,7 +34,7 @@
   }
 </script>
 
-<div class="share-control">
+<div class="share-control relative inline-flex">
   <Button
     type="button"
     shape="round"
@@ -49,17 +49,21 @@
       <path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5" />
     </svg>
   </Button>
-  <span class:visible={status !== 'idle'} class="share-status" role="status" aria-live="polite">
+  <!-- The status is text: opacity snaps between the hidden and shown states while only the
+       transform takes time, so the words never pass through low contrast (see the fade-family
+       limit in tokens.css). -->
+  <span
+    class:visible={status !== 'idle'}
+    data-visible={status !== 'idle'}
+    class="share-status absolute z-[3] top-[calc(100%_+_0.35rem)] right-0 w-max max-w-48 py-[0.35rem] px-[0.55rem] rounded-control bg-basalt text-[0.76rem] [font-weight:760] text-snow-raised opacity-0 pointer-events-none transform-[translateY(-0.2rem)] transition-[transform] duration-[var(--hv-motion-quick)] ease-settle data-[visible=true]:opacity-100 data-[visible=true]:transform-[translateY(0)]"
+    role="status"
+    aria-live="polite"
+  >
     {status === 'copied' ? copy['share.copied'] : status === 'failed' ? copy['share.failed'] : ''}
   </span>
 </div>
 
 <style>
-  .share-control {
-    position: relative;
-    display: inline-flex;
-  }
-
   /* Button renders its own <button> in a child component, so scoped CSS cannot reach it directly
      - anchored through .share-control (locally authored) with :global() on the Button-rendered
      class, per the ancestor-scoped-:global pattern (FavouriteControl.svelte). Only the svg sizing
@@ -74,32 +78,5 @@
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.8;
-  }
-
-  .share-status {
-    position: absolute;
-    z-index: 3;
-    top: calc(100% + 0.35rem);
-    right: 0;
-    width: max-content;
-    max-width: 12rem;
-    padding: 0.35rem 0.55rem;
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-basalt);
-    color: var(--hv-color-snow-raised);
-    font-size: 0.76rem;
-    font-weight: 760;
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(-0.2rem);
-    /* The status is text: opacity snaps between the hidden and shown states while only the
-       transform takes time, so the words never pass through low contrast (see the fade-family
-       limit in tokens.css). */
-    transition: transform var(--hv-motion-quick) var(--hv-ease-settle);
-  }
-
-  .share-status.visible {
-    opacity: 1;
-    transform: translateY(0);
   }
 </style>

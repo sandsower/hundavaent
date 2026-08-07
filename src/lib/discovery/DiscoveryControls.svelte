@@ -96,14 +96,31 @@
   }
 </script>
 
-<section class="discovery-controls" aria-label={copy['directory.filters']}>
-  <label class="search-label">
-    <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+<!-- Floating command cluster: every control is its own pill over the map,
+     and the gaps between pills stay transparent to map gestures. -->
+<section
+  class="discovery-controls grid justify-items-start w-full gap-2 pointer-events-none"
+  aria-label={copy['directory.filters']}
+>
+  <label
+    class="search-label group/search flex items-center w-full min-h-control gap-[0.55rem] py-0 px-[1.1rem] border border-border-subtle rounded-[999px] bg-snow-raised shadow-raised pointer-events-auto focus-within:outline-[3px] focus-within:outline-focus-ring focus-within:outline-offset-[3px] focus-within:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+  >
+    <!-- The icon takes full ink while the field has focus, so the pill reads as live without
+         moving anything the Member is trying to type into. Colour, so reduced motion keeps it. -->
+    <svg
+      class="search-icon flex-[0_0_auto] w-[1.1rem] h-[1.1rem] stroke-basalt-muted transition-[stroke] duration-[var(--hv-fade-quick)] ease-linear group-focus-within/search:stroke-basalt"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
       <circle cx="10.5" cy="10.5" r="6.75" fill="none" stroke-width="2.2" />
       <line x1="15.6" y1="15.6" x2="21" y2="21" stroke-width="2.2" stroke-linecap="round" />
     </svg>
-    <span>{copy['directory.searchLabel']}</span>
+    <span
+      class="absolute w-px h-px -m-px p-0 overflow-hidden border-0 whitespace-nowrap [clip:rect(0,0,0,0)]"
+      >{copy['directory.searchLabel']}</span
+    >
     <input
+      class="min-w-0 min-h-0 flex-1 py-[0.45rem] px-0 border-0 bg-transparent [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-none focus-visible:shadow-none"
       bind:this={searchInput}
       type="search"
       value={filters.query}
@@ -114,43 +131,65 @@
 
   <!-- The compact answer card owns the screen during a selection: the edge
        tab carries the slice, so the chip row steps aside until ✕/Esc. -->
-  <div class="shortcut-row" hidden={selectionActive}>
-    <div class="category-shortcuts" role="group" aria-label={copy['directory.categoryFilter']}>
+  <!-- Every pill in the command cluster answers the same way: it lifts to say it can be pressed
+       and presses in to confirm it was.
+
+       Movement only - the colour swap is deliberately instant. Selecting a chip inverts its pair
+       (basalt on snow becomes snow on fjord), so interpolating between them walks the label
+       straight through the middle where it matches its own background: Axe measured 2.41:1 there
+       against the required 4.5:1. An inverted pair has no safe path between its ends, so the
+       toggle lands in one frame and only the transform is allowed to take time. -->
+  <div
+    class="shortcut-row flex flex-wrap min-w-0 gap-[0.3rem] pointer-events-none data-[selection-active=true]:hidden"
+    hidden={selectionActive}
+    data-selection-active={selectionActive}
+  >
+    <div
+      class="category-shortcuts contents"
+      role="group"
+      aria-label={copy['directory.categoryFilter']}
+    >
       {#each categoryChips as { chip, label, active } (chip)}
         <button
           type="button"
           data-chip={chip}
+          class="min-h-[2.1rem] py-[0.3rem] px-[0.85rem] border border-border-subtle rounded-[999px] bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] text-[0.8rem] font-[850] tracking-[-0.015em] text-basalt whitespace-nowrap shadow-raised cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle aria-pressed:border-fjord aria-pressed:bg-fjord aria-pressed:text-snow-raised enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
           class:active
           aria-pressed={active}
           aria-label={label}
           aria-controls="discovery-results"
           onclick={() => onChipToggle(chip)}
         >
-          {label}{#if active}<span class="chip-meta" aria-hidden="true"
-              >· {resultCount}{resultsOpen ? ' ✕' : ''}</span
+          {label}{#if active}<span
+              class="chip-meta ml-[0.3rem] whitespace-nowrap"
+              aria-hidden="true">· {resultCount}{resultsOpen ? ' ✕' : ''}</span
             >{/if}
         </button>
       {/each}
     </div>
     <button
       type="button"
-      class="filters-button"
+      class="filters-button min-h-[2.1rem] py-[0.3rem] px-[0.85rem] border border-border-subtle rounded-[999px] bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] text-[0.8rem] font-[850] tracking-[-0.015em] text-basalt whitespace-nowrap shadow-raised cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle data-[active=true]:border-fjord data-[active=true]:bg-fjord data-[active=true]:text-snow-raised hover:transform-[translateY(-1px)] active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
       class:active={count > 0}
+      data-active={count > 0}
       aria-expanded={filtersOpen}
       aria-controls="discovery-filter-sheet"
       onclick={onToggleFilters}
     >
       {filtersOpen ? copy['directory.hideFilters'] : copy['directory.moreFilters']}
-      {#if count > 0}<span aria-hidden="true">{count}</span>{/if}
+      {#if count > 0}<span
+          class="inline-grid place-items-center min-w-[1.15rem] min-h-[1.15rem] ml-[0.3rem] rounded-[999px] bg-basalt text-[0.7rem] text-snow-raised [.filters-button.active_&]:bg-snow-raised [.filters-button.active_&]:text-basalt"
+          aria-hidden="true">{count}</span
+        >{/if}
     </button>
     {#if onFold}
       <button
         type="button"
-        class="fold-button"
+        class="fold-button grid place-items-center w-[2.1rem] min-h-[2.1rem] p-0 border border-border-subtle rounded-[999px] bg-snow-raised text-basalt-muted shadow-raised cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle hover:transform-[translateY(-1px)] active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
         aria-label={copy['directory.foldChrome']}
         onclick={onFold}
       >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
+        <svg class="w-4 h-4 stroke-current" viewBox="0 0 24 24" aria-hidden="true">
           <path
             d="M5 14.5l7-6 7 6"
             fill="none"
@@ -164,22 +203,38 @@
   </div>
 
   {#if showSuggest}
-    <div class="suggest-row">
+    <div class="suggest-row flex pointer-events-none">
       <!-- A full navigation (not a client-side route transition) keeps the destination's own
            sign-in handoff deterministic instead of racing the SPA router's async goto(). -->
-      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- suggestHref is pre-resolved by the caller with $app/paths resolve() -->
-      <a class="suggest-link" href={suggestHref} data-sveltekit-reload
-        >{copy['directory.suggestMissingPlace']}</a
+      <!-- eslint-disable svelte/no-navigation-without-resolve -- suggestHref is pre-resolved by the caller with $app/paths resolve() -->
+      <a
+        class="suggest-link inline-block py-[0.4rem] px-[0.85rem] border border-moss rounded-[999px] bg-moss-soft text-[0.85rem] font-extrabold text-basalt no-underline shadow-raised pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle hover:transform-[translateY(-1px)] active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
+        href={suggestHref}
+        data-sveltekit-reload>{copy['directory.suggestMissingPlace']}</a
       >
+      <!-- eslint-enable svelte/no-navigation-without-resolve -->
     </div>
   {/if}
 
   {#if filtersOpen}
-    <div id="discovery-filter-sheet" class="filter-sheet">
-      <div class="filter-grid">
+    <!-- The shell tightens this ceiling further on compact viewports, where the suggest pill owns a
+         band along the bottom edge; see the `--suggest-dock-reserve` rules in MapListShell. -->
+    <div
+      id="discovery-filter-sheet"
+      class="filter-sheet grid w-full max-h-[min(28rem,52dvh)] gap-[0.65rem] p-[0.9rem] border border-border-subtle rounded-panel bg-snow-raised shadow-floating overflow-auto overscroll-contain pointer-events-auto"
+    >
+      <!-- Wide enough that a select's 3px-offset focus ring clears the label. -->
+      <div
+        class="filter-grid grid grid-cols-[repeat(2,minmax(0,1fr))] gap-[0.55rem] [@container_directory-shell_(max-width:28rem)]:grid-cols-1"
+      >
         {#if signedIn && favouritesAvailable}
-          <label class="favorites-only">
+          <!-- Original .favorites-only display, gap, and color declarations lost to the more
+               specific .filter-sheet label rule and therefore remain dead. -->
+          <label
+            class="favorites-only grid items-center col-[1/-1] min-w-0 gap-[0.4rem] text-[0.76rem] font-extrabold text-basalt-muted"
+          >
             <input
+              class="w-[1.1rem] min-h-[1.1rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
               type="checkbox"
               checked={filters.favoritesOnly}
               onchange={(event) => patchFilters({ favoritesOnly: event.currentTarget.checked })}
@@ -187,10 +242,11 @@
             <span>{copy['directory.favoritesOnly']}</span>
           </label>
         {/if}
-        <label>
+        <label class="grid min-w-0 gap-[0.4rem] text-[0.76rem] font-extrabold text-basalt-muted">
           <span>{copy['directory.categoryFilter']}</span>
           <select
             id="discovery-category-filter"
+            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             value={filters.category ?? ''}
             onchange={(event) =>
               patchFilters({ category: (value(event) || null) as DiscoveryCategory | null })}
@@ -204,9 +260,10 @@
           </select>
         </label>
 
-        <label>
+        <label class="grid min-w-0 gap-[0.4rem] text-[0.76rem] font-extrabold text-basalt-muted">
           <span>{copy['directory.areaFilter']}</span>
           <select
+            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             value={filters.area ?? ''}
             onchange={(event) => patchFilters({ area: value(event) || null })}
           >
@@ -217,9 +274,10 @@
           </select>
         </label>
 
-        <label>
+        <label class="grid min-w-0 gap-[0.4rem] text-[0.76rem] font-extrabold text-basalt-muted">
           <span>{copy['directory.accessFilter']}</span>
           <select
+            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             value={filters.accessArea ?? ''}
             onchange={(event) =>
               patchFilters({
@@ -234,9 +292,10 @@
           </select>
         </label>
 
-        <label>
+        <label class="grid min-w-0 gap-[0.4rem] text-[0.76rem] font-extrabold text-basalt-muted">
           <span>{copy['directory.restraintFilter']}</span>
           <select
+            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             value={filters.restraintCondition ?? ''}
             onchange={(event) =>
               patchFilters({
@@ -251,9 +310,10 @@
           </select>
         </label>
 
-        <label>
+        <label class="grid min-w-0 gap-[0.4rem] text-[0.76rem] font-extrabold text-basalt-muted">
           <span>{copy['directory.permissionFilter']}</span>
           <select
+            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             value={filters.permissionRequirement ?? ''}
             onchange={(event) =>
               patchFilters({
@@ -268,9 +328,10 @@
           </select>
         </label>
 
-        <label>
+        <label class="grid min-w-0 gap-[0.4rem] text-[0.76rem] font-extrabold text-basalt-muted">
           <span>{copy['directory.distanceFilter']}</span>
           <select
+            class="w-full min-h-control py-[0.45rem] px-[0.65rem] box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             value={filters.distanceKm ?? ''}
             disabled={locationState !== 'ready'}
             onchange={(event) =>
@@ -288,15 +349,21 @@
         </label>
       </div>
 
-      <div class="filter-actions">
+      <!-- Original .secondary background and .clear border/color declarations lost to the more
+           specific .filter-sheet button rule and therefore remain dead. -->
+      <div class="filter-actions flex flex-wrap gap-2">
         {#if locationState === 'denied' || locationState === 'unavailable'}
-          <button type="button" class="secondary" onclick={onRetryLocation}>
+          <button
+            type="button"
+            class="secondary min-h-control py-[0.45rem] px-3 box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
+            onclick={onRetryLocation}
+          >
             {copy['directory.tryLocationAgain']}
           </button>
         {:else}
           <button
             type="button"
-            class="secondary"
+            class="secondary min-h-control py-[0.45rem] px-3 box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
             disabled={locationState === 'locating'}
             onclick={onUseLocation}
           >
@@ -306,344 +373,30 @@
           </button>
         {/if}
         {#if count > 0}
-          <button type="button" class="clear" onclick={clearFilters}>
+          <button
+            type="button"
+            class="clear min-h-control py-[0.45rem] px-3 box-border border border-basalt rounded-control bg-snow-raised [font-family:inherit] [font-size:inherit] [font-stretch:inherit] [font-style:inherit] [font-variant:inherit] [line-height:inherit] font-[760] text-basalt cursor-pointer pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle enabled:hover:transform-[translateY(-1px)] enabled:active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)] disabled:cursor-not-allowed disabled:opacity-[0.62]"
+            onclick={clearFilters}
+          >
             {copy['directory.clearFilters']}
           </button>
         {/if}
       </div>
 
       {#if locationState === 'ready'}
-        <p class="location-status" role="status">{copy['directory.locationReady']}</p>
+        <p class="location-status grid gap-[0.15rem] m-0 text-[0.8rem]" role="status">
+          {copy['directory.locationReady']}
+        </p>
       {:else if locationState === 'denied'}
-        <div class="location-status" role="status">
+        <div class="location-status grid gap-[0.15rem] m-0 text-[0.8rem]" role="status">
           <strong>{copy['directory.locationDenied']}</strong>
           <span>{copy['directory.locationDeniedHelp']}</span>
         </div>
       {:else if locationState === 'unavailable'}
-        <p class="location-status" role="status">{copy['directory.locationUnavailable']}</p>
+        <p class="location-status grid gap-[0.15rem] m-0 text-[0.8rem]" role="status">
+          {copy['directory.locationUnavailable']}
+        </p>
       {/if}
     </div>
   {/if}
 </section>
-
-<style>
-  /* Floating command cluster: every control is its own pill over the map,
-     and the gaps between pills stay transparent to map gestures. */
-  .discovery-controls {
-    display: grid;
-    width: 100%;
-    gap: 0.5rem;
-    justify-items: start;
-    pointer-events: none;
-  }
-
-  .search-label {
-    display: flex;
-    width: 100%;
-    min-height: var(--hv-control-height);
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0 1.1rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: 999px;
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-raised);
-    pointer-events: auto;
-  }
-
-  .search-icon {
-    width: 1.1rem;
-    height: 1.1rem;
-    flex: 0 0 auto;
-    stroke: var(--hv-color-basalt-muted);
-    transition: stroke var(--hv-fade-quick) linear;
-  }
-
-  /* The icon takes full ink while the field has focus, so the pill reads as live without
-     moving anything the Member is trying to type into. Colour, so reduced motion keeps it. */
-  .search-label:focus-within .search-icon {
-    stroke: var(--hv-color-basalt);
-  }
-
-  .search-label > span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  .search-label input {
-    min-width: 0;
-    min-height: 0;
-    flex: 1;
-    padding: 0.45rem 0;
-    border: 0;
-    background: transparent;
-    color: var(--hv-color-basalt);
-    font: inherit;
-    font-weight: 760;
-  }
-
-  .search-label input:focus-visible {
-    box-shadow: none;
-    outline: none;
-  }
-
-  .search-label:focus-within {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
-  .shortcut-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.3rem;
-    min-width: 0;
-    pointer-events: none;
-  }
-
-  .shortcut-row[hidden] {
-    display: none;
-  }
-
-  .category-shortcuts {
-    display: contents;
-  }
-
-  button {
-    cursor: pointer;
-    pointer-events: auto;
-  }
-
-  .category-shortcuts button,
-  .shortcut-row > .filters-button {
-    min-height: 2.1rem;
-    padding: 0.3rem 0.85rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: 999px;
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-raised);
-    color: var(--hv-color-basalt);
-    font: inherit;
-    font-size: 0.8rem;
-    font-weight: 850;
-    letter-spacing: -0.015em;
-    white-space: nowrap;
-  }
-
-  /* Every pill in the command cluster answers the same way: it lifts to say it can be pressed
-     and presses in to confirm it was.
-
-     Movement only - the colour swap is deliberately instant. Selecting a chip inverts its pair
-     (basalt on snow becomes snow on fjord), so interpolating between them walks the label
-     straight through the middle where it matches its own background: Axe measured 2.41:1 there
-     against the required 4.5:1. An inverted pair has no safe path between its ends, so the
-     toggle lands in one frame and only the transform is allowed to take time. */
-  .category-shortcuts button,
-  .shortcut-row > .filters-button,
-  .fold-button,
-  .suggest-link,
-  .filter-actions button {
-    transition: transform var(--hv-motion-instant) var(--hv-ease-settle);
-  }
-
-  .category-shortcuts button:not(:disabled):hover,
-  .shortcut-row > .filters-button:hover,
-  .fold-button:hover,
-  .suggest-link:hover,
-  .filter-actions button:not(:disabled):hover {
-    transform: translateY(-1px);
-  }
-
-  .category-shortcuts button:not(:disabled):active,
-  .shortcut-row > .filters-button:active,
-  .fold-button:active,
-  .suggest-link:active,
-  .filter-actions button:not(:disabled):active {
-    transform: scale(0.94);
-  }
-
-  .category-shortcuts button.active,
-  button.active {
-    border-color: var(--hv-color-fjord);
-    background: var(--hv-color-fjord);
-    color: var(--hv-color-snow-raised);
-  }
-
-  .filters-button span[aria-hidden='true'] {
-    display: inline-grid;
-    min-width: 1.15rem;
-    min-height: 1.15rem;
-    margin-left: 0.3rem;
-    border-radius: 999px;
-    background: var(--hv-color-basalt);
-    color: var(--hv-color-snow-raised);
-    font-size: 0.7rem;
-    place-items: center;
-  }
-
-  .filters-button.active span[aria-hidden='true'] {
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-  }
-
-  .chip-meta {
-    margin-left: 0.3rem;
-    white-space: nowrap;
-  }
-
-  .fold-button {
-    display: grid;
-    width: 2.1rem;
-    min-height: 2.1rem;
-    padding: 0;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: 999px;
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-raised);
-    color: var(--hv-color-basalt-muted);
-    place-items: center;
-  }
-
-  .fold-button svg {
-    width: 1rem;
-    height: 1rem;
-    stroke: currentColor;
-  }
-
-  .suggest-row {
-    display: flex;
-    pointer-events: none;
-  }
-
-  .suggest-link {
-    display: inline-block;
-    padding: 0.4rem 0.85rem;
-    border: 1px solid var(--hv-color-moss);
-    border-radius: 999px;
-    background: var(--hv-color-moss-soft);
-    box-shadow: var(--hv-shadow-raised);
-    color: var(--hv-color-basalt);
-    font-size: 0.85rem;
-    font-weight: 800;
-    pointer-events: auto;
-    text-decoration: none;
-  }
-
-  /* The shell tightens this ceiling further on compact viewports, where the suggest pill owns a
-     band along the bottom edge; see the `--suggest-dock-reserve` rules in MapListShell. */
-  .filter-sheet {
-    display: grid;
-    width: 100%;
-    max-height: min(28rem, 52dvh);
-    gap: 0.65rem;
-    padding: 0.9rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow-raised);
-    box-shadow: var(--hv-shadow-floating);
-    overflow: auto;
-    overscroll-behavior: contain;
-    pointer-events: auto;
-  }
-
-  .filter-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
-  }
-
-  .filter-sheet label {
-    display: grid;
-    /* Wide enough that a select's 3px-offset focus ring clears the label. */
-    gap: 0.4rem;
-    min-width: 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.76rem;
-    font-weight: 800;
-  }
-
-  .filter-sheet input,
-  .filter-sheet select,
-  .filter-sheet button {
-    min-height: var(--hv-control-height);
-    box-sizing: border-box;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    color: var(--hv-color-basalt);
-    font: inherit;
-    font-weight: 760;
-  }
-
-  .filter-sheet select {
-    width: 100%;
-    padding: 0.45rem 0.65rem;
-  }
-
-  .filter-sheet button {
-    padding: 0.45rem 0.75rem;
-  }
-
-  .favorites-only {
-    display: flex;
-    grid-column: 1 / -1;
-    gap: 0.5rem;
-    align-items: center;
-    color: var(--hv-color-basalt);
-  }
-
-  .favorites-only input {
-    width: 1.1rem;
-    min-height: 1.1rem;
-  }
-
-  .filter-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .secondary {
-    background: var(--hv-color-moss-soft);
-  }
-
-  .clear {
-    border-color: var(--hv-color-danger);
-    color: var(--hv-color-danger);
-  }
-
-  .location-status {
-    display: grid;
-    gap: 0.15rem;
-    margin: 0;
-    font-size: 0.8rem;
-  }
-
-  button:focus-visible,
-  .filter-sheet input:focus-visible,
-  .filter-sheet select:focus-visible,
-  a:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 3px;
-    box-shadow: 0 0 0 2px var(--hv-focus-offset);
-  }
-
-  button:disabled,
-  select:disabled {
-    cursor: not-allowed;
-    opacity: 0.62;
-  }
-
-  @container directory-shell (max-width: 28rem) {
-    .filter-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>

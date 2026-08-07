@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import '../../src/app.css';
 import { catalogues } from '$i18n';
 import SharePlaceControl from '$lib/discovery/SharePlaceControl.svelte';
 
@@ -23,7 +24,10 @@ describe('SharePlaceControl', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Share Published Place' }));
 
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/en?place=${placeId}`);
-    await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Link copied'));
+    const status = screen.getByRole('status');
+    await waitFor(() => expect(status.textContent).toBe('Link copied'));
+    expect(status).toHaveAttribute('data-visible', 'true');
+    expect(getComputedStyle(status).opacity).toBe('1');
   });
 
   it('uses localized labels', () => {
