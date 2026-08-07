@@ -979,9 +979,12 @@ describe('MapListShell synchronization', () => {
       expect(getComputedStyle(food).fontSize).toBe('12.8px');
       expect(getComputedStyle(food).fontWeight).toBe('850');
       expect(getComputedStyle(moreFilters).fontWeight).toBe('850');
+      expect(moreFilters).toHaveAttribute('data-active', 'true');
+      expect(getComputedStyle(moreFilters).backgroundColor).toBe('rgb(19, 109, 156)');
 
       await fireEvent.click(food);
       expect(food).toHaveAttribute('aria-pressed', 'true');
+      expect(getComputedStyle(food).backgroundColor).toBe('rgb(19, 109, 156)');
       expect(window.location.search).toContain('category=food_drink');
       expect(window.location.search).toContain('area=K%C3%B3pavogur');
 

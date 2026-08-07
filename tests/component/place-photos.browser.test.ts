@@ -110,7 +110,14 @@ describe('PlacePhotos', () => {
     const images = container.querySelectorAll('img');
     expect(images).toHaveLength(1);
     expect(images[0]?.src).toBe(photo.url);
-    expect(container.querySelector('[data-surface="featured-media"]')).toBeTruthy();
+    const surface = container.querySelector<HTMLElement>('[data-surface="featured-media"]');
+    const heading = container.querySelector<HTMLElement>('#place-photos-heading');
+    expect(surface).toBeTruthy();
+    expect(getComputedStyle(surface!).marginTop).toBe('0px');
+    expect(getComputedStyle(surface!).paddingTop).toBe('0px');
+    expect(getComputedStyle(surface!).borderTopWidth).toBe('0px');
+    expect(getComputedStyle(heading!).position).toBe('absolute');
+    expect(getComputedStyle(heading!).width).toBe('1px');
   });
 
   it('uses the Icelandic alt text when rendered in Icelandic', () => {

@@ -122,7 +122,13 @@ describe('AccessSymbols', () => {
     expect(symbols[0].querySelector('.chip-label')?.textContent).toBe('Welcome indoors');
     expect(Number.parseFloat(firstStyle.height)).toBeGreaterThanOrEqual(32);
     expect(firstStyle.borderRadius).toBe('999px');
-    expect(firstStyle.backgroundColor).toBe('rgb(220, 231, 225)');
+    expect([...symbols].map((symbol) => getComputedStyle(symbol).backgroundColor)).toEqual([
+      'rgb(220, 231, 225)',
+      'rgb(247, 221, 154)',
+      'rgb(207, 229, 237)',
+      'rgb(243, 212, 190)',
+      'rgb(228, 231, 229)'
+    ]);
     expect(symbols[0].querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 15 15');
     expect(symbols[0].querySelector('path')?.getAttribute('d')).toContain('M3 7v8H1V7.78');
     expect(symbols[1].querySelector('path')?.getAttribute('d')).toContain('M1.5 3v1.88');
