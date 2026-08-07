@@ -247,13 +247,25 @@
   }
 </script>
 
-<section class="inline-rating" aria-labelledby={`rating-${placeId}`} data-inline-rating>
+<!-- Top rule only: the details disclosure below draws its own top border,
+     and a bottom rule here would double it. -->
+<section
+  class="inline-rating relative grid gap-[0.45rem] [margin-block:0.75rem] [padding-block:0.75rem] [border-block-start:1px_solid_var(--hv-border-subtle)]"
+  aria-labelledby={`rating-${placeId}`}
+  data-inline-rating
+>
   {#if recognition}
     <WeeklyRhythmAcknowledgement {recognition} subjectName={placeName} {copy} />
   {/if}
-  <div class="rating-heading">
-    <h3 id={`rating-${placeId}`}>{copy['rating.inline.heading']}</h3>
-    <span class="save-status" aria-live="polite" aria-atomic="true">
+  <div class="rating-heading flex items-baseline justify-between gap-4">
+    <h3 id={`rating-${placeId}`} class="m-0 text-[0.9rem]">
+      {copy['rating.inline.heading']}
+    </h3>
+    <span
+      class="save-status min-w-14 text-[0.72rem] text-end text-basalt-muted"
+      aria-live="polite"
+      aria-atomic="true"
+    >
       {status === 'saving'
         ? copy['rating.saving']
         : status === 'saved'
@@ -269,8 +281,11 @@
   </div>
 
   {#if summary?.visible && summary.overallVisible && summary.overallMean !== null && summary.eligibleCount !== null}
-    <p class="public-summary" aria-label={copy['rating.summary.heading']}>
-      <strong>★ {summary.overallMean.toFixed(1)}</strong>
+    <p
+      class="public-summary flex items-baseline gap-[0.35rem] m-0 text-[0.8rem] text-basalt-muted"
+      aria-label={copy['rating.summary.heading']}
+    >
+      <strong class="text-base text-basalt">★ {summary.overallMean.toFixed(1)}</strong>
       <span>({summary.eligibleCount})</span>
     </p>
   {/if}
@@ -284,15 +299,22 @@
   />
 
   {#if status === 'error'}
-    <button class="retry" type="button" onclick={() => (failed ? enqueue(failed) : load())}
+    <button
+      class="retry justify-self-end py-[0.15rem] px-[0.35rem] border-0 bg-transparent text-[0.72rem] text-fjord underline cursor-pointer"
+      type="button"
+      onclick={() => (failed ? enqueue(failed) : load())}
       >{copy['common.retry']}</button
     >
   {/if}
 
   {#if signedIn && expanded && overall !== null}
-    <div class="details">
+    <!-- The details carry text, so the reveal is transform-only: words arrive at full contrast
+         and move into place (see the fade-family limit in tokens.css). -->
+    <div class="details grid gap-2 pt-[0.35rem]">
       {#each categories as category (category)}
-        <div class="category-row">
+        <div
+          class="category-row grid grid-cols-[minmax(6.5rem,1fr)_auto] items-center gap-y-[0.2rem] gap-x-2 text-[0.8rem] font-[750]"
+        >
           <span>{copy[`rating.dimension.${category}.label` as MessageKey]}</span>
           <Rating
             label={copy[`rating.dimension.${category}.label` as MessageKey]}
@@ -303,7 +325,10 @@
             scoreLabel={labelScore}
           />
           {#if values[category] !== null}
-            <button class="reset" type="button" onclick={() => resetCategory(category)}
+            <button
+              class="reset justify-self-end py-[0.15rem] px-[0.35rem] border-0 bg-transparent text-[0.72rem] text-fjord underline cursor-pointer"
+              type="button"
+              onclick={() => resetCategory(category)}
               >{copy['rating.inline.reset']}</button
             >
           {/if}
@@ -311,14 +336,16 @@
       {/each}
 
       {#if showNote}
-        <label class="note">
+        <label class="note grid gap-[0.3rem] text-[0.8rem] font-[750]">
           <span>{copy['rating.inline.note']}</span>
           <textarea
             rows="3"
             maxlength="1000"
             bind:value={note}
             oninput={scheduleNote}
-            onblur={flushNote}></textarea>
+            onblur={flushNote}
+            class="w-full resize-y p-[0.6rem] border border-border-subtle rounded-control [font-family:inherit] [font-style:inherit] [font-variant:inherit] [font-weight:inherit] [font-stretch:inherit] [line-height:inherit]"
+          ></textarea>
         </label>
       {/if}
     </div>
@@ -326,87 +353,10 @@
 </section>
 
 <style>
-  .inline-rating {
-    position: relative;
-    display: grid;
-    gap: 0.45rem;
-    margin-block: 0.75rem;
-    padding-block: 0.75rem;
-    /* Top rule only: the details disclosure below draws its own top border,
-       and a bottom rule here would double it. */
-    border-block-start: 1px solid var(--hv-border-subtle);
-  }
-  .rating-heading {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-  h3,
-  p {
-    margin: 0;
-  }
-  h3 {
-    font-size: 0.9rem;
-  }
-  .save-status {
-    min-width: 3.5rem;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.72rem;
-    text-align: end;
-  }
-  .public-summary {
-    display: flex;
-    gap: 0.35rem;
-    align-items: baseline;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.8rem;
-  }
-  .public-summary strong {
-    color: var(--hv-color-basalt);
-    font-size: 1rem;
-  }
   .details {
-    display: grid;
-    gap: 0.5rem;
-    padding-top: 0.35rem;
-    /* The details carry text, so the reveal is transform-only: words arrive at full contrast
-       and move into place (see the fade-family limit in tokens.css). */
     animation: reveal var(--hv-motion-quick) var(--hv-ease-settle) both;
   }
-  .category-row {
-    display: grid;
-    grid-template-columns: minmax(6.5rem, 1fr) auto;
-    align-items: center;
-    gap: 0.2rem 0.5rem;
-    font-size: 0.8rem;
-    font-weight: 750;
-  }
-  .reset,
-  .retry {
-    justify-self: end;
-    padding: 0.15rem 0.35rem;
-    border: 0;
-    background: transparent;
-    color: var(--hv-color-fjord);
-    font-size: 0.72rem;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-  .note {
-    display: grid;
-    gap: 0.3rem;
-    font-size: 0.8rem;
-    font-weight: 750;
-  }
-  textarea {
-    width: 100%;
-    resize: vertical;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    padding: 0.6rem;
-    font: inherit;
-  }
+
   @keyframes reveal {
     from {
       transform: translateY(-0.2rem);

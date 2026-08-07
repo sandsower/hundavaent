@@ -130,9 +130,9 @@
   onOpen={reseed}
 >
   {#snippet controls({ dismiss, groupName })}
-    <div class="choices">
+    <div class="choices grid gap-[0.3rem]">
       {#each choices as option (option)}
-        <label>
+        <label class="flex items-center gap-[0.45rem] text-[0.8rem] font-[750]">
           <input
             type="radio"
             name={groupName}
@@ -146,18 +146,3 @@
     </div>
   {/snippet}
 </InlineCorrectionShell>
-
-<style>
-  .choices {
-    display: grid;
-    gap: 0.3rem;
-  }
-
-  .choices label {
-    display: flex;
-    gap: 0.45rem;
-    align-items: center;
-    font-size: 0.8rem;
-    font-weight: 750;
-  }
-</style>

@@ -154,7 +154,7 @@
   onOpen={reseed}
 >
   {#snippet controls({ dismiss })}
-    <label class="value">
+    <label class="value grid gap-1 text-[0.75rem] font-[750]">
       <span>{copy[fieldLabels[field]]}</span>
       <input
         type={inputTypes[field]}
@@ -163,13 +163,19 @@
         autocomplete="off"
         oninput={(event) => (draft = event.currentTarget.value)}
         onkeydown={dismiss}
+        class="w-full py-[0.4rem] px-2 border border-border-subtle rounded-control [font-family:inherit] [font-style:inherit] [font-variant:inherit] [font-weight:inherit] [font-stretch:inherit] [line-height:inherit] text-[0.8rem]"
       />
     </label>
     {#if field === 'dog_amenities'}
-      <p class="hint">{copy['inlineCorrection.amenitiesHint']}</p>
+      <p class="hint m-0 text-[0.72rem] leading-[1.35] text-basalt-muted">
+        {copy['inlineCorrection.amenitiesHint']}
+      </p>
     {/if}
     {#if amenitiesOverCap}
-      <p class="hint" data-correction-cap>
+      <p
+        class="hint m-0 text-[0.72rem] leading-[1.35] text-basalt-muted"
+        data-correction-cap
+      >
         {copy['inlineCorrection.amenitiesCap']
           .replace('{count}', String(memberAmenityMaximumCount))
           .replace('{length}', String(memberFieldTextMaximumLength))}
@@ -177,7 +183,7 @@
     {/if}
     {#if clearable}
       <button
-        class="clear"
+        class="clear inline-flex min-h-6 items-center justify-self-start py-[0.15rem] px-[0.4rem] border-0 rounded-control bg-transparent [font-family:inherit] [font-style:inherit] [font-variant:inherit] [font-stretch:inherit] [line-height:inherit] text-[0.75rem] font-extrabold text-fjord underline cursor-pointer focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:[outline-offset:2px] disabled:text-basalt-muted disabled:no-underline disabled:cursor-not-allowed"
         type="button"
         disabled={draft.trim() === ''}
         aria-label={copy['inlineCorrection.clearLabel'].replace(
@@ -192,56 +198,3 @@
     {/if}
   {/snippet}
 </InlineCorrectionShell>
-
-<style>
-  .value {
-    display: grid;
-    gap: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 750;
-  }
-
-  .value input {
-    width: 100%;
-    padding: 0.4rem 0.5rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    font: inherit;
-    font-size: 0.8rem;
-  }
-
-  .hint {
-    margin: 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.72rem;
-    line-height: 1.35;
-  }
-
-  .clear {
-    display: inline-flex;
-    min-height: 1.5rem;
-    align-items: center;
-    justify-self: start;
-    padding: 0.15rem 0.4rem;
-    border: 0;
-    border-radius: var(--hv-radius-control);
-    background: transparent;
-    color: var(--hv-color-fjord);
-    font: inherit;
-    font-size: 0.75rem;
-    font-weight: 800;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  .clear:disabled {
-    color: var(--hv-color-basalt-muted);
-    cursor: not-allowed;
-    text-decoration: none;
-  }
-
-  .clear:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 2px;
-  }
-</style>

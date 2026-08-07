@@ -147,9 +147,9 @@
   onOpen={reseed}
 >
   {#snippet controls({ dismiss, groupName })}
-    <div class="choices">
+    <div class="choices grid gap-[0.3rem]">
       {#each memberEligibilityChoices as option (option)}
-        <label>
+        <label class="flex items-center gap-[0.45rem] text-[0.8rem] font-[750]">
           <input
             type="radio"
             name={groupName}
@@ -164,7 +164,7 @@
     </div>
 
     {#if limitKind}
-      <label class="limit">
+      <label class="limit grid gap-1 text-[0.75rem] font-[750]">
         <span>{copy[limitLabels[limitKind]]}</span>
         <input
           bind:this={limitInput}
@@ -177,40 +177,9 @@
           autocomplete="off"
           oninput={(event) => (limit = event.currentTarget.value)}
           onkeydown={dismiss}
+          class="w-full max-w-32 py-[0.4rem] px-2 border border-border-subtle rounded-control [font-family:inherit] [font-style:inherit] [font-variant:inherit] [font-weight:inherit] [font-stretch:inherit] [line-height:inherit] text-[0.8rem]"
         />
       </label>
     {/if}
   {/snippet}
 </InlineCorrectionShell>
-
-<style>
-  .choices {
-    display: grid;
-    gap: 0.3rem;
-  }
-
-  .choices label {
-    display: flex;
-    gap: 0.45rem;
-    align-items: center;
-    font-size: 0.8rem;
-    font-weight: 750;
-  }
-
-  .limit {
-    display: grid;
-    gap: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 750;
-  }
-
-  .limit input {
-    width: 100%;
-    max-width: 8rem;
-    padding: 0.4rem 0.5rem;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    font: inherit;
-    font-size: 0.8rem;
-  }
-</style>
