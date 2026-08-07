@@ -190,22 +190,32 @@
      locally-authored element rather than a <Panel> wrapper so the scoped .workspace rule below
      keeps matching without needing :global() (the SelectedPlaceCard precedent). -->
 <section
-  class="workspace bg-snow-raised"
+  class="workspace grid h-[calc(100dvh_-_var(--hv-app-header-height,_4.4rem)_-_1rem)] min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden border border-basalt rounded-shell bg-snow-raised shadow-raised max-[44rem]:h-[calc(100dvh_-_var(--hv-app-header-height,_4.4rem)_-_0.8rem)] max-[44rem]:min-h-0 max-[44rem]:rounded-shell max-[44rem]:shadow-raised"
   aria-labelledby="moderation-workspace-title"
   data-moderation-workspace
   bind:this={workspaceElement}
   onsubmitcapture={handleSubmit}
 >
-  <header class="workspace-top">
+  <header
+    class="workspace-top flex gap-4 items-center justify-between px-[1.1rem] py-[0.85rem] border-b border-b-basalt bg-basalt text-snow-raised max-[44rem]:items-start max-[28rem]:grid"
+  >
     <div>
-      <h1 id="moderation-workspace-title">{copy['moderation.workspace.title']}</h1>
-      <p>{copy['moderation.workspace.meta']}</p>
+      <h1 id="moderation-workspace-title" class="m-0 text-[1.2rem] leading-[1.15]">
+        {copy['moderation.workspace.title']}
+      </h1>
+      <p class="m-0 mt-[0.2rem] text-[0.78rem] text-border-subtle">
+        {copy['moderation.workspace.meta']}
+      </p>
     </div>
-    <strong>{copy['moderation.workspace.totalCount'].replace('{count}', String(totalCount))}</strong
+    <strong
+      class="flex-none px-[0.65rem] py-[0.35rem] border border-signal rounded-control bg-signal text-[0.76rem] text-basalt max-[44rem]:whitespace-nowrap max-[28rem]:w-fit"
+      >{copy['moderation.workspace.totalCount'].replace('{count}', String(totalCount))}</strong
     >
   </header>
 
-  <div class="workspace-body">
+  <div
+    class="workspace-body grid grid-cols-[minmax(11rem,0.7fr)_minmax(15rem,0.95fr)_minmax(24rem,1.55fr)] min-h-0 overflow-hidden max-[60rem]:min-[44.01rem]:grid-cols-[minmax(15rem,0.8fr)_minmax(24rem,1.4fr)] max-[60rem]:min-[44.01rem]:grid-rows-[auto_minmax(0,1fr)] max-[44rem]:grid-cols-[minmax(0,1fr)] max-[44rem]:grid-rows-[auto_minmax(8rem,24dvh)_minmax(0,1fr)] max-[44rem]:min-h-0"
+  >
     <ModerationQueueRail {copy} {baseHref} {queues} {activeQueueId} {filters} />
     <ModerationWorkList
       {copy}
@@ -224,20 +234,48 @@
       {errorMessage}
     />
 
-    <section class="review" aria-label={copy['moderation.workspace.selectedItemLabel']}>
-      <header class="review-head">
+    <section
+      class="review grid min-w-0 min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] bg-snow max-[44rem]:min-h-0"
+      aria-label={copy['moderation.workspace.selectedItemLabel']}
+    >
+      <header
+        class="review-head flex relative gap-4 items-start justify-between px-[1.2rem] py-4 border-b border-b-border-subtle bg-snow-raised max-[44rem]:relative"
+      >
         {#if selectedItem}
           <div>
-            <p class="eyebrow">{copy[queueKeys[activeQueueId]]}</p>
-            <h2>{selectedItem.title}</h2>
-            <p class="review-meta">{selectedItem.meta}</p>
+            <p
+              class="eyebrow m-0 mb-1 text-[0.68rem] font-extrabold tracking-[0.09em] uppercase text-fjord"
+            >
+              {copy[queueKeys[activeQueueId]]}
+            </p>
+            <h2
+              class="m-0 font-display text-[clamp(1.35rem,_3vw,_1.65rem)] font-[650] leading-[1.1] wrap-anywhere"
+            >
+              {selectedItem.title}
+            </h2>
+            <p class="review-meta m-0 mt-[0.3rem] text-[0.76rem] text-basalt-muted">
+              {selectedItem.meta}
+            </p>
           </div>
-          <span class="shortcut">{copy['moderation.workspace.shortcut']}</span>
+          <span
+            class="shortcut flex-none px-[0.42rem] py-[0.28rem] border border-border-subtle rounded-control bg-snow-raised text-[0.67rem] font-extrabold text-basalt-muted max-[44rem]:hidden"
+            >{copy['moderation.workspace.shortcut']}</span
+          >
         {:else}
           <div>
-            <p class="eyebrow">{copy[queueKeys[activeQueueId]]}</p>
-            <h2>{copy['moderation.workspace.noSelectionTitle']}</h2>
-            <p class="review-meta">{copy['moderation.workspace.noSelectionBody']}</p>
+            <p
+              class="eyebrow m-0 mb-1 text-[0.68rem] font-extrabold tracking-[0.09em] uppercase text-fjord"
+            >
+              {copy[queueKeys[activeQueueId]]}
+            </p>
+            <h2
+              class="m-0 font-display text-[clamp(1.35rem,_3vw,_1.65rem)] font-[650] leading-[1.1] wrap-anywhere"
+            >
+              {copy['moderation.workspace.noSelectionTitle']}
+            </h2>
+            <p class="review-meta m-0 mt-[0.3rem] text-[0.76rem] text-basalt-muted">
+              {copy['moderation.workspace.noSelectionBody']}
+            </p>
           </div>
         {/if}
         <Status tone="success" class="live-status" role="status" aria-live="polite"
@@ -245,22 +283,31 @@
         >
       </header>
 
-      <div class="review-scroll" data-review-scroll>
+      <div
+        class="review-scroll min-w-0 min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-gutter:stable] px-[1.2rem] py-4 max-[44rem]:min-h-0"
+        data-review-scroll
+      >
         {#if reviewErrorMessage}
           <Notice tone="error" class="review-error" role="alert">
-            <p>{reviewErrorMessage}</p>
+            <p class="m-0">{reviewErrorMessage}</p>
             <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- retryHref is assembled from the already-resolved locale-specific moderation base path. -->
-            <a href={retryHref}>{copy['moderation.workspace.retry']}</a>
+            <a class="inline-block mt-2 font-extrabold" href={retryHref}
+              >{copy['moderation.workspace.retry']}</a
+            >
           </Notice>
         {/if}
         {#if selectedItem}
-          <fieldset class="review-content" disabled={reviewDisabled}>
+          <fieldset class="review-content min-w-0 m-0 p-0 border-0" disabled={reviewDisabled}>
             {#if reviewContent}
               {@render reviewContent()}
             {:else}
-              <article class="review-summary">
-                <span>{selectedItem.statusLabel}</span>
-                <p>{selectedItem.summary}</p>
+              <article
+                class="review-summary p-[0.9rem] border border-border-subtle rounded-panel bg-snow-raised"
+              >
+                <span class="text-[0.68rem] font-extrabold tracking-[0.08em] uppercase text-fjord"
+                  >{selectedItem.statusLabel}</span
+                >
+                <p class="m-0 mt-[0.3rem] leading-[1.45]">{selectedItem.summary}</p>
               </article>
             {/if}
           </fieldset>
@@ -280,105 +327,12 @@
 </section>
 
 <style>
-  .workspace {
-    display: grid;
-    height: calc(100dvh - var(--hv-app-header-height, 4.4rem) - 1rem);
-    min-height: 0;
-    grid-template-rows: auto minmax(0, 1fr);
-    overflow: hidden;
-    border: 1px solid var(--hv-color-basalt);
-    border-radius: var(--hv-radius-shell);
-    box-shadow: var(--hv-shadow-raised);
-  }
-  .workspace-top {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--hv-color-basalt);
-    background: var(--hv-color-basalt);
-    color: var(--hv-color-snow-raised);
-    padding: 0.85rem 1.1rem;
-  }
-  h1,
-  h2,
-  p {
-    margin: 0;
-  }
-  h1 {
-    font-size: 1.2rem;
-    line-height: 1.15;
-  }
-  .workspace-top p {
-    margin-top: 0.2rem;
-    color: var(--hv-border-subtle);
-    font-size: 0.78rem;
-  }
-  .workspace-top strong {
-    flex: none;
-    border: 1px solid var(--hv-color-signal);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-signal);
-    color: var(--hv-color-basalt);
-    padding: 0.35rem 0.65rem;
-    font-size: 0.76rem;
-  }
-  .workspace-body {
-    display: grid;
-    grid-template-columns: minmax(11rem, 0.7fr) minmax(15rem, 0.95fr) minmax(24rem, 1.55fr);
-    min-height: 0;
-    overflow: hidden;
-  }
+  /* The three workspace columns are rendered by child components (ModerationQueueRail,
+     ModerationWorkList) as well as locally, so this shared min-size guard stays a cross-component
+     hook rather than moving onto each column. */
   .workspace-body > :global(*) {
     min-width: 0;
     min-height: 0;
-  }
-  .review {
-    display: grid;
-    min-width: 0;
-    min-height: 0;
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    background: var(--hv-color-snow);
-  }
-  .review-head {
-    display: flex;
-    position: relative;
-    gap: 1rem;
-    align-items: start;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--hv-border-subtle);
-    background: var(--hv-color-snow-raised);
-    padding: 1rem 1.2rem;
-  }
-  .review-head h2 {
-    font-family: var(--hv-font-display);
-    font-weight: 650;
-    font-size: clamp(1.35rem, 3vw, 1.65rem);
-    line-height: 1.1;
-    overflow-wrap: anywhere;
-  }
-  .eyebrow {
-    margin-bottom: 0.25rem;
-    color: var(--hv-color-fjord);
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-  }
-  .review-meta {
-    margin-top: 0.3rem;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.76rem;
-  }
-  .shortcut {
-    flex: none;
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-control);
-    background: var(--hv-color-snow-raised);
-    padding: 0.28rem 0.42rem;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.67rem;
-    font-weight: 800;
   }
   /* Status renders its span inside a child component, so Svelte's scoped CSS cannot reach it
      directly - anchored through .review-head with :global() (the FavouriteControl precedent).
@@ -404,27 +358,6 @@
     border: 0;
     padding: 0;
   }
-  .review-scroll {
-    min-width: 0;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
-    padding: 1rem 1.2rem;
-  }
-  .review-summary {
-    border: 1px solid var(--hv-border-subtle);
-    border-radius: var(--hv-radius-panel);
-    background: var(--hv-color-snow-raised);
-    padding: 0.9rem;
-  }
-  .review-content {
-    min-width: 0;
-    margin: 0;
-    border: 0;
-    padding: 0;
-  }
   /* Notice renders its element inside a child component, so scoped CSS cannot reach it directly -
      anchored through .review-scroll with :global() (the FavouriteControl precedent). Notice's
      error tone is an exact match for the old border/background pair, so only the margin survives
@@ -432,68 +365,9 @@
   .review-scroll :global(.review-error) {
     margin-bottom: 1rem;
   }
-  .review-scroll :global(.review-error a) {
-    display: inline-block;
-    margin-top: 0.5rem;
-    font-weight: 800;
-  }
-  .review-summary span {
-    color: var(--hv-color-fjord);
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .review-summary p {
-    margin-top: 0.3rem;
-    line-height: 1.45;
-  }
   @media (max-width: 60rem) and (min-width: 44.01rem) {
-    .workspace-body {
-      grid-template-columns: minmax(15rem, 0.8fr) minmax(24rem, 1.4fr);
-      grid-template-rows: auto minmax(0, 1fr);
-    }
     .workspace-body > :global(nav:first-child) {
       grid-column: 1 / -1;
-    }
-  }
-  @media (max-width: 44rem) {
-    .workspace {
-      height: calc(100dvh - var(--hv-app-header-height, 4.4rem) - 0.8rem);
-      min-height: 0;
-      border-radius: var(--hv-radius-shell);
-      box-shadow: var(--hv-shadow-raised);
-    }
-    .workspace-top {
-      align-items: start;
-    }
-    .workspace-top strong {
-      white-space: nowrap;
-    }
-    .workspace-body {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: auto minmax(8rem, 24dvh) minmax(0, 1fr);
-      min-height: 0;
-    }
-    .review {
-      min-height: 0;
-    }
-    .review-head {
-      position: relative;
-    }
-    .review-scroll {
-      min-height: 0;
-    }
-    .shortcut {
-      display: none;
-    }
-  }
-  @media (max-width: 28rem) {
-    .workspace-top {
-      display: grid;
-    }
-    .workspace-top strong {
-      width: fit-content;
     }
   }
 </style>
