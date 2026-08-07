@@ -656,12 +656,13 @@
             {#if profile.websiteUrl || profile.phone}
               <nav class="place-links flex flex-wrap gap-3" aria-label={copy['place.usefulLinks']}>
                 {#if profile.websiteUrl}
-                  <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external place URL -->
+                  <!-- eslint-disable svelte/no-navigation-without-resolve -- external place URL -->
                   <a
                     class="text-[0.82rem] font-[800] text-fjord focus-visible:rounded-control focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
                     href={profile.websiteUrl}
                     rel="noreferrer">{copy['place.website']}</a
                   >
+                  <!-- eslint-enable svelte/no-navigation-without-resolve -->
                 {/if}
                 {#if profile.phone}
                   <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external tel URL -->

@@ -29,7 +29,7 @@
 >
   <!-- A full navigation (not a client-side route transition) keeps the destination's own
        sign-in handoff deterministic instead of racing the SPA router's async goto(). -->
-  <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- href is pre-resolved by the caller with $app/paths resolve() -->
+  <!-- eslint-disable svelte/no-navigation-without-resolve -- href is pre-resolved by the caller with $app/paths resolve() -->
   <!-- Movement only, like every other pill in the command cluster. -->
   <a
     class="suggest-pill inline-flex min-h-control max-w-full items-center gap-[0.4rem] py-[0.4rem] px-[1.1rem] border border-moss rounded-[999px] bg-moss-soft font-[850] tracking-[-0.015em] text-basalt no-underline shadow-floating pointer-events-auto transition-[transform] duration-[var(--hv-motion-instant)] ease-settle hover:transform-[translateY(-1px)] active:transform-[scale(0.94)] focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
@@ -39,4 +39,5 @@
     <span class="pill-glyph text-[1.15rem] leading-none font-black" aria-hidden="true">+</span>
     {label}
   </a>
+  <!-- eslint-enable svelte/no-navigation-without-resolve -->
 </div>

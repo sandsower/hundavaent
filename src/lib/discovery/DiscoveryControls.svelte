@@ -204,12 +204,13 @@
     <div class="suggest-row flex pointer-events-none">
       <!-- A full navigation (not a client-side route transition) keeps the destination's own
            sign-in handoff deterministic instead of racing the SPA router's async goto(). -->
-      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- suggestHref is pre-resolved by the caller with $app/paths resolve() -->
+      <!-- eslint-disable svelte/no-navigation-without-resolve -- suggestHref is pre-resolved by the caller with $app/paths resolve() -->
       <a
         class="suggest-link inline-block py-[0.4rem] px-[0.85rem] border border-moss rounded-[999px] bg-moss-soft text-[0.85rem] font-extrabold text-basalt no-underline shadow-raised pointer-events-auto transition-transform duration-[var(--hv-motion-instant)] ease-settle hover:transform-[translateY(-1px)] active:transform-[scale(0.94)] focus-visible:outline-[3px] focus-visible:outline-focus-ring focus-visible:outline-offset-[3px] focus-visible:shadow-[0_0_0_2px_var(--hv-focus-offset)]"
         href={suggestHref}
         data-sveltekit-reload>{copy['directory.suggestMissingPlace']}</a
       >
+      <!-- eslint-enable svelte/no-navigation-without-resolve -->
     </div>
   {/if}
 
