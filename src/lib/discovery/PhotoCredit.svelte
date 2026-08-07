@@ -11,43 +11,28 @@
     $props();
 </script>
 
-<span class="photo-credit">
+<span class="photo-credit flex min-w-0 items-baseline gap-1 overflow-hidden text-ellipsis whitespace-nowrap text-[0.68rem] leading-[1.25] text-basalt-muted">
   <!-- eslint-disable svelte/no-navigation-without-resolve -- externally supplied photo and license links -->
   {#if attributionUrl || sourceUrl}
-    <a href={attributionUrl ?? sourceUrl ?? undefined} target="_blank" rel="noreferrer"
-      >{attributionText}</a
+    <a
+      class="overflow-hidden text-ellipsis whitespace-nowrap text-inherit"
+      href={attributionUrl ?? sourceUrl ?? undefined}
+      target="_blank"
+      rel="noreferrer">{attributionText}</a
     >
   {:else}
-    <span>{attributionText}</span>
+    <span class="overflow-hidden text-ellipsis whitespace-nowrap">{attributionText}</span>
   {/if}
-  <span aria-hidden="true">·</span>
+  <span class="overflow-hidden text-ellipsis whitespace-nowrap" aria-hidden="true">·</span>
   {#if licenseUrl}
-    <a href={licenseUrl} target="_blank" rel="noreferrer">{licenseReference}</a>
+    <a
+      class="overflow-hidden text-ellipsis whitespace-nowrap text-inherit"
+      href={licenseUrl}
+      target="_blank"
+      rel="noreferrer">{licenseReference}</a
+    >
   {:else}
-    <span>{licenseReference}</span>
+    <span class="overflow-hidden text-ellipsis whitespace-nowrap">{licenseReference}</span>
   {/if}
   <!-- eslint-enable svelte/no-navigation-without-resolve -->
 </span>
-
-<style>
-  .photo-credit {
-    display: flex;
-    min-width: 0;
-    gap: 0.25rem;
-    align-items: baseline;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.68rem;
-    line-height: 1.25;
-  }
-
-  a,
-  span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  a {
-    color: inherit;
-  }
-</style>
