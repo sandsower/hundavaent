@@ -36,6 +36,107 @@ test('the visual foundation is deterministic across browser hosts', async () => 
   ]);
 });
 
+test('Tailwind preflight and the semantic baseline own browser normalization', async () => {
+  const fixture = document.createElement('section');
+  fixture.innerHTML =
+    '<h1>Heading</h1><p>Paragraph</p><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><img alt="" width="10" height="5"><svg></svg>';
+  document.body.append(fixture);
+
+  const browserDefaults = document.createElement('iframe');
+  browserDefaults.srcdoc =
+    '<h1>Heading</h1><p>Paragraph</p><ul><li>Item</li></ul><fieldset><legend>Legend</legend></fieldset><a href="#preflight-proof">Link</a><button>Action</button><input type="file"><img alt="" width="10" height="5"><svg></svg>';
+  await new Promise<void>((resolve) => {
+    browserDefaults.addEventListener('load', () => resolve(), { once: true });
+    document.body.append(browserDefaults);
+  });
+
+  const heading = fixture.querySelector('h1')!;
+  const paragraph = fixture.querySelector('p')!;
+  const list = fixture.querySelector('ul')!;
+  const fieldset = fixture.querySelector('fieldset')!;
+  const legend = fixture.querySelector('legend')!;
+  const link = fixture.querySelector('a')!;
+  const button = fixture.querySelector('button')!;
+  const fileInput = fixture.querySelector('input[type="file"]')!;
+  const image = fixture.querySelector('img')!;
+  const svg = fixture.querySelector('svg')!;
+  const fixtureStyles = getComputedStyle(fixture);
+  const headingStyles = getComputedStyle(heading);
+  const defaultHeadingStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('h1')!
+  );
+  const defaultParagraphStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('p')!
+  );
+  const defaultListStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('ul')!
+  );
+  const defaultFieldsetStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('fieldset')!
+  );
+  const defaultLegendStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('legend')!
+  );
+  const defaultLinkStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('a')!
+  );
+  const defaultButtonStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('button')!
+  );
+  const defaultFileButtonStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('input[type="file"]')!,
+    '::file-selector-button'
+  );
+  const defaultImageStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('img')!
+  );
+  const defaultSvgStyles = browserDefaults.contentWindow!.getComputedStyle(
+    browserDefaults.contentDocument!.querySelector('svg')!
+  );
+
+  expect({
+    marginBlockStart: headingStyles.marginBlockStart,
+    marginBlockEnd: headingStyles.marginBlockEnd,
+    fontSize: headingStyles.fontSize,
+    fontWeight: headingStyles.fontWeight
+  }).toEqual({
+    marginBlockStart: defaultHeadingStyles.marginBlockStart,
+    marginBlockEnd: defaultHeadingStyles.marginBlockEnd,
+    fontSize: defaultHeadingStyles.fontSize,
+    fontWeight: defaultHeadingStyles.fontWeight
+  });
+  expect(getComputedStyle(paragraph).marginBlockStart).toBe(
+    defaultParagraphStyles.marginBlockStart
+  );
+  expect(getComputedStyle(list).listStyleType).toBe(defaultListStyles.listStyleType);
+  expect(getComputedStyle(list).paddingInlineStart).toBe(defaultListStyles.paddingInlineStart);
+  expect(getComputedStyle(fieldset).marginInline).toBe(defaultFieldsetStyles.marginInline);
+  expect(getComputedStyle(fieldset).padding).toBe(defaultFieldsetStyles.padding);
+  expect(getComputedStyle(fieldset).border).toBe(defaultFieldsetStyles.border);
+  expect(getComputedStyle(legend).paddingInline).toBe(defaultLegendStyles.paddingInline);
+  expect(getComputedStyle(link).color).toBe(defaultLinkStyles.color);
+  expect(getComputedStyle(link).textDecorationLine).toBe(defaultLinkStyles.textDecorationLine);
+  expect(fixtureStyles.lineHeight).toBe('normal');
+  expect(getComputedStyle(button).fontFamily).toBe(fixtureStyles.fontFamily);
+  expect(getComputedStyle(button).padding).toBe(defaultButtonStyles.padding);
+  expect(getComputedStyle(button).border).toBe(defaultButtonStyles.border);
+  expect(getComputedStyle(button).backgroundColor).toBe(defaultButtonStyles.backgroundColor);
+  expect(getComputedStyle(button).color).toBe(defaultButtonStyles.color);
+  const fileButtonStyles = getComputedStyle(fileInput, '::file-selector-button');
+  expect(fileButtonStyles.padding).toBe(defaultFileButtonStyles.padding);
+  expect(fileButtonStyles.border).toBe(defaultFileButtonStyles.border);
+  expect(fileButtonStyles.backgroundColor).toBe(defaultFileButtonStyles.backgroundColor);
+  expect(getComputedStyle(image).display).toBe(defaultImageStyles.display);
+  expect(getComputedStyle(image).verticalAlign).toBe(defaultImageStyles.verticalAlign);
+  expect(getComputedStyle(image).maxWidth).toBe(defaultImageStyles.maxWidth);
+  expect(getComputedStyle(image).height).toBe(defaultImageStyles.height);
+  expect(getComputedStyle(svg).display).toBe(defaultSvgStyles.display);
+  expect(getComputedStyle(svg).verticalAlign).toBe(defaultSvgStyles.verticalAlign);
+
+  fixture.remove();
+  browserDefaults.remove();
+});
+
 test('place and operations modes share semantic colours while changing density', () => {
   const placeMode = document.createElement('section');
   placeMode.dataset.uiMode = 'place';

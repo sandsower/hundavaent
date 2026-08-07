@@ -1,0 +1,471 @@
+{
+  "version": 1,
+  "description": "Exact reviewed residual <style> inventory. Any content change requires a fresh allowlist review.",
+  "entries": [
+    {
+      "path": "src/lib/achievements/AchievementBadge.svelte",
+      "sha256": "4f5aaa70a3facc487b6245aa656f9e9aeefa89423f8ea43fc7ea8ad05984b5f3",
+      "categories": ["animation"]
+    },
+    {
+      "path": "src/lib/achievements/AchievementCelebration.svelte",
+      "sha256": "a2216604e8e686f2c98a61612ab6d99f10367ff8a896242e0bf8d5dcfd8f1a45",
+      "categories": ["animation", "cross-component"]
+    },
+    {
+      "path": "src/lib/achievements/AchievementCollectionGrid.svelte",
+      "sha256": "807ae75bb3085c291560a5c81826d0e4d5b4b7e315c0848491600e7e927c4578",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/achievements/AchievementShare.svelte",
+      "sha256": "ccef64035f7a6103dd424cbc74da15794c4ca7a91beff92fa343f47701194f36",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/achievements/AchievementUnreadIndicator.svelte",
+      "sha256": "0c6788376a0ba51c94ae0d4a839920fe3a6c901ae75101925f602daf77eb5f1b",
+      "categories": ["animation", "cross-component"]
+    },
+    {
+      "path": "src/lib/auth/AuthDialog.svelte",
+      "sha256": "aad98465f506761aab95d0da0dc1d538be607c41b1576ac35d78868b83c6d815",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/check-ins/CheckInControl.svelte",
+      "sha256": "9068879cbade597ad40ba5ebaea1451e2402e49a97a63af2b2679b015bc3f779",
+      "categories": ["animation", "cross-component"]
+    },
+    {
+      "path": "src/lib/discovery/AccessSymbols.svelte",
+      "sha256": "55a8fe6898da6fb1f33afc33b062127a4339ea82bf4111eae34de9b4ac8833de",
+      "categories": ["animation"]
+    },
+    {
+      "path": "src/lib/discovery/ContributionReveal.svelte",
+      "sha256": "8c175fcf5ef4544f7fa7c9f68e289a448a4502ebeb5bf8316bfb5d2a1da61665",
+      "categories": ["animation"]
+    },
+    {
+      "path": "src/lib/discovery/DiscoveryResults.svelte",
+      "sha256": "98d04799bb8d20a91ec3a3eb926e3f861e00412e50b9dbb239f39be710a2310b",
+      "categories": ["animation", "cross-component"]
+    },
+    {
+      "path": "src/lib/discovery/InlineCorrectionShell.svelte",
+      "sha256": "363b70ad617bd0e0dce63cba9172018349690a8003e6b1cb9b1755b86aa9d872",
+      "categories": ["animation"]
+    },
+    {
+      "path": "src/lib/discovery/InlineRating.svelte",
+      "sha256": "2347cc4667dccde4d9a12818b6be6f07eb65f7794958e9928048ff182acd1461",
+      "categories": ["animation"]
+    },
+    {
+      "path": "src/lib/discovery/MapListShell.svelte",
+      "sha256": "a4fb16f695432cf785f00105ad016f7946b8089ff30e1fc2947a9ac65130671d",
+      "categories": ["animation", "cross-component"]
+    },
+    {
+      "path": "src/lib/discovery/PlaceCard.svelte",
+      "sha256": "9d9e91edd7e03f0b5e45bd0b9463d944c236ed516ca929f9f3c082f98a4c192b",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/discovery/PlaceList.svelte",
+      "sha256": "a3e2bc44ebd717ac987ba1910318552d2d221a2f382636426c73b7f52d71e813",
+      "categories": ["animation"]
+    },
+    {
+      "path": "src/lib/discovery/PlacePhotos.svelte",
+      "sha256": "d8ce1e91d98ea9c684264cabd12254f5348425a11abeae7984630e89a05f9762",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/discovery/SelectedPlaceCard.svelte",
+      "sha256": "9989dd7f623e6bef8ec0d97adad47b39de72fb5876912cc77bd996740be8b06b",
+      "categories": ["animation", "cross-component"]
+    },
+    {
+      "path": "src/lib/discovery/SharePlaceControl.svelte",
+      "sha256": "a3c0a72d34dbb53a87535d6b0e5a6dfb69d5295a5e141cd186d7a1c1f58f09c9",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/discovery/WheelchairAccessibilityBadge.svelte",
+      "sha256": "55a8fe6898da6fb1f33afc33b062127a4339ea82bf4111eae34de9b4ac8833de",
+      "categories": ["animation"]
+    },
+    {
+      "path": "src/lib/favourites/FavouriteControl.svelte",
+      "sha256": "c1bbf3b2252ea218955c9059399855db9de3c5f36ed67a10eaff492398ea07a0",
+      "categories": ["animation", "cross-component"]
+    },
+    {
+      "path": "src/lib/map/MapSurface.svelte",
+      "sha256": "13edcb12567288149278cc7a53b48ea686754fb214ace84f30692259532f166d",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/map/SuggestionLocationPicker.svelte",
+      "sha256": "aea0997c5fe8da91621a58f1da8269f823b169137bed9b87fa8ffd5bf36a3e2d",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/member-activity/WeeklyRhythmAcknowledgement.svelte",
+      "sha256": "5af74885beef5db5719b7741ac990f3a858454f81f91aab739e2b3fb113f0e2a",
+      "categories": ["animation", "cross-component"]
+    },
+    {
+      "path": "src/lib/member-activity/WeeklyRhythmIndicator.svelte",
+      "sha256": "fb0988e503dae7f2d56a0834b6801b1a62f3d89456861d3ed5320c96dde134c2",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/member-activity/WeeklyRhythmTrail.svelte",
+      "sha256": "38328d110649c8a6002c2b294e326021749983abc3830028e8599e51a1ce284c",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/AccessConditionsEditor.svelte",
+      "sha256": "ea9a23ea88100c151d56c1ffa1a60a62f202ed57b263f596ea3379ed7c937d1b",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/CandidateDecisionControls.svelte",
+      "sha256": "e1d54f0bee111cb6dcea97a5e5549d1a06bd2113276cba0ac74757dd557126a2",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/CandidateReviewPanel.svelte",
+      "sha256": "7d9719054c281e169ff508ca66df47782f16d134d6d14c720174004d3ad30673",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/CorrectionDecisionControls.svelte",
+      "sha256": "03e7a315ea725b925cb6576657e3b8843d85addf533072757b69b558f42b8589",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/CorrectionReviewPanel.svelte",
+      "sha256": "dcbf35faeec6b945200f8b3b3da4a3761a361649dbe654f497a2fa41db074f3b",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/EvidenceRecordsEditor.svelte",
+      "sha256": "ab30373272a46eb374e9907e79e2e23a2b19ad4c76e278551de8b0f6c3ac720b",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/ModerationActionBar.svelte",
+      "sha256": "1c0430841eb85040b4d2cf511224131992f0b415ffb657d815b8e4007364cfef",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/ModerationDecisionDock.svelte",
+      "sha256": "d44e546986a58f01375278822770ef207b57cdcc38b161b69bfea800001a5dc4",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/ModerationLocationEditor.svelte",
+      "sha256": "d73b15d109c7ecf9bb7e002881fd7d71ed2d49cac9607c842fc67e2e198a0613",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/ModerationPhotoApprovalFields.svelte",
+      "sha256": "95fda921eaed24d2e24ad534c47442810a16ccfdce8adf5353967ddc2bedcf27",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/ModerationPublishDialog.svelte",
+      "sha256": "dc3cf3cb8565b3e182fe631de58d631626e2b8a4a8aac871018a3740f4e5dadd",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/ModerationQueueRail.svelte",
+      "sha256": "968b93c158eaf60259e25ecede2cfe0659f563678cf7d5df1b5fa0c1ff35e56e",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/ModerationReadinessSummary.svelte",
+      "sha256": "6dd466873e6cd984e4a65035dc4e251f08fef7b8b1c5e936915495897d9abf0b",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/ModerationReasonDialog.svelte",
+      "sha256": "1ffa2d8519df91e86ca01e595363c4dea573d6949d085040b5e277eccc332570",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/ModerationReviewSection.svelte",
+      "sha256": "b7573f50effef32991584725a50276c955359f88ac83c030503b08547cbf7d17",
+      "categories": ["selector-exception"]
+    },
+    {
+      "path": "src/lib/moderation/ModerationWorkList.svelte",
+      "sha256": "f147b7313b3bb87ac9cd34111e4983d6b017e565f3b79447e46d080a5bbf14c9",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/ModerationWorkspace.svelte",
+      "sha256": "4a4eff1dcf53438f95be3abe8981e0fadb6869e8d351b08ab4670b7596df24a2",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/OpeningHoursEditor.svelte",
+      "sha256": "79a093698bf2106e32ed1c392387bc3f48b556dca84d09c37fa2eb4673edba01",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/SuggestionAccessConditionEditor.svelte",
+      "sha256": "3b71543f4935a37482cfe8fca2c859d5863287a9f254c33e2e673381307d6abc",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/SuggestionDecisionControls.svelte",
+      "sha256": "e1d54f0bee111cb6dcea97a5e5549d1a06bd2113276cba0ac74757dd557126a2",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/SuggestionEvidenceEditor.svelte",
+      "sha256": "030ab1b6e9c128f7cb9afcd21ec0ade754fb9bb1140057a1d3fc4f0640f72a81",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/moderation/SuggestionReviewPanel.svelte",
+      "sha256": "a4652f8cb147d53c9c0b7737149aac6a9cfc44d6009c1ebee0cba45f28957132",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/personal-history/CheckInHistoryList.svelte",
+      "sha256": "be8cb06aee4d9cff5b752efe4ad85f691a74aab3d9cc14db66d40c49abce6eba",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/personal-history/PersonalMapView.svelte",
+      "sha256": "360609b1dbb8d80d91209499270a184f551876b7db2359962718235c7aa8ee8f",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/roundup/RoundupPreferencesForm.svelte",
+      "sha256": "5af7f57cbfd4dd7ed378fe612c0f38e8db055ddbaecbb421fa9f0ab4156bbaf7",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/roundup/RoundupRecommendationCard.svelte",
+      "sha256": "1fbd8a5d5c8e37c22e9e110665d6e0d5765c58b7f996d016b37cb96811be5237",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/roundup/RoundupTrailIcon.svelte",
+      "sha256": "d5b9c6acc64bbb1e92ef957668a15bd59868b35614c3ddf81ee610d226376ca3",
+      "categories": ["animation"]
+    },
+    {
+      "path": "src/lib/translations/TranslationRow.svelte",
+      "sha256": "fad8fab7eb5414e01900d876d28cef74c911092dcc47fb51fe3196bfa6aafa48",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/lib/translations/TranslationWorkspace.svelte",
+      "sha256": "822e3547196715c0967f0fc37b89d02c28aa91c12a9308778b471695ff2c0de1",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/+error.svelte",
+      "sha256": "9db1833e1a7b74a50605223a8a12ec4e74bc44e8e66361ddbea1c18b80eba61e",
+      "categories": ["animation"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/+error.svelte",
+      "sha256": "9db1833e1a7b74a50605223a8a12ec4e74bc44e8e66361ddbea1c18b80eba61e",
+      "categories": ["animation"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/+layout.svelte",
+      "sha256": "885e370ceb13c7bda0f69c48c5cd4280663270758faf042e5802641f2e404a75",
+      "categories": ["cross-component", "selector-exception"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/+page.svelte",
+      "sha256": "cf9e92cabbc9af1d2d3860a2bd905b169b431f676f6c798296b7b25886265333",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/about/+page.svelte",
+      "sha256": "db578f376712d7455e19b090e061ceee5d60e490cc5e9c199997c504b5bdf222",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/account/+page.svelte",
+      "sha256": "fb0bff0e4247c2615cfbf7e5eebdaa4fef1827535caf8c02af69fc72bf7ded7c",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/account/achievements/+page.svelte",
+      "sha256": "291a181de8600369b8e395fcd5aeb3ca386412c9f319febacd7d1dbc0f7d3bf1",
+      "categories": ["animation", "cross-component"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/account/contributor-status/+page.svelte",
+      "sha256": "05abea5a3bfe12aef57bbca61af6525be7bb008474c71836ca949f621c1ea7d2",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/account/corrections-and-reports/+page.svelte",
+      "sha256": "b4f7f3ead96a2cd4c4030056e1c6b938439ee2ed2bc8c339531e6ccd47c9971a",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/account/impact/+page.svelte",
+      "sha256": "329c9624171c018ab2fa53d5648efad9ff13a50e8b466b9ddafa13b1ed11a4ee",
+      "categories": ["animation", "cross-component", "selector-exception"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/account/keep-current/+page.svelte",
+      "sha256": "4816a2058b1b9968faeb75b627b5796b6606a67009b0499f03b8f87e5e6a0902",
+      "categories": ["animation", "cross-component", "selector-exception"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/account/roundup/+page.svelte",
+      "sha256": "d85af5b97b8795ca8b1e6a626b1e7b0e5c8aa5032585a51a1213c8b999b6fcb7",
+      "categories": ["animation", "cross-component"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/account/suggestions/+page.svelte",
+      "sha256": "1c05b3aeb8b7235673b5807e3d73102da81f6cf09803b9f7b1f7afaca1fd77ea",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/favorites/+page.svelte",
+      "sha256": "efda44b267ed662592afa5454dace70e01b117d4e691bc0d5f764a7de2e3a5bc",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/moderation/+page.svelte",
+      "sha256": "f27c22d027ab02bc61fc810ca8c522b871e84f94f2ac8b432d08015ec2113f57",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/moderation/dog-friendliness/[placeId]/+page.svelte",
+      "sha256": "6402dabc99575c908518bc8854f0cbf804fc75a26781126d90eb299fba0a5d4e",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/moderation/places/new/+page.svelte",
+      "sha256": "348c2b60b1ec4900448cab1c480c4c1b6a9d835da234ce6b63871ddcdfdf8fd3",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/moderation/sign-in/+page.svelte",
+      "sha256": "e3f7c0040db1297363ae30048accf135d3b345ba3815120c2115f9596c8ece39",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/[lang=lang]/suggest/+page.svelte",
+      "sha256": "04ddd80a0e9fe14dccabeb63e7fafe984a30ceeb387af900ab1eaa6309b1109d",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/gate/+page.svelte",
+      "sha256": "e3f7c0040db1297363ae30048accf135d3b345ba3815120c2115f9596c8ece39",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "src/routes/translations/sign-in/+page.svelte",
+      "sha256": "1b932913fc8f997dbd1cca0b7a0c0b502c24d96c74a92a5d7f8d4011bab5ca08",
+      "categories": ["cross-component"]
+    },
+    {
+      "path": "packages/design-system/src/lib/Button.stories.svelte",
+      "sha256": "672b83925c88c58f3734883ae70a2ad2a8ee90d0c0d35138cf61de0800445fd3",
+      "categories": ["cross-component", "design-artifact"]
+    },
+    {
+      "path": "packages/design-system/src/lib/Dialog.svelte",
+      "sha256": "d5ef508a2e457b9e16c34e52e4a94f8a6fc03d90987fdb768637f7c50e49a25d",
+      "categories": ["animation", "design-system"]
+    },
+    {
+      "path": "packages/design-system/src/lib/Disclosure.svelte",
+      "sha256": "f77f11ac6e39d4c1abaf3c073117743e0cdecdd5669f85f5d97272d69fddda78",
+      "categories": ["design-system"]
+    },
+    {
+      "path": "packages/design-system/src/lib/PageShell.svelte",
+      "sha256": "574e11862844750a793250c5901af4aac731c770cd3ad2fa2a045833d82b12de",
+      "categories": ["design-system"]
+    },
+    {
+      "path": "packages/design-system/src/lib/Rating.svelte",
+      "sha256": "675adf72247ad701283ed1de7e49ace083ee8bd0adac432e3249eb6f3e6d84f3",
+      "categories": ["animation", "design-system"]
+    },
+    {
+      "path": "packages/design-system/design-sync/cards/ButtonIntents.svelte",
+      "sha256": "af3d865b959c76fd6ee52125975f331c0e5171f6ab1578e94f1ccf1eafa9e7f0",
+      "categories": ["design-artifact"]
+    },
+    {
+      "path": "packages/design-system/design-sync/cards/ButtonShapesStates.svelte",
+      "sha256": "af3d865b959c76fd6ee52125975f331c0e5171f6ab1578e94f1ccf1eafa9e7f0",
+      "categories": ["design-artifact"]
+    },
+    {
+      "path": "packages/design-system/design-sync/cards/Colors.svelte",
+      "sha256": "8383669263d2e3b8a7556880aa0842f7c1fdb99763c4e5ef7ddec7de1a9cd039",
+      "categories": ["design-artifact"]
+    },
+    {
+      "path": "packages/design-system/design-sync/cards/DialogCard.svelte",
+      "sha256": "b9a64ddd4442d86a1af9684e2572230be7072373bead5fae782fa24a24856800",
+      "categories": ["design-artifact"]
+    },
+    {
+      "path": "packages/design-system/design-sync/cards/DisclosureRating.svelte",
+      "sha256": "c13c2dff37a0f2a1a456be4b8b2216735b253b5bc20a8ed813dcd29542e62f08",
+      "categories": ["design-artifact"]
+    },
+    {
+      "path": "packages/design-system/design-sync/cards/FieldInput.svelte",
+      "sha256": "24d72fa30e37d92d5a6c2aad6a1d854e9dc02884d16a770cb39f0859583f5330",
+      "categories": ["design-artifact"]
+    },
+    {
+      "path": "packages/design-system/design-sync/cards/Motion.svelte",
+      "sha256": "5f4fdd0e9d39dee7a8713e7ef5aa775bb704c84688666c81c903aee709c5b8f8",
+      "categories": ["design-artifact"]
+    },
+    {
+      "path": "packages/design-system/design-sync/cards/NoticeTones.svelte",
+      "sha256": "6afa5bdffc8d586a54e5c8c11dc08e925e5a22db7fadbb64700c2c5fafb4b4da",
+      "categories": ["design-artifact"]
+    },
+    {
+      "path": "packages/design-system/design-sync/cards/OperationsMode.svelte",
+      "sha256": "b9ee735b3f5c79df9c013468d43e799617ca478c470add48cf179af866564fd5",
+      "categories": ["design-artifact"]
+    },
+    {
+      "path": "packages/design-system/design-sync/cards/SelectTextarea.svelte",
+      "sha256": "24d72fa30e37d92d5a6c2aad6a1d854e9dc02884d16a770cb39f0859583f5330",
+      "categories": ["design-artifact"]
+    },
+    {
+      "path": "packages/design-system/design-sync/cards/SpacingRadii.svelte",
+      "sha256": "338f172e3361c253114bd4f881284266f50185f4e3dd421cb68af635ad9934f0",
+      "categories": ["design-artifact"]
+    },
+    {
+      "path": "packages/design-system/design-sync/cards/StatusTones.svelte",
+      "sha256": "af3d865b959c76fd6ee52125975f331c0e5171f6ab1578e94f1ccf1eafa9e7f0",
+      "categories": ["design-artifact"]
+    },
+    {
+      "path": "packages/design-system/design-sync/cards/Type.svelte",
+      "sha256": "b6c52e11e9b9c528ff72212d62e1ca0e7789b9a9c5ecacf6a84f135a2d3a710b",
+      "categories": ["design-artifact"]
+    }
+  ]
+}

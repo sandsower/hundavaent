@@ -3,7 +3,7 @@
    re-resolved per file. The explicit layer order mirrors app.css and preview.css - without it,
    priority would fall to first-declaration order, which puts theme.css's `base` block above
    `utilities`, the reverse of every real surface. */
-@layer hundavaent.base, hundavaent.tokens, theme, base, components, utilities;
+@layer hundavaent.tokens, theme, base, components, utilities;
 
 @import '../../../src/lib/design-system/tokens.css';
 @import '../src/theme.css';

@@ -63,9 +63,9 @@
   <label for={controlId}>{label}</label>
   {@render children()}
   {#if hint}
-    <!-- m-0 because preflight is absent for the migration window: the UA's default <p> margins
-         would otherwise stretch the stack (the same lesson Notice learned in phase 2). Sized to
-         .hv-meta, the de-facto hint treatment on shipped surfaces. -->
+    <!-- Keep the zero margin explicit as part of Field's spacing contract, including when the
+         component is rendered in isolation without the package stylesheet. Sized to .hv-meta,
+         the de-facto hint treatment on shipped surfaces. -->
     <p id={hintId} class="m-0 text-[0.9rem] leading-[1.5] text-basalt-muted">{hint}</p>
   {/if}
   {#if error}

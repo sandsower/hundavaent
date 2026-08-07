@@ -5,33 +5,16 @@
    live app-side at src/lib/design-system/tokens.css, so the relative import above stays a
    deliberate reach back into src/, not a leftover to clean up. */
 
-@layer hundavaent.base, hundavaent.tokens, theme, base, components, utilities;
+@layer hundavaent.tokens, theme, base, components, utilities;
 
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/source-serif-4';
 @import '../../../src/lib/design-system/tokens.css';
 @import '../src/theme.css';
 
-/* Mirrors app.css's hundavaent.base reset exactly: without it, a form control story renders in
-   the UA's default font instead of Inter and every visual judgement made against Storybook is
-   made against the wrong render. Layered and first, same as the app, so it normalises without
-   outranking anything that declares a font on purpose. */
-@layer hundavaent.base {
-  button,
-  input,
-  select,
-  textarea {
-    font: inherit;
-  }
-}
-
 :root {
   color-scheme: light;
   --font-sans: 'Inter Variable', Inter, ui-rounded, 'Avenir Next Rounded', system-ui, sans-serif;
   font-family: var(--font-sans);
   font-synthesis: none;
-}
-
-* {
-  box-sizing: border-box;
 }

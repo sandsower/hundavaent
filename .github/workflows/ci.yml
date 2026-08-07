@@ -27,6 +27,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm open-source:check
+      - run: pnpm tailwind:check
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm check

@@ -247,7 +247,7 @@
     <div
       class="dialog-content sent-state grid gap-4 p-4 max-narrow:pb-[max(1rem,env(safe-area-inset-bottom))]"
     >
-      <p class="eyebrow text-[0.78rem] font-[900] tracking-[0.08em] uppercase text-fjord">
+      <p class="eyebrow m-0 text-[0.78rem] font-[900] tracking-[0.08em] uppercase text-fjord">
         {copy['site.name']}
       </p>
       <h2
@@ -256,7 +256,7 @@
       >
         {copy['auth.checkEmail']}
       </h2>
-      <p class="leading-[1.55] text-basalt-muted">
+      <p class="m-0 leading-[1.55] text-basalt-muted">
         {copy['auth.sentTo'].replace('{email}', email)}
       </p>
       <div class="sent-actions flex flex-wrap gap-x-[1.1rem] gap-y-3">
@@ -283,7 +283,7 @@
     <div
       class="dialog-content grid gap-4 p-4 max-narrow:pb-[max(1rem,env(safe-area-inset-bottom))]"
     >
-      <p class="eyebrow text-[0.78rem] font-[900] tracking-[0.08em] uppercase text-fjord">
+      <p class="eyebrow m-0 text-[0.78rem] font-[900] tracking-[0.08em] uppercase text-fjord">
         {copy['site.name']}
       </p>
       <h2
@@ -292,10 +292,10 @@
       >
         {title}
       </h2>
-      <p class="benefits leading-[1.55] text-basalt-muted">{copy['auth.benefits']}</p>
+      <p class="benefits m-0 leading-[1.55] text-basalt-muted">{copy['auth.benefits']}</p>
 
       {#if error}
-        <Notice tone="error" as="p" role="alert">{error}</Notice>
+        <Notice tone="error" as="p" role="alert" class="m-0">{error}</Notice>
       {/if}
 
       {#if providers.facebook}
@@ -311,7 +311,7 @@
 
       {#if providers.facebook && providers.email}
         <p
-          class="divider flex items-center gap-3 text-[0.8rem] text-basalt-muted before:h-px before:flex-1 before:bg-border-subtle before:content-[''] after:h-px after:flex-1 after:bg-border-subtle after:content-['']"
+          class="divider flex items-center gap-3 m-0 text-[0.8rem] text-basalt-muted before:h-px before:flex-1 before:bg-border-subtle before:content-[''] after:h-px after:flex-1 after:bg-border-subtle after:content-['']"
         >
           <span>{copy['auth.or']}</span>
         </p>
@@ -335,7 +335,7 @@
               required
             />
           </Field>
-          <p class="passwordless text-[0.82rem] leading-[1.45] text-basalt-muted">
+          <p class="passwordless m-0 text-[0.82rem] leading-[1.45] text-basalt-muted">
             {copy['auth.noPassword']}
           </p>
           <Button intent="primary" type="submit" disabled={submitting}>
@@ -345,12 +345,12 @@
       {/if}
 
       {#if !providers.email && !providers.facebook}
-        <Notice tone="info" as="p">{copy['account.authUnavailable']}</Notice>
+        <Notice tone="info" as="p" class="m-0">{copy['account.authUnavailable']}</Notice>
       {/if}
 
       <!-- The original .legal margin-top: 0.15rem never rendered: the more-specific
-           .dialog-content :global(p) margin reset below won. Keep the rendered zero margin. -->
-      <p class="legal text-center text-[0.82rem] leading-[1.45] text-basalt-muted">
+           .dialog-content paragraph reset won. Keep that rendered zero margin explicitly. -->
+      <p class="legal m-0 text-center text-[0.82rem] leading-[1.45] text-basalt-muted">
         {copy['auth.legalPrefix']}
         <a class="font-[750] text-inherit" href={resolve('/[lang=lang]/terms', { lang })}
           >{copy['auth.termsLink']}</a
@@ -370,15 +370,6 @@
      packages/design-system/src/lib/Dialog.svelte, whose own mobile-sheet rule reproduces the
      block that used to live here. Everything below styles .dialog-content and inward, which
      Dialog does not own and which tests/component/auth-dialog.browser.test.ts:147 pins. */
-
-  /* Notice (error/info) renders its own <p> in a separate component, so it never carries this
-     component's scoped attribute and the plain `p { margin: 0 }` rule above cannot reach it -
-     without preflight (theme.css) the browser's default 1em block margin would otherwise land on
-     it and double up against .dialog-content's own 1rem grid gap. :global() reaches across that
-     component boundary the same way the Button migration below does. */
-  .dialog-content :global(p) {
-    margin: 0;
-  }
 
   /* Field renders its own <label>, crossing this component's scoping boundary the same way
      .facebook below crosses Button's - :global() reaches it purely on the literal element.
