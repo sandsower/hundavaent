@@ -135,15 +135,21 @@
   });
 </script>
 
-<div class="photo-contribution" data-photo-contribution>
+<div class="photo-contribution grid justify-items-start gap-1" data-photo-contribution>
+  <!-- A photo is an additive gift, not a defect report, so its trigger is a real button in the
+       card's pill family rather than the corrections' quiet underlined link. -->
   <button
-    class="start"
+    class="start inline-flex min-h-[2.1rem] items-center gap-[0.4rem] py-[0.3rem] px-[0.85rem] border border-fjord rounded-[999px] bg-transparent [font-family:inherit] [font-style:inherit] [font-variant:inherit] [font-stretch:inherit] [line-height:inherit] text-[0.8rem] font-extrabold text-fjord cursor-pointer transition-transform duration-[var(--hv-motion-instant)] ease-settle [&:hover:not(:disabled):not(:active)]:transform-[translateY(-1px)] [&:active:not(:disabled)]:transform-[scale(0.96)] disabled:border-border-subtle disabled:text-basalt-muted disabled:cursor-progress focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:[outline-offset:2px]"
     type="button"
     disabled={sending}
     aria-label={copy['place.photos.addLabel'].replace('{name}', placeName)}
     onclick={choose}
   >
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg
+      class="flex-none size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
       <path
         d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"
       />
@@ -151,9 +157,12 @@
     </svg>
     {sending ? copy['place.photos.sending'] : copy['place.photos.add']}
   </button>
+  <!-- Kept in the document rather than hidden with `display: none`, because a file input has to be
+       clickable from script; it is out of the tab order and out of the accessibility tree, and the
+       button above is the whole control as far as a keyboard or screen reader is concerned. -->
   <input
     bind:this={picker}
-    class="picker"
+    class="picker absolute w-px h-px -m-px p-0 overflow-hidden border-0 [clip-path:inset(50%)] whitespace-nowrap"
     type="file"
     accept={acceptedMemberPhotoTypes.join(',')}
     tabindex="-1"
@@ -162,100 +171,22 @@
     onchange={() => void send()}
   />
   {#if outcomeMessage}
-    <p class="outcome" data-photo-outcome>{outcomeMessage}</p>
+    <!-- Every outcome here is a refusal, and a refusal in the muted ink reads as a caption. It
+         wears the danger ink the notices use instead. -->
+    <p
+      class="outcome m-0 text-[0.75rem] leading-[1.35] font-[750] text-danger"
+      data-photo-outcome
+    >
+      {outcomeMessage}
+    </p>
   {:else if confirmed}
     <!-- The live region already told a screen reader; this is the same sentence for eyes, so a
          successful send is not answered by silence next to the button that did it. -->
-    <p class="confirmation" data-photo-confirmation>{copy['place.photos.sent']}</p>
+    <p
+      class="confirmation m-0 text-[0.75rem] leading-[1.35] font-[750] text-basalt"
+      data-photo-confirmation
+    >
+      {copy['place.photos.sent']}
+    </p>
   {/if}
 </div>
-
-<style>
-  .photo-contribution {
-    display: grid;
-    justify-items: start;
-    gap: 0.25rem;
-  }
-
-  /* A photo is an additive gift, not a defect report, so its trigger is a real button in the
-     card's pill family rather than the corrections' quiet underlined link. */
-  .start {
-    display: inline-flex;
-    min-height: 2.1rem;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.85rem;
-    border: 1px solid var(--hv-color-fjord);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--hv-color-fjord);
-    font: inherit;
-    font-size: 0.8rem;
-    font-weight: 800;
-    cursor: pointer;
-    transition: transform var(--hv-motion-instant) var(--hv-ease-settle);
-  }
-
-  .start:hover:not(:disabled) {
-    transform: translateY(-1px);
-  }
-
-  .start:active:not(:disabled) {
-    transform: scale(0.96);
-  }
-
-  .start svg {
-    width: 1rem;
-    height: 1rem;
-    flex: none;
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 1.8;
-  }
-
-  .start:disabled {
-    border-color: var(--hv-border-subtle);
-    color: var(--hv-color-basalt-muted);
-    cursor: progress;
-  }
-
-  .start:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 2px;
-  }
-
-  /* Kept in the document rather than hidden with `display: none`, because a file input has to be
-     clickable from script; it is out of the tab order and out of the accessibility tree, and the
-     button above is the whole control as far as a keyboard or screen reader is concerned. */
-  .picker {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    border: 0;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  /* Every outcome here is a refusal, and a refusal in the muted ink reads as a caption. It
-     wears the danger ink the notices use instead. */
-  .outcome {
-    margin: 0;
-    color: var(--hv-color-danger);
-    font-size: 0.75rem;
-    font-weight: 750;
-    line-height: 1.35;
-  }
-
-  .confirmation {
-    margin: 0;
-    color: var(--hv-color-basalt);
-    font-size: 0.75rem;
-    font-weight: 750;
-    line-height: 1.35;
-  }
-</style>

@@ -143,21 +143,33 @@
   });
 </script>
 
-<div class="contribution-reveal" data-contribution-reveal>
+<div
+  class="contribution-reveal grid justify-items-start mt-[0.35rem] pt-[0.6rem] border-t border-border-subtle"
+  data-contribution-reveal
+>
   {#if open}
     <section
       bind:this={panel}
-      class="panel"
+      class="panel grid w-full min-w-0 gap-[0.7rem]"
       aria-labelledby={`${componentId}-heading`}
       data-contribution-panel
     >
-      <h4 id={`${componentId}-heading`}>{copy['inlineCorrection.revealHeading']}</h4>
+      <h4
+        id={`${componentId}-heading`}
+        class="m-0 text-[0.72rem] font-[850] tracking-[0.05em] uppercase text-basalt"
+      >
+        {copy['inlineCorrection.revealHeading']}
+      </h4>
 
-      <ul class="facts">
+      <ul class="facts grid gap-[0.7rem] m-0 p-0 list-none">
         {#each memberPlaceFields as field (field)}
-          <li>
-            <span class="fact-label">{copy[fieldLabels[field]]}</span>
-            <span class="fact-value">{values[field] || copy['common.notAvailable']}</span>
+          <li class="grid min-w-0 gap-[0.15rem]">
+            <span class="fact-label text-[0.72rem] font-[850] text-basalt-muted"
+              >{copy[fieldLabels[field]]}</span
+            >
+            <span class="fact-value text-[0.85rem] font-bold [overflow-wrap:anywhere]"
+              >{values[field] || copy['common.notAvailable']}</span
+            >
             {#if pendingField(field)}
               {@render pendingLine(justSubmittedField(field))}
             {:else}
@@ -178,12 +190,14 @@
       </ul>
 
       {#if multipleConditions}
-        <div class="conditions">
-          <h5>{copy['inlineCorrection.conditionsHeading']}</h5>
-          <ul class="facts">
+        <div class="conditions grid gap-2">
+          <h5 class="m-0 text-[0.72rem] font-[850] tracking-[0.05em] uppercase text-basalt">
+            {copy['inlineCorrection.conditionsHeading']}
+          </h5>
+          <ul class="facts grid gap-[0.7rem] m-0 p-0 list-none">
             {#each profile.accessConditions as condition, index (condition.id)}
-              <li>
-                <span class="fact-label"
+              <li class="grid min-w-0 gap-[0.15rem]">
+                <span class="fact-label text-[0.72rem] font-[850] text-basalt-muted"
                   >{copy['place.conditionLabel'].replace('{number}', String(index + 1))}</span
                 >
                 {#if hasPendingAccessCondition(pending, condition.id)}
@@ -194,7 +208,7 @@
                   <!-- eslint-disable svelte/no-navigation-without-resolve -- correctConditionHref builds the path with $app/paths resolve() -->
                   <a
                     href={correctConditionHref(lang, profile.placeId, condition.id)}
-                    class="condition-link"
+                    class="condition-link justify-self-start text-[0.78rem] font-extrabold text-fjord focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:[outline-offset:2px]"
                     aria-label={copy['inlineCorrection.conditionLinkLabel']
                       .replace('{number}', String(index + 1))
                       .replace('{name}', placeName)}
@@ -211,17 +225,27 @@
 
       <!-- Beneath the per-fact affordances, because these three are not about any fact: they are
            claims about the whole Place, and a Member who has one is not looking for a field. -->
-      <div class="reports">
-        <h5>{copy['placeReport.heading']}</h5>
-        <ul class="facts">
+      <!-- Every claim in this group is a whole list item rather than an affordance hanging off a fact
+           label, so they all have to start on the same left edge. The three actions are buttons carrying
+           0.4rem of their own padding, so the pending line that replaces one and the link that follows
+           them are inset to match; the 0.45rem lead-in is the same one the buttons bring with them, so
+           the rhythm does not change when a claim turns into a pending line. -->
+      <div class="reports grid gap-2">
+        <h5 class="m-0 text-[0.72rem] font-[850] tracking-[0.05em] uppercase text-basalt">
+          {copy['placeReport.heading']}
+        </h5>
+        <ul class="facts grid gap-1 m-0 p-0 list-none">
           {#each placeReportReasons as reason (reason)}
-            <li>
+            <li class="grid min-w-0 gap-[0.15rem]">
               {#if hasPendingPlaceReport(pending, reason)}
                 <!-- Per reason, not per Place: an open "closed" says nothing about "unsafe", so
                      the other two claims stay available. -->
-                <span class="fact-label report-claim">{copy[reportLabels[reason]]}</span>
+                <span
+                  class="fact-label report-claim mt-[0.45rem] pl-[0.4rem] text-[0.72rem] font-[850] text-basalt-muted"
+                  >{copy[reportLabels[reason]]}</span
+                >
                 <p
-                  class="pending"
+                  class="pending [margin:0.1rem_0_0] pl-[0.4rem] text-[0.75rem] leading-[1.35] font-[750] text-basalt-muted focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:[outline-offset:2px]"
                   data-report-pending
                   data-pending-focus={justSubmittedReport(reason) ? '' : undefined}
                   tabindex="-1"
@@ -241,11 +265,11 @@
               {/if}
             </li>
           {/each}
-          <li>
+          <li class="grid min-w-0 gap-[0.15rem]">
             <!-- eslint-disable svelte/no-navigation-without-resolve -- reportPlaceHref builds the path with $app/paths resolve() -->
             <a
               href={reportPlaceHref(lang, profile.placeId)}
-              class="report-link"
+              class="report-link inline-flex min-h-6 items-center justify-self-start mt-[0.45rem] px-[0.4rem] rounded-control text-[0.72rem] font-extrabold text-fjord focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:[outline-offset:2px]"
               aria-label={copy['placeReport.somethingElseLabel'].replace('{name}', placeName)}
             >
               {copy['placeReport.somethingElse']}
@@ -255,14 +279,20 @@
         </ul>
       </div>
 
-      <button class="hide" type="button" onclick={collapse}>
+      <button
+        class="hide inline-flex min-h-7 items-center justify-self-start py-[0.2rem] px-[0.4rem] border-0 rounded-control bg-transparent [font-family:inherit] [font-style:inherit] [font-variant:inherit] [font-stretch:inherit] [line-height:inherit] text-[0.78rem] font-extrabold text-fjord underline cursor-pointer focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:[outline-offset:2px]"
+        type="button"
+        onclick={collapse}
+      >
         {copy['inlineCorrection.revealHide']}
       </button>
     </section>
   {:else}
+    <!-- The entry point to the whole contribution surface, so it needs a target a thumb can hit.
+         1.75rem clears the WCAG 2.5.8 24px minimum with room to spare. -->
     <button
       bind:this={trigger}
-      class="reveal"
+      class="reveal inline-flex min-h-7 items-center py-[0.2rem] px-[0.4rem] border-0 rounded-control bg-transparent [font-family:inherit] [font-style:inherit] [font-variant:inherit] [font-stretch:inherit] [line-height:inherit] text-[0.78rem] font-extrabold text-fjord underline cursor-pointer focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:[outline-offset:2px]"
       type="button"
       aria-label={copy['inlineCorrection.revealLabel'].replace('{name}', placeName)}
       onclick={expand}
@@ -272,13 +302,20 @@
   {/if}
 </div>
 
-<p class="visually-hidden" role="status" aria-live="polite" data-contribution-announcement>
+<p
+  class="visually-hidden absolute w-px h-px -m-px p-0 overflow-hidden border-0 [clip-path:inset(50%)] whitespace-nowrap"
+  role="status"
+  aria-live="polite"
+  data-contribution-announcement
+>
   {announcement}
 </p>
 
 {#snippet pendingLine(focused: boolean)}
+  <!-- Focusable only so this component can land the Member on the line that replaced the affordance
+       they just sent from; it is never in the tab order. -->
   <p
-    class="pending"
+    class="pending [margin:0.2rem_0_0] text-[0.75rem] leading-[1.35] font-[750] text-basalt-muted focus-visible:[outline:3px_solid_var(--hv-focus-ring)] focus-visible:[outline-offset:2px]"
     data-correction-pending
     data-pending-focus={focused ? '' : undefined}
     tabindex="-1"
@@ -288,180 +325,13 @@
 {/snippet}
 
 <style>
-  .contribution-reveal {
-    display: grid;
-    justify-items: start;
-    margin-top: 0.35rem;
-    padding-top: 0.6rem;
-    border-top: 1px solid var(--hv-border-subtle);
-  }
-
-  /* The entry point to the whole contribution surface, so it needs a target a thumb can hit.
-     1.75rem clears the WCAG 2.5.8 24px minimum with room to spare. */
-  .reveal {
-    display: inline-flex;
-    min-height: 1.75rem;
-    align-items: center;
-    padding: 0.2rem 0.4rem;
-    border: 0;
-    border-radius: var(--hv-radius-control);
-    background: transparent;
-    color: var(--hv-color-fjord);
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 800;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  .reveal:focus-visible,
-  .hide:focus-visible,
-  .condition-link:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 2px;
-  }
-
-  .panel {
-    display: grid;
-    width: 100%;
-    gap: 0.7rem;
-    min-width: 0;
-    animation: contribution-reveal var(--hv-motion-quick) var(--hv-ease-settle) both;
-  }
-
-  h4,
-  h5 {
-    margin: 0;
-    color: var(--hv-color-basalt);
-    font-size: 0.72rem;
-    font-weight: 850;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
-  .facts {
-    display: grid;
-    gap: 0.7rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .facts > li {
-    display: grid;
-    gap: 0.15rem;
-    min-width: 0;
-  }
-
-  .fact-label {
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.72rem;
-    font-weight: 850;
-  }
-
-  .fact-value {
-    overflow-wrap: anywhere;
-    font-size: 0.85rem;
-    font-weight: 700;
-  }
-
-  .conditions,
-  .reports {
-    display: grid;
-    gap: 0.5rem;
-  }
-
-  .condition-link {
-    justify-self: start;
-    color: var(--hv-color-fjord);
-    font-size: 0.78rem;
-    font-weight: 800;
-  }
-
-  /* Every claim in this group is a whole list item rather than an affordance hanging off a fact
-     label, so they all have to start on the same left edge. The three actions are buttons carrying
-     0.4rem of their own padding, so the pending line that replaces one and the link that follows
-     them are inset to match; the 0.45rem lead-in is the same one the buttons bring with them, so
-     the rhythm does not change when a claim turns into a pending line. */
-  .reports .facts {
-    gap: 0.25rem;
-  }
-
-  .report-claim,
-  .report-link {
-    margin-top: 0.45rem;
-    padding-left: 0.4rem;
-  }
-
-  .reports .pending {
-    margin-top: 0.1rem;
-    padding-left: 0.4rem;
-  }
-
-  .report-link {
-    display: inline-flex;
-    min-height: 1.5rem;
-    align-items: center;
-    justify-self: start;
-    padding-right: 0.4rem;
-    border-radius: var(--hv-radius-control);
-    color: var(--hv-color-fjord);
-    font-size: 0.72rem;
-    font-weight: 800;
-  }
-
-  .report-link:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 2px;
-  }
-
-  .pending {
-    margin: 0.2rem 0 0;
-    color: var(--hv-color-basalt-muted);
-    font-size: 0.75rem;
-    font-weight: 750;
-    line-height: 1.35;
-  }
-
-  /* Focusable only so this component can land the Member on the line that replaced the affordance
-     they just sent from; it is never in the tab order. */
-  .pending:focus-visible {
-    outline: 3px solid var(--hv-focus-ring);
-    outline-offset: 2px;
-  }
-
-  .hide {
-    display: inline-flex;
-    min-height: 1.75rem;
-    align-items: center;
-    justify-self: start;
-    padding: 0.2rem 0.4rem;
-    border: 0;
-    border-radius: var(--hv-radius-control);
-    background: transparent;
-    color: var(--hv-color-fjord);
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 800;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    border: 0;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
   /* Transform only, and deliberately no opacity: this panel is entirely text, so fading it in
      would start every label at a 1:1 contrast ratio and climb through the whole duration. Reduced
      motion is handled by --hv-motion-quick collapsing to zero rather than by an override here. */
+  .panel {
+    animation: contribution-reveal var(--hv-motion-quick) var(--hv-ease-settle) both;
+  }
+
   @keyframes contribution-reveal {
     from {
       transform: translateY(-0.2rem);
