@@ -209,6 +209,24 @@ select is(
 
 select *
 from public.sync_interface_translation_inventory_from_source(
+  '{"is":{"site.name":"Hundavænt","welcome":"Velkomin {name}"},"en":{"site.name":"Hundavænt","welcome":"Welcome {name}"}}'::jsonb,
+  'json-authority-unrelated-deploy'
+);
+
+select is(
+  public.mark_interface_translation_source_candidate_applied(),
+  null::bigint,
+  'An unrelated JSON deployment does not fail or falsely mark the candidate applied'
+);
+
+select is(
+  (select count(*) from private.interface_translation_source_applications),
+  0::bigint,
+  'An unrelated JSON deployment leaves candidate application provenance empty'
+);
+
+select *
+from public.sync_interface_translation_inventory_from_source(
   '{"is":{"site.name":"Hundavænt Ísland","welcome":"Velkomin {name}"},"en":{"site.name":"Hundavænt","welcome":"Hello {name}"}}'::jsonb,
   'json-authority-deploy'
 );

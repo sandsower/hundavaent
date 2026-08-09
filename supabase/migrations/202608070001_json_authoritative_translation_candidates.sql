@@ -443,6 +443,7 @@ security definer
 set search_path = ''
 as $$
 declare
+  created_change_count integer;
   created_revision_number bigint;
   created_restored_at timestamptz;
   current_catalogues jsonb;
@@ -555,6 +556,10 @@ begin
 
   select count(*)::integer into next_pending_count
   from private.interface_translation_drafts;
+  created_change_count := private.interface_translation_change_count(
+    current_catalogues,
+    restored_catalogues
+  );
 
   insert into private.interface_translation_revisions (
     request_id,
@@ -569,7 +574,7 @@ begin
     restored_catalogues,
     current_revision_number,
     requested_revision_number,
-    next_pending_count
+    created_change_count
   )
   returning
     interface_translation_revisions.revision_number,
@@ -638,9 +643,7 @@ begin
     loop
       if deployed_catalogues #> array[locale_value, translation_key]
         is distinct from candidate_catalogues #> array[locale_value, translation_key] then
-        raise exception using
-          errcode = '55000',
-          message = 'Deployed JSON does not contain the ready translation candidate';
+        return null;
       end if;
     end loop;
   end loop;
