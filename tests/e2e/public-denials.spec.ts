@@ -57,7 +57,7 @@ test('health reports only redacted readiness with a correlated request ID', asyn
     service: 'hundavaent',
     status: 'ok',
     release: null,
-    checks: { database: 'ready', map: 'fallback', translations: 'fallback' },
+    checks: { database: 'ready', map: 'fallback', translations: 'drifted' },
     requestId: 'health-test-123'
   });
   const serialized = JSON.stringify(body);

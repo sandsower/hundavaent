@@ -1,9 +1,9 @@
 import { catalogues, type Locale, type MessageKey } from '$i18n';
 
 import {
-  createPublishProof,
   createReadWorkspaceProof,
-  createRestoreProof,
+  createReadySourceProof,
+  createRestoreToDraftsProof,
   createSaveDraftProof
 } from './proof';
 import { TRANSLATION_VALUE_MAX_LENGTH } from '$lib/translations/placeholders';
@@ -19,10 +19,17 @@ export interface TranslationWorkspaceEntry {
 
 export interface TranslationRevision {
   revisionNumber: number;
-  kind: 'inventory_sync' | 'publish' | 'restore';
+  kind: 'inventory_sync' | 'publish' | 'restore' | 'source_ready' | 'draft_restore';
   changeCount: number;
   publishedAt: string;
   restoredFromRevisionNumber: number | null;
+}
+
+export interface TranslationSourceCandidate {
+  revisionNumber: number;
+  readyAt: string;
+  changeCount: number;
+  status: 'ready' | 'applied' | 'superseded';
 }
 
 export interface TranslationWorkspace {
@@ -30,6 +37,7 @@ export interface TranslationWorkspace {
   publishedAt: string | null;
   draftGeneration: number;
   pendingCount: number;
+  sourceCandidate: TranslationSourceCandidate | null;
   entries: TranslationWorkspaceEntry[];
   revisions: TranslationRevision[];
 }
@@ -44,10 +52,16 @@ export interface SavedTranslationDraft {
   currentRevision: number | null;
 }
 
-export interface TranslationPublication {
+export interface ReadyTranslationSource {
   revisionNumber: number;
-  publishedAt: string;
+  readyAt: string;
   changeCount: number;
+}
+
+export interface RestoredTranslationDrafts {
+  revisionNumber: number;
+  restoredAt: string;
+  pendingCount: number;
 }
 
 export interface TranslationRpcClient {
@@ -70,7 +84,13 @@ export interface SaveTranslationDraftCommand {
 
 const knownKeys = new Set<string>(Object.keys(catalogues.is));
 const localeValues = new Set<string>(['is', 'en']);
-const revisionKinds = new Set<string>(['inventory_sync', 'publish', 'restore']);
+const revisionKinds = new Set<string>([
+  'inventory_sync',
+  'publish',
+  'restore',
+  'source_ready',
+  'draft_restore'
+]);
 
 export async function loadTranslationWorkspace(
   client: TranslationRpcClient,
@@ -162,21 +182,21 @@ export async function saveTranslationDraft(
   };
 }
 
-export async function publishTranslationDrafts(
+export async function readyTranslationDraftsForSource(
   client: TranslationRpcClient,
   databaseSecret: string,
   expectedPublicationRevision: number | null,
   expectedDraftGeneration: number,
   requestId: string,
   commandIssuedAt = currentCommandTimestamp()
-): Promise<TranslationWorkspaceResult<TranslationPublication>> {
+): Promise<TranslationWorkspaceResult<ReadyTranslationSource>> {
   if (
     !isNullableRevision(expectedPublicationRevision) ||
     !isNonnegativeInteger(expectedDraftGeneration)
   ) {
     return { status: 'infrastructure_error' };
   }
-  const proof = await createPublishProof(
+  const proof = await createReadySourceProof(
     {
       requestId,
       issuedAt: commandIssuedAt,
@@ -187,7 +207,7 @@ export async function publishTranslationDrafts(
   );
   const response = await callTranslationRpc(
     client,
-    'publish_interface_translation_drafts',
+    'ready_interface_translation_drafts_for_source',
     {
       expected_publication_revision: expectedPublicationRevision,
       expected_draft_generation: expectedDraftGeneration
@@ -197,24 +217,37 @@ export async function publishTranslationDrafts(
     proof.signature
   );
   if (response.status !== 'success') return response;
-  const publication = parseTranslationPublication(response.data);
-  return publication
-    ? { status: 'success', value: publication }
-    : { status: 'infrastructure_error' };
+  const row = singleRecord(response.data);
+  if (
+    !row ||
+    !isPositiveInteger(row.revision_number) ||
+    !isTimestamp(row.ready_at) ||
+    !isNonnegativeInteger(row.change_count)
+  ) {
+    return { status: 'infrastructure_error' };
+  }
+  return {
+    status: 'success',
+    value: {
+      revisionNumber: row.revision_number,
+      readyAt: row.ready_at,
+      changeCount: row.change_count
+    }
+  };
 }
 
-export async function restoreTranslationRevision(
+export async function restoreTranslationRevisionToDrafts(
   client: TranslationRpcClient,
   databaseSecret: string,
   targetRevisionNumber: number,
   expectedPublicationRevision: number,
   requestId: string,
   commandIssuedAt = currentCommandTimestamp()
-): Promise<TranslationWorkspaceResult<TranslationPublication>> {
+): Promise<TranslationWorkspaceResult<RestoredTranslationDrafts>> {
   if (!isPositiveInteger(targetRevisionNumber) || !isPositiveInteger(expectedPublicationRevision)) {
     return { status: 'infrastructure_error' };
   }
-  const proof = await createRestoreProof(
+  const proof = await createRestoreToDraftsProof(
     {
       requestId,
       issuedAt: commandIssuedAt,
@@ -225,7 +258,7 @@ export async function restoreTranslationRevision(
   );
   const response = await callTranslationRpc(
     client,
-    'restore_interface_translation_revision',
+    'restore_interface_translation_revision_to_drafts',
     {
       requested_revision_number: targetRevisionNumber,
       expected_current_revision_number: expectedPublicationRevision
@@ -235,10 +268,23 @@ export async function restoreTranslationRevision(
     proof.signature
   );
   if (response.status !== 'success') return response;
-  const publication = parseTranslationPublication(response.data);
-  return publication
-    ? { status: 'success', value: publication }
-    : { status: 'infrastructure_error' };
+  const row = singleRecord(response.data);
+  if (
+    !row ||
+    !isPositiveInteger(row.revision_number) ||
+    !isTimestamp(row.restored_at) ||
+    !isNonnegativeInteger(row.pending_count)
+  ) {
+    return { status: 'infrastructure_error' };
+  }
+  return {
+    status: 'success',
+    value: {
+      revisionNumber: row.revision_number,
+      restoredAt: row.restored_at,
+      pendingCount: row.pending_count
+    }
+  };
 }
 
 async function callTranslationRpc(
@@ -275,6 +321,9 @@ function isTranslationWorkspace(value: unknown): value is TranslationWorkspace {
   if (!(value.publishedAt === null || isTimestamp(value.publishedAt))) return false;
   if (!isNonnegativeInteger(value.draftGeneration)) return false;
   if (!isNonnegativeInteger(value.pendingCount)) return false;
+  if (!(value.sourceCandidate === null || isTranslationSourceCandidate(value.sourceCandidate))) {
+    return false;
+  }
   if (!Array.isArray(value.entries) || !Array.isArray(value.revisions)) return false;
 
   const keys = new Set<string>();
@@ -299,6 +348,16 @@ function isTranslationWorkspaceEntry(value: unknown): value is TranslationWorksp
   );
 }
 
+function isTranslationSourceCandidate(value: unknown): value is TranslationSourceCandidate {
+  return (
+    isRecord(value) &&
+    isPositiveInteger(value.revisionNumber) &&
+    isTimestamp(value.readyAt) &&
+    isNonnegativeInteger(value.changeCount) &&
+    (value.status === 'ready' || value.status === 'applied' || value.status === 'superseded')
+  );
+}
+
 function isTranslationRevision(value: unknown): value is TranslationRevision {
   return (
     isRecord(value) &&
@@ -310,23 +369,6 @@ function isTranslationRevision(value: unknown): value is TranslationRevision {
     (value.restoredFromRevisionNumber === null ||
       isPositiveInteger(value.restoredFromRevisionNumber))
   );
-}
-
-function parseTranslationPublication(value: unknown): TranslationPublication | null {
-  const row = singleRecord(value);
-  if (
-    !row ||
-    !isPositiveInteger(row.revision_number) ||
-    !isTimestamp(row.published_at) ||
-    !isNonnegativeInteger(row.change_count)
-  ) {
-    return null;
-  }
-  return {
-    revisionNumber: row.revision_number,
-    publishedAt: row.published_at,
-    changeCount: row.change_count
-  };
 }
 
 function singleRecord(value: unknown): Record<string, unknown> | null {

@@ -16,12 +16,12 @@ interface SaveProofInput extends BaseProofInput {
   expectedDraftVersion: number;
 }
 
-interface PublishProofInput extends BaseProofInput {
+interface ReadySourceProofInput extends BaseProofInput {
   expectedPublicationRevision: number | null;
   expectedDraftGeneration: number;
 }
 
-interface RestoreProofInput extends BaseProofInput {
+interface RestoreToDraftsProofInput extends BaseProofInput {
   targetRevisionNumber: number;
   expectedPublicationRevision: number | null;
 }
@@ -52,24 +52,35 @@ export async function createSaveDraftProof(
   );
 }
 
-export async function createPublishProof(
-  input: PublishProofInput,
+export async function createReadySourceProof(
+  input: ReadySourceProofInput,
   secret: string
 ): Promise<TranslationDatabaseProof> {
   validateBaseInput(input, secret);
   return sign(
-    `interface-translations-v2:publish:${input.requestId}:${input.issuedAt}:${input.expectedPublicationRevision ?? 0}:${input.expectedDraftGeneration}`,
+    `interface-translations-v3:ready_source:${input.requestId}:${input.issuedAt}:${input.expectedPublicationRevision ?? 0}:${input.expectedDraftGeneration}`,
     secret
   );
 }
 
-export async function createRestoreProof(
-  input: RestoreProofInput,
+export async function createReadSourceCandidateProof(
+  input: BaseProofInput,
   secret: string
 ): Promise<TranslationDatabaseProof> {
   validateBaseInput(input, secret);
   return sign(
-    `interface-translations-v2:restore:${input.requestId}:${input.issuedAt}:${input.targetRevisionNumber}:${input.expectedPublicationRevision ?? 0}`,
+    `interface-translations-v3:read_source_candidate:${input.requestId}:${input.issuedAt}`,
+    secret
+  );
+}
+
+export async function createRestoreToDraftsProof(
+  input: RestoreToDraftsProofInput,
+  secret: string
+): Promise<TranslationDatabaseProof> {
+  validateBaseInput(input, secret);
+  return sign(
+    `interface-translations-v3:restore_to_drafts:${input.requestId}:${input.issuedAt}:${input.targetRevisionNumber}:${input.expectedPublicationRevision ?? 0}`,
     secret
   );
 }

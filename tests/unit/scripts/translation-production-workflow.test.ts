@@ -60,7 +60,7 @@ describe('production interface translation release contract', () => {
     expect(workflow).toContain('needs: deploy');
   });
 
-  it('keeps preview translations explicitly unconfigured', async () => {
+  it('keeps preview runtime JSON-authoritative while reporting its unsynchronized mirror', async () => {
     const [previewWorkflow, wrangler] = await Promise.all([
       readFile('.github/workflows/preview.yml', 'utf8'),
       readFile('wrangler.toml', 'utf8')
@@ -69,7 +69,7 @@ describe('production interface translation release contract', () => {
     expect(wrangler).not.toContain('TRANSLATION_WORKSPACE_PASSWORD');
     expect(wrangler).not.toContain('TRANSLATION_SESSION_SECRET');
     expect(wrangler).not.toContain('TRANSLATION_DATABASE_SECRET');
-    expect(previewWorkflow).toContain('.checks.translations == "fallback"');
+    expect(previewWorkflow).toContain('.checks.translations == "drifted"');
     expect(previewWorkflow).not.toContain('Interface translations: published');
   });
 });

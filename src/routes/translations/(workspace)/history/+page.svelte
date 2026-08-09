@@ -14,10 +14,14 @@
 
   let { data, form }: PageProps = $props();
 
-  function kindLabel(kind: 'inventory_sync' | 'publish' | 'restore'): string {
-    if (kind === 'inventory_sync') return 'Application key sync';
-    if (kind === 'restore') return 'Restored revision';
-    return 'Published changes';
+  function kindLabel(
+    kind: 'inventory_sync' | 'publish' | 'restore' | 'source_ready' | 'draft_restore'
+  ): string {
+    if (kind === 'inventory_sync') return 'Deployed JSON sync';
+    if (kind === 'source_ready') return 'Ready for source';
+    if (kind === 'draft_restore') return 'Restored to drafts';
+    if (kind === 'restore') return 'Legacy restored publication';
+    return 'Legacy database publication';
   }
 </script>
 
@@ -33,14 +37,16 @@
      currently unique. -->
 <PageShell mode="operations" class="history grid gap-4" aria-labelledby="history-title">
   <PageHeader class="mb-section">
-    <Eyebrow>Published revisions</Eyebrow>
+    <Eyebrow>Source and deployment revisions</Eyebrow>
     <PageTitle id="history-title">Translation history</PageTitle>
-    <Meta>Restore creates a new published revision. Existing history is never deleted.</Meta>
+    <Meta>
+      Restoring copies an earlier revision into private drafts. It never changes deployed JSON.
+    </Meta>
   </PageHeader>
 
   {#if form?.conflict}
     <Notice as="p" tone="attention" role="alert">
-      A newer revision was published. Reload before restoring.
+      The deployed JSON mirror changed. Reload before restoring.
     </Notice>
   {:else if form?.invalid}
     <Notice as="p" tone="error" role="alert">Confirm the revision before restoring it.</Notice>
@@ -48,7 +54,7 @@
 
   {#if data.workspace.pendingCount > 0}
     <Notice as="p" tone="attention">
-      Publish or revise the {data.workspace.pendingCount} pending keys before restoring history.
+      Make ready or revise the {data.workspace.pendingCount} pending keys before restoring history.
     </Notice>
   {/if}
 
@@ -78,7 +84,17 @@
           {/if}
         </div>
         {#if data.workspace.currentRevision === revision.revisionNumber}
-          <Status tone="success">Current</Status>
+          <Status tone="success">Deployed</Status>
+        {:else if data.workspace.sourceCandidate?.revisionNumber === revision.revisionNumber}
+          <Status
+            tone={data.workspace.sourceCandidate.status === 'applied' ? 'success' : 'attention'}
+          >
+            {data.workspace.sourceCandidate.status === 'applied'
+              ? 'Applied'
+              : data.workspace.sourceCandidate.status === 'superseded'
+                ? 'Superseded'
+                : 'Ready for source'}
+          </Status>
         {:else if data.workspace.pendingCount > 0 || !data.workspace.currentRevision}
           <Status tone="attention">Restore unavailable</Status>
         {:else}
@@ -94,13 +110,13 @@
               Confirm
             </label>
             <Button intent="neutral" type="submit"
-              >Restore revision {revision.revisionNumber}</Button
+              >Restore revision {revision.revisionNumber} to drafts</Button
             >
           </form>
         {/if}
       </Panel>
     {:else}
-      <Notice as="li">No published revisions yet.</Notice>
+      <Notice as="li">No translation revisions yet.</Notice>
     {/each}
   </ol>
 </PageShell>

@@ -89,9 +89,7 @@
   }
 
   function reviewLabel(): string {
-    return pendingCount === 1
-      ? 'Review 1 unpublished change'
-      : `Review ${pendingCount} unpublished changes`;
+    return pendingCount === 1 ? 'Review 1 source change' : `Review ${pendingCount} source changes`;
   }
 
   async function guardReview(event: MouseEvent): Promise<void> {
@@ -115,8 +113,19 @@
         Translations
       </h1>
       <p class="max-w-[62ch] [margin:0.65rem_0_0] text-basalt-muted">
-        Update Icelandic and English as equal languages. Drafts stay private until publishing.
+        Update Icelandic and English as equal languages. Drafts stay private until they are imported
+        into JSON, reviewed, and deployed.
       </p>
+      {#if workspace.sourceCandidate}
+        <p class="[margin:0.5rem_0_0] text-[0.8rem] font-[750] text-basalt-muted">
+          Source candidate {workspace.sourceCandidate.revisionNumber} is
+          {workspace.sourceCandidate.status === 'applied'
+            ? 'deployed'
+            : workspace.sourceCandidate.status === 'superseded'
+              ? 'superseded by newer deployed JSON'
+              : 'ready for developer import'}.
+        </p>
+      {/if}
     </div>
     <Button
       class="review-link"
@@ -219,7 +228,7 @@
   <div
     class="mobile-review-bar hidden max-narrow:fixed max-narrow:z-20 max-narrow:right-0 max-narrow:bottom-0 max-narrow:left-0 max-narrow:flex max-narrow:min-h-[4.5rem] max-narrow:[padding:0.75rem_1rem_max(0.75rem,env(safe-area-inset-bottom))] max-narrow:border-t max-narrow:border-border-strong max-narrow:items-center max-narrow:justify-between max-narrow:gap-3 max-narrow:bg-snow-raised max-narrow:font-[850] max-narrow:[box-shadow:0_-0.7rem_1.8rem_rgb(30_45_49_/_12%)]"
   >
-    <span>{pendingCount} unpublished</span>
+    <span>{pendingCount} waiting for source</span>
     <Button
       intent="committed"
       href={resolve('/translations/review')}

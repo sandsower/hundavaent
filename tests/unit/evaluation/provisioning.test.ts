@@ -71,9 +71,9 @@ describe('deterministic evaluation provisioning', () => {
       });
     const fetchImplementation = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(healthResponse('stale-release', 'published'))
-      .mockResolvedValueOnce(healthResponse('expected-release', 'fallback'))
-      .mockResolvedValueOnce(healthResponse('expected-release', 'published'));
+      .mockResolvedValueOnce(healthResponse('stale-release', 'synchronized'))
+      .mockResolvedValueOnce(healthResponse('expected-release', 'drifted'))
+      .mockResolvedValueOnce(healthResponse('expected-release', 'synchronized'));
 
     const response = await waitForHealth({
       url: 'https://hundavaent.is/api/health',
@@ -81,7 +81,7 @@ describe('deterministic evaluation provisioning', () => {
       expectedChecks: {
         database: 'ready',
         map: 'configured',
-        translations: 'published'
+        translations: 'synchronized'
       },
       timeoutMs: 1_000,
       fetchImplementation,
@@ -104,12 +104,12 @@ describe('deterministic evaluation provisioning', () => {
         '--expected-check',
         'database=ready',
         '--expected-check',
-        'translations=published'
+        'translations=synchronized'
       ])
     ).toEqual({
       url: 'https://hundavaent.is/api/health',
       expectedRelease: 'release-sha',
-      expectedChecks: { database: 'ready', translations: 'published' }
+      expectedChecks: { database: 'ready', translations: 'synchronized' }
     });
   });
 

@@ -37,22 +37,29 @@
      0.75rem under operations mode, which this page always renders in. -->
 <PageShell mode="operations" class="review grid gap-4" aria-labelledby="review-title">
   <PageHeader class="mb-section">
-    <Eyebrow>Publication review</Eyebrow>
+    <Eyebrow>Source review</Eyebrow>
     <PageTitle id="review-title">Review translations</PageTitle>
-    <Meta>Publishing releases every pending Icelandic and English change together.</Meta>
+    <Meta>
+      Ready changes stay private until a developer imports both languages into JSON, reviews the
+      diff, and deploys it.
+    </Meta>
   </PageHeader>
 
   {#if form?.conflict}
     <!-- mt-0 mirrors the scoped `p { margin-top: 0 }` rule these notices lose by moving onto
          Notice's own rendered root, which sits outside this file's scope hash. -->
     <Notice as="p" tone="attention" role="alert" class="mt-0">
-      Another publication happened while this page was open. Reload and review the current batch.
+      The deployed source or draft set changed while this page was open. Reload and review the
+      current batch.
     </Notice>
   {:else if form?.noChanges}
-    <Notice as="p" tone="info" role="status" class="mt-0">There are no changes to publish.</Notice>
+    <Notice as="p" tone="info" role="status" class="mt-0">
+      There are no changes to make ready for source.
+    </Notice>
   {:else if form?.invalidKeys}
     <Notice as="p" tone="error" role="alert" class="mt-0">
-      Publishing was blocked because {form.invalidKeys.length} keys are incomplete or have invalid placeholders.
+      Source readiness was blocked because {form.invalidKeys.length} keys are incomplete or have invalid
+      placeholders.
     </Notice>
   {/if}
 
@@ -61,7 +68,9 @@
       <!-- This still matches every literal h2/h3/p left in the file (the header's eyebrow/meta
            moved to components that already carry their own m-0/margin resets, so losing them
            here is a no-op, not a regression). -->
-      <h2 class="mt-0" id="validation-title">Fix {invalidEntries.length} keys before publishing</h2>
+      <h2 class="mt-0" id="validation-title">
+        Fix {invalidEntries.length} keys before making them ready
+      </h2>
       <ul>
         {#each invalidEntries.slice(0, 20) as entry (entry.key)}
           <li>
@@ -75,7 +84,9 @@
     </Notice>
   {/if}
 
-  <p class="summary m-0"><strong>{changedEntries.length}</strong> keys have unpublished changes.</p>
+  <p class="summary m-0">
+    <strong>{changedEntries.length}</strong> keys have changes waiting for source.
+  </p>
 
   <div class="change-list grid gap-3">
     {#each changedEntries as entry (entry.key)}
@@ -104,7 +115,7 @@
                 >
                   <span
                     class="block mb-[0.2rem] text-[0.72rem] font-[850] uppercase text-basalt-muted"
-                    >Published</span
+                    >Deployed JSON</span
                   >{entry.published[locale]}
                 </p>
                 <p
@@ -121,7 +132,7 @@
         </div>
       </Panel>
     {:else}
-      <Notice as="p" class="mt-0">No unpublished changes are waiting.</Notice>
+      <Notice as="p" class="mt-0">No changes are waiting for source.</Notice>
     {/each}
   </div>
 
@@ -131,7 +142,7 @@
     class="publication-actions sticky bottom-0 flex gap-3 items-center justify-end p-3 max-narrow:right-0 max-narrow:left-0"
   >
     <Button intent="neutral" href={resolve('/translations')}>Back to editing</Button>
-    <form method="POST" action="?/publish">
+    <form method="POST" action="?/ready">
       <input
         type="hidden"
         name="expectedRevision"
@@ -142,7 +153,7 @@
         intent="committed"
         type="submit"
         disabled={changedEntries.length === 0 || invalidEntries.length > 0}
-        >Publish all changes</Button
+        >Ready all changes for source</Button
       >
     </form>
   </Panel>

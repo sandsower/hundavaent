@@ -5,6 +5,7 @@ import '../../src/app.css';
 import TranslationWorkspace from '$lib/translations/TranslationWorkspace.svelte';
 import type { TranslationWorkspace as WorkspaceData } from '$server/translations/workspace';
 import TranslationHistoryPage from '../../src/routes/translations/(workspace)/history/+page.svelte';
+import TranslationReviewPage from '../../src/routes/translations/(workspace)/review/+page.svelte';
 import TranslationSignInPage from '../../src/routes/translations/sign-in/+page.svelte';
 
 const baseEntries: WorkspaceData['entries'] = [
@@ -32,6 +33,7 @@ function workspace(entries = baseEntries): WorkspaceData {
     publishedAt: '2026-07-21T12:00:00Z',
     draftGeneration: 9,
     pendingCount: entries.filter((entry) => entry.changed.is || entry.changed.en).length,
+    sourceCandidate: null,
     entries,
     revisions: []
   };
@@ -73,6 +75,22 @@ describe('Translation workspace', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Changed' }));
     expect(screen.getAllByRole('article')).toHaveLength(2);
+  });
+
+  it('shows that a reviewed candidate is waiting for developer import', () => {
+    render(TranslationWorkspace, {
+      workspace: {
+        ...workspace([baseEntries[0]]),
+        sourceCandidate: {
+          revisionNumber: 34,
+          readyAt: '2026-08-07T10:00:00Z',
+          changeCount: 1,
+          status: 'ready'
+        }
+      }
+    });
+
+    expect(screen.getByText('Source candidate 34 is ready for developer import.')).toBeTruthy();
   });
 
   it('treats both languages equally and can put either language first', async () => {
@@ -128,7 +146,7 @@ describe('Translation workspace', () => {
     });
     await vi.advanceTimersByTimeAsync(0);
     await waitFor(() => expect(screen.getByText('Saved')).toBeTruthy());
-    expect(screen.getByRole('link', { name: 'Review 1 unpublished change' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Review 1 source change' })).toBeTruthy();
   });
 
   it('serializes continued typing behind an in-flight autosave', async () => {
@@ -314,7 +332,7 @@ describe('Translation workspace', () => {
 
     const english = screen.getByRole('textbox', { name: 'English translation for site.name' });
     await fireEvent.input(english, { target: { value: 'Saved before review' } });
-    await fireEvent.click(screen.getAllByRole('link', { name: 'Review 1 unpublished change' })[0]);
+    await fireEvent.click(screen.getAllByRole('link', { name: 'Review 1 source change' })[0]);
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       value: 'Saved before review'
@@ -354,7 +372,7 @@ describe('Translation workspace', () => {
       target: { value: 'meta.description' }
     });
     expect(screen.getByText('site.name')).toBeTruthy();
-    await fireEvent.click(screen.getAllByRole('link', { name: 'Review 2 unpublished changes' })[0]);
+    await fireEvent.click(screen.getAllByRole('link', { name: 'Review 2 source changes' })[0]);
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(navigate).not.toHaveBeenCalled();
 
@@ -422,6 +440,20 @@ describe('Translation workspace', () => {
 });
 
 describe('Translation supporting screens', () => {
+  it('makes reviewed changes ready for source without describing them as live', () => {
+    render(TranslationReviewPage, {
+      params: {},
+      data: { workspace: workspace() },
+      form: null
+    });
+
+    expect(
+      screen.getByText(/stay private until a developer imports both languages into JSON/i)
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ready all changes for source' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Publish/i })).toBeNull();
+  });
+
   it('marks exactly one current revision and makes old revisions unavailable while drafts exist', () => {
     render(TranslationHistoryPage, {
       params: {},
@@ -450,7 +482,7 @@ describe('Translation supporting screens', () => {
       },
       form: null
     });
-    expect(screen.getAllByText('Current')).toHaveLength(1);
+    expect(screen.getAllByText('Deployed')).toHaveLength(1);
     expect(screen.getByText('Restore unavailable')).toBeTruthy();
   });
 

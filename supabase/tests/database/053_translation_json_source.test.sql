@@ -130,7 +130,7 @@ select throws_ok(
 select ok(
   not has_function_privilege(
     'anon',
-    'public.sync_interface_translation_inventory_from_source(jsonb,bigint,text)',
+    'public.sync_interface_translation_inventory_from_source(jsonb,text)',
     'EXECUTE'
   ),
   'Anonymous clients cannot publish the source inventory'
@@ -139,10 +139,10 @@ select ok(
 select ok(
   has_function_privilege(
     'service_role',
-    'public.sync_interface_translation_inventory_from_source(jsonb,bigint,text)',
+    'public.sync_interface_translation_inventory_from_source(jsonb,text)',
     'EXECUTE'
   ),
-  'The deployment capability can publish the source inventory'
+  'The baseline-free deployment capability can publish the source inventory'
 );
 
 select * from finish();

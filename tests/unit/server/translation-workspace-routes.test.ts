@@ -28,12 +28,12 @@ function signedOutEvent(pathname: string, fields: Record<string, string>) {
 describe('translation protected actions', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('redirects a direct unauthenticated publish before any RPC', async () => {
-    const { event, rpc } = signedOutEvent('/translations/review?/publish', {
+  it('redirects direct unauthenticated source readiness before any RPC', async () => {
+    const { event, rpc } = signedOutEvent('/translations/review?/ready', {
       expectedRevision: '4',
       expectedDraftGeneration: '9'
     });
-    await expect(reviewActions.publish!(event as never)).rejects.toMatchObject({ status: 303 });
+    await expect(reviewActions.ready!(event as never)).rejects.toMatchObject({ status: 303 });
     expect(rpc).not.toHaveBeenCalled();
   });
 

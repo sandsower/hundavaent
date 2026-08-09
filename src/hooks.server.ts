@@ -2,7 +2,7 @@ import { env } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 
-import { catalogues, isLocale, parseLocale, type Locale } from '$i18n';
+import { catalogues, isLocale, parseLocale } from '$i18n';
 import {
   createRequestSupabaseClient,
   getSupabasePublicConfig,
@@ -12,11 +12,6 @@ import {
 import { GATE_COOKIE_NAME, getGateConfig, isGateCookieValid, type GateConfig } from '$server/gate';
 import { createPublicServerError, createRequestId } from '$server/telemetry/request-context';
 import { telemetryLogger, type TelemetryLogger } from '$server/telemetry/logger';
-import {
-  loadPublishedCatalogue,
-  type PublishedCatalogueResult,
-  type PublishedTranslationClient
-} from '$server/translations/published-catalogue';
 
 interface HandleDependencies {
   getPublicConfig(): SupabasePublicConfig | null;
@@ -26,10 +21,6 @@ interface HandleDependencies {
   ): RequestSupabaseClient;
   createRequestId(headers: Headers): string;
   getGateConfig(): GateConfig | null;
-  loadCatalogue?(
-    client: PublishedTranslationClient | null,
-    locale: Locale
-  ): Promise<PublishedCatalogueResult>;
   logger?: TelemetryLogger;
   now?: () => number;
 }
@@ -39,7 +30,6 @@ const defaultDependencies: HandleDependencies = {
   createClient: createRequestSupabaseClient,
   createRequestId,
   getGateConfig: () => getGateConfig(privateEnv),
-  loadCatalogue: loadPublishedCatalogue,
   logger: telemetryLogger,
   now: () => performance.now()
 };
@@ -86,17 +76,6 @@ export function createHandle(dependencies: HandleDependencies = defaultDependenc
       } catch {
         // Public browsing stays available. Protected routes perform their own authenticated check.
       }
-    }
-
-    if (isLocale(routeLocale)) {
-      const loadCatalogue = dependencies.loadCatalogue ?? loadPublishedCatalogue;
-      const publication = await loadCatalogue(
-        event.locals.supabase as unknown as PublishedTranslationClient | null,
-        locale
-      );
-      event.locals.copy = publication.copy;
-      event.locals.translationRevision = publication.revisionNumber;
-      event.locals.translationSource = publication.source;
     }
 
     const response = await resolve(event, {

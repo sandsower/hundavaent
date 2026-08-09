@@ -15,15 +15,16 @@ import {
   translationClientKey
 } from '$server/translations/attempts';
 import {
-  createPublishProof,
+  createReadSourceCandidateProof,
   createReadWorkspaceProof,
-  createRestoreProof,
+  createReadySourceProof,
+  createRestoreToDraftsProof,
   createSaveDraftProof
 } from '$server/translations/proof';
 import {
   loadTranslationWorkspace,
-  publishTranslationDrafts,
-  restoreTranslationRevision,
+  readyTranslationDraftsForSource,
+  restoreTranslationRevisionToDrafts,
   saveTranslationDraft
 } from '$server/translations/workspace';
 
@@ -133,7 +134,7 @@ describe('translation database proof', () => {
   const requestId = '11111111-1111-4111-8111-111111111111';
   const issuedAt = 1_753_099_200;
 
-  it('binds read, publish, and restore proofs to their complete v2 commands', async () => {
+  it('binds workspace, source readiness, candidate reads, and draft restores to distinct commands', async () => {
     await expect(
       createReadWorkspaceProof({ requestId, issuedAt }, 'database-secret')
     ).resolves.toMatchObject({
@@ -141,7 +142,7 @@ describe('translation database proof', () => {
         'interface-translations-v2:read_workspace:11111111-1111-4111-8111-111111111111:1753099200'
     });
     await expect(
-      createPublishProof(
+      createReadySourceProof(
         {
           requestId,
           issuedAt,
@@ -152,16 +153,22 @@ describe('translation database proof', () => {
       )
     ).resolves.toMatchObject({
       message:
-        'interface-translations-v2:publish:11111111-1111-4111-8111-111111111111:1753099200:4:9'
+        'interface-translations-v3:ready_source:11111111-1111-4111-8111-111111111111:1753099200:4:9'
     });
     await expect(
-      createRestoreProof(
+      createReadSourceCandidateProof({ requestId, issuedAt }, 'database-secret')
+    ).resolves.toMatchObject({
+      message:
+        'interface-translations-v3:read_source_candidate:11111111-1111-4111-8111-111111111111:1753099200'
+    });
+    await expect(
+      createRestoreToDraftsProof(
         { requestId, issuedAt, targetRevisionNumber: 2, expectedPublicationRevision: 4 },
         'database-secret'
       )
     ).resolves.toMatchObject({
       message:
-        'interface-translations-v2:restore:11111111-1111-4111-8111-111111111111:1753099200:2:4'
+        'interface-translations-v3:restore_to_drafts:11111111-1111-4111-8111-111111111111:1753099200:2:4'
     });
   });
 
@@ -206,6 +213,7 @@ describe('translation workspace RPC adapter', () => {
     publishedAt: '2026-07-21T12:00:00Z',
     draftGeneration: 9,
     pendingCount: 1,
+    sourceCandidate: null,
     entries: [
       {
         key: 'site.name',
@@ -323,7 +331,7 @@ describe('translation workspace RPC adapter', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('maps stale saves and publications to conflicts', async () => {
+  it('maps stale saves and source readiness to conflicts', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: '40001' } });
 
     await expect(
@@ -342,7 +350,7 @@ describe('translation workspace RPC adapter', () => {
       )
     ).resolves.toEqual({ status: 'conflict' });
     await expect(
-      publishTranslationDrafts(
+      readyTranslationDraftsForSource(
         { rpc },
         config.databaseSecret,
         4,
@@ -353,25 +361,32 @@ describe('translation workspace RPC adapter', () => {
     ).resolves.toEqual({ status: 'conflict' });
   });
 
-  it('publishes and restores revisions through operation-specific proofs', async () => {
-    const published = {
-      revisionNumber: 5,
-      publishedAt: '2026-07-21T13:00:00Z',
-      changeCount: 1
-    };
-    const rpc = vi.fn().mockResolvedValue({
-      data: [
-        {
-          revision_number: 5,
-          published_at: '2026-07-21T13:00:00Z',
-          change_count: 1
-        }
-      ],
-      error: null
-    });
+  it('readies source candidates and restores history to drafts through operation-specific proofs', async () => {
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [
+          {
+            revision_number: 5,
+            ready_at: '2026-07-21T13:00:00Z',
+            change_count: 1
+          }
+        ],
+        error: null
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            revision_number: 6,
+            restored_at: '2026-07-21T14:00:00Z',
+            pending_count: 2
+          }
+        ],
+        error: null
+      });
 
     await expect(
-      publishTranslationDrafts(
+      readyTranslationDraftsForSource(
         { rpc },
         config.databaseSecret,
         4,
@@ -379,8 +394,11 @@ describe('translation workspace RPC adapter', () => {
         '11111111-1111-4111-8111-111111111111',
         1_753_099_200
       )
-    ).resolves.toEqual({ status: 'success', value: published });
-    expect(rpc).toHaveBeenLastCalledWith('publish_interface_translation_drafts', {
+    ).resolves.toEqual({
+      status: 'success',
+      value: { revisionNumber: 5, readyAt: '2026-07-21T13:00:00Z', changeCount: 1 }
+    });
+    expect(rpc).toHaveBeenLastCalledWith('ready_interface_translation_drafts_for_source', {
       expected_publication_revision: 4,
       expected_draft_generation: 9,
       command_request_id: '11111111-1111-4111-8111-111111111111',
@@ -389,7 +407,7 @@ describe('translation workspace RPC adapter', () => {
     });
 
     await expect(
-      restoreTranslationRevision(
+      restoreTranslationRevisionToDrafts(
         { rpc },
         config.databaseSecret,
         2,
@@ -397,8 +415,11 @@ describe('translation workspace RPC adapter', () => {
         '11111111-1111-4111-8111-111111111111',
         1_753_099_200
       )
-    ).resolves.toEqual({ status: 'success', value: published });
-    expect(rpc).toHaveBeenLastCalledWith('restore_interface_translation_revision', {
+    ).resolves.toEqual({
+      status: 'success',
+      value: { revisionNumber: 6, restoredAt: '2026-07-21T14:00:00Z', pendingCount: 2 }
+    });
+    expect(rpc).toHaveBeenLastCalledWith('restore_interface_translation_revision_to_drafts', {
       requested_revision_number: 2,
       expected_current_revision_number: 5,
       command_request_id: '11111111-1111-4111-8111-111111111111',

@@ -90,9 +90,14 @@ describe('generated public database types', () => {
     expectTypeOf<PublicFunctions['get_published_interface_translations']['Returns'][number]>()
       .toHaveProperty('messages')
       .toEqualTypeOf<Json>();
-    expectTypeOf<PublicFunctions['publish_interface_translation_drafts']['Returns'][number]>()
+    expectTypeOf<
+      PublicFunctions['ready_interface_translation_drafts_for_source']['Returns'][number]
+    >()
       .toHaveProperty('revision_number')
       .toEqualTypeOf<number>();
+    expectTypeOf<
+      PublicFunctions['get_ready_interface_translation_source']['Returns']
+    >().toEqualTypeOf<Json>();
     expectTypeOf<PublicFunctions['save_interface_translation_draft']['Args']>()
       .toHaveProperty('requested_value')
       .toEqualTypeOf<string>();
