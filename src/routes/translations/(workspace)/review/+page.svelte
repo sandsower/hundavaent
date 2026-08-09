@@ -85,7 +85,10 @@
   {/if}
 
   <p class="summary m-0">
-    <strong>{changedEntries.length}</strong> keys have changes waiting for source.
+    <strong>{changedEntries.length}</strong>
+    {changedEntries.length === 1
+      ? 'key has a change waiting for source.'
+      : 'keys have changes waiting for source.'}
   </p>
 
   <div class="change-list grid gap-3">
