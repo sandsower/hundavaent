@@ -23,7 +23,7 @@ export interface RequestOutcomeLog {
 
 export interface HealthFailureLog {
   requestId: string;
-  check: 'database';
+  check: 'database' | 'translations';
 }
 
 export interface TelemetryLogger {

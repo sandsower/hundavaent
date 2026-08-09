@@ -232,7 +232,7 @@
     if (state === 'saved') return 'Saved';
     if (state === 'conflict') return 'Conflict';
     if (state === 'error') return 'Save failed';
-    return changed[locale] ? 'Changed' : 'Published';
+    return changed[locale] ? 'Changed' : 'Deployed JSON';
   }
 
   function issueText(issue: TranslationValidationIssue): string {
@@ -264,7 +264,7 @@
       </h2>
     </div>
     {#if changed.is || changed.en}
-      <Status tone="attention">Unpublished</Status>
+      <Status tone="attention">Waiting for source</Status>
     {/if}
   </header>
 

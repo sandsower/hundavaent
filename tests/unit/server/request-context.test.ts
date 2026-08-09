@@ -64,17 +64,12 @@ describe('request pipeline', () => {
     });
   });
 
-  it('loads one request-scoped published catalogue for a localized route', async () => {
+  it('uses the bundled JSON catalogue even when a localized request has a database client', async () => {
     const { event } = createEvent();
     const client = {
-      auth: { getClaims: vi.fn(async () => ({ data: { claims: null }, error: null })) }
+      auth: { getClaims: vi.fn(async () => ({ data: { claims: null }, error: null })) },
+      rpc: vi.fn()
     } as unknown as RequestSupabaseClient;
-    const publishedCopy = { ...catalogues.is, 'meta.description': 'Beint birt íslenskt efni.' };
-    const loadCatalogue = vi.fn(async () => ({
-      copy: publishedCopy,
-      revisionNumber: '21',
-      source: 'published' as const
-    }));
     const handle = createHandle({
       getPublicConfig: () => ({
         url: 'http://supabase.test',
@@ -82,36 +77,32 @@ describe('request pipeline', () => {
       }),
       createClient: () => client,
       createRequestId: () => 'request-translations',
-      getGateConfig: () => null,
-      loadCatalogue
+      getGateConfig: () => null
     });
 
     await handle({
       event,
       resolve: async (resolvedEvent: typeof event) => {
-        expect(resolvedEvent.locals.copy).toBe(publishedCopy);
-        expect(resolvedEvent.locals.translationRevision).toBe('21');
-        expect(resolvedEvent.locals.translationSource).toBe('published');
-        return new Response('published');
+        expect(resolvedEvent.locals.copy).toBe(catalogues.is);
+        expect(resolvedEvent.locals.translationRevision).toBeNull();
+        expect(resolvedEvent.locals.translationSource).toBe('bundled');
+        return new Response('bundled');
       }
     } as never);
 
-    expect(loadCatalogue).toHaveBeenCalledOnce();
-    expect(loadCatalogue).toHaveBeenCalledWith(client, 'is');
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
-  it('does not query published translations for a non-localized route', async () => {
+  it('uses bundled JSON for a non-localized route', async () => {
     const { event } = createEvent();
     event.request = new Request('http://localhost/api/health');
     event.url = new URL('http://localhost/api/health');
     event.route = { id: '/api/health' };
-    const loadCatalogue = vi.fn();
     const handle = createHandle({
       getPublicConfig: () => null,
       createClient: vi.fn(),
       createRequestId: () => 'request-health',
-      getGateConfig: () => null,
-      loadCatalogue
+      getGateConfig: () => null
     });
 
     await handle({
@@ -123,8 +114,6 @@ describe('request pipeline', () => {
         return new Response('healthy');
       }
     } as never);
-
-    expect(loadCatalogue).not.toHaveBeenCalled();
   });
 
   it('keeps public routes available when Supabase is not configured', async () => {

@@ -7,7 +7,7 @@ import {
 } from '$server/translations/access';
 import {
   loadTranslationWorkspace,
-  publishTranslationDrafts,
+  readyTranslationDraftsForSource,
   type TranslationWorkspace
 } from '$server/translations/workspace';
 import { validateTranslationEntry } from '$lib/translations/placeholders';
@@ -20,7 +20,7 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions: Actions = {
-  publish: async (event) => {
+  ready: async (event) => {
     const config = await requireTranslationSession(event, env);
     const formData = await event.request.formData();
     const expectedRevision = parseRevision(formData.get('expectedRevision'));
@@ -41,9 +41,12 @@ export const actions: Actions = {
     if (workspace.pendingCount === 0) return fail(400, { noChanges: true });
 
     if (!event.locals.supabase) {
-      error(503, { message: 'Publishing is unavailable.', requestId: event.locals.requestId });
+      error(503, {
+        message: 'Source readiness is unavailable.',
+        requestId: event.locals.requestId
+      });
     }
-    const result = await publishTranslationDrafts(
+    const result = await readyTranslationDraftsForSource(
       event.locals.supabase,
       config.databaseSecret,
       expectedRevision,
@@ -52,9 +55,12 @@ export const actions: Actions = {
     );
     if (result.status === 'conflict') return fail(409, { conflict: true });
     if (result.status !== 'success') {
-      error(503, { message: 'Publishing is unavailable.', requestId: event.locals.requestId });
+      error(503, {
+        message: 'Source readiness is unavailable.',
+        requestId: event.locals.requestId
+      });
     }
-    redirect(303, `/translations?published=${result.value.revisionNumber}`);
+    redirect(303, `/translations?ready=${result.value.revisionNumber}`);
   }
 };
 

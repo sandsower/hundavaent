@@ -17,7 +17,7 @@ function healthResponse(release = releaseSha): Response {
     checks: {
       database: 'ready',
       map: 'configured',
-      translations: 'published'
+      translations: 'synchronized'
     }
   });
 }
@@ -182,7 +182,7 @@ describe('production readiness verifier', () => {
             checks: {
               database: 'starting',
               map: 'configured',
-              translations: 'published'
+              translations: 'synchronized'
             }
           }),
         sleep: async () => {
@@ -297,7 +297,7 @@ describe('production readiness verifier', () => {
             checks: {
               database: 'starting',
               map: 'configured',
-              translations: 'published'
+              translations: 'synchronized'
             }
           }),
         sleep: async (milliseconds) => {

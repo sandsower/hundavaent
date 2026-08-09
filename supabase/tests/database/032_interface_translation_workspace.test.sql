@@ -57,13 +57,13 @@ select has_function(
 );
 select has_function(
   'public',
-  'publish_interface_translation_drafts',
+  'ready_interface_translation_drafts_for_source',
   array['bigint', 'bigint', 'text', 'bigint', 'text'],
   'The editor publishes every shared draft atomically'
 );
 select has_function(
   'public',
-  'restore_interface_translation_revision',
+  'restore_interface_translation_revision_to_drafts',
   array['bigint', 'bigint', 'text', 'bigint', 'text'],
   'The editor restores history through a new forward revision'
 );
@@ -192,7 +192,7 @@ select ok(
   )
   and has_function_privilege(
     'service_role',
-    'public.sync_interface_translation_inventory(jsonb,text)',
+    'public.sync_interface_translation_inventory_from_source(jsonb,text)',
     'execute'
   )
   and not has_function_privilege(
@@ -207,7 +207,7 @@ select ok(
   )
   and not has_function_privilege(
     'authenticated',
-    'public.sync_interface_translation_inventory(jsonb,text)',
+    'public.sync_interface_translation_inventory_from_source(jsonb,text)',
     'execute'
   ),
   'Only controlled deployment operations configure the capability and key inventory'
@@ -323,7 +323,7 @@ grant execute on function public.test_interface_translation_save_proof(
   text
 ) to anon, authenticated, service_role;
 
-create function public.test_interface_translation_publish_proof(
+create function public.test_interface_translation_ready_proof(
   command_request_id text,
   command_issued_at bigint,
   expected_publication_revision bigint,
@@ -336,16 +336,16 @@ security definer
 set search_path = ''
 as $$
   select public.test_interface_translation_proof(
-    'interface-translations-v2:publish:' || command_request_id || ':' ||
+    'interface-translations-v3:ready_source:' || command_request_id || ':' ||
       command_issued_at::text || ':' || coalesce(expected_publication_revision, 0)::text || ':' ||
       expected_draft_generation::text
   );
 $$;
 
-grant execute on function public.test_interface_translation_publish_proof(text, bigint, bigint, bigint)
+grant execute on function public.test_interface_translation_ready_proof(text, bigint, bigint, bigint)
   to anon, authenticated, service_role;
 
-create function public.test_interface_translation_restore_proof(
+create function public.test_interface_translation_restore_to_drafts_proof(
   command_request_id text,
   command_issued_at bigint,
   requested_revision_number bigint,
@@ -358,13 +358,13 @@ security definer
 set search_path = ''
 as $$
   select public.test_interface_translation_proof(
-    'interface-translations-v2:restore:' || command_request_id || ':' ||
+    'interface-translations-v3:restore_to_drafts:' || command_request_id || ':' ||
       command_issued_at::text || ':' || requested_revision_number::text || ':' ||
       coalesce(expected_publication_revision, 0)::text
   );
 $$;
 
-grant execute on function public.test_interface_translation_restore_proof(text, bigint, bigint, bigint)
+grant execute on function public.test_interface_translation_restore_to_drafts_proof(text, bigint, bigint, bigint)
   to anon, authenticated, service_role;
 
 select extensions.dblink_connect(
@@ -381,7 +381,7 @@ select is(
         perform public.configure_interface_translation_capability(
           'local-interface-translation-capability-secret-v1'
         );
-        perform public.sync_interface_translation_inventory(
+        perform public.sync_interface_translation_inventory_from_source(
           '{
             "is": {
               "greeting": "Halló {name}",
@@ -538,14 +538,14 @@ select throws_ok(
           where singleton;
           proof := encode(
             extensions.hmac(
-              'interface-translations-v2:publish:race-stale-publish:' || issued_at::text || ':' ||
+              'interface-translations-v3:ready_source:race-stale-publish:' || issued_at::text || ':' ||
                 publication_revision::text || ':' || reviewed_draft_generation::text,
               'local-interface-translation-capability-secret-v1',
               'sha256'
             ),
             'hex'
           );
-          perform public.publish_interface_translation_drafts(
+          perform public.ready_interface_translation_drafts_for_source(
             publication_revision,
             reviewed_draft_generation,
             'race-stale-publish',
@@ -644,7 +644,7 @@ select lives_ok(
 select lives_ok(
   $$
     select *
-    from public.sync_interface_translation_inventory(
+    from public.sync_interface_translation_inventory_from_source(
       '{
         "is": {
           "greeting": "Halló {name}",
@@ -831,12 +831,12 @@ select is(
 select throws_ok(
   $$
     select *
-    from public.publish_interface_translation_drafts(
+    from public.ready_interface_translation_drafts_for_source(
       current_setting('test.initial_translation_revision')::bigint,
       public.test_interface_translation_draft_generation(),
       'publish-placeholder-invalid',
       current_setting('test.translation_command_issued_at')::bigint,
-      public.test_interface_translation_publish_proof(
+      public.test_interface_translation_ready_proof(
         'publish-placeholder-invalid',
         current_setting('test.translation_command_issued_at')::bigint,
         current_setting('test.initial_translation_revision')::bigint,
@@ -966,12 +966,12 @@ select is(
 select throws_ok(
   $$
     select *
-    from public.publish_interface_translation_drafts(
+    from public.ready_interface_translation_drafts_for_source(
       current_setting('test.initial_translation_revision')::bigint,
       public.test_interface_translation_draft_generation(),
       'publish-empty',
       current_setting('test.translation_command_issued_at')::bigint,
-      public.test_interface_translation_publish_proof(
+      public.test_interface_translation_ready_proof(
         'publish-empty',
         current_setting('test.translation_command_issued_at')::bigint,
         current_setting('test.initial_translation_revision')::bigint,
@@ -1013,12 +1013,12 @@ select is(
 select throws_ok(
   $$
     select *
-    from public.publish_interface_translation_drafts(
+    from public.ready_interface_translation_drafts_for_source(
       999999,
       public.test_interface_translation_draft_generation(),
       'publish-stale',
       current_setting('test.translation_command_issued_at')::bigint,
-      public.test_interface_translation_publish_proof(
+      public.test_interface_translation_ready_proof(
         'publish-stale',
         current_setting('test.translation_command_issued_at')::bigint,
         999999,
@@ -1027,19 +1027,19 @@ select throws_ok(
     )
   $$,
   '40001',
-  'Interface translation publication changed',
-  'A stale editor cannot publish over a newer live revision'
+  'Interface translation deployment changed',
+  'A stale editor cannot ready changes against a newer deployed revision'
 );
 
 select lives_ok(
   $$
     select *
-    from public.publish_interface_translation_drafts(
+    from public.ready_interface_translation_drafts_for_source(
       current_setting('test.initial_translation_revision')::bigint,
       public.test_interface_translation_draft_generation(),
       'publish-v2',
       current_setting('test.translation_command_issued_at')::bigint,
-      public.test_interface_translation_publish_proof(
+      public.test_interface_translation_ready_proof(
         'publish-v2',
         current_setting('test.translation_command_issued_at')::bigint,
         current_setting('test.initial_translation_revision')::bigint,
@@ -1053,8 +1053,8 @@ select lives_ok(
 reset role;
 
 select set_config(
-  'test.published_translation_revision',
-  (select revision_number::text from private.interface_translation_publication where singleton),
+  'test.source_candidate_revision',
+  (select revision_number::text from private.interface_translation_source_candidate where singleton),
   true
 );
 
@@ -1062,36 +1062,36 @@ select is(
   (
     select change_count
     from private.interface_translation_revisions
-    where revision_number = current_setting('test.published_translation_revision')::bigint
+    where revision_number = current_setting('test.source_candidate_revision')::bigint
   ),
   1,
-  'Publishing counts the one changed key rather than its two changed locale fields'
+  'Source readiness counts the one changed key rather than its two changed locale fields'
 );
 
 select is(
   (select count(*) from private.interface_translation_drafts),
   0::bigint,
-  'Successful publication clears the complete shared draft batch'
+  'Successful source readiness clears the complete shared draft batch'
 );
 
 select is(
   (
     select catalogues #>> '{en,greeting}'
     from private.interface_translation_revisions
-    where revision_number = current_setting('test.published_translation_revision')::bigint
+    where revision_number = current_setting('test.source_candidate_revision')::bigint
   ),
   'Hi {name}'::text,
-  'The published revision contains the reviewed English value'
+  'The source candidate contains the reviewed English value'
 );
 
 select is(
   (
     select catalogues #>> '{is,greeting}'
     from private.interface_translation_revisions
-    where revision_number = current_setting('test.published_translation_revision')::bigint
+    where revision_number = current_setting('test.source_candidate_revision')::bigint
   ),
   'Sæl {name}'::text,
-  'The same atomic revision contains the reviewed Icelandic value'
+  'The same atomic candidate contains the reviewed Icelandic value'
 );
 
 set local role anon;
@@ -1099,12 +1099,12 @@ set local role anon;
 select is(
   (
     select revision_number
-    from public.publish_interface_translation_drafts(
+    from public.ready_interface_translation_drafts_for_source(
       current_setting('test.initial_translation_revision')::bigint,
       public.test_interface_translation_draft_generation(),
       'publish-v2',
       current_setting('test.translation_command_issued_at')::bigint,
-      public.test_interface_translation_publish_proof(
+      public.test_interface_translation_ready_proof(
         'publish-v2',
         current_setting('test.translation_command_issued_at')::bigint,
         current_setting('test.initial_translation_revision')::bigint,
@@ -1112,28 +1112,53 @@ select is(
       )
     )
   ),
-  current_setting('test.published_translation_revision')::bigint,
-  'Retrying a completed publish request is idempotent even with its original expectation'
+  current_setting('test.source_candidate_revision')::bigint,
+  'Retrying a completed ready request is idempotent even with its original expectation'
 );
 
 select ok(
   (
-    select revision ? 'catalogues' and revision ->> 'kind' = 'publish'
+    select revision ? 'catalogues' and revision ->> 'kind' = 'source_ready'
     from (
       select public.get_interface_translation_revision(
-        current_setting('test.published_translation_revision')::bigint,
+        current_setting('test.source_candidate_revision')::bigint,
         'read-v2',
         current_setting('test.translation_command_issued_at')::bigint,
         public.test_interface_translation_proof(
           'interface-translations-v2:read_revision:read-v2:' ||
             current_setting('test.translation_command_issued_at') || ':' ||
-            current_setting('test.published_translation_revision')
+            current_setting('test.source_candidate_revision')
         )
       ) as revision
     ) as projection
   ),
   'A proof-checked editor can inspect a complete immutable revision'
 );
+
+reset role;
+
+select *
+from public.sync_interface_translation_inventory_from_source(
+  (
+    select revision.catalogues
+    from private.interface_translation_source_candidate as candidate
+    join private.interface_translation_revisions as revision
+      on revision.revision_number = candidate.revision_number
+    where candidate.singleton
+  ),
+  'deploy-ready-v2'
+);
+select public.mark_interface_translation_source_candidate_applied();
+
+reset role;
+
+select set_config(
+  'test.published_translation_revision',
+  (select revision_number::text from private.interface_translation_publication where singleton),
+  true
+);
+
+set local role anon;
 
 select is(
   (
@@ -1173,7 +1198,7 @@ end;
 $$;
 
 create trigger interface_translation_contract_force_pointer_failure
-before update on private.interface_translation_publication
+before update on private.interface_translation_source_candidate
 for each row execute function pg_temp.force_interface_translation_pointer_failure();
 
 set local role anon;
@@ -1181,12 +1206,12 @@ set local role anon;
 select throws_ok(
   $$
     select *
-    from public.publish_interface_translation_drafts(
+    from public.ready_interface_translation_drafts_for_source(
       current_setting('test.published_translation_revision')::bigint,
       public.test_interface_translation_draft_generation(),
       'publish-forced-failure',
       current_setting('test.translation_command_issued_at')::bigint,
-      public.test_interface_translation_publish_proof(
+      public.test_interface_translation_ready_proof(
         'publish-forced-failure',
         current_setting('test.translation_command_issued_at')::bigint,
         current_setting('test.published_translation_revision')::bigint,
@@ -1218,7 +1243,7 @@ select is(
 );
 
 drop trigger interface_translation_contract_force_pointer_failure
-  on private.interface_translation_publication;
+  on private.interface_translation_source_candidate;
 
 set local role anon;
 
@@ -1255,7 +1280,7 @@ set local role service_role;
 select throws_ok(
   $$
     select *
-    from public.sync_interface_translation_inventory(
+    from public.sync_interface_translation_inventory_from_source(
       '{
         "is": {"bad": "Halló {name}"},
         "en": {"bad": "Hello"}
@@ -1271,7 +1296,7 @@ select throws_ok(
 select lives_ok(
   $$
     select *
-    from public.sync_interface_translation_inventory(
+    from public.sync_interface_translation_inventory_from_source(
       '{
         "is": {
           "greeting": "Halló {name}",
@@ -1310,8 +1335,8 @@ select is(
     from private.interface_translation_revisions
     where revision_number = current_setting('test.inventory_translation_revision')::bigint
   ),
-  'Hi {name}'::text,
-  'Inventory synchronization preserves compatible direct-published copy'
+  'Hello {name}'::text,
+  'Source synchronization replaces the deployed mirror with bundled copy'
 );
 
 set local role anon;
@@ -1345,12 +1370,12 @@ select is(
 select throws_ok(
   $$
     select *
-    from public.restore_interface_translation_revision(
+    from public.restore_interface_translation_revision_to_drafts(
       current_setting('test.initial_translation_revision')::bigint,
       current_setting('test.inventory_translation_revision')::bigint,
       'restore-with-drafts',
       current_setting('test.translation_command_issued_at')::bigint,
-      public.test_interface_translation_restore_proof(
+      public.test_interface_translation_restore_to_drafts_proof(
         'restore-with-drafts',
         current_setting('test.translation_command_issued_at')::bigint,
         current_setting('test.initial_translation_revision')::bigint,
@@ -1359,7 +1384,7 @@ select throws_ok(
     )
   $$,
   '55000',
-  'Publish or revert interface translation drafts before restore',
+  'Ready or revert interface translation drafts before restore',
   'Restore cannot silently discard pending shared work'
 );
 
@@ -1392,12 +1417,12 @@ select is(
 select lives_ok(
   $$
     select *
-    from public.restore_interface_translation_revision(
+    from public.restore_interface_translation_revision_to_drafts(
       current_setting('test.initial_translation_revision')::bigint,
       current_setting('test.inventory_translation_revision')::bigint,
       'restore-v1',
       current_setting('test.translation_command_issued_at')::bigint,
-      public.test_interface_translation_restore_proof(
+      public.test_interface_translation_restore_to_drafts_proof(
         'restore-v1',
         current_setting('test.translation_command_issued_at')::bigint,
         current_setting('test.initial_translation_revision')::bigint,
@@ -1412,7 +1437,7 @@ reset role;
 
 select set_config(
   'test.restored_translation_revision',
-  (select revision_number::text from private.interface_translation_publication where singleton),
+  (select revision_number::text from private.interface_translation_revisions where request_id = 'restore-v1'),
   true
 );
 
@@ -1479,7 +1504,7 @@ select throws_ok(
 select throws_ok(
   $$
     select *
-    from public.restore_interface_translation_revision(
+    from public.restore_interface_translation_revision_to_drafts(
       current_setting('test.initial_translation_revision')::bigint,
       current_setting('test.restored_translation_revision')::bigint,
       'restore-invalid-proof',
@@ -1499,7 +1524,7 @@ set local role service_role;
 select throws_ok(
   $$
     select *
-    from public.sync_interface_translation_inventory(
+    from public.sync_interface_translation_inventory_from_source(
       jsonb_build_object(
         'is', jsonb_build_object(
           'greeting', 'Halló {name}',
@@ -1523,7 +1548,7 @@ select throws_ok(
 select lives_ok(
   $$
     select *
-    from public.sync_interface_translation_inventory(
+    from public.sync_interface_translation_inventory_from_source(
       jsonb_build_object(
         'is', jsonb_build_object(
           'greeting', 'Halló {name}',
@@ -1581,12 +1606,12 @@ select is(
 select lives_ok(
   $$
     select *
-    from public.publish_interface_translation_drafts(
+    from public.ready_interface_translation_drafts_for_source(
       current_setting('test.boundary_translation_revision')::bigint,
       public.test_interface_translation_draft_generation(),
       'publish-at-runtime-limit',
       current_setting('test.translation_command_issued_at')::bigint,
-      public.test_interface_translation_publish_proof(
+      public.test_interface_translation_ready_proof(
         'publish-at-runtime-limit',
         current_setting('test.translation_command_issued_at')::bigint,
         current_setting('test.boundary_translation_revision')::bigint,

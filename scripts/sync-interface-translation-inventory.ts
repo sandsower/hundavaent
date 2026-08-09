@@ -1,8 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
-import type { ProductionTranslationBaseline } from './sync-published-interface-translations';
-
 type TranslationMessages = Record<string, string>;
 
 export interface InterfaceTranslationCatalogues {
@@ -15,11 +13,9 @@ const translationKeyPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/;
 const maximumMessageLength = 10_000;
 
 export function renderInterfaceTranslationInventorySql(
-  catalogues: InterfaceTranslationCatalogues,
-  baseline: ProductionTranslationBaseline
+  catalogues: InterfaceTranslationCatalogues
 ): string {
   const keyCount = validateCatalogues(catalogues);
-  validateProductionBaseline(baseline);
   const payload = JSON.stringify(catalogues);
   if (payload.includes(catalogueDelimiter)) {
     throw new Error('Interface translation messages contain the reserved SQL delimiter');
@@ -34,9 +30,10 @@ select public.configure_interface_translation_capability(:'translation_database_
 select *
 from public.sync_interface_translation_inventory_from_source(
   ${catalogueDelimiter}${payload}${catalogueDelimiter}::jsonb,
-  ${baseline.revisionNumber},
   :'release_sha'
 );
+
+select public.mark_interface_translation_source_candidate_applied();
 
 do $hundavaent_verify_interface_publication$
 declare
@@ -78,23 +75,6 @@ $hundavaent_verify_interface_publication$;
 
 commit;
 `;
-}
-
-function validateProductionBaseline(baseline: ProductionTranslationBaseline): void {
-  if (
-    !isRecord(baseline) ||
-    baseline.schema !== 1 ||
-    !Number.isSafeInteger(baseline.revisionNumber) ||
-    baseline.revisionNumber <= 0 ||
-    typeof baseline.publishedAt !== 'string' ||
-    Number.isNaN(Date.parse(baseline.publishedAt)) ||
-    !Number.isSafeInteger(baseline.keyCount) ||
-    baseline.keyCount <= 0 ||
-    typeof baseline.catalogueSha256 !== 'string' ||
-    !/^[a-f0-9]{64}$/.test(baseline.catalogueSha256)
-  ) {
-    throw new Error('Valid production interface translation baseline required');
-  }
 }
 
 function validateCatalogues(catalogues: InterfaceTranslationCatalogues): number {
@@ -178,10 +158,7 @@ async function main(): Promise<void> {
     is: await readCatalogue('src/lib/i18n/messages/is.json'),
     en: await readCatalogue('src/lib/i18n/messages/en.json')
   };
-  const baseline = JSON.parse(
-    await readFile('src/lib/i18n/messages/production-baseline.json', 'utf8')
-  ) as ProductionTranslationBaseline;
-  await writeFile(outputPath, renderInterfaceTranslationInventorySql(catalogues, baseline), {
+  await writeFile(outputPath, renderInterfaceTranslationInventorySql(catalogues), {
     encoding: 'utf8',
     mode: 0o600
   });

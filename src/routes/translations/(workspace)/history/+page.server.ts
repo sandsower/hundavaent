@@ -7,7 +7,7 @@ import {
 } from '$server/translations/access';
 import {
   loadTranslationWorkspace,
-  restoreTranslationRevision,
+  restoreTranslationRevisionToDrafts,
   type TranslationWorkspace
 } from '$server/translations/workspace';
 
@@ -42,7 +42,7 @@ export const actions: Actions = {
         requestId: event.locals.requestId
       });
     }
-    const result = await restoreTranslationRevision(
+    const result = await restoreTranslationRevisionToDrafts(
       event.locals.supabase,
       config.databaseSecret,
       targetRevision,

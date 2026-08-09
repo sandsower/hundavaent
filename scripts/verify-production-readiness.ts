@@ -113,7 +113,7 @@ export async function verifyProductionReadinessAttempt({
   const checks = isRecord(health.checks) ? health.checks : {};
   assertEqual('health.database', checks.database, 'ready');
   assertEqual('health.map', checks.map, 'configured');
-  assertEqual('health.translations', checks.translations, 'published');
+  assertEqual('health.translations', checks.translations, 'synchronized');
 
   const gateRequest = await fetchResponse(
     new URL('/is', productionUrl),

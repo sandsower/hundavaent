@@ -727,6 +727,14 @@ export type Database = {
           revision_number: number
         }[]
       }
+      get_ready_interface_translation_source: {
+        Args: {
+          command_issued_at: number
+          command_proof: string
+          command_request_id: string
+        }
+        Returns: Json
+      }
       get_published_place_profile: {
         Args: { requested_locale: string; requested_place_id: string }
         Returns: {
@@ -1381,6 +1389,10 @@ export type Database = {
           task_kind: string
         }[]
       }
+      mark_interface_translation_source_candidate_applied: {
+        Args: never
+        Returns: number
+      }
       mark_my_trusted_verification_feedback_read: {
         Args: { requested_read_through: string }
         Returns: {
@@ -1419,6 +1431,20 @@ export type Database = {
           lifecycle: string
           place_id: string
           version: number
+        }[]
+      }
+      ready_interface_translation_drafts_for_source: {
+        Args: {
+          command_issued_at: number
+          command_proof: string
+          command_request_id: string
+          expected_draft_generation: number
+          expected_publication_revision: number
+        }
+        Returns: {
+          change_count: number
+          ready_at: string
+          revision_number: number
         }[]
       }
       recalculate_member_achievements: {
@@ -1600,6 +1626,20 @@ export type Database = {
         Returns: {
           media_id: string
           retired_at: string
+        }[]
+      }
+      restore_interface_translation_revision_to_drafts: {
+        Args: {
+          command_issued_at: number
+          command_proof: string
+          command_request_id: string
+          expected_current_revision_number: number
+          requested_revision_number: number
+        }
+        Returns: {
+          pending_count: number
+          restored_at: string
+          revision_number: number
         }[]
       }
       retire_previous_interface_translation_capability: {
@@ -1857,7 +1897,6 @@ export type Database = {
       sync_interface_translation_inventory_from_source: {
         Args: {
           command_request_id: string
-          expected_workspace_revision: number
           requested_catalogues: Json
         }
         Returns: {
