@@ -30,6 +30,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: [
+      '@testing-library/svelte > @testing-library/dom',
       '@testing-library/svelte > @testing-library/dom > aria-query',
       '@testing-library/svelte > @testing-library/dom > lz-string',
       'maplibre-gl'

@@ -17,6 +17,8 @@ import {
 import { resolveConfiguredMemberProviders } from '$server/auth/provider-policy';
 import { AuthenticationExpiredError, getMemberSession } from '$server/auth/session';
 import { getWeeklyRhythm } from '$server/member-activity/weekly-rhythm';
+import { TRANSLATION_MODE_COOKIE } from '$server/translations/mode';
+import { getTranslationAccess } from '$server/translations/packages';
 
 export const load: LayoutServerLoad = async ({ cookies, locals, params, url }) => {
   const lang = parseLocale(params.lang);
@@ -115,13 +117,14 @@ export const load: LayoutServerLoad = async ({ cookies, locals, params, url }) =
     }
   }
 
-  const [weeklyRhythm, achievementStatusResult] =
+  const [weeklyRhythm, achievementStatusResult, translationAccessResult] =
     locals.supabase && signedIn
       ? await Promise.all([
           getWeeklyRhythm(locals.supabase),
-          getMyAchievementStatus(locals.supabase as unknown as AchievementRpcClient)
+          getMyAchievementStatus(locals.supabase as unknown as AchievementRpcClient),
+          getTranslationAccess(locals.supabase)
         ])
-      : [null, null];
+      : [null, null, null];
   const achievementStatus =
     achievementStatusResult?.status === 'success'
       ? achievementStatusResult.value
@@ -136,7 +139,15 @@ export const load: LayoutServerLoad = async ({ cookies, locals, params, url }) =
       ? {
           signedIn: true as const,
           weeklyRhythm,
-          achievementStatus
+          achievementStatus,
+          ...(translationAccessResult?.status === 'success'
+            ? {
+                translation: {
+                  active: cookies.get(TRANSLATION_MODE_COOKIE) === 'active',
+                  access: translationAccessResult.value
+                }
+              }
+            : {})
         }
       : {})
   };
