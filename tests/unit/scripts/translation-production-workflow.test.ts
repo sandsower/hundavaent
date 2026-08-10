@@ -14,7 +14,7 @@ describe('production interface translation release contract', () => {
     expect(workflow).not.toContain('HUNDAVAENT_PRODUCTION_TRANSLATION_WORKSPACE_PASSWORD');
   });
 
-  it('syncs and verifies inventory before the non-mutating workspace smoke', async () => {
+  it('syncs and verifies inventory before the non-mutating production smoke', async () => {
     const workflow = await readFile('.github/workflows/production.yml', 'utf8');
 
     const syncIndex = workflow.indexOf('scripts/sync-interface-translation-inventory.ts');
@@ -34,6 +34,7 @@ describe('production interface translation release contract', () => {
     expect(workflow).toContain('scripts/verify-production-readiness.ts');
     expect(workflow).toContain('"${PRODUCTION_URL}"');
     expect(workflow).toContain('"${RELEASE_SHA}"');
+    expect(workflow).toContain('- Legacy translation workspace: retired');
     expect(workflow).not.toContain('scripts/wait-for-health.ts');
     expect(workflow).not.toContain('health_json="$(curl');
     expect(workflow).not.toContain('workspace_headers="${RUNNER_TEMP}');
