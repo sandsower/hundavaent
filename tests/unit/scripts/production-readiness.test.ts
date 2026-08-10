@@ -22,9 +22,9 @@ function healthResponse(release = releaseSha): Response {
   });
 }
 
-function redirectResponse(location: string, noindex = true): Response {
+function redirectResponse(location: string, noindex = true, status = 302): Response {
   return new Response(null, {
-    status: 302,
+    status,
     headers: {
       location,
       ...(noindex ? { 'x-robots-tag': 'noindex, nofollow' } : {})
@@ -32,33 +32,30 @@ function redirectResponse(location: string, noindex = true): Response {
   });
 }
 
-function workspaceSignInResponse(cacheControl = 'private, no-store'): Response {
-  return new Response('<main data-translation-workspace-sign-in><input name="password"></main>', {
-    headers: {
-      'cache-control': cacheControl,
-      'content-type': 'text/html',
-      'x-robots-tag': 'noindex, nofollow'
-    }
-  });
-}
-
 function readinessFetch({
   gateLocation = '/gate?redirectTo=%2Fis',
-  workspaceLocation = '/translations/sign-in?redirectTo=%2Ftranslations',
-  signInResponse = workspaceSignInResponse
+  gateStatus = 302,
+  legacyTranslationLocation = '/is',
+  legacyTranslationNoindex = true,
+  legacyTranslationStatus = 302
 }: {
   gateLocation?: string;
-  workspaceLocation?: string;
-  signInResponse?: () => Response;
+  gateStatus?: number;
+  legacyTranslationLocation?: string;
+  legacyTranslationNoindex?: boolean;
+  legacyTranslationStatus?: number;
 } = {}): typeof fetch {
   return vi.fn<typeof fetch>(async (input, init) => {
     const url = new URL(String(input));
     if (url.pathname === '/api/health') return healthResponse();
-    if (url.pathname === '/is') return redirectResponse(gateLocation);
+    if (url.pathname === '/is') return redirectResponse(gateLocation, true, gateStatus);
     if (url.pathname === '/translations' && init?.method === 'HEAD') {
-      return redirectResponse(workspaceLocation);
+      return redirectResponse(
+        legacyTranslationLocation,
+        legacyTranslationNoindex,
+        legacyTranslationStatus
+      );
     }
-    if (url.pathname === '/translations/sign-in') return signInResponse();
     throw new Error(`Unexpected request: ${url}`);
   });
 }
@@ -115,15 +112,8 @@ describe('production readiness verifier', () => {
       }
 
       if (url.pathname === '/translations' && init?.method === 'HEAD') {
-        return healthAttempt === 3
-          ? redirectResponse('/gate')
-          : redirectResponse('/translations/sign-in?redirectTo=%2Ftranslations');
-      }
-
-      if (url.pathname === '/translations/sign-in') {
-        return healthAttempt === 4
-          ? workspaceSignInResponse('public, max-age=60')
-          : workspaceSignInResponse();
+        if (healthAttempt === 3) return redirectResponse('/gate');
+        return healthAttempt === 4 ? redirectResponse('/is', false) : redirectResponse('/is');
       }
 
       throw new Error(`Unexpected request: ${url}`);
@@ -142,8 +132,8 @@ describe('production readiness verifier', () => {
     expect(pendingAssertions).toEqual([
       'health.release',
       'gate.redirect',
-      'translation-workspace.redirect',
-      'translation-workspace.cache-control'
+      'legacy-translation-route.redirect',
+      'legacy-translation-route.noindex'
     ]);
     expect(requestPaths.filter((path) => path === 'GET /api/health')).toHaveLength(5);
     expect(requestPaths).toEqual([
@@ -156,11 +146,9 @@ describe('production readiness verifier', () => {
       'GET /api/health',
       'HEAD /is',
       'HEAD /translations',
-      'GET /translations/sign-in',
       'GET /api/health',
       'HEAD /is',
-      'HEAD /translations',
-      'GET /translations/sign-in'
+      'HEAD /translations'
     ]);
   });
 
@@ -238,47 +226,6 @@ describe('production readiness verifier', () => {
     ]);
   }, 500);
 
-  it('bounds a never-completing response body with the remaining global deadline', async () => {
-    vi.useFakeTimers();
-    const pendingAssertions: Array<{ name: string; detail: string }> = [];
-    const readiness = waitForProductionReadiness({
-      productionUrl: 'https://hundavaent.is',
-      expectedRelease: releaseSha,
-      timeoutMs: 25,
-      intervalMs: 100,
-      fetchImplementation: readinessFetch({
-        signInResponse: () =>
-          new Response(
-            new ReadableStream({
-              start() {
-                // Deliberately never enqueue or close.
-              }
-            }),
-            {
-              headers: {
-                'cache-control': 'private, no-store',
-                'x-robots-tag': 'noindex'
-              }
-            }
-          )
-      }),
-      onPending: (assertion) => pendingAssertions.push(assertion)
-    });
-    const rejection = expect(readiness).rejects.toThrow(
-      'Production readiness timed out: translation-workspace.sign-in-request'
-    );
-
-    await vi.advanceTimersByTimeAsync(25);
-    await rejection;
-
-    expect(pendingAssertions).toEqual([
-      {
-        name: 'translation-workspace.sign-in-request',
-        detail: 'global readiness deadline elapsed'
-      }
-    ]);
-  }, 500);
-
   it('caps retry sleep to the remaining global budget', async () => {
     let now = 0;
     const sleeps: number[] = [];
@@ -315,37 +262,40 @@ describe('production readiness verifier', () => {
     {
       label: 'relative',
       gateLocation: '/gate?redirectTo=%2Fis',
-      workspaceLocation: '/translations/sign-in?redirectTo=%2Ftranslations'
+      legacyTranslationLocation: '/is'
     },
     {
       label: 'absolute same-origin',
       gateLocation: 'https://hundavaent.is/gate?redirectTo=%2Fis',
-      workspaceLocation: 'https://hundavaent.is/translations/sign-in?redirectTo=%2Ftranslations'
+      legacyTranslationLocation: 'https://hundavaent.is/is'
     }
-  ])('accepts $label gate and workspace redirects', async ({ gateLocation, workspaceLocation }) => {
-    await expect(
-      waitForProductionReadiness({
-        productionUrl: 'https://hundavaent.is',
-        expectedRelease: releaseSha,
-        fetchImplementation: readinessFetch({ gateLocation, workspaceLocation })
-      })
-    ).resolves.toBeUndefined();
-  });
+  ])(
+    'accepts $label gate and retired translation-route redirects',
+    async ({ gateLocation, legacyTranslationLocation }) => {
+      await expect(
+        waitForProductionReadiness({
+          productionUrl: 'https://hundavaent.is',
+          expectedRelease: releaseSha,
+          fetchImplementation: readinessFetch({ gateLocation, legacyTranslationLocation })
+        })
+      ).resolves.toBeUndefined();
+    }
+  );
 
   it.each([
     {
       assertion: 'gate.redirect',
       gateLocation: 'https://attacker.invalid/gate?redirectTo=%2Fis',
-      workspaceLocation: '/translations/sign-in?redirectTo=%2Ftranslations'
+      legacyTranslationLocation: '/is'
     },
     {
-      assertion: 'translation-workspace.redirect',
+      assertion: 'legacy-translation-route.redirect',
       gateLocation: '/gate?redirectTo=%2Fis',
-      workspaceLocation: 'https://attacker.invalid/translations/sign-in?redirectTo=%2Ftranslations'
+      legacyTranslationLocation: 'https://attacker.invalid/is'
     }
   ])(
     'rejects a cross-origin redirect at $assertion',
-    async ({ assertion, gateLocation, workspaceLocation }) => {
+    async ({ assertion, gateLocation, legacyTranslationLocation }) => {
       let now = 0;
       await expect(
         waitForProductionReadiness({
@@ -353,7 +303,7 @@ describe('production readiness verifier', () => {
           expectedRelease: releaseSha,
           timeoutMs: 1,
           intervalMs: 1,
-          fetchImplementation: readinessFetch({ gateLocation, workspaceLocation }),
+          fetchImplementation: readinessFetch({ gateLocation, legacyTranslationLocation }),
           sleep: async (milliseconds) => {
             now += milliseconds;
           },
@@ -363,45 +313,64 @@ describe('production readiness verifier', () => {
     }
   );
 
-  it('sanitizes sign-in body read failures under the endpoint-specific assertion', async () => {
-    const secret = 'do-not-log-this-response-error';
-    const pendingAssertions: Array<{ name: string; detail: string }> = [];
+  it('requires the retired translation route to remain non-indexable', async () => {
     let now = 0;
 
     await expect(
       waitForProductionReadiness({
         productionUrl: 'https://hundavaent.is',
         expectedRelease: releaseSha,
-        timeoutMs: 2,
+        timeoutMs: 1,
         intervalMs: 1,
         fetchImplementation: readinessFetch({
-          signInResponse: () => {
-            const response = workspaceSignInResponse();
-            vi.spyOn(response, 'text').mockRejectedValue(new Error(secret));
-            return response;
-          }
+          legacyTranslationNoindex: false
         }),
         sleep: async (milliseconds) => {
           now += milliseconds;
         },
-        now: () => now,
-        onPending: (assertion) => pendingAssertions.push(assertion)
+        now: () => now
       })
-    ).rejects.toThrow(
-      'Production readiness timed out: translation-workspace.sign-in-request (response body could not be read)'
-    );
+    ).rejects.toThrow('Production readiness timed out: legacy-translation-route.noindex');
+  });
 
-    expect(pendingAssertions).toEqual([
-      {
-        name: 'translation-workspace.sign-in-request',
-        detail: 'response body could not be read'
-      },
-      {
-        name: 'translation-workspace.sign-in-request',
-        detail: 'response body could not be read'
-      }
-    ]);
-    expect(JSON.stringify(pendingAssertions)).not.toContain(secret);
+  it('requires the retired translation route to return an actual redirect status', async () => {
+    let now = 0;
+
+    await expect(
+      waitForProductionReadiness({
+        productionUrl: 'https://hundavaent.is',
+        expectedRelease: releaseSha,
+        timeoutMs: 1,
+        intervalMs: 1,
+        fetchImplementation: readinessFetch({
+          legacyTranslationStatus: 200
+        }),
+        sleep: async (milliseconds) => {
+          now += milliseconds;
+        },
+        now: () => now
+      })
+    ).rejects.toThrow('Production readiness timed out: legacy-translation-route.redirect');
+  });
+
+  it('requires the site gate to return an actual redirect status', async () => {
+    let now = 0;
+
+    await expect(
+      waitForProductionReadiness({
+        productionUrl: 'https://hundavaent.is',
+        expectedRelease: releaseSha,
+        timeoutMs: 1,
+        intervalMs: 1,
+        fetchImplementation: readinessFetch({
+          gateStatus: 200
+        }),
+        sleep: async (milliseconds) => {
+          now += milliseconds;
+        },
+        now: () => now
+      })
+    ).rejects.toThrow('Production readiness timed out: gate.redirect');
   });
 
   it('parses the production URL, release, and retry controls without accepting extras', () => {

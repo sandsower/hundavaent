@@ -695,7 +695,7 @@ jobs:
             echo "- Health: ready"
             echo "- Gate: active"
             echo "- Interface translations: JSON mirror synchronized"
-            echo "- Translation workspace: password boundary ready"
+            echo "- Legacy translation workspace: retired"
             echo "- Commit: ${RELEASE_SHA}"
           } >> "${GITHUB_STEP_SUMMARY}"
 

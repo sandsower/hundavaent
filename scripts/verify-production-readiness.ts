@@ -126,58 +126,27 @@ export async function verifyProductionReadinessAttempt({
   const gateLocation = gate.headers.get('location');
   assertCondition(
     'gate.redirect',
-    isRedirectTo(gateLocation, productionUrl, '/gate'),
+    isRedirect(gate.status) && isRedirectTo(gateLocation, productionUrl, '/gate'),
     'expected a same-origin redirect to /gate'
   );
   assertNoindex('gate.noindex', gate.headers.get('x-robots-tag'));
 
-  const workspaceRequest = await fetchResponse(
+  const legacyTranslationRequest = await fetchResponse(
     new URL('/translations', productionUrl),
-    'translation-workspace.request',
+    'legacy-translation-route.request',
     fetchImplementation,
     { method: 'HEAD', redirect: 'manual' },
     budget
   );
-  const workspace = workspaceRequest.response;
-  const workspaceLocation = workspace.headers.get('location');
+  const legacyTranslation = legacyTranslationRequest.response;
+  const legacyTranslationLocation = legacyTranslation.headers.get('location');
   assertCondition(
-    'translation-workspace.redirect',
-    isWorkspaceSignInRedirect(workspaceLocation, productionUrl),
-    'expected a same-origin translation sign-in redirect'
+    'legacy-translation-route.redirect',
+    isRedirect(legacyTranslation.status) &&
+      isRedirectTo(legacyTranslationLocation, productionUrl, '/is'),
+    'expected a same-origin redirect to the Icelandic product'
   );
-
-  const signInRequest = await fetchResponse(
-    new URL('/translations/sign-in', productionUrl),
-    'translation-workspace.sign-in-request',
-    fetchImplementation,
-    { redirect: 'manual' },
-    budget
-  );
-  const signIn = signInRequest.response;
-  assertCondition(
-    'translation-workspace.cache-control',
-    hasCacheDirectives(signIn.headers.get('cache-control'), ['private', 'no-store']),
-    `expected private, no-store, received ${formatValue(signIn.headers.get('cache-control'))}`
-  );
-  assertNoindex('translation-workspace.noindex', signIn.headers.get('x-robots-tag'));
-
-  const signInBody = await readResponseBody(
-    signInRequest,
-    'translation-workspace.sign-in-request',
-    budget,
-    (response) => response.text(),
-    'response body could not be read'
-  );
-  assertCondition(
-    'translation-workspace.form',
-    signInBody.includes('data-translation-workspace-sign-in'),
-    'sign-in marker was absent'
-  );
-  assertCondition(
-    'translation-workspace.password',
-    signInBody.includes('name="password"'),
-    'password field was absent'
-  );
+  assertNoindex('legacy-translation-route.noindex', legacyTranslation.headers.get('x-robots-tag'));
 }
 
 async function fetchJson(
@@ -246,26 +215,6 @@ async function fetchResponse(
     response,
     abort: () => controller.abort()
   };
-}
-
-async function readResponseBody<T>(
-  request: BoundedResponse,
-  assertionName: string,
-  budget: AttemptBudget,
-  read: (response: Response) => Promise<T>,
-  failureDetail: string
-): Promise<T> {
-  try {
-    return await withRemainingBudget(
-      () => read(request.response),
-      assertionName,
-      budget,
-      request.abort
-    );
-  } catch (error) {
-    if (error instanceof ProductionAssertionPending) throw error;
-    pending(assertionName, failureDetail);
-  }
 }
 
 async function withRemainingBudget<T>(
@@ -339,26 +288,6 @@ function isRedirectTo(location: string | null, origin: URL, expectedPath: string
   } catch {
     return false;
   }
-}
-
-function isWorkspaceSignInRedirect(location: string | null, origin: URL): boolean {
-  if (!location) return false;
-  try {
-    const redirect = new URL(location, origin);
-    return (
-      redirect.origin === origin.origin &&
-      redirect.pathname === '/translations/sign-in' &&
-      redirect.searchParams.get('redirectTo') === '/translations'
-    );
-  } catch {
-    return false;
-  }
-}
-
-function hasCacheDirectives(value: string | null, expected: string[]): boolean {
-  if (!value) return false;
-  const directives = new Set(value.split(',').map((directive) => directive.trim().toLowerCase()));
-  return expected.every((directive) => directives.has(directive));
 }
 
 function formatValue(value: unknown): string {
