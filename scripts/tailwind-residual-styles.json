@@ -263,6 +263,11 @@
       "categories": ["animation"]
     },
     {
+      "path": "src/lib/translations/TranslationMode.svelte",
+      "sha256": "acae3bc136253cb6505ccb3c4e61fe08e6e6b54d4a25eddb700265945b18a225",
+      "categories": ["selector-exception"]
+    },
+    {
       "path": "src/lib/translations/TranslationRow.svelte",
       "sha256": "fad8fab7eb5414e01900d876d28cef74c911092dcc47fb51fe3196bfa6aafa48",
       "categories": ["cross-component"]

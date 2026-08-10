@@ -3,18 +3,14 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 
 describe('production interface translation release contract', () => {
-  it('reuses the site password and requires only separate session and database secrets', async () => {
+  it('keeps translation editing credentials out of the application runtime', async () => {
     const workflow = await readFile('.github/workflows/production.yml', 'utf8');
 
     expect(workflow).toContain(
-      'TRANSLATION_WORKSPACE_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SITE_GATE_PASSWORD }}'
-    );
-    expect(workflow).toContain(
-      'TRANSLATION_SESSION_SECRET: ${{ secrets.HUNDAVAENT_PRODUCTION_TRANSLATION_SESSION_SECRET }}'
-    );
-    expect(workflow).toContain(
       'TRANSLATION_DATABASE_SECRET: ${{ secrets.HUNDAVAENT_PRODUCTION_TRANSLATION_DATABASE_SECRET }}'
     );
+    expect(workflow).not.toContain('TRANSLATION_WORKSPACE_PASSWORD');
+    expect(workflow).not.toContain('TRANSLATION_SESSION_SECRET');
     expect(workflow).not.toContain('HUNDAVAENT_PRODUCTION_TRANSLATION_WORKSPACE_PASSWORD');
   });
 

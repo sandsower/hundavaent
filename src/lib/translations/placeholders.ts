@@ -47,13 +47,15 @@ export function validateTranslationPair(
 }
 
 export function validateTranslationEntry(
-  key: MessageKey,
+  key: string,
   isValue: string,
   enValue: string
 ): TranslationValidationIssue[] {
   const issues = validateTranslationPair(isValue, enValue);
-  const bundledIs = catalogues.is[key];
-  const bundledEn = catalogues.en[key];
+  if (!Object.hasOwn(catalogues.is, key)) return issues;
+  const messageKey = key as MessageKey;
+  const bundledIs = catalogues.is[messageKey];
+  const bundledEn = catalogues.en[messageKey];
   if (typeof bundledIs !== 'string' || typeof bundledEn !== 'string') return issues;
   const expectedIs = extractPlaceholders(bundledIs);
   const expectedEn = extractPlaceholders(bundledEn);

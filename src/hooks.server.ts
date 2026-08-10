@@ -52,6 +52,14 @@ export function createHandle(dependencies: HandleDependencies = defaultDependenc
 
     const gateConfig = dependencies.getGateConfig();
 
+    if (isTranslationWorkspacePath(event.url.pathname)) {
+      const retiredResponse = new Response(null, {
+        status: 303,
+        headers: { location: `/${locale}` }
+      });
+      return finalizeResponse(event, retiredResponse, gateConfig);
+    }
+
     if (gateConfig && !isGateExemptPathname(event.url.pathname)) {
       const gateCookie = event.cookies.get(GATE_COOKIE_NAME);
 
@@ -200,7 +208,7 @@ function appendVary(headers: Headers, value: string): void {
 }
 
 function isGateExemptPathname(pathname: string): boolean {
-  return gateExemptPathnames.has(pathname) || isTranslationWorkspacePath(pathname);
+  return gateExemptPathnames.has(pathname);
 }
 
 function isTranslationWorkspacePath(pathname: string): boolean {

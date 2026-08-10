@@ -249,6 +249,14 @@ export type Database = {
           status: string
         }[]
       }
+      discard_interface_translation_package: {
+        Args: {
+          command_request_id: string
+          expected_package_version: number
+          requested_package_id: string
+        }
+        Returns: Json
+      }
       exclude_dog_friendliness_rating: {
         Args: {
           command_request_id: string
@@ -602,9 +610,9 @@ export type Database = {
         Returns: {
           collection: string
           current_value: number
-          next_milestone: number | null
+          next_milestone: number
           progress_kind: string
-          total_value: number | null
+          total_value: number
         }[]
       }
       get_my_achievement_status: {
@@ -681,6 +689,15 @@ export type Database = {
           valid_ratings: number
         }[]
       }
+      get_my_interface_translation_access: { Args: never; Returns: Json }
+      get_my_interface_translation_package: {
+        Args: { requested_package_id: string }
+        Returns: Json
+      }
+      get_my_interface_translation_workspace: {
+        Args: { requested_page_id: string }
+        Returns: Json
+      }
       get_my_place_photo_allowance: {
         Args: { requested_place_id: string }
         Returns: {
@@ -726,14 +743,6 @@ export type Database = {
           published_at: string
           revision_number: number
         }[]
-      }
-      get_ready_interface_translation_source: {
-        Args: {
-          command_issued_at: number
-          command_proof: string
-          command_request_id: string
-        }
-        Returns: Json
       }
       get_published_place_profile: {
         Args: { requested_locale: string; requested_place_id: string }
@@ -821,6 +830,14 @@ export type Database = {
           wheelchair_accessibility: string
         }[]
       }
+      get_ready_interface_translation_source: {
+        Args: {
+          command_issued_at: number
+          command_proof: string
+          command_request_id: string
+        }
+        Returns: Json
+      }
       get_support_check_in: {
         Args: {
           command_request_id: string
@@ -886,6 +903,7 @@ export type Database = {
           starts_on: string
         }[]
       }
+      list_interface_translation_review_packages: { Args: never; Returns: Json }
       list_member_contributor_priority: {
         Args: { requested_member_ids: string[] }
         Returns: {
@@ -1621,13 +1639,6 @@ export type Database = {
           revision_number: number
         }[]
       }
-      retire_place_media: {
-        Args: { command_payload: Json; command_request_id: string }
-        Returns: {
-          media_id: string
-          retired_at: string
-        }[]
-      }
       restore_interface_translation_revision_to_drafts: {
         Args: {
           command_issued_at: number
@@ -1642,9 +1653,26 @@ export type Database = {
           revision_number: number
         }[]
       }
+      retire_place_media: {
+        Args: { command_payload: Json; command_request_id: string }
+        Returns: {
+          media_id: string
+          retired_at: string
+        }[]
+      }
       retire_previous_interface_translation_capability: {
         Args: { command_secret: string }
         Returns: undefined
+      }
+      review_interface_translation_package: {
+        Args: {
+          command_request_id: string
+          expected_package_version: number
+          requested_decision: string
+          requested_note: string
+          requested_package_id: string
+        }
+        Returns: Json
       }
       revoke_contribution: {
         Args: {
@@ -1738,6 +1766,17 @@ export type Database = {
           pending_count: number
         }[]
       }
+      save_interface_translation_package_entry: {
+        Args: {
+          command_request_id: string
+          expected_entry_version: number
+          requested_key: string
+          requested_package_id: string
+          requested_value_en: string
+          requested_value_is: string
+        }
+        Returns: Json
+      }
       save_place_flag_moderation_draft: {
         Args: {
           command_request_id: string
@@ -1793,6 +1832,14 @@ export type Database = {
           place_id: string
         }[]
       }
+      start_interface_translation_package: {
+        Args: {
+          command_request_id: string
+          requested_context_path: string
+          requested_page_id: string
+        }
+        Returns: Json
+      }
       submit_dog_friendliness_rating: {
         Args: {
           command_request_id: string
@@ -1821,6 +1868,14 @@ export type Database = {
           thoughtfulness_score: number | null
           welcome_score: number | null
         }[]
+      }
+      submit_interface_translation_package: {
+        Args: {
+          command_request_id: string
+          expected_package_version: number
+          requested_package_id: string
+        }
+        Returns: Json
       }
       submit_place_correction: {
         Args: { command_payload: Json; command_request_id: string }
@@ -1894,17 +1949,27 @@ export type Database = {
           revision_number: number
         }[]
       }
-      sync_interface_translation_inventory_from_source: {
-        Args: {
-          command_request_id: string
-          requested_catalogues: Json
-        }
-        Returns: {
-          change_count: number
-          published_at: string
-          revision_number: number
-        }[]
-      }
+      sync_interface_translation_inventory_from_source:
+        | {
+            Args: { command_request_id: string; requested_catalogues: Json }
+            Returns: {
+              change_count: number
+              published_at: string
+              revision_number: number
+            }[]
+          }
+        | {
+            Args: {
+              command_request_id: string
+              expected_workspace_revision: number
+              requested_catalogues: Json
+            }
+            Returns: {
+              change_count: number
+              published_at: string
+              revision_number: number
+            }[]
+          }
       transition_place_identity: {
         Args: { command_payload: Json; command_request_id: string }
         Returns: {

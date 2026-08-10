@@ -42,11 +42,22 @@
 
   let currentHash = $state('');
   let hydrated = $state(false);
+  let translationModeRequested = $state(false);
+  let TranslationModeComponent = $state<
+    (typeof import('$lib/translations/TranslationMode.svelte'))['default'] | null
+  >(null);
   let weeklyRhythm = $state<WeeklyRhythm>({ status: 'unavailable' });
   let achievementUnread = $state(false);
   let isDiscovery = $derived(page.route.id === '/[lang=lang]');
   let isModeration = $derived(page.route.id?.startsWith('/[lang=lang]/moderation') === true);
   let northStarMode = $derived(isModeration ? 'operations' : 'place');
+  let translationPageId = $derived.by(() => {
+    const routeId = page.route.id;
+    if (!routeId || !routeId.startsWith('/[lang=lang]')) return null;
+    const pageId = routeId === '/[lang=lang]' ? '/' : routeId.slice('/[lang=lang]'.length);
+    return pageId === '/auth' || pageId.startsWith('/auth/') ? null : pageId;
+  });
+  let translationContextPath = $derived(`${page.url.pathname}${page.url.search}`);
   const currentBrowserUrl = $derived.by(() => {
     const currentUrl = new URL(page.url.href);
     currentUrl.hash = currentHash;
@@ -83,6 +94,14 @@
           achievementStatus?: { enabled: boolean; hasUnread: boolean };
         }
       ).achievementStatus?.hasUnread ?? false;
+  });
+
+  $effect(() => {
+    if (!data.translation || TranslationModeComponent || translationModeRequested) return;
+    translationModeRequested = true;
+    void import('$lib/translations/TranslationMode.svelte').then(({ default: component }) => {
+      TranslationModeComponent = component;
+    });
   });
 
   afterNavigate(() => {
@@ -348,6 +367,7 @@
   >
     <a
       class="about-link px-[0.7rem] py-[0.4rem] border border-transparent rounded-control font-extrabold text-basalt group-data-[floating-chrome=true]/header:border-border-subtle group-data-[floating-chrome=true]/header:bg-snow-raised group-data-[floating-chrome=true]/header:no-underline group-data-[floating-chrome=true]/header:shadow-raised group-data-[floating-chrome=true]/header:pointer-events-auto max-narrow:hidden"
+      data-translation-key="nav.about"
       href={resolve('/[lang=lang]/about', { lang: data.lang })}
     >
       {data.copy['nav.about']}
@@ -441,6 +461,16 @@
     copy={data.copy}
     providers={data.providers ?? { email: false, facebook: false }}
     initialRequest={data.pendingAuthRequest ?? null}
+  />
+{/if}
+
+{#if data.translation && TranslationModeComponent && translationPageId}
+  <TranslationModeComponent
+    active={data.translation.active}
+    locale={data.lang}
+    pageId={translationPageId}
+    contextPath={translationContextPath}
+    access={data.translation.access}
   />
 {/if}
 

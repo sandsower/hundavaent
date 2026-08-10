@@ -30,6 +30,16 @@ function eventWith(
       | 'unavailable';
     authError?: { message: string; name?: string; code?: string; status?: number };
     achievementStatus?: { enabled: boolean; has_unread: boolean } | 'error' | 'malformed';
+    translationAccess?:
+      | {
+          role: 'translator' | 'translation_owner';
+          canTranslate: true;
+          canReview: boolean;
+          actor: { id: string; label: string };
+        }
+      | 'error'
+      | null;
+    translationMode?: boolean;
   } = {}
 ) {
   const getUser = vi.fn(async () => ({
@@ -102,12 +112,20 @@ function eventWith(
         error: null
       };
     }
+    if (name === 'get_my_interface_translation_access') {
+      if (options.translationAccess === 'error') {
+        return { data: null, error: { code: 'temporary_failure' } };
+      }
+      return { data: options.translationAccess ?? null, error: null };
+    }
     throw new Error(`Unexpected RPC ${name}`);
   });
   return {
     event: {
       cookies: {
         getAll: () => (options.cookie ? [{ name: options.cookie, value: 'value' }] : []),
+        get: (name: string) =>
+          name === 'hundavaent-translation-mode' && options.translationMode ? 'active' : undefined,
         delete: deleteCookie
       },
       locals: { requestId: 'request-layout', supabase: { auth: { getUser, signOut }, rpc } },
@@ -177,6 +195,43 @@ describe('Member-aware public layout', () => {
       });
     }
   );
+
+  it('returns active translation mode only for an allowlisted signed-in account', async () => {
+    const translationAccess = {
+      role: 'translation_owner' as const,
+      canTranslate: true as const,
+      canReview: true,
+      actor: { id: 'member-1', label: 'owner@example.invalid' }
+    };
+    const { event } = eventWith({
+      cookie: 'sb-project-auth-token.0',
+      user: { id: 'member-1' },
+      memberAccount: true,
+      translationAccess,
+      translationMode: true
+    });
+
+    const result = await load(event as never);
+
+    expect(result).toMatchObject({
+      signedIn: true,
+      translation: { active: true, access: translationAccess }
+    });
+  });
+
+  it('does not expose translation state when the account is not allowlisted', async () => {
+    const { event } = eventWith({
+      cookie: 'sb-project-auth-token.0',
+      user: { id: 'member-1' },
+      memberAccount: true,
+      translationAccess: null,
+      translationMode: true
+    });
+
+    const result = await load(event as never);
+
+    expect(result).not.toHaveProperty('translation');
+  });
 
   it('clears an authenticated Auth session that has no canonical Member account', async () => {
     const { event, rpc, signOut, deleteCookie } = eventWith({

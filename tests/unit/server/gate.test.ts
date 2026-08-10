@@ -181,25 +181,20 @@ describe('gated request pipeline', () => {
     }
   });
 
-  it('bypasses the site gate for the translation workspace while preserving its own guard', async () => {
+  it('retires the shared-password translation workspace before route actions can run', async () => {
     const handle = createGatedHandle(gate);
-    const resolve = vi.fn(
-      async () =>
-        new Response(null, {
-          status: 303,
-          headers: { location: '/translations/sign-in?redirectTo=%2Ftranslations' }
-        })
-    );
+    const resolve = vi.fn(async () => new Response('legacy workspace'));
     const response = await handle({
-      event: createGatedEvent('http://localhost/translations'),
+      event: {
+        ...createGatedEvent('http://localhost/translations/review'),
+        request: new Request('http://localhost/translations/review', { method: 'POST' })
+      },
       resolve
     } as never);
 
-    expect(resolve).toHaveBeenCalledOnce();
+    expect(resolve).not.toHaveBeenCalled();
     expect(response.status).toBe(303);
-    expect(response.headers.get('location')).toBe(
-      '/translations/sign-in?redirectTo=%2Ftranslations'
-    );
+    expect(response.headers.get('location')).toBe('/is');
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
   });

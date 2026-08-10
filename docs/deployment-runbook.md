@@ -39,8 +39,8 @@ Add `https://preview.hundavaent.pages.dev/**` to the dedicated Supabase project'
 The workflow intentionally does not copy Fundid data, secrets, or resource identifiers, and it does not seed hosted data automatically.
 After deployment, explicitly provision the first Moderator's private Member account, Member role, and Moderator role in the dedicated Supabase project, then use the Moderator flow to create and publish the first preview Place.
 The preview workflow is then the external evidence source for visual and health approval.
-Preview does not provision translation management secrets or seed a published translation inventory.
-It intentionally serves the bundled catalogue fallback, and `/translations` remains unavailable there unless preview translation management is explicitly provisioned later.
+Preview does not seed a published translation inventory or provision translation allowlist entries.
+It intentionally serves the bundled catalogue fallback, and translation mode remains unavailable unless an allowlisted account and its normal authentication provider are provisioned there.
 
 ## Protected production release
 
@@ -72,11 +72,10 @@ Configure these additional GitHub `production` environment values before dispatc
 - Variable `HUNDAVAENT_PRODUCTION_POSTHOG_PROJECT_ID` when production browser source maps should upload.
 - Secret `HUNDAVAENT_PRODUCTION_POSTHOG_API_KEY` limited to Error Tracking write access when production browser source maps should upload.
 - Secret `HUNDAVAENT_PRODUCTION_BACKUP_PASSPHRASE` containing a dedicated high-entropy recovery passphrase.
-- Secret `HUNDAVAENT_PRODUCTION_TRANSLATION_SESSION_SECRET` containing a dedicated high-entropy base64url session-signing value.
 - Secret `HUNDAVAENT_PRODUCTION_TRANSLATION_DATABASE_SECRET` containing a separate high-entropy base64url database-capability value.
 
 The workflow also uses the existing production Supabase URL, project ref, database password, publishable key, MapTiler style URL, and application URL bindings.
-It binds `TRANSLATION_WORKSPACE_PASSWORD` from the existing production site-gate secret during v1.
+Translation editing authorization comes from the normal account session and the private database allowlist, not a Cloudflare runtime password.
 On manual runs, leave `migrate` or `deploy` disabled when an operator wants only the encrypted recovery point.
 
 Achievement milestone activation is a separate protected manual operation for an exact SHA that is already live and healthy in production.

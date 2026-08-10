@@ -540,9 +540,6 @@ jobs:
       POSTHOG_HOST: https://eu.i.posthog.com
       APP_ENVIRONMENT: production
       SITE_GATE_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SITE_GATE_PASSWORD }}
-      TRANSLATION_WORKSPACE_PASSWORD: ${{ secrets.HUNDAVAENT_PRODUCTION_SITE_GATE_PASSWORD }}
-      TRANSLATION_SESSION_SECRET: ${{ secrets.HUNDAVAENT_PRODUCTION_TRANSLATION_SESSION_SECRET }}
-      TRANSLATION_DATABASE_SECRET: ${{ secrets.HUNDAVAENT_PRODUCTION_TRANSLATION_DATABASE_SECRET }}
       SUPABASE_PROJECT_REF: ${{ vars.HUNDAVAENT_PRODUCTION_SUPABASE_PROJECT_REF }}
       EVALUATION_ENABLED: 'false'
       AUTH_EMAIL_ENABLED: ${{ vars.HUNDAVAENT_PRODUCTION_AUTH_EMAIL_ENABLED }}
@@ -586,9 +583,6 @@ jobs:
             APP_ENVIRONMENT
             APP_RELEASE
             SITE_GATE_PASSWORD
-            TRANSLATION_WORKSPACE_PASSWORD
-            TRANSLATION_SESSION_SECRET
-            TRANSLATION_DATABASE_SECRET
             AUTH_EMAIL_ENABLED
             AUTH_FACEBOOK_ENABLED
             MEMBER_ACTIVATION_SECRET
@@ -627,15 +621,6 @@ jobs:
             echo "The Member activation secret must be high-entropy base64url." >&2
             exit 1
           fi
-          if [[ "${TRANSLATION_WORKSPACE_PASSWORD}" != "${SITE_GATE_PASSWORD}" ]]; then
-            echo "The v1 translation workspace password must reuse the provisional site gate password." >&2
-            exit 1
-          fi
-          if [[ ! "${TRANSLATION_SESSION_SECRET}" =~ ^[A-Za-z0-9_-]{43,}$ ]] || \
-              [[ ! "${TRANSLATION_DATABASE_SECRET}" =~ ^[A-Za-z0-9_-]{43,}$ ]]; then
-            echo "Translation session and database secrets must be high-entropy base64url." >&2
-            exit 1
-          fi
           if [[ "${PUBLIC_MAP_STYLE_URL}" != https://api.maptiler.com/* ]] || [[ "${PUBLIC_MAP_STYLE_URL}" != *"?key="* && "${PUBLIC_MAP_STYLE_URL}" != *"&key="* ]]; then
             echo "The production map style must use an authenticated MapTiler URL." >&2
             exit 1
@@ -664,9 +649,6 @@ jobs:
             --arg app_environment "${APP_ENVIRONMENT}" \
             --arg app_release "${APP_RELEASE}" \
             --arg gate_password "${SITE_GATE_PASSWORD}" \
-            --arg translation_workspace_password "${TRANSLATION_WORKSPACE_PASSWORD}" \
-            --arg translation_session_secret "${TRANSLATION_SESSION_SECRET}" \
-            --arg translation_database_secret "${TRANSLATION_DATABASE_SECRET}" \
             --arg auth_email_enabled "${AUTH_EMAIL_ENABLED}" \
             --arg auth_facebook_enabled "${AUTH_FACEBOOK_ENABLED}" \
             --arg member_activation_secret "${MEMBER_ACTIVATION_SECRET}" \
@@ -681,9 +663,6 @@ jobs:
               APP_ENVIRONMENT: $app_environment,
               APP_RELEASE: $app_release,
               SITE_GATE_PASSWORD: $gate_password,
-              TRANSLATION_WORKSPACE_PASSWORD: $translation_workspace_password,
-              TRANSLATION_SESSION_SECRET: $translation_session_secret,
-              TRANSLATION_DATABASE_SECRET: $translation_database_secret,
               AUTH_EMAIL_ENABLED: $auth_email_enabled,
               AUTH_FACEBOOK_ENABLED: $auth_facebook_enabled,
               MEMBER_ACTIVATION_SECRET: $member_activation_secret,

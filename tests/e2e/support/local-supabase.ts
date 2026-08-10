@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 
 import type { Database } from '$server/db/generated.types';
+import { renderInterfaceTranslationInventorySql } from '../../../scripts/sync-interface-translation-inventory';
 
 export interface LocalSupabaseStatus {
   apiUrl: string;
@@ -31,6 +32,7 @@ function readLocalDatabaseContainer(): string {
 
 export const localDatabaseContainer = readLocalDatabaseContainer();
 export const localMemberActivationSecret = 'local-member-activation-capability-secret-v1';
+const localTranslationDatabaseSecret = 'local-translation-database-capability-secret-v1';
 
 export function getLocalMemberAuthEnvironment(appOrigin: string): Record<string, string> {
   assertLocalEvaluationUrl(appOrigin);
@@ -101,6 +103,46 @@ export function resetLocalEvaluationDatabase(): void {
     stdio: 'inherit'
   });
   cachedStatus = undefined;
+}
+
+export function provisionLocalInterfaceTranslationInventory(): void {
+  const status = getLocalSupabaseStatus();
+  assertLocalEvaluationUrl(status.apiUrl);
+  const catalogues = {
+    is: JSON.parse(readFileSync('src/lib/i18n/messages/is.json', 'utf8')) as Record<string, string>,
+    en: JSON.parse(readFileSync('src/lib/i18n/messages/en.json', 'utf8')) as Record<string, string>
+  };
+  const resetPackageState = `
+    begin;
+    delete from private.interface_translation_packages;
+    delete from private.interface_translation_source_candidate;
+    commit;
+  `;
+  const inventorySql = renderInterfaceTranslationInventorySql(catalogues);
+
+  execFileSync(
+    'docker',
+    [
+      'exec',
+      '-i',
+      '-e',
+      `TRANSLATION_DATABASE_SECRET=${localTranslationDatabaseSecret}`,
+      localDatabaseContainer,
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-v',
+      'release_sha=local-translation-e2e'
+    ],
+    {
+      input: `${resetPackageState}\n${inventorySql}`,
+      stdio: ['pipe', 'ignore', 'inherit']
+    }
+  );
 }
 
 export async function provisionLocalModerator(email: string): Promise<void> {
