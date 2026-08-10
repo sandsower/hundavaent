@@ -668,6 +668,7 @@
 </div>
 
 <style>
+  /* stays: in-context markers and the editing panel are isolated overlays on arbitrary product pages. */
   .translation-ui {
     --translation-ink: #16312d;
     --translation-surface: #fffdf7;
